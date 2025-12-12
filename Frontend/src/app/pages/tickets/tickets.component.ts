@@ -1,8 +1,8 @@
 import { Component, inject } from '@angular/core';
-import { TicketServiceService } from '../../services/ticket.service.service';
+import { TicketService } from '../../services/ticket.service';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { HeaderComponent } from '../header/header.component';
+import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
   selector: 'app-tickets',
@@ -12,7 +12,7 @@ import { HeaderComponent } from '../header/header.component';
   styleUrl: './tickets.component.css'
 })
 export class TicketsComponent {
-  private tickService = inject(TicketServiceService);
+  private tickService = inject(TicketService);
   private route = inject(ActivatedRoute);
   private userID: string | null = null;
 

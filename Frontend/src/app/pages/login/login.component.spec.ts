@@ -1,31 +1,31 @@
 import { TestBed } from '@angular/core/testing';
 import { LoginComponent } from './login.component';
-import { AccesService } from '../../services/acces.service';
+import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ReactiveFormsModule } from '@angular/forms';
 
 describe('LoginComponent', () => {
   let component: LoginComponent;
-  let accesServiceSpy: jasmine.SpyObj<AccesService>;
+  let accesServiceSpy: jasmine.SpyObj<AuthService>;
   let routerSpy: jasmine.SpyObj<Router>;
 
   beforeEach(async () => {
-    const accesServiceMock = jasmine.createSpyObj('AccesService', ['login']);
+    const accesServiceMock = jasmine.createSpyObj('AuthService', ['login']);
     const routerMock = jasmine.createSpyObj('Router', ['navigate']);
 
     await TestBed.configureTestingModule({
       imports: [ReactiveFormsModule],
       declarations: [LoginComponent],
       providers: [
-        { provide: AccesService, useValue: accesServiceMock },
+        { provide: AuthService, useValue: accesServiceMock },
         { provide: Router, useValue: routerMock },
       ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(LoginComponent);
     component = fixture.componentInstance;
-    accesServiceSpy = TestBed.inject(AccesService) as jasmine.SpyObj<AccesService>;
+    accesServiceSpy = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
     routerSpy = TestBed.inject(Router) as jasmine.SpyObj<Router>;
   });
 

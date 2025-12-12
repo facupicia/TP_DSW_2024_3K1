@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
-import { AccesService } from '../../services/acces.service';
+import { EventService } from '../../services/event.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-header',
@@ -13,7 +13,7 @@ import { AccesService } from '../../services/acces.service';
 })
 export class HeaderComponent {
   private router = inject(Router)
-  private accesService = inject(AccesService);
+  private accesService = inject(AuthService);
   user: any;
   evento: any;
   imgPerfil: string | null = null;
@@ -21,15 +21,10 @@ export class HeaderComponent {
 
 
   ngOnInit(): void {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.accesService.getProfile().subscribe(
-        (user) => {
-          this.user = user;
-          this.imgPerfil = user?.imgPerfil; // Imagen por defecto si no hay
-        },
-      );
-    }
+    this.accesService.currentUser$.subscribe(user => {
+      this.user = user;
+      this.imgPerfil = user?.imgPerfil;
+    });
   }
 
 
@@ -47,11 +42,13 @@ export class HeaderComponent {
 
 
   crearEvento(): void {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.router.navigate(['/create-event']);
-    } else {
-      this.router.navigate(['/tickets']);
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        this.router.navigate(['/create-event']);
+      } else {
+        this.router.navigate(['/tickets']);
+      }
     }
   }
 
@@ -61,10 +58,11 @@ export class HeaderComponent {
 
 
   redirectToLogout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('cachedProfile');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('cachedProfile');
+    }
+    this.accesService.logout(); // Limpiar estado reactivo
     this.router.navigate(['/']);
   }
-
-
 }

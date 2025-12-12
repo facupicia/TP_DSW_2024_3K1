@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
-import { HeaderComponent } from '../header/header.component';
-import { AccesService } from '../../services/acces.service';
+import { HeaderComponent } from '../../components/header/header.component';
+import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event.js';
 import { CommonModule } from '@angular/common';
 
@@ -21,7 +21,7 @@ export class PerfilComponent implements OnInit {
   tieneEventos: boolean = false;
   esAdmin: boolean = false;
 
-  constructor(private profileService: AccesService, private router: Router, private eventoService: EventServiceService) { }
+  constructor(private profileService: AuthService, private router: Router, private eventoService: EventService) { }
 
   ngOnInit(): void {
     if (typeof window !== 'undefined') {

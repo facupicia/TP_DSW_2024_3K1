@@ -1,10 +1,10 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AccesService } from '../../services/acces.service';
+import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
 import { CommonModule } from '@angular/common';
-import { HeaderComponent } from '../header/header.component';
+import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
   selector: 'app-prefil-edit',
@@ -14,7 +14,7 @@ import { HeaderComponent } from '../header/header.component';
   styleUrl: './prefil-edit.component.css'
 })
 export class PrefilEditComponent implements OnInit {
-  private AccesService = inject(AccesService);
+  private AccesService = inject(AuthService);
   private router = inject(Router);
   public formBuild = inject(FormBuilder);
   feedbackMessage: string = '';

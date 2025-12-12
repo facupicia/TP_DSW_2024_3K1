@@ -1,11 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { CategoryServiceService } from '../../services/category.service.service';
+import { CategoryService } from '../../services/category.service';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
-import { HeaderComponent } from '../header/header.component';
-import { AccesService } from '../../services/acces.service';
+import { HeaderComponent } from '../../components/header/header.component';
+import { AuthService } from '../../services/auth.service';
 import { Usuario } from '../../interfaces/Usuario';
 
 @Component({
@@ -20,8 +20,8 @@ import { Usuario } from '../../interfaces/Usuario';
 export class CategoryComponent {
 
   // Injecting services
-  private UserService = inject(AccesService)
-  private CategoryService = inject(CategoryServiceService);
+  private UserService = inject(AuthService)
+  private CategoryService = inject(CategoryService);
   private router = inject(Router);
   public formBuild = inject(FormBuilder);
 

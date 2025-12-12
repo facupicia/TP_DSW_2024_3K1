@@ -1,11 +1,11 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { TicketServiceService } from '../../services/ticket.service.service';
+import { TicketService } from '../../services/ticket.service';
 import { Ticket } from '../../interfaces/ticket';
-import { HeaderComponent } from '../header/header.component';
+import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
   selector: 'app-checkout',
@@ -18,8 +18,8 @@ export class CheckoutComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   public formBuild = inject(FormBuilder);
-  private eventoService = inject(EventServiceService);
-  private ticketService = inject(TicketServiceService);
+  private eventoService = inject(EventService);
+  private ticketService = inject(TicketService);
 
   private eventId: string | null = null;
   evento: any;

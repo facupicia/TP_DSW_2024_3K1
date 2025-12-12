@@ -1,10 +1,10 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
-import { HeaderComponent } from '../header/header.component';
-import {CategoryServiceService} from '../../services/category.service.service';
+import { HeaderComponent } from '../../components/header/header.component';
+import { CategoryService } from '../../services/category.service';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -16,14 +16,14 @@ import { FormsModule } from '@angular/forms';
 })
 export class ExploradorEventosComponent {
   private router: Router = inject(Router);
-  private eventoService: EventServiceService = inject(EventServiceService);
-  private categoryService: CategoryServiceService = inject(CategoryServiceService);
+  private eventoService: EventService = inject(EventService);
+  private categoryService: CategoryService = inject(CategoryService);
   eventos: Evento[] = [];
   categorias: string[] = [];
-  eventosFiltrados : Evento[]= [];
+  eventosFiltrados: Evento[] = [];
   categoriaSeleccionada: string = '';
 
-  obtenerCategorias(){
+  obtenerCategorias() {
     this.categoryService.getCategories().subscribe((categorias) => {
       this.categorias = categorias.map(categoria => categoria.name);
     })

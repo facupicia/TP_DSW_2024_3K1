@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 @Component({
   selector: 'app-popular-events',
   standalone: true,
@@ -9,7 +9,7 @@ import { EventServiceService } from '../../services/event.service.service';
   styleUrl: './popular-events.component.css'
 })
 export class PopularEventsComponent {
-  private eventService = inject(EventServiceService);
+  private eventService = inject(EventService);
   events: any[] = [];
   eventGroups: any[][] = [];
 

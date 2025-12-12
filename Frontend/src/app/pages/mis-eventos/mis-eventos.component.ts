@@ -1,9 +1,9 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { HeaderComponent } from '../header/header.component';
+import { HeaderComponent } from '../../components/header/header.component';
 
 
 @Component({
@@ -19,11 +19,11 @@ export class MisEventosComponent implements OnInit {
 
   eventos: Evento[] = [];
 
-  constructor(private eventoService: EventServiceService) {}
+  constructor(private eventoService: EventService) { }
 
   ngOnInit(): void {
     this.eventoService.obtenerEventosUsuario().subscribe(
-      
+
       (eventos) => {
         this.eventos = eventos;
         this.eventos = this.eventos.map(evento => {
@@ -32,14 +32,14 @@ export class MisEventosComponent implements OnInit {
             date: new Date(evento.date)
           };
         });
-    
+
       },
       (error) => {
         console.error('Error al obtener eventos:', error);
       }
 
     );
-      
+
   }
 
   editEvent(id: number): void {

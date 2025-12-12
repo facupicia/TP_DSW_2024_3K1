@@ -8,7 +8,7 @@ import { Observable, tap } from 'rxjs';
   providedIn: 'root'
 })
 
-export class EventServiceService {
+export class EventService {
 
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/event/";

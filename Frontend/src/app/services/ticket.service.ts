@@ -7,7 +7,7 @@ import { Ticket } from '../interfaces/ticket';
 @Injectable({
   providedIn: 'root'
 })
-export class TicketServiceService {
+export class TicketService {
 
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/ticket/";

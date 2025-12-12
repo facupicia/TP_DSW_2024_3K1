@@ -1,11 +1,11 @@
 import { Component } from '@angular/core';
-import { HeaderComponent } from '../header/header.component';
-import { PopularEventsComponent } from '../popular-events/popular-events.component';
+import { HeaderComponent } from '../../components/header/header.component';
+import { PopularEventsComponent } from '../../components/popular-events/popular-events.component';
 import { CrearEventComponent } from '../crear-event/crear-event.component';
-import { BuyTicketComponent } from '../buy-ticket/buy-ticket.component';
-import { FooterComponent } from '../footer/footer.component';
+import { BuyTicketComponent } from '../../components/buy-ticket/buy-ticket.component';
+import { FooterComponent } from '../../components/footer/footer.component';
 import { AsyncPipe, CommonModule } from '@angular/common';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { FormsModule } from '@angular/forms';
 import { map } from 'rxjs/operators';
 import { Router } from '@angular/router';
@@ -18,7 +18,7 @@ import { Router } from '@angular/router';
   styleUrls: ['./landing.component.css']
 })
 export class LandingComponent {
-  constructor(private eventService: EventServiceService, private router: Router) {}
+  constructor(private eventService: EventService, private router: Router) { }
 
   src: string = '';
   public data: any;

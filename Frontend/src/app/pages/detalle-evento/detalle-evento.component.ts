@@ -1,10 +1,10 @@
 import { Component, inject, Input, OnInit } from '@angular/core';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AccesService } from '../../services/acces.service';
+import { AuthService } from '../../services/auth.service';
 import { Evento } from '../../interfaces/event';
-import { HeaderComponent } from '../header/header.component';
+import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
   selector: 'app-detalle-evento',
@@ -17,8 +17,8 @@ export class DetalleEventoComponent implements OnInit {
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private eventoService = inject(EventServiceService);
-  private accesService = inject(AccesService);
+  private eventoService = inject(EventService);
+  private accesService = inject(AuthService);
   private eventId: string | null = null;
 
   isLoggedIn = false;

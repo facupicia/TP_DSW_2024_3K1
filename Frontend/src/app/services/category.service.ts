@@ -7,7 +7,7 @@ import { map, Observable } from 'rxjs';
 @Injectable({
   providedIn: 'root'
 })
-export class CategoryServiceService {
+export class CategoryService {
 
 
 

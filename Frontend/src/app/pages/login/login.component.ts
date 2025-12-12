@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AccesService } from '../../services/acces.service';
+import { AuthService } from '../../services/auth.service';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Login } from '../../interfaces/Login';
 import { CommonModule } from '@angular/common';
@@ -10,25 +10,25 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css'], 
+  styleUrls: ['./login.component.css'],
 })
 export class LoginComponent {
-  
-  private accesService = inject(AccesService);
+
+  private accesService = inject(AuthService);
   private router = inject(Router);
   private formBuilder = inject(FormBuilder);
 
-  
+
   public formLogin: FormGroup = this.formBuilder.group({
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
 
-  
+
   public feedbackMessage = '';
   public feedbackSuccess = false;
 
-  
+
   public iniciarSesion(): void {
     if (this.formLogin.valid) {
       const loginData: Login = {
@@ -53,7 +53,7 @@ export class LoginComponent {
     }
   }
 
-  
+
   public mostrarFeedback(message: string, isSuccess: boolean): void {
     this.feedbackMessage = message;
     this.feedbackSuccess = isSuccess;

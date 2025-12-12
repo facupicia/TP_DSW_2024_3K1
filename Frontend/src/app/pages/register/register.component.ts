@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AccesService } from '../../services/acces.service';
+import { AuthService } from '../../services/auth.service';
 import { Router } from '@angular/router';
 import { Usuario } from '../../interfaces/Usuario';
 import { CommonModule } from '@angular/common';
@@ -17,7 +17,7 @@ import { CommonModule } from '@angular/common';
 
 export class RegisterComponent {
   errorMessages: string[] = [];
-  private AccesService = inject(AccesService);
+  private AccesService = inject(AuthService);
   private router = inject(Router);
   public formBuild = inject(FormBuilder);
 

@@ -1,11 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event.js';
 import { CommonModule } from '@angular/common';
-import { HeaderComponent } from '../header/header.component';
-import { CategoryServiceService } from '../../services/category.service.service';
+import { HeaderComponent } from '../../components/header/header.component';
+import { CategoryService } from '../../services/category.service';
 import { Categoria } from '../../interfaces/categoria';
 
 @Component({
@@ -16,8 +16,8 @@ import { Categoria } from '../../interfaces/categoria';
   styleUrls: ['./registrar-evento.component.css']  // Changed to styleUrls
 })
 export class RegistrarEventoComponent {
-  private EventService = inject(EventServiceService);
-  private categoryService = inject(CategoryServiceService);
+  private EventService = inject(EventService);
+  private categoryService = inject(CategoryService);
   private router = inject(Router);
   public formBuild = inject(FormBuilder);
   public feedbackMessage: string = '';
@@ -49,21 +49,21 @@ export class RegistrarEventoComponent {
     organizer: ['', Validators.required],
     capacity: ['', [Validators.required, Validators.min(10)]], // Capacidad mínima de 10
   });
-  
+
 
 
   createEvent() {
     // Obtiene el id de la categoría desde el formulario
     const selectedCategoryId = parseInt(this.formRegistroEvento.value.category, 10);
-  
+
     // Busca la categoría correspondiente en la lista de categorías
     const selectedCategory = this.categories.find(cat => cat.id === selectedCategoryId);
-  
+
     if (!selectedCategory) {
       console.error('Categoría seleccionada no encontrada.');
       return;
     }
-  
+
     const objeto: Evento = {
       destacado: this.formRegistroEvento.value.destacado,
       user_id: this.formRegistroEvento.value.user_id,
@@ -77,11 +77,11 @@ export class RegistrarEventoComponent {
       organizer: this.formRegistroEvento.value.organizer,
       capacity: this.formRegistroEvento.value.capacity,
       categoria_name: selectedCategory.name, // Asignamos el nombre de la categoría
-      categoryId: this.formRegistroEvento.value.category,  
+      categoryId: this.formRegistroEvento.value.category,
     };
-  
+
     console.log('Evento a crear:', objeto);
-  
+
     this.EventService.crearEvento(objeto).subscribe({
       next: (resp) => {
         this.mostrarFeedback('Evento creado con éxito!', true);
@@ -100,5 +100,5 @@ export class RegistrarEventoComponent {
     this.feedbackMessage = mensaje;
     this.feedbackSuccess = esExito;
   }
-  
+
 }

@@ -1,11 +1,11 @@
 import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { EventServiceService } from '../../services/event.service.service';
+import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event.js';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { HeaderComponent } from '../header/header.component';
-import { CategoryServiceService } from '../../services/category.service.service';
+import { HeaderComponent } from '../../components/header/header.component';
+import { CategoryService } from '../../services/category.service';
 import { Categoria } from '../../interfaces/categoria';
 
 @Component({
@@ -18,8 +18,8 @@ import { Categoria } from '../../interfaces/categoria';
 
 
 export class EditarEventoComponent {
-  private categoryService = inject(CategoryServiceService);
-  private EventService = inject(EventServiceService);
+  private categoryService = inject(CategoryService);
+  private EventService = inject(EventService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   public formBuild = inject(FormBuilder);
@@ -40,7 +40,7 @@ export class EditarEventoComponent {
     location: [''],
     image: [''],
     price: [''],
-    organizer: [''], 
+    organizer: [''],
     capacity: [''],
     category: [''],
   });
@@ -85,16 +85,16 @@ export class EditarEventoComponent {
   }
   updateEvent() {
 
-        // Obtiene el id de la categoría desde el formulario
-        const selectedCategoryId = parseInt(this.formEditarEvento.value.category, 10);
-  
-        // Busca la categoría correspondiente en la lista de categorías
-        const selectedCategory = this.categories.find(cat => cat.id === selectedCategoryId);
-      
-        if (!selectedCategory) {
-          console.error('Categoría seleccionada no encontrada.');
-          return;
-        }
+    // Obtiene el id de la categoría desde el formulario
+    const selectedCategoryId = parseInt(this.formEditarEvento.value.category, 10);
+
+    // Busca la categoría correspondiente en la lista de categorías
+    const selectedCategory = this.categories.find(cat => cat.id === selectedCategoryId);
+
+    if (!selectedCategory) {
+      console.error('Categoría seleccionada no encontrada.');
+      return;
+    }
 
     const objeto: Evento = {
       destacado: this.formEditarEvento.value.destacado,
@@ -109,7 +109,7 @@ export class EditarEventoComponent {
       organizer: this.formEditarEvento.value.organizer,
       capacity: this.formEditarEvento.value.capacity,
       categoria_name: selectedCategory.name, // Asignamos el nombre de la categoría
-      categoryId: this.formEditarEvento.value.category, 
+      categoryId: this.formEditarEvento.value.category,
     };
 
     console.log(objeto);
@@ -124,9 +124,9 @@ export class EditarEventoComponent {
         },
         error: (err) => {
           this.mostrarFeedback('Error al actualizar el evento', false);
-        console.error('Error creating event:', err);
-      }
-    });
+          console.error('Error creating event:', err);
+        }
+      });
+    }
   }
-}
 }

@@ -14,20 +14,22 @@ import { CategoryComponent } from './pages/category/category.component';
 import { TicketsComponent } from './pages/tickets/tickets.component';
 
 
+import { authGuard } from './guards/auth.guard'; // Importar el guard
+
 export const routes: Routes = [
     { path: "", component: LandingComponent, title: 'Home' },
     { path: "login", component: LoginComponent, title: 'Login' },
     { path: "register", component: RegisterComponent, title: 'Register' },
-    { path: "profile", component: PerfilComponent, title: 'Perfil' },
-    { path: "profile/:id", component: PrefilEditComponent, title: 'Perfil' },
-    { path: "create-event", component: RegistrarEventoComponent, title: 'Crear Evento' },
-    { path: "my-events", component: MisEventosComponent, title: 'Mis Eventos' },
-    { path: "edit-event/:id", component: EditarEventoComponent, title: 'Editar Evento' },
+    { path: "profile", component: PerfilComponent, title: 'Perfil', canActivate: [authGuard] },
+    { path: "profile/:id", component: PrefilEditComponent, title: 'Editar Perfil', canActivate: [authGuard] },
+    { path: "create-event", component: RegistrarEventoComponent, title: 'Crear Evento', canActivate: [authGuard] },
+    { path: "my-events", component: MisEventosComponent, title: 'Mis Eventos', canActivate: [authGuard] },
+    { path: "edit-event/:id", component: EditarEventoComponent, title: 'Editar Evento', canActivate: [authGuard] },
     { path: "event/:id", component: DetalleEventoComponent, title: 'Ver Evento' },
     { path: "events", component: ExploradorEventosComponent, title: 'Explorar Eventos' },
-    { path: "ticket/:id", component: CheckoutComponent, title: 'Ticket' },
+    { path: "ticket/:id", component: CheckoutComponent, title: 'Ticket', canActivate: [authGuard] },
     { path: "admin", component: CategoryComponent, title: 'Categorias Admin' },
-    {path: "my-tickets/:id", component: TicketsComponent, title: 'Categorias Admin'},
+    { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
 
     { path: "**", redirectTo: "", pathMatch: "full" }
 ];
