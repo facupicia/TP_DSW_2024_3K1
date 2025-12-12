@@ -1,6 +1,8 @@
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import userRoute from "./routers/user.routes"
 import userEvent from "./routers/event.routes"
 import userTicket from "./routers/ticket.routes"
@@ -8,8 +10,23 @@ import categoryRoute from "./routers/category.routes"
 
 const app = express();
 
-app.use(express.urlencoded({extended: false}))
-app.use(cors());
+app.use(express.urlencoded({ extended: false }))
+
+// Security Middleware
+app.use(helmet()); // Set secure HTTP headers
+app.use(cors({
+    origin: process.env.CLIENT_URL || "http://localhost:4200",
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
+
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: "Too many requests from this IP, please try again later"
+});
+app.use(limiter);
+
 app.use(morgan("dev"));
 app.use(express.json());
 

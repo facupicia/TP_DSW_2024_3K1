@@ -87,7 +87,17 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
         const user = await User.findOneBy({ id: req.user!.id });
         if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
-        const eventos = await Event.find({ where: { usuario: { id: user.id } } });
+        const eventos = await Event.find({
+            where: { usuario: { id: user.id } },
+            relations: {
+                category: true
+            },
+            select: {
+                category: {
+                    name: true
+                }
+            }
+        });
 
         res.json(eventos);
     } catch (error) {
@@ -98,7 +108,25 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
 export const getEvent = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const event = await Event.findOneBy({ id: parseInt(id) });
+        const event = await Event.findOne({
+            where: { id: parseInt(id) },
+            relations: {
+                usuario: true,
+                category: true
+            },
+            select: {
+                usuario: {
+                    id: true,
+                    firstname: true,
+                    lastname: true,
+                    imgPerfil: true
+                },
+                category: {
+                    id: true,
+                    name: true
+                }
+            }
+        });
 
         if (!event) return res.status(404).json({ message: "event not found" });
 
@@ -113,7 +141,25 @@ export const getEvent = async (req: Request, res: Response) => {
 
 export const getEvents = async (req: Request, res: Response) => {
     try {
-        const events = await Event.find();
+        const events = await Event.find({
+            relations: {
+                usuario: true,
+                category: true
+            },
+            select: {
+                // Seleccionamos solo los campos necesarios de la relación
+                usuario: {
+                    id: true,
+                    firstname: true,
+                    lastname: true,
+                    // NO seleccionamos password ni email/telefono si son privados
+                },
+                category: {
+                    id: true,
+                    name: true
+                }
+            }
+        });
 
         return res.json(events);
     } catch (error) {

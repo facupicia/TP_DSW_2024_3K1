@@ -31,7 +31,17 @@ export const signupUser = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const users = await User.find()
+    const users = await User.find({
+      select: {
+        id: true,
+        firstname: true,
+        lastname: true,
+        email: true,
+        rol: true,
+        imgPerfil: true,
+        active: true
+      }
+    })
     return res.status(200).json(users)
   } catch (error) {
     return res.status(500).json({ message: error })
@@ -100,7 +110,10 @@ export const signinUser = async (req: Request, res: Response) => {
 
   try {
     // Validar email
-    const user = await User.findOneBy({ email });
+    const user = await User.findOne({
+      where: { email },
+      select: ["id", "password", "email", "rol", "firstname", "lastname"]
+    });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }

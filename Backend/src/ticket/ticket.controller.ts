@@ -58,8 +58,8 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
                 return queryRunner.manager.create(Ticket, {
                     event,
                     user,
-                    eventId: event.id, 
-                    userId: user.id, 
+                    eventId: event.id,
+                    userId: user.id,
                     codigo_unico,
                     qrCode, // guardamos solo la URL del QR
                     titleEvent: event.title
@@ -95,7 +95,19 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
 export const getTickets = async (req: CustomRequest, res: Response) => {
     try {
         const { id: userID } = req.params;
-        const tickets = await Ticket.find({ where: { userId: parseInt(userID) } }); // Obtener todos los tickets del evento con el ID proporcionado
+        const tickets = await Ticket.find({
+            where: { userId: parseInt(userID) },
+            relations: { event: true },
+            select: {
+                event: {
+                    title: true,
+                    date: true,
+                    time: true,
+                    location: true,
+                    image: true
+                }
+            }
+        });
         return res.status(200).json(tickets);
     } catch (error: any) {
         return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
