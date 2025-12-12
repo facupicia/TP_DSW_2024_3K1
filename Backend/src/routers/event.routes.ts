@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { getEvent, createEvent, delateEvent, getEventByName, getEventsByUser, updateEvent, getEvents } from "../event/event.controller"
+import { getEvent, createEvent, deleteEvent, getEventByName, getEventsByUser, updateEvent, getEvents } from "../event/event.controller"
 import { createEventSchema } from "../schemas/schema.event"
 import { schemaValidation } from "../middlewares/schemaValidacion"
 import { checkAuthToken } from "../middlewares/authToken"
@@ -14,7 +14,7 @@ router.get("/", checkAuthToken, checkRoleAuth(["user", "admin"]), getEventsByUse
 router.get("/search", getEventByName)
 router.get("/explore", getEvents)
 router.get("/:id", getEvent)
-router.delete("/:id", delateEvent)
+router.delete("/:id", deleteEvent)
 router.put("/:id", updateEvent)
 
 

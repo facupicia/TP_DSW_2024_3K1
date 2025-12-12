@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { signupUser, getUsers, updateUser, delateUser, getUser, signinUser, profile } from "../user/user.controller"
+import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile } from "../user/user.controller"
 import { schemaValidation } from "../middlewares/schemaValidacion"
 import { signupUserSchema, updateUserSchema, signinUserSchema } from "../schemas/schema.user"
 import { checkAuthToken } from "../middlewares/authToken"
@@ -21,14 +21,14 @@ router.post("/login", schemaValidation(signinUserSchema), signinUser)
 router.post("/register", schemaValidation(signupUserSchema), signupUser)
 
 
-router.get("/",checkRoleAuth(["admin"]),checkAuthToken, getUsers)
+router.get("/", checkRoleAuth(["admin"]), checkAuthToken, getUsers)
 
 
 
 router.get("/:id", getUser)
 
 
-router.delete("/:id", delateUser)
+router.delete("/:id", deleteUser)
 
 
 

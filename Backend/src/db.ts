@@ -12,9 +12,9 @@ const AppDataSource = new DataSource({
   host: process.env.MYSQL_ADDON_HOST || '127.0.0.1',
   port: 3306,
   username: process.env.MYSQL_ADDON_USER || 'root',
-  password: process.env.MYSQL_ADDON_PASSWORD || '1234',
+  password: process.env.MYSQL_ADDON_PASSWORD || 'patineta24',
   database: process.env.DB_NAME || 'eventlife',
-  synchronize: true,
+  synchronize: process.env.NODE_ENV !== 'production', // Disable in production
   logging: false,
   entities: [User, Event, Ticket, Category],
 });

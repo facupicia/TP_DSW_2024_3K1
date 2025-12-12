@@ -14,7 +14,14 @@ export interface CustomRequest extends Request {
 
 export const checkAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
-        const token: any = req.header("token");
+        const tokenHeader = req.header("Authorization");
+        let token: any;
+
+        if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
+            token = tokenHeader.split(" ")[1];
+        } else {
+            token = req.header("token");
+        }
 
         if (!token) {
             return res.status(401).json({ message: 'No token provided' });
@@ -26,11 +33,11 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
             return res.status(401).json({ message: 'Invalid token data' });
         }
 
-        req.user = tokenData;  
+        req.user = tokenData;
         next();
 
     } catch (error) {
-        console.error(error); 
+        console.error(error);
         res.status(500).json({ message: 'Error credentials' });
     }
 };

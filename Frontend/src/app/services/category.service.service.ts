@@ -11,8 +11,8 @@ export class CategoryServiceService {
   
 
   private http = inject(HttpClient)
- private urlBase: string = "https://backend-eventlife.onrender.com/api/category/"
-  //private urlBase: string = "http://localhost:3000/api/category/"
+ //private urlBase: string = "https://backend-eventlife.onrender.com/api/category/"
+  private urlBase: string = "http://localhost:3000/api/category/"
   constructor() { }
 
   cargarCategoria(objeto: string){

@@ -66,7 +66,9 @@ export const updateUser = async (req: Request, res: Response) => {
     user.imgPerfil = imgPerfil
     user.lastname = lastname
     user.email = email
-    user.password = password
+    if (password) {
+      user.password = await bcrypt.hash(password, 10);
+    }
     user.rol = rol
 
     await user.save()
@@ -77,7 +79,7 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 }
 
-export const delateUser = async (req: Request, res: Response) => {
+export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
     const result = await User.delete({ id: parseInt(id) });

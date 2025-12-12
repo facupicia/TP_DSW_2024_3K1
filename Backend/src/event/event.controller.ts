@@ -148,7 +148,7 @@ export const getEventByName = async (req: Request, res: Response) => {
     }
 };
 
-export const delateEvent = async (req: Request, res: Response) => {
+export const deleteEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
         const result = await Event.delete({ id: parseInt(id) });
