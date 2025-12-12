@@ -1,120 +1,112 @@
-import nodemailer from 'nodemailer'
+import nodemailer from 'nodemailer';
 import dotenv from "dotenv";
-dotenv.config()
+dotenv.config();
 
-
-const generarHtmlConQr = (qrImages: string[]): string => {
-    const qrImagesHtml = qrImages.map(qrCode => `<img src="data:image/png;base64,${qrCode}" alt="QR Code" />`).join('');
-    
-    return `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 20px;
-            }
-            .container {
-                max-width: 600px;
-                background-color: white;
-                padding: 20px;
-                border-radius: 8px;
-                box-shadow: 0 0 10px #0084f0;
-            }
-            .header {
-                background-color: #0084f0;
-                color: white;
-                padding: 10px;
-                text-align: center;
-                border-radius: 8px 8px 0 0;
-            }
-            .content {
-                padding: 20px;
-                text-align: center;
-            }
-            .content p {
-                font-size: 16px;
-                color: #333;
-            }
-            .content h2 {
-                color: #0084f0;
-            }
-            .qr-container {
-                margin-top: 20px;
-                text-align: center;
-            }
-            .qr-container img {
-                border: 2px solid #0084f0;
-                border-radius: 8px;
-                padding: 10px;
-            }
-            .footer {
-                margin-top: 20px;
-                font-size: 12px;
-                text-align: center;
-                color: #777;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>¡Gracias por tu compra!</h1>
-            </div>
-            <div class="content">
-                <h2>Aquí están tus tickets</h2>
-                <p>Presenta este código QR en el evento para acceder.</p>
-                <div class="qr-container">
-                    ${qrImagesHtml}
-                </div>
-            </div>
-            <div class="footer">
-                <p>Si tienes alguna duda, contáctanos a través de nuestro servicio de atención al cliente.</p>
-                <p>¡Te esperamos en el evento!</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    `;
-  };  
-
-const trasporter = nodemailer.createTransport({
+const transporter = nodemailer.createTransport({
     host: process.env.MAIL_HOST!,
     port: 465,
-    secure: true, // upgrade later with STARTTLS
+    secure: true,
     auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASSWORD,
     },
 });
 
-// Función para enviar el correo
-const enviarCorreoConQR = async (destinatario: string, qrCodes: string[]): Promise<void> => {
+export interface ITicketQR {
+    qrCode: string;
+    ticketId: string | number; // Puede ser el ID numérico o el código único
+}
+
+// 1. Modificamos el generador de HTML para iterar sobre los objetos tiket
+const generarHtmlConQr = (tickets: ITicketQR[]): string => {
+
+    const qrImagesHtml = tickets.map((ticket, index) => {
+        return `
+            <div style="margin: 20px; display: inline-block; vertical-align: top; width: 160px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #555;">Ticket #${ticket.ticketId}</p>
+                <img src="cid:qr-${index}" alt="QR Ticket ${ticket.ticketId}" style="width: 150px; height: auto; border: 2px solid #0084f0; border-radius: 8px; padding: 5px;"/>
+            </div>
+        `;
+    }).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Confirmación de Compra y Tickets</title>
+        <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+            .header { background-color: #0084f0; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; text-align: center; color: #333333; }
+            .qr-container { margin-top: 25px; text-align: center; }
+            
+            .footer { background-color: #f9f9f9; padding: 20px; font-size: 13px; text-align: center; color: #777777; }
+        </style>
+    </head>
+    <body>
+        <table width="100%" border="0" cellspacing="0" cellpadding="0">
+            <tr>
+                <td align="center">
+                    <div class="container">
+                        <div class="header">
+                            <h1>¡Confirmación de Compra!</h1>
+                        </div>
+                        <div class="content">
+                            <h2>¡Gracias por tu reciente adquisición!</h2>
+                            <p>Nos complace informarte que tu compra ha sido procesada exitosamente.</p>
+                            
+                            <div class="qr-container">
+                                ${qrImagesHtml}
+                            </div>
+
+                            <p style="margin-top: 30px;">Presenta estos códigos en la entrada.</p>
+                        </div>
+                        <div class="footer">
+                            <p>&copy; ${new Date().getFullYear()} EventLife. Todos los derechos reservados.</p>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
+};
+
+// 2. Modificamos la función de envío para asignar los CIDs y recibir objetos de tickets
+export const enviarCorreoConQR = async (destinatario: string, tickets: ITicketQR[]): Promise<void> => {
     try {
-        const htmlContent = generarHtmlConQr(qrCodes);
+        const htmlContent = generarHtmlConQr(tickets);
+
+        // Preparamos los adjuntos con la propiedad 'cid'
+        const attachments = tickets.map((ticket, index) => {
+            // Limpiamos el string base64 por seguridad (quitamos "data:image/png;base64,")
+            const cleanBase64 = ticket.qrCode.replace(/^data:image\/\w+;base64,/, "");
+
+            return {
+                filename: `ticket_${ticket.ticketId}.png`,
+                content: cleanBase64,
+                encoding: 'base64',
+                cid: `qr-${index}` // Debe coincidir con el src="cid:..." del HTML
+            };
+        });
+
         const mailOptions = {
             from: process.env.MAIL_FROM!,
             to: destinatario,
-            subject: 'Confirmación de compra',
+            subject: 'Confirmación de compra - Tus Tickets',
             html: htmlContent,
-            attachments: qrCodes.map((qrCode, index) => ({
-                filename: `ticket_${index + 1}.png`,
-                content: qrCode.split("base64,")[1],
-                encoding: 'base64'
-            }))
+            attachments: attachments
         };
 
-        // Enviar el correo
-        const info = await trasporter.sendMail(mailOptions);
+        const info = await transporter.sendMail(mailOptions);
         console.log('Correo enviado: ' + info.response);
     } catch (error) {
         console.error('Error al enviar el correo:', error);
     }
 };
 
-export default enviarCorreoConQR; // Exportación por defecto
+export default enviarCorreoConQR;

@@ -1,10 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn } from 'typeorm';
 import { Event } from '../event/event.entity';
 import { User } from '../user/user.entity';
 
+export enum TicketStatus {
+    VALID = 'valid',
+    USED = 'used',
+    CANCELLED = 'cancelled'
+}
+
 @Entity()
-export class Ticket extends BaseEntity{
-  
+export class Ticket extends BaseEntity {
+
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -22,15 +28,31 @@ export class Ticket extends BaseEntity{
 
     @Column()
     eventId: number;
-    
+
     @Column()
     titleEvent: string;
 
     @Column()
     userId: number;
 
-    @Column({type: "text"})
+    @Column({ type: "text" })
     qrCode: string;
+
+    @Column({
+        type: "enum",
+        enum: TicketStatus,
+        default: TicketStatus.VALID
+    })
+    status: TicketStatus;
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    purchasePrice: number;
+
+    @CreateDateColumn()
+    createdAt: Date;
+
+    @Column({ type: "datetime", nullable: true })
+    usedAt: Date;
 
 
 }

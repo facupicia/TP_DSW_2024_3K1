@@ -2,7 +2,9 @@ import AppDataSource from "./db";
 import { User } from "./user/user.entity";
 import { Category } from "./category/category.entity";
 import { Event } from "./event/event.entity";
-import { Ticket } from "./ticket/ticket.entity";
+import { Ticket, TicketStatus } from "./ticket/ticket.entity";
+import { randomUUID } from "crypto";
+import QRCode from "qrcode";
 import bcrypt from "bcrypt";
 import { log } from "console";
 import { MoreThan } from "typeorm";
@@ -60,6 +62,45 @@ async function seed() {
         user1.active = true;
         await user1.save();
 
+        // User 2
+        const user2 = new User();
+        user2.firstname = "Maria";
+        user2.lastname = "Garcia";
+        user2.email = "user2@test.com";
+        user2.password = hashedPassword;
+        user2.rol = "user";
+        user2.phone = "3333333333";
+        user2.location = "Cordoba";
+        user2.birth = new Date("1990-08-20");
+        user2.active = true;
+        await user2.save();
+
+        // User 3
+        const user3 = new User();
+        user3.firstname = "Pedro";
+        user3.lastname = "Garcia";
+        user3.email = "user3@test.com";
+        user3.password = hashedPassword;
+        user3.rol = "user";
+        user3.phone = "4444444444";
+        user3.location = "Buenos Aires";
+        user3.birth = new Date("1990-08-20");
+        user3.active = true;
+        await user3.save();
+
+        // User 4
+        const user4 = new User();
+        user4.firstname = "Ana";
+        user4.lastname = "Garcia";
+        user4.email = "user4@test.com";
+        user4.password = hashedPassword;
+        user4.rol = "user";
+        user4.phone = "5555555555";
+        user4.location = "Cordoba";
+        user4.birth = new Date("1990-08-20");
+        user4.active = true;
+        await user4.save();
+
         console.log("Created users: admin@test.com, user1@test.com (pass: 1234)");
 
         // 3. Crear Eventos
@@ -99,6 +140,54 @@ async function seed() {
                 capacity: 300,
                 categoryIndex: 3, // Conferencia
                 creator: admin
+            },
+            {
+                title: "Concierto de Jazz",
+                description: "Una noche de jazz con artistas locales.",
+                date: new Date("2025-07-20"),
+                time: "20:00",
+                location: "Club de Jazz",
+                image: "https://images.unsplash.com/photo-1507914482-b7b5e1b2c4e2",
+                price: 3000,
+                capacity: 150,
+                categoryIndex: 0, // Concierto
+                creator: user1
+            },
+            {
+                title: "Festival de Diseño Urbano",
+                description: "Una celebración del arte y la arquitectura en la ciudad.",
+                date: new Date("2025-08-15"),
+                time: "10:00",
+                location: "Parque Central",
+                image: "https://images.unsplash.com/photo-1533035353720-f1c6a2d97d51",
+                price: 0,
+                capacity: 1000,
+                categoryIndex: 2, // Teatro (closest fit for cultural event)
+                creator: user1
+            },
+            {
+                title: "Maratón Internacional de la Ciudad",
+                description: "Corre por tu salud y por la ciudad.",
+                date: new Date("2025-10-05"),
+                time: "07:00",
+                location: "Punto de partida: Obelisco",
+                image: "https://images.unsplash.com/photo-1552674610-d79ff4012e69",
+                price: 1500,
+                capacity: 10000,
+                categoryIndex: 1, // Deportes
+                creator: admin
+            },
+            {
+                title: "Noche de Jazz en el Centro",
+                description: "Disfruta de una velada musical con los mejores artistas locales.",
+                date: new Date("2025-07-25"),
+                time: "20:30",
+                location: "Teatro Municipal",
+                image: "https://images.unsplash.com/photo-1507914482-b7b5e1b2c4e2",
+                price: 800,
+                capacity: 200,
+                categoryIndex: 2, // Teatro (closest fit for musical event in a theatre)
+                creator: user1
             }
         ];
 
@@ -127,6 +216,34 @@ async function seed() {
             await event.save();
         }
         console.log(`Created ${eventsData.length} events.`);
+
+        // 4. Crear Tickets (Simular compra)
+        console.log("Creating tickets...");
+        // Buscar el evento "Rock in Rio"
+        const rockEvent = await AppDataSource.getRepository(Event).findOne({ where: { title: "Rock in Rio 2025" } });
+        // Buscar user1
+        const buyerUser = await AppDataSource.getRepository(User).findOne({ where: { email: "user1@test.com" } });
+
+        if (rockEvent && buyerUser) {
+            const ticket = new Ticket();
+            ticket.codigo_unico = randomUUID();
+            // Mock QR generation without sending email
+            const urlValidacion = `https://tusitio.com/validar/${ticket.codigo_unico}`;
+            ticket.qrCode = await QRCode.toDataURL(urlValidacion);
+
+            ticket.event = rockEvent;
+            ticket.user = buyerUser;
+            ticket.eventId = rockEvent.id;
+            ticket.userId = buyerUser.id;
+            ticket.titleEvent = rockEvent.title;
+
+            // Nuevos campos
+            ticket.status = TicketStatus.VALID;
+            ticket.purchasePrice = rockEvent.price;
+
+            await ticket.save();
+            console.log("Created 1 valid ticket for Rock in Rio");
+        }
 
         console.log("Seeding completed successfully!");
         process.exit(0);

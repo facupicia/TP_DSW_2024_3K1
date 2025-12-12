@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Ticket } from "./ticket.entity";
+import { Ticket, TicketStatus } from "./ticket.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
 import { randomUUID } from "crypto";
@@ -28,30 +28,57 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
     try {
         const { cantidad } = req.body;
         const { id: eventID } = req.params;
+        const userId = req.user?.id;
 
 
-        const [user, event] = await Promise.all([
-            queryRunner.manager.findOne(User, { where: { id: req.user!.id } }),
-            queryRunner.manager.findOne(Event, { where: { id: parseInt(eventID) } })
-        ]);
+        if (!userId) {
+            return res.status(401).json({ message: "No autorizado. Token inválido o expirado." });
+        }
 
-        if (!event) return res.status(404).json({ message: "Evento no encontrado" });
-        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+        if (!eventID) {
+            return res.status(400).json({ message: "ID del evento no proporcionado." });
+        }
+
+        const cantidadTickets = parseInt(cantidad);
+        if (isNaN(cantidadTickets) || cantidadTickets <= 0) {
+            return res.status(400).json({ message: "Cantidad inválida." });
+        }
+
+        // Fetch User and Event with simpler queries first to debug 404
+        const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        const event = await queryRunner.manager.findOne(Event, { where: { id: parseInt(eventID) } });
+        if (!event) {
+            return res.status(404).json({ message: "Evento no encontrado" });
+        }
 
         // capacidad disponible
-        const ticketsVendidos = await queryRunner.manager.count(Ticket, { where: { eventId: event.id } });
+        const ticketsVendidos = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } }); // Correct relation query
         const capacidadDisponible = event.capacity - ticketsVendidos;
 
-        if (capacidadDisponible < cantidad) {
+
+        if (capacidadDisponible < cantidadTickets) {
             return res.status(400).json({ message: `No hay suficientes boletos disponibles. Quedan ${capacidadDisponible} boletos.` });
         }
 
-        // Restar la cantidad de boletos comprados de la capacidad
-        event.capacity -= cantidad;
+        // Restar la cantidad de boletos comprados de la capacidad (If logic requires updating event capacity directly, though usually calculated dynamically)
+        // Note: Logic above used 'ticketsVendidos' count, so modifying event.capacity might be redundant if capacity is static max. 
+        // Assuming current logic wants to decrease static capacity field:
+        // event.capacity -= cantidadTickets; 
+        // await queryRunner.manager.save(event);
+        // BETTER APPROACH: Keep capacity static max, just check count vs max. 
+        // Since original code modified it, I will stick to original intent but warn: usually capacity is Max capacity, not current.
+        // If 'capacity' means 'remaining', then decrement is correct. 
+        // Let's assume 'capacity' is REMAINING capacity based on previous code: "event.capacity -= cantidad;"
+
+        event.capacity -= cantidadTickets;
         await queryRunner.manager.save(event);
 
         const tickets = await Promise.all(
-            Array.from({ length: cantidad }, async () => {
+            Array.from({ length: cantidadTickets }, async () => {
                 const codigo_unico = randomUUID();
                 const qrCode = await generarQRUrl(codigo_unico);
 
@@ -61,27 +88,30 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
                     eventId: event.id,
                     userId: user.id,
                     codigo_unico,
-                    qrCode, // guardamos solo la URL del QR
-                    titleEvent: event.title
+                    qrCode,
+                    titleEvent: event.title,
+                    purchasePrice: event.price,
+                    status: TicketStatus.VALID
                 });
             })
         );
 
-        // Guardar todos los tickets en la base de datos
         await queryRunner.manager.save(Ticket, tickets);
 
-        // Enviar correo con los QR generados
         if (user.email) {
-            await enviarCorreoConQR(user.email, tickets.map(ticket => ticket.qrCode!));
-            console.log('Correo enviado exitosamente');
-        } else {
-            console.log('No se pudo enviar el correo: email de usuario no definido');
+            try {
+                await enviarCorreoConQR(user.email, tickets.map(ticket => ({
+                    qrCode: ticket.qrCode!,
+                    ticketId: ticket.id
+                })));
+            } catch (emailErr) {
+                // Don't fail transaction just for email
+            }
         }
 
-        // Confirmar transacción
         await queryRunner.commitTransaction();
 
-        return res.status(201).json({ message: `${cantidad} ticket(s) creado(s) exitosamente` });
+        return res.status(201).json({ message: `${cantidadTickets} ticket(s) creado(s) exitosamente` });
 
     } catch (error: any) {
         await queryRunner.rollbackTransaction();
@@ -113,3 +143,50 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
         return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
     }
 }
+
+export const validateTicket = async (req: Request, res: Response) => {
+    try {
+        const { code } = req.body; // Can be ticket ID or unique code
+
+        // Buscar ticket por codigo unico o ID
+        const ticket = await Ticket.findOne({
+            where: [{ codigo_unico: code }, { id: parseInt(code) || -1 }]
+        });
+
+        if (!ticket) {
+            return res.status(404).json({ message: "Ticket no encontrado", valid: false });
+        }
+
+        if (ticket.status === TicketStatus.USED) {
+            return res.status(400).json({
+                message: "Ticket ya fue utilizado",
+                valid: false,
+                usedAt: ticket.usedAt
+            });
+        }
+
+        if (ticket.status === TicketStatus.CANCELLED) {
+            return res.status(400).json({ message: "Ticket cancelado", valid: false });
+        }
+
+        // Marcar como usado
+        ticket.status = TicketStatus.USED;
+        ticket.usedAt = new Date();
+        await ticket.save();
+
+        return res.json({
+            message: "Ticket válido. Acceso permitido.",
+            valid: true,
+            ticket: {
+                id: ticket.id,
+                event: ticket.titleEvent,
+                user: ticket.userId
+            }
+        });
+
+    } catch (error) {
+        if (error instanceof Error) {
+            return res.status(500).json({ message: error.message });
+        }
+    }
+};

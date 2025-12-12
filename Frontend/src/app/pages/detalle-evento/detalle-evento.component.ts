@@ -20,7 +20,7 @@ export class DetalleEventoComponent implements OnInit {
   private eventoService = inject(EventServiceService);
   private accesService = inject(AccesService);
   private eventId: string | null = null;
-  
+
   isLoggedIn = false;
   user: any;
   evento: any;
@@ -33,7 +33,7 @@ export class DetalleEventoComponent implements OnInit {
     }
 
     this.eventId = this.route.snapshot.paramMap.get('id');
-    
+
     if (this.eventId) {
       this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
         this.evento = evento;
@@ -44,7 +44,7 @@ export class DetalleEventoComponent implements OnInit {
 
   cargarEvento() {
     this.eventoService.obtenerEvento(Number(this.eventId)).subscribe(
-      (data : Evento) => {
+      (data: Evento) => {
         this.evento = data;
         this.loading = false;
       },
@@ -69,12 +69,12 @@ export class DetalleEventoComponent implements OnInit {
 
   reservarEntrada(eventId: number): void {
     const token = localStorage.getItem('token');
-    if(token){
+    if (token) {
       this.router.navigate([`/ticket/${eventId}`]);
-    }else{
+    } else {
       this.router.navigate(['/login']);
     }
-    
+
   }
- 
+
 }

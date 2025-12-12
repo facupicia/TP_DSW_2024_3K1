@@ -10,11 +10,11 @@ export class TicketServiceService {
 
   private http = inject(HttpClient);
   //ivate urlBase: string = "https://backend-eventlife.onrender.com/api/ticket/";
-  private urlBase: string = "http://localhost:3000/api/event/";
+  private urlBase: string = "http://localhost:3000/api/ticket/";
 
   comprarTicket(objeto: { cantidad: number }, eventId: number, token: string): Observable<any> {
     const headers = new HttpHeaders().set('token', token);
-    return this.http.post<any>(`${this.urlBase}buy/${eventId}`, objeto, { headers });
+     return this.http.post<any>(`${this.urlBase}buy/${eventId}`, objeto, { headers });
   }
 
   getTicketsByUser(token: string, userID: number): Observable<Ticket[]> {

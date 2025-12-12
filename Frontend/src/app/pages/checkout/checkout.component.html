@@ -3,66 +3,95 @@
 
     <section class="d-flex justify-content-center align-items-center custom-mobile-1" style="height: 80vh;">
         <div class="container custom-mobile" style="padding: 20px; width: 70%;">
-    
-            <div class="d-flex justify-content-center shadow-lg custom-mobile-2" style="margin-top: 170px; border-radius: 15px; overflow: hidden;">
+
+            <div *ngIf="evento" class="d-flex justify-content-center shadow-lg custom-mobile-2"
+                style="margin-top: 170px; border-radius: 15px; overflow: hidden;">
                 <div class="w-100">
                     <div class="p-3 border-end border-primary h-100 bg-light">
                         <div class="card-body text-center">
-                            <h5 class="card-title mb-4" style="font-size: 1.75rem; font-weight: bold; color: #007bff;">Detalles del Evento</h5>
-                            <p class="card-text" style="font-size: 1.25rem;"><strong>{{ evento.title | uppercase }}</strong></p>
-                            <p class="card-text text-muted mb-4"><small>{{ evento.date | date:'yyyy-MM-dd' }}</small></p>
-                            <img src="{{ evento.image }}" alt="{{ evento.title }}" class="img-fluid rounded mb-2" style="height: 150px; object-fit: cover;">
+                            <h5 class="card-title mb-4" style="font-size: 1.75rem; font-weight: bold; color: #007bff;">
+                                Detalles del Evento</h5>
+                            <p class="card-text" style="font-size: 1.25rem;"><strong>{{ evento.title | uppercase
+                                    }}</strong></p>
+                            <p class="card-text text-muted mb-4"><small>{{ evento.date | date:'yyyy-MM-dd' }}</small>
+                            </p>
+                            <img src="{{ evento.image }}" alt="{{ evento.title }}" class="img-fluid rounded mb-2"
+                                style="height: 150px; object-fit: cover;">
                             <div class="mb-4 text-start ms-3">
-                                <p class="card-text"><i class="bi bi-info-circle me-2 text-primary"></i>{{ evento.description }}</p>
-                                <p class="card-text"><i class="bi bi-geo-alt me-2 text-primary"></i>Ubicación: {{ evento.location }}</p>
-                                <p class="card-text"><i class="bi bi-person me-2 text-primary"></i>Organizador: {{ evento.organizer }}</p>
-                                <p class="card-text"><i class="bi bi-people me-2 text-primary"></i>Capacidad: {{ evento.capacity }} personas</p>
+                                <p class="card-text"><i class="bi bi-info-circle me-2 text-primary"></i>{{
+                                    evento.description }}</p>
+                                <p class="card-text"><i class="bi bi-geo-alt me-2 text-primary"></i>Ubicación: {{
+                                    evento.location }}</p>
+                                <p class="card-text"><i class="bi bi-person me-2 text-primary"></i>Organizador: {{
+                                    evento.organizer }}</p>
+                                <p class="card-text"><i class="bi bi-people me-2 text-primary"></i>Capacidad: {{
+                                    evento.capacity }} personas</p>
                             </div>
                         </div>
                     </div>
                 </div>
-    
+
                 <div class="w-100 d-flex justify-content-center align-items-center">
                     <div class="p-3">
                         <div class="card-body text-center">
-                            <h5 class="card-title mb-4" style="font-size: 1.75rem; font-weight: bold; color: #007bff;">Checkout del Evento</h5>
+                            <h5 class="card-title mb-4" style="font-size: 1.75rem; font-weight: bold; color: #007bff;">
+                                Checkout del Evento</h5>
                             <form [formGroup]="formCheckout" (ngSubmit)="comprarTickets()">
                                 <div class="mb-4">
-                                    <label for="ticketQuantity" class="form-label" style="font-weight: 500;">Cantidad de entradas</label>
+                                    <label for="ticketQuantity" class="form-label" style="font-weight: 500;">Cantidad de
+                                        entradas</label>
                                     <div class="d-flex justify-content-center align-items-center">
-                                        <button type="button" class="btn btn-outline-primary btn-lg" (click)="decrementQuantity()" style="width: 50px; height: 50px; font-size: 1.5rem;">-</button>
-                                        <span id="ticketQuantity" style="font-size: 1.5rem; margin: 0 20px; font-weight: bold;">
+                                        <button type="button" class="btn btn-outline-primary btn-lg"
+                                            (click)="decrementQuantity()"
+                                            style="width: 50px; height: 50px; font-size: 1.5rem;">-</button>
+                                        <span id="ticketQuantity"
+                                            style="font-size: 1.5rem; margin: 0 20px; font-weight: bold;">
                                             {{ ticketQuantity }}
                                         </span>
-                                        <button type="button" class="btn btn-outline-primary btn-lg" (click)="incrementQuantity()" style="width: 50px; height: 50px; font-size: 1.5rem;">+</button>
+                                        <button type="button" class="btn btn-outline-primary btn-lg"
+                                            (click)="incrementQuantity()"
+                                            style="width: 50px; height: 50px; font-size: 1.5rem;">+</button>
                                     </div>
-                                    <div *ngIf="formCheckout.controls['quantity'].invalid && formCheckout.controls['quantity'].touched" class="text-danger mt-2">
+                                    <div *ngIf="formCheckout.controls['quantity'].invalid && formCheckout.controls['quantity'].touched"
+                                        class="text-danger mt-2">
                                         <small>Por favor, ingresa una cantidad válida.</small>
                                     </div>
                                 </div>
-    
-                                <p class="card-text mb-2" style="font-size: 1.1rem;">Precio por entrada: <strong>${{ evento.price }}</strong></p>
-                                <p class="card-text mb-4" style="font-size: 1.1rem;">Total: <strong>${{ total }}</strong></p>
-    
+
+                                <p class="card-text mb-2" style="font-size: 1.1rem;">Precio por entrada: <strong>${{
+                                        evento.price }}</strong></p>
+                                <p class="card-text mb-4" style="font-size: 1.1rem;">Total: <strong>${{ total
+                                        }}</strong></p>
+
                                 <!-- Feedback de compra exitosa -->
                                 <div *ngIf="showSuccessMessage" class="alert alert-success fade show mt-3" role="alert">
                                     Compra realizada con éxito. Revisa tu correo para los detalles.
                                 </div>
-    
+
                                 <!-- Feedback de error -->
                                 <div *ngIf="showErrorMessage" class="alert alert-danger fade show mt-3" role="alert">
                                     Hubo un error en la compra. Por favor, inténtalo nuevamente.
                                 </div>
-    
-                                <button type="submit" class="btn btn-primary btn-lg" style="width: 70%; border-radius: 10px;" [disabled]="loading">
+
+                                <button type="submit" class="btn btn-primary btn-lg"
+                                    style="width: 70%; border-radius: 10px;" [disabled]="loading">
                                     <span *ngIf="!loading">Proceder con la compra</span>
-                                    <span *ngIf="loading" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span *ngIf="loading" class="spinner-border spinner-border-sm" role="status"
+                                        aria-hidden="true"></span>
                                 </button>
                             </form>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Loading state or fallback -->
+            <div *ngIf="!evento" class="d-flex justify-content-center align-items-center" style="height: 100%;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+
         </div>
     </section>
 </main>
