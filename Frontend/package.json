@@ -28,6 +28,7 @@
     "express": "^4.18.2",
     "ng-apexcharts": "^1.13.0",
     "ngx-mask": "^18.0.4",
+    "ngx-toastr": "^19.1.0",
     "or": "^0.2.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",

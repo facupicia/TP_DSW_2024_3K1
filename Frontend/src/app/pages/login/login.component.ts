@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Login } from '../../interfaces/Login';
 import { CommonModule } from '@angular/common';
@@ -17,6 +18,7 @@ export class LoginComponent {
   private accesService = inject(AuthService);
   private router = inject(Router);
   private formBuilder = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
 
   public formLogin: FormGroup = this.formBuilder.group({
@@ -25,8 +27,7 @@ export class LoginComponent {
   });
 
 
-  public feedbackMessage = '';
-  public feedbackSuccess = false;
+
 
 
   public iniciarSesion(): void {
@@ -38,14 +39,14 @@ export class LoginComponent {
 
       this.accesService.login(loginData).subscribe({
         next: (response) => {
-          this.mostrarFeedback('Sesión iniciada con éxito!', true);
+          this.toastService.success('Sesión iniciada con éxito!');
           localStorage.setItem('token', response.token);
           setTimeout(() => {
             this.router.navigate(['/']);
           }, 900);
         },
         error: () => {
-          this.mostrarFeedback('Error al iniciar sesión', false);
+          this.toastService.error('Error al iniciar sesión');
         },
       });
     } else {
@@ -54,8 +55,5 @@ export class LoginComponent {
   }
 
 
-  public mostrarFeedback(message: string, isSuccess: boolean): void {
-    this.feedbackMessage = message;
-    this.feedbackSuccess = isSuccess;
-  }
+
 }

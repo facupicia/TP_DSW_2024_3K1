@@ -8,11 +8,17 @@ import { routes } from './app.routes';
 import { authInterceptor } from './interceptors/auth.interceptor';
 
 
+import { provideAnimations } from '@angular/platform-browser/animations';
+import { provideToastr } from 'ngx-toastr';
+import { errorInterceptor } from './interceptors/error.interceptor';
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideClientHydration(),
-    provideHttpClient(withInterceptors([authInterceptor]), withFetch()),
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]), withFetch()),
+    provideAnimations(), // Required by Toastr
+    provideToastr(), // Toastr providers
     importProvidersFrom(FormsModule) // Añadir FormsModule aquí
   ]
 };

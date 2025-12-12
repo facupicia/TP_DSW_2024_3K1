@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 import { Router } from '@angular/router';
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
 import { CommonModule } from '@angular/common';
@@ -16,9 +17,9 @@ import { HeaderComponent } from '../../components/header/header.component';
 export class PrefilEditComponent implements OnInit {
   private AccesService = inject(AuthService);
   private router = inject(Router);
+  private toastService = inject(ToastService);
   public formBuild = inject(FormBuilder);
-  feedbackMessage: string = '';
-  feedbackSuccess: boolean = false;
+
   public formEditarPerfil: FormGroup = this.formBuild.group({
     imgPerfil: [''],
     firstname: [''],
@@ -50,7 +51,7 @@ export class PrefilEditComponent implements OnInit {
           });
         },
         error: (error) => {
-          this.mostrarFeedback('Error al cargar los datos del usuario', false);
+          this.toastService.error('Error al cargar los datos del usuario');
         }
       });
     }
@@ -70,26 +71,23 @@ export class PrefilEditComponent implements OnInit {
 
       this.AccesService.update(objeto).subscribe({
         next: (response) => {
-          this.mostrarFeedback('Perfil actualizado con éxito', true);
+          this.toastService.success('Perfil actualizado con éxito');
           setTimeout(() => {
             this.router.navigate(['/profile']);
           }, 1000);
         },
         error: (error) => {
-          this.mostrarFeedback('Error al actualizar el perfil', false);
+          this.toastService.error('Error al actualizar el perfil');
           console.error('Error al actualizar el usuario:', error);
         }
       });
     } else {
-      this.mostrarFeedback('Error: ID de usuario no disponible', false);
+      this.toastService.error('Error: ID de usuario no disponible');
     }
     localStorage.removeItem('cachedProfile');
   }
 
-  private mostrarFeedback(mensaje: string, esExito: boolean) {
-    this.feedbackMessage = mensaje;
-    this.feedbackSuccess = esExito;
-  }
+
 
 }
 

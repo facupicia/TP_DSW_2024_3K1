@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 import { Router } from '@angular/router';
 import { Usuario } from '../../interfaces/Usuario';
 import { CommonModule } from '@angular/common';
@@ -19,6 +20,7 @@ export class RegisterComponent {
   errorMessages: string[] = [];
   private AccesService = inject(AuthService);
   private router = inject(Router);
+  private toastService = inject(ToastService);
   public formBuild = inject(FormBuilder);
 
   public formRegistro: FormGroup = this.formBuild.group({
@@ -52,13 +54,13 @@ export class RegisterComponent {
 
       this.AccesService.registrarse(objeto).subscribe({
         next: (response) => {
-          this.mostrarFeedback('Perfil creado con éxito', true);
+          this.toastService.success('Perfil creado con éxito');
           setTimeout(() => {
             this.router.navigate(['/login']);
           }, 900);
         },
         error: (error) => {
-          this.mostrarFeedback('Error al crear el perfil', false)
+          this.toastService.error('Error al crear el perfil');
           this.errorMessages = error;
         }
       });
@@ -82,12 +84,7 @@ export class RegisterComponent {
     event.target.value = input;
   }
 
-  private mostrarFeedback(mensaje: string, esExito: boolean) {
-    this.feedbackMessage = mensaje;
-    this.feedbackSuccess = esExito;
-  }
-  feedbackMessage = '';
-  feedbackSuccess = false;
+
 
 
 }

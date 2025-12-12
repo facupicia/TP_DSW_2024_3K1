@@ -59,24 +59,15 @@
           </div>
 
           <div class="d-flex justify-content-md-end gap-4">
-            <button type="button" class="btn btn-primary" (click)="actualizarPerfil()" style="width: 150px;">Actualizar Perfil</button>
+            <button type="button" class="btn btn-primary" (click)="actualizarPerfil()" style="width: 150px;">Actualizar
+              Perfil</button>
             <a type="button" class="btn btn-danger" href="/profile">Cancelar</a>
           </div>
 
         </form>
 
-        
-        <div *ngIf="feedbackMessage" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
-          <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header" [ngClass]="{'bg-success text-white': feedbackSuccess, 'bg-danger text-white': !feedbackSuccess}">
-              <strong class="me-auto">Notificación</strong>
-              <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
-            </div>
-            <div class="toast-body">
-              {{ feedbackMessage }}
-            </div>
-          </div>
-        </div>
+
+
 
       </div>
     </div>

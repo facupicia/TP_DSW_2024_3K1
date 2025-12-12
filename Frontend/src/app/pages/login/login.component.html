@@ -6,10 +6,10 @@
     </div>
   </nav>
 
-  
+
   <div class="d-flex justify-content-center align-items-center vh-100  custom-mobile">
     <div class="row border shadow-lg w-75 rounded overflow-hidden custom-mobile-1">
-      
+
       <div class="col-md-6 d-flex align-items-center justify-content-center left bg-light p-5">
 
         <form [formGroup]="formLogin" class="w-100">
@@ -17,7 +17,8 @@
 
           <div class="mb-3">
             <label for="email" class="form-label">Correo electrónico</label>
-            <input type="email" class="form-control" id="email" aria-describedby="emailHelp" formControlName="email" required [ngClass]="{'is-invalid': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
+            <input type="email" class="form-control" id="email" aria-describedby="emailHelp" formControlName="email"
+              required [ngClass]="{'is-invalid': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
             <div id="emailHelp" class="form-text">No compartas tus datos con nadie.</div>
             <div class="invalid-feedback" *ngIf="formLogin.get('email')?.invalid && formLogin.get('email')?.touched">
               Por favor, ingresa un correo electrónico válido.
@@ -26,35 +27,27 @@
 
           <div class="mb-3">
             <label for="password" class="form-label">Contraseña</label>
-            <input type="password" class="form-control" id="password" formControlName="password" required [ngClass]="{'is-invalid': formLogin.get('password')?.invalid && formLogin.get('password')?.touched}">
-            <div class="invalid-feedback" *ngIf="formLogin.get('password')?.invalid && formLogin.get('password')?.touched">
+            <input type="password" class="form-control" id="password" formControlName="password" required
+              [ngClass]="{'is-invalid': formLogin.get('password')?.invalid && formLogin.get('password')?.touched}">
+            <div class="invalid-feedback"
+              *ngIf="formLogin.get('password')?.invalid && formLogin.get('password')?.touched">
               Por favor, ingresa una contraseña válida.
             </div>
           </div>
-          
-          <button type="button" class="btn btn-primary w-100 mt-3" (click)="iniciarSesion()"  [disabled]="formLogin.invalid">Entrar</button>
+
+          <button type="button" class="btn btn-primary w-100 mt-3" (click)="iniciarSesion()"
+            [disabled]="formLogin.invalid">Entrar</button>
         </form>
 
       </div>
 
-      
+
       <div class="col-md-6 bg-primary text-white text-center d-flex flex-column justify-content-center right p-5">
         <h4 class="mb-3">¿Aún no tienes una cuenta?</h4>
         <p class="lead fw-light">¡Regístrate hoy y comienza a disfrutar de todos los beneficios que ofrecemos!</p>
         <a href="register" class="btn btn-outline-light btn-lg mt-3">Registrarse</a>
       </div>
 
-    </div>
-    <div *ngIf="feedbackMessage" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
-      <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header" [ngClass]="{'bg-success text-white': feedbackSuccess, 'bg-danger text-white': !feedbackSuccess}">
-          <strong class="me-auto">Notificación</strong>
-          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
-        </div>
-        <div class="toast-body">
-          {{ feedbackMessage }}
-        </div>
-      </div>
     </div>
   </div>
 </main>
