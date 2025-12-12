@@ -1,4 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../environments/environment.development';
 import { inject, Injectable } from '@angular/core';
 import { Usuario } from '../interfaces/Usuario';
 import { Observable, tap, throwError } from 'rxjs';
@@ -14,8 +15,7 @@ import { UsuarioEdit } from '../interfaces/UsuarioEdit';
 export class AccesService {
 
   private http = inject(HttpClient)
- //ivate urlBase: string = "https://backend-eventlife.onrender.com/api/user/"
-   private urlBase: string = "http://localhost:3000/api/user/"
+  private urlBase: string = environment.apiUrl + "/user/"
   constructor() { }
 
   registrarse(objeto: Usuario) {
@@ -26,8 +26,8 @@ export class AccesService {
     return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto)
   }
 
-  getProfile(token: string): Observable<any> {
-    const headers = new HttpHeaders().set('token', `${token}`);
+  getProfile(): Observable<any> {
+
     // Implementación de caching
     const cachedProfile = localStorage.getItem('cachedProfile');
     if (cachedProfile) {
@@ -36,7 +36,7 @@ export class AccesService {
         observer.complete();
       });
     }
-    return this.http.get(`${this.urlBase}profile`, { headers }).pipe(
+    return this.http.get(`${this.urlBase}profile`).pipe(
       tap(profile => {
         // Guardar en caché
         localStorage.setItem('cachedProfile', JSON.stringify(profile));
@@ -49,25 +49,17 @@ export class AccesService {
   }
 
   update(objeto: UsuarioEdit): Observable<UsuarioEdit> {
-    const token = localStorage.getItem('token');
-    const headers = new HttpHeaders().set('token', `${token}`);
-    return this.http.put<UsuarioEdit>(`${this.urlBase}profile/${objeto.id}`, objeto, { headers });
+    return this.http.put<UsuarioEdit>(`${this.urlBase}profile/${objeto.id}`, objeto);
+
   }
 
   getUserById(id: number): Observable<Usuario> {
-    const token = localStorage.getItem('token');
-    const headers = new HttpHeaders().set('token', `${token}`);
-    return this.http.get<Usuario>(`${this.urlBase}${id}`, { headers });
+    return this.http.get<Usuario>(`${this.urlBase}${id}`);
+
   }
 
-  getUsers(token: string): Observable<any> {
-    if (!token) {
-      console.error('Token inválido.');
-      return throwError(() => new Error('Token inválido'));
-    }
-  
-    const headers = new HttpHeaders().set('token', `${token}`);
-    return this.http.get(`${this.urlBase}`, { headers });
+  getUsers(): Observable<any> {
+    return this.http.get(`${this.urlBase}`);
   }
 
   delete(id: number) {

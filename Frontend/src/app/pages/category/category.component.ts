@@ -35,7 +35,7 @@ export class CategoryComponent {
   usuarios: Usuario[] = []
   userId: any
   mostrarTabla: boolean = false;
-  mostrarCategory : boolean = false;
+  mostrarCategory: boolean = false;
 
 
   ngOnInit(): void {
@@ -49,7 +49,7 @@ export class CategoryComponent {
       console.error('Token no encontrado en localStorage.');
       return;
     }
-    this.UserService.getUsers(token).subscribe({
+    this.UserService.getUsers().subscribe({
       next: (usuarios: Usuario[]) => {
         console.log('Usuarios:', usuarios);
         this.usuarios = usuarios;

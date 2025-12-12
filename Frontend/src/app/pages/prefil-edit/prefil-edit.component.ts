@@ -9,7 +9,7 @@ import { HeaderComponent } from '../header/header.component';
 @Component({
   selector: 'app-prefil-edit',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule,HeaderComponent],
+  imports: [ReactiveFormsModule, CommonModule, HeaderComponent],
   templateUrl: './prefil-edit.component.html',
   styleUrl: './prefil-edit.component.css'
 })
@@ -23,7 +23,7 @@ export class PrefilEditComponent implements OnInit {
     imgPerfil: [''],
     firstname: [''],
     lastname: [''],
-    phone: ['',[Validators.pattern('[0-9]+')]],
+    phone: ['', [Validators.pattern('[0-9]+')]],
     location: [''],
     birth: [''],
   });
@@ -37,7 +37,7 @@ export class PrefilEditComponent implements OnInit {
   cargarDatosUsuario(): void {
     const token = localStorage.getItem('token');
     if (token) {
-      this.AccesService.getProfile(token).subscribe({
+      this.AccesService.getProfile().subscribe({
         next: (data) => {
           this.userId = data.id;  // Almacena el ID del usuario
           this.formEditarPerfil.patchValue({
@@ -59,7 +59,7 @@ export class PrefilEditComponent implements OnInit {
   actualizarPerfil() {
     if (this.userId) { // Asegurarse de que el userId esté disponible
       const objeto: UsuarioEdit = {
-        id: Number(this.userId),  
+        id: Number(this.userId),
         firstname: this.formEditarPerfil.value.firstname,
         lastname: this.formEditarPerfil.value.lastname,
         phone: this.formEditarPerfil.value.phone.toString(),
@@ -84,12 +84,12 @@ export class PrefilEditComponent implements OnInit {
       this.mostrarFeedback('Error: ID de usuario no disponible', false);
     }
     localStorage.removeItem('cachedProfile');
-  } 
+  }
 
   private mostrarFeedback(mensaje: string, esExito: boolean) {
     this.feedbackMessage = mensaje;
     this.feedbackSuccess = esExito;
   }
-    
+
 }
 

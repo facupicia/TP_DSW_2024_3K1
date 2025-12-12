@@ -22,9 +22,9 @@ export class TicketsComponent {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       this.userID = this.route.snapshot.paramMap.get('id'); // Asignar userID desde la ruta
-      
+
       if (token && this.userID) { // Verificar que userID no sea null
-        this.tickService.getTicketsByUser(token, Number(this.userID)).subscribe({
+        this.tickService.getTicketsByUser(Number(this.userID)).subscribe({
           next: (data) => {
             console.log(data);
             this.tickets = data;

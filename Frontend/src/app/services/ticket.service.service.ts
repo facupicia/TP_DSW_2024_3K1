@@ -1,4 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../environments/environment.development';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Ticket } from '../interfaces/ticket';
@@ -9,17 +10,14 @@ import { Ticket } from '../interfaces/ticket';
 export class TicketServiceService {
 
   private http = inject(HttpClient);
-  //ivate urlBase: string = "https://backend-eventlife.onrender.com/api/ticket/";
-  private urlBase: string = "http://localhost:3000/api/ticket/";
+  private urlBase: string = environment.apiUrl + "/ticket/";
 
-  comprarTicket(objeto: { cantidad: number }, eventId: number, token: string): Observable<any> {
-    const headers = new HttpHeaders().set('token', token);
-     return this.http.post<any>(`${this.urlBase}buy/${eventId}`, objeto, { headers });
+  comprarTicket(objeto: { cantidad: number }, eventId: number): Observable<any> {
+    return this.http.post<any>(`${this.urlBase}buy/${eventId}`, objeto);
   }
 
-  getTicketsByUser(token: string, userID: number): Observable<Ticket[]> {
-    const headers = new HttpHeaders().set('token', token);
-    return this.http.get<Ticket[]>(`${this.urlBase}/${userID}`, { headers });
+  getTicketsByUser(userID: number): Observable<Ticket[]> {
+    return this.http.get<Ticket[]>(`${this.urlBase}/${userID}`);
   }
 
 

@@ -1,4 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { environment } from '../../environments/environment.development';
 import { inject, Injectable } from '@angular/core';
 import { Evento } from '../interfaces/event';
 import { Observable, tap } from 'rxjs';
@@ -10,23 +11,18 @@ import { Observable, tap } from 'rxjs';
 export class EventServiceService {
 
   private http = inject(HttpClient);
-  //ivate urlBase: string = "https://backend-eventlife.onrender.com/api/event/";
-  private urlBase: string = "http://localhost:3000/api/event/";
+  private urlBase: string = environment.apiUrl + "/event/";
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
-    const token = localStorage.getItem('token');
-    const headers = new HttpHeaders().set('token', `${token}`);
+    return this.http.post<Evento>(`${this.urlBase}new`, objeto);
 
-    return this.http.post<Evento>(`${this.urlBase}new`, objeto, { headers });
   }
 
   obtenerEventosUsuario(): Observable<Evento[]> {
     if (typeof window !== 'undefined' && window.localStorage) {
-      const token = localStorage.getItem('token');
-      const headers = new HttpHeaders().set('token', `${token}`);
+      return this.http.get<Evento[]>(`${this.urlBase}`)
 
-      return this.http.get<Evento[]>(`${this.urlBase}`, { headers })
     } else {
       return new Observable<Evento[]>();
     }

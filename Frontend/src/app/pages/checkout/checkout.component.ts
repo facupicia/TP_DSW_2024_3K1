@@ -35,10 +35,10 @@ export class CheckoutComponent implements OnInit {
 
   showMessage: boolean = false;
   message: string = '';
-  
+
   ngOnInit(): void {
     this.eventId = this.route.snapshot.paramMap.get('id');
-    
+
     if (this.eventId) {
       this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
         this.evento = evento;
@@ -79,8 +79,8 @@ export class CheckoutComponent implements OnInit {
     this.showErrorMessage = false;
 
     if (!this.formCheckout.valid) {
-        console.error('Formulario incompleto o inválido');
-        return;
+      console.error('Formulario incompleto o inválido');
+      return;
     }
 
     this.loading = true;
@@ -90,20 +90,19 @@ export class CheckoutComponent implements OnInit {
     const cantidadValida = Number.isInteger(cantidadDeTickets) && cantidadDeTickets > 0;
 
     if (token && this.eventId && cantidadValida) {
-      this.ticketService.comprarTicket({ cantidad: cantidadDeTickets }, Number(this.eventId), token)
-        .subscribe({
-          next: (response) => {
-            console.log('Boletos comprados:', response);
-            this.showSuccessMessage = true;
-          },
-          error: (error) => {
-            console.error('Error al comprar tickets:', error);
-            this.showErrorMessage = true;
-          },
-          complete: () => {
-            this.loading = false;
-          }
-        });
+      this.ticketService.comprarTicket({ cantidad: cantidadDeTickets }, Number(this.eventId)).subscribe({
+        next: (response) => {
+          console.log('Boletos comprados:', response);
+          this.showSuccessMessage = true;
+        },
+        error: (error) => {
+          console.error('Error al comprar tickets:', error);
+          this.showErrorMessage = true;
+        },
+        complete: () => {
+          this.loading = false;
+        }
+      });
     } else {
       this.loading = false;
     }
@@ -123,6 +122,6 @@ export class CheckoutComponent implements OnInit {
     this.message = '¡Compra realizada con éxito!';
     setTimeout(() => {
       this.showMessage = false;
-    }, 5000); 
+    }, 5000);
   }
 }

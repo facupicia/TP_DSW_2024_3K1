@@ -27,10 +27,10 @@ export class PerfilComponent implements OnInit {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       if (token) {
-        this.profileService.getProfile(token).subscribe({
+        this.profileService.getProfile().subscribe({
           next: (data) => {
             this.userProfile = data;
-            if(data.rol == "admin"){
+            if (data.rol == "admin") {
               this.esAdmin = true
             }
           },
@@ -60,7 +60,7 @@ export class PerfilComponent implements OnInit {
   }
 
 
-  panelAdmin(){
+  panelAdmin() {
     this.router.navigate(['/admin'])
   }
 

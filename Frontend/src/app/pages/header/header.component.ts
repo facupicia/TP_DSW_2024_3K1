@@ -17,19 +17,19 @@ export class HeaderComponent {
   user: any;
   evento: any;
   imgPerfil: string | null = null;
- 
+
 
 
   ngOnInit(): void {
     const token = localStorage.getItem('token');
     if (token) {
-      this.accesService.getProfile(token).subscribe(
+      this.accesService.getProfile().subscribe(
         (user) => {
           this.user = user;
           this.imgPerfil = user?.imgPerfil; // Imagen por defecto si no hay
         },
       );
-    } 
+    }
   }
 
 
@@ -42,8 +42,8 @@ export class HeaderComponent {
   }
 
 
-   isLoggedIn = typeof localStorage !== 'undefined' && localStorage.getItem('token') !== null;
-   showTooltip = false
+  isLoggedIn = typeof localStorage !== 'undefined' && localStorage.getItem('token') !== null;
+  showTooltip = false
 
 
   crearEvento(): void {
@@ -66,5 +66,5 @@ export class HeaderComponent {
     this.router.navigate(['/']);
   }
 
-  
+
 }
