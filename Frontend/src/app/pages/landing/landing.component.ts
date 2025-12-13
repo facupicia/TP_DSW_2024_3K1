@@ -1,35 +1,49 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common'; // Agregamos DatePipe para las fechas
+import { Router, RouterLink } from '@angular/router'; // RouterLink es vital para el HTML
+
+// Tus componentes (si los usas dentro, aunque ahora el HTML tiene el diseño directo)
 import { HeaderComponent } from '../../components/header/header.component';
-import { PopularEventsComponent } from '../../components/popular-events/popular-events.component';
-import { CrearEventComponent } from '../crear-event/crear-event.component';
-import { BuyTicketComponent } from '../../components/buy-ticket/buy-ticket.component';
 import { FooterComponent } from '../../components/footer/footer.component';
-import { AsyncPipe, CommonModule } from '@angular/common';
 import { EventService } from '../../services/event.service';
-import { FormsModule } from '@angular/forms';
-import { map } from 'rxjs/operators';
-import { Router } from '@angular/router';
+import { Evento } from '../../interfaces/event';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [HeaderComponent, PopularEventsComponent, CrearEventComponent, BuyTicketComponent, FooterComponent, CommonModule, FormsModule, AsyncPipe],
+  imports: [
+    HeaderComponent,
+    FooterComponent,
+    CommonModule, // Para *ngFor, *ngIf
+    RouterLink,   // Para routerLink=""
+    DatePipe      // Para el pipe | date
+  ],
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.css']
 })
-export class LandingComponent {
+export class LandingComponent implements OnInit {
+
+  // Usamos una lista simple, sin grupos
+  events: Evento[] = [];
+
+  // Inyección de dependencias
   constructor(private eventService: EventService, private router: Router) { }
 
-  src: string = '';
-  public data: any;
-
-  buscarEventos(): void {
-    this.data = this.eventService.searchEventsByName(this.src).pipe(
-      map((response: any) => response.slice(0, 5))
-    );
+  ngOnInit(): void {
+    // Carga simple y directa de datos
+    this.eventService.obtenerEventos().subscribe((data) => {
+      this.events = data;
+      // ¡Adiós a this.groupEvents()! Ya no se necesita.
+    });
   }
 
-  navigateToEvent(id: string): void {
-    this.router.navigate(['/event', id]);
+  navigateToEvent(id: number | undefined): void {
+    if (id) {
+      this.router.navigate(['/event', id]);
+    }
+  }
+
+  crearEvento() {
+    this.router.navigate(['/create-event']);
   }
 }

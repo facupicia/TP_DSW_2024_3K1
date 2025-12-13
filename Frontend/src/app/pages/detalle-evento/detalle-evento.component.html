@@ -1,83 +1,118 @@
-<main>
-
+<main class="min-h-screen bg-gray-50 pb-20">
   <app-header></app-header>
 
-  <div class="container py-6 d-flex flex-column justify-content-center custom-mobile"
-    style="width: 70%; min-height: 100vh; margin-top: 100px !important;">
-    <div class="card">
-      <img src="{{ evento.image }}" alt="{{ evento.title }}" class="card-img-top"
-        style="height: 300px; object-fit: cover;" />
-      <div class="card-body mt-4">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <p class="text-muted mb-2">{{ evento.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy' }}</p>
-            <div class="badge bg-primary text-white"><strong class=" fw-bold">{{evento.categoria_name}}</strong></div>
-            <h1 class="display-5 mb-0 fw-bold ">{{ evento.title | uppercase }}</h1>
-            <h2 class="h5 mt-5">Acerca de este evento</h2>
-            <p class="mt-2">{{ evento.description }}</p>
-          </div>
-          <button class="btn btn-primary">Seguir</button>
-        </div>
+  <div class="pt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" *ngIf="evento">
 
-        <div class="mt-4 rounded p-3" style="background-color: #e3f2fd;">
-          <h2 class="h5 border-bottom pb-2 border-primary">Organizado</h2>
-          <div class="d-flex align-items-center p-2 bg-white rounded shadow-sm">
-
-            <div class="flex-shrink-0">
-              <img
-                [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
-                alt="Organizador" class="rounded-circle me-2" style="width: 50px; height: 50px;">
-            </div>
-
-            <div class="flex-grow-1 ms-3">
-              <h6 class="mb-0"><span class="opacity-50">Por</span> {{ evento.organizer }}</h6>
-            </div>
-
-
-
-          </div>
-        </div>
-
-        <div class="mt-4">
-          <h6 class="h5">Fecha y hora</h6>
-          <div class="d-flex align-items-center mb-3">
-            <i class="bi bi-calendar-event text-primary"></i>
-            <span class="ms-2">{{ evento.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy' }}, - {{ evento.time }}
-              hs</span>
-          </div>
-        </div>
-
-        <div class="mt-4">
-          <h6 class="h5">Ubicación</h6>
-          <div class="d-flex align-items-center mb-3">
-            <i class="bi bi-geo-alt text-primary"></i>
-            <span class="ms-2">{{ evento.location }}</span>
-          </div>
-        </div>
-
-        <div class="mt-4">
-          <h6 class="h5">Capacidad de entradas</h6>
-          <div class="d-flex align-items-center mb-3">
-            <i class="bi bi-people text-primary"></i>
-            <span class="ms-2">{{ evento.capacity }}</span>
-          </div>
-        </div>
-
+    <!-- Hero Image -->
+    <div class="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden shadow-2xl mb-12">
+      <img [src]="evento.image" [alt]="evento.title" class="w-full h-full object-cover">
+      <div class="absolute top-6 left-6">
+        <span
+          class="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-sm font-bold uppercase tracking-wider text-black shadow-lg">
+          {{evento.categoria_name}}
+        </span>
       </div>
     </div>
 
-    <div class="card mt-5 mb-5">
-      <div class="card-body">
-        <h2 class="h5 mb-4">Entradas</h2>
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <p class="fw-bold">Costo de la entrada</p>
-            <p class="text-muted">{{ evento.price }} $</p>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+      <!-- Main Content -->
+      <div class="lg:col-span-2 space-y-12">
+        <div>
+          <p class="text-blue-600 font-semibold mb-2 uppercase tracking-wide">{{ evento.date | date: 'EEEE, d \'de\'
+            MMMM \'de\' yyyy' }}</p>
+          <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">{{ evento.title }}</h1>
+
+          <div class="prose max-w-none text-gray-600 text-lg leading-relaxed">
+            <h3 class="text-xl font-bold text-gray-900 mb-3">Acerca de este evento</h3>
+            <p>{{ evento.description }}</p>
           </div>
         </div>
-        <button class="btn btn-primary w-100 mt-4" (click)="reservarEntrada(evento.id)">Reservar un lugar</button>
+
+        <!-- Organizer -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
+          <img
+            [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
+            alt="Organizador" class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
+          <div>
+            <p class="text-sm text-gray-500">Organizado por</p>
+            <p class="text-lg font-bold text-gray-900">{{ evento.organizer || 'Anónimo' }}</p>
+          </div>
+          <button
+            class="ml-auto px-6 py-2 rounded-full border border-gray-300 text-sm font-semibold hover:bg-gray-50 transition">
+            Ver Perfil
+          </button>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="glass p-6 rounded-2xl flex items-start gap-4">
+            <div class="p-3 bg-blue-50 rounded-xl text-blue-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900">Fecha y Hora</h4>
+              <p class="text-gray-600">{{ evento.date | date: 'dd/MM/yyyy' }} - {{ evento.time }} hs</p>
+            </div>
+          </div>
+
+          <div class="glass p-6 rounded-2xl flex items-start gap-4">
+            <div class="p-3 bg-purple-50 rounded-xl text-purple-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900">Ubicación</h4>
+              <p class="text-gray-600">{{ evento.location }}</p>
+            </div>
+          </div>
+
+          <div class="glass p-6 rounded-2xl flex items-start gap-4">
+            <div class="p-3 bg-green-50 rounded-xl text-green-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                </path>
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900">Capacidad</h4>
+              <p class="text-gray-600">{{ evento.capacity }} personas</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <!-- Action Sidebar -->
+      <div class="lg:col-span-1">
+        <div class="sticky top-24">
+          <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8">
+            <h3 class="text-2xl font-bold text-gray-900 mb-6">Entradas</h3>
+
+            <div class="flex justify-between items-center mb-8 pb-8 border-b border-gray-100">
+              <span class="text-gray-600 font-medium">Precio por entrada</span>
+              <span class="text-3xl font-bold text-gray-900">${{ evento.price }}</span>
+            </div>
+
+            <button (click)="reservarEntrada(evento.id)"
+              class="w-full py-4 rounded-xl text-white font-bold text-lg bg-black hover:bg-gray-800 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300">
+              Reservar Lugar
+            </button>
+
+            <p class="text-center text-xs text-gray-400 mt-4">
+              Garantía de devolución segura via EventLife
+            </p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
-
 </main>

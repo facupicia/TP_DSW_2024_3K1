@@ -52,6 +52,9 @@ export class ExploradorEventosComponent {
     this.router.navigate([`event/${id}`]);
   }
 
+  tieneEventosDestacados(): boolean {
+    return this.eventos.some(e => e.destacado);
+  }
 
   crearEvento(): void {
     const token = localStorage.getItem('token');

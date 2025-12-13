@@ -1,62 +1,133 @@
-<main class="main-first">
-
+<main class="w-full bg-white text-gray-900 overflow-x-hidden">
   <app-header></app-header>
 
-  <section class="hero-section min-vh-100 d-flex align-items-center justify-content-center text-center text-white">
+  <section class=" relative flex flex-col items-center justify-center pt-32 pb-20 px-4 text-center bg-white">
 
-    <div class="container">
-      <h1 class="display-4 font-weight-bold mb-3">EventLife</h1>
-      <p class="lead mb-4" style="opacity: 70%;">Crea eventos inolvidables o encuentra las mejores entradas para los eventos más emocionantes.</p>
+    <h1 class="text-6xl md:text-8xl font-bold tracking-tighter mb-6 text-black animate-fade-in-up">
+      EventLife.
+    </h1>
 
+    <p
+      class="text-xl md:text-2xl text-gray-500 font-medium max-w-2xl mx-auto mb-12 leading-relaxed animate-fade-in-up delay-100">
+      Experiencias inolvidables. <br class="hidden md:block"> Creadas por ti.
+    </p>
 
-      <div class="row justify-content-center ">
-        <div class="col-md-8 w-100">
-          <div class="input-group input-group-lg">
-            <input style="box-shadow: 0px 0px 34px -6px rgba(0, 165, 255, 1);"  type="text"   class="form-control mt-3" placeholder="Buscar eventos" (ngModelChange)="buscarEventos()" [(ngModel)]="src">
+  </section>
+
+<!-- Cards -->
+  <section class="px-4 max-w-7xl mx-auto -mt-16 relative z-40 pb-20">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+      <div
+        class="animate-float group relative overflow-hidden rounded-[32px] bg-white/90 backdrop-blur-xl border border-gray-270 shadow-[0_20px_40px_rgba(0,0,0,0.08)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.12)] transition-all duration-500 cursor-pointer p-8 md:p-12"
+        (click)="crearEvento()">
+        <div class="relative z-10 flex flex-col h-full justify-between items-start text-left">
+          <div>
+            <span class="text-blue-600 font-bold text-xs uppercase tracking-widest mb-3 block">Organizadores</span>
+            <h3 class="text-4xl font-bold text-gray-900 mb-3 tracking-tight">Crea tu evento.</h3>
+            <p class="text-gray-500 text-lg max-w-xs font-medium">Gestiona tickets y audiencia.</p>
+          </div>
+          <div
+            class="mt-10 bg-black text-white rounded-full h-12 w-12 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
           </div>
         </div>
-        
-        <a style="cursor: pointer; text-decoration: none;" href="#evento" class="position-absolute bottom-0 start-50 translate-middle-x text-center">
-          <div class="arrow-down">
-            <p class="lead">Encuentra tu Evento</p>
-            <i class="bi bi-caret-down-fill"></i>
+      </div>
+
+      <div
+        class="animate-float-delayed group relative overflow-hidden rounded-[32px] bg-black/95 backdrop-blur-xl text-white p-8 md:p-12 shadow-[0_20px_40px_rgba(0,0,0,0.2)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.3)] transition-all duration-500 cursor-pointer border border-white/10"
+        routerLink="/events">
+        <div class="relative z-10 flex flex-col h-full justify-between items-start text-left">
+          <div>
+            <span class="text-gray-400 font-bold text-xs uppercase tracking-widest mb-3 block">Audiencia</span>
+            <h3 class="text-4xl font-bold mb-3 tracking-tight">Explora.</h3>
+            <p class="text-gray-400 text-lg max-w-xs font-medium">Encuentra tu próxima aventura.</p>
           </div>
-        </a>
+          <div
+            class="mt-10 bg-white/10 backdrop-blur-md border border-white/10 text-white rounded-full px-8 py-3 group-hover:bg-white group-hover:text-black transition-all font-semibold text-sm">
+            Ver catálogo
+          </div>
+        </div>
+        <div
+          class="absolute top-0 right-0 w-full h-full bg-gradient-to-bl from-blue-900/30 via-transparent to-transparent opacity-60">
+        </div>
       </div>
 
-
-      <div class="mt-2">
-        <ul class="list-group" style="max-height: 300px; overflow-y: auto; border-radius: 5px; width: auto">
-          <li *ngFor="let event of data | async" class="list-group-item d-flex justify-content-between align-items-center" style="transition: background-color 0.3s;">
-            <span class="font-weight-bold" (click)="navigateToEvent(event.id)" style="cursor: pointer; color: #007bff;">{{ event.title }}</span>
-          </li>
-        </ul>
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- Sección de eventos populares -->
-  <section  class="events-section py-5" style="background-color: #f8f9fa;">
-    <div class="container">
-      <app-popular-events></app-popular-events>
     </div>
   </section>
 
- <!-- Crear evento / Comprar tickets -->
- <section id="evento" class="create-ticket-section py-5 text-center text-white d-flex align-items-center justify-content-center" style="background: linear-gradient(90deg, #004e92, #000428); height: 100vh;">
-  <div class="container">
-    <div class="row">
-      <div class="col-lg-6 mb-4">
-        <app-crear-event></app-crear-event>
-      </div>
-      <div class="col-lg-6 mb-4">
-        <app-buy-ticket></app-buy-ticket>
-      </div>
-    </div>
+<!-- Categories decorativo-->
+  <div class="mt-8 flex flex-wrap justify-center gap-3 animate-fade-in-up delay-200">
+    <button
+      class="px-5 py-2 rounded-full bg-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white transition-all duration-300 transform hover:scale-105">
+      🎵 Conciertos
+    </button>
+    <button
+      class="px-5 py-2 rounded-full bg-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white transition-all duration-300 transform hover:scale-105">
+      ⚽ Deportes
+    </button>
+    <button
+      class="px-5 py-2 rounded-full bg-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white transition-all duration-300 transform hover:scale-105">
+      🎭 Teatro
+    </button>
+    <button
+      class="px-5 py-2 rounded-full bg-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white transition-all duration-300 transform hover:scale-105">
+      🎤 Conferencias
+    </button>
   </div>
-</section>
+
+<!-- Cards Tendencias-->
+  <section id="eventos" class="py-24 bg-white border-t border-gray-100">
+    <div class="max-w-7xl mx-auto pl-4 md:px-8">
+
+      <div class="mb-12 text-left">
+        <h2 class="text-5xl font-bold text-black mb-3 tracking-tight">Tendencias.</h2>
+        <p class="text-xl text-gray-500 font-medium">Lo que todo el mundo está buscando.</p>
+      </div>
+
+      <div class="w-full relative group">
+        <div class="flex overflow-x-auto pb-12 snap-x snap-mandatory gap-8 no-scrollbar"
+          style="scroll-padding-left: 0;">
+
+          <div *ngFor="let event of events"
+            class="snap-start shrink-0 w-[85vw] sm:w-[380px] transition-transform duration-300 hover:-translate-y-2 cursor-pointer"
+            [routerLink]="['/event', event.id]">
+
+            <div
+              class="relative h-[500px] rounded-[32px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 ease-out group/card bg-gray-100 border border-gray-200 transform-gpu z-0"
+              style="-webkit-mask-image: -webkit-radial-gradient(white, black);">
+
+              <img [src]="event.image" [alt]="event.title"
+                class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-105">
+
+              <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+
+              <div class="absolute bottom-0 left-0 p-8 w-full text-left">
+                <span
+                  class="inline-block px-3 py-1 mb-3 text-[10px] font-bold tracking-widest text-white uppercase bg-white/20 backdrop-blur-md rounded-full border border-white/10">
+                  {{ event.categoria_name }}
+                </span>
+
+                <h3 class="text-3xl font-bold text-white mb-2 leading-none">
+                  {{ event.title }}
+                </h3>
+
+                <p class="text-gray-300 font-medium text-sm flex items-center gap-2 mt-3">
+                  <i class="bi bi-calendar"></i>
+                  {{ event.date | date:'mediumDate' }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="w-8 shrink-0"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <app-footer></app-footer>
 </main>

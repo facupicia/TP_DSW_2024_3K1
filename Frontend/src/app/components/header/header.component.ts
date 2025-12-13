@@ -38,7 +38,12 @@ export class HeaderComponent {
 
 
   isLoggedIn = typeof localStorage !== 'undefined' && localStorage.getItem('token') !== null;
-  showTooltip = false
+  showTooltip = false;
+  isMenuOpen = false;
+
+  toggleMenu() {
+    this.isMenuOpen = !this.isMenuOpen;
+  }
 
 
   crearEvento(): void {

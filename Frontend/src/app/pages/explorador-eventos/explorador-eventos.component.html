@@ -1,61 +1,134 @@
-<main>
-
+<main class="min-h-screen bg-gray-50 pb-20">
     <app-header></app-header>
 
-    <div class="container py-6 d-flex flex-column justify-content-center custom-mobile" style=" min-height: 100vh;">
+    <div class="pt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
 
-        <div class="mb-3" style="margin-top: 100px;">
-            <label for="categoriaSelect">Filtrar por categoría:</label>
-            <select id="categoriaSelect" class="form-select" [(ngModel)]="categoriaSeleccionada" (change)="filtrarEventos()">
-                <option value="">Todas</option>
-                <option *ngFor="let categoria of categorias" [value]="categoria">{{ categoria }}</option>
-            </select>
-        </div>
-
-        <h3>Eventos Destacados</h3>
-
-
-        <div class="col-md-4 mb-3 w-100 shadow" *ngFor="let evento of eventos">
-            <div class="card d-flex flex-column" *ngIf="evento.destacado">
-
-                <img class="w-100" [src]="evento.image" alt="Imagen del evento destacado"
-                    style="height: 300px; object-fit: cover;">
-
-                <div class="card-body">
-                    <div class="rounded-pill text-bg-secondary m-2"
-                        style="padding: 2,5px 0px; width: 100px; text-align: center; opacity: 50%;"><strong
-                            class="fw-light">{{evento.categoria_name}}</strong></div>
-                    <h5>{{ evento.title | uppercase }}</h5>
-                    <p class="mb-0">{{ evento.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy' }}</p>
-                    <small>Evento Destacado</small>
+        <!-- Filter Section -->
+        <div class="mb-12 animate-fade-in">
+            <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900 mb-2">Explora Eventos</h1>
+                    <p class="text-gray-500">Encuentra la experiencia perfecta para ti</p>
                 </div>
-                <button class="btn btn-primary w-50 mx-auto mb-3" (click)="verEvento(evento.id!)">Ver más</button>
-
-            </div>
-        </div>
-
-
-        <h3 class="mt-5">Todos los Eventos</h3>
-        <div class="row">
-            <div class="col-md-4 mb-3"  *ngFor="let evento of eventosFiltrados">
-                <div class="card shadow" *ngIf="!evento.destacado">
-                    <img class="card-img-top" [src]="evento.image" alt="Imagen del evento"
-                        style="height: 200px; object-fit: cover;">
-                    <div class="card-body bg-light">
-                        <div class="rounded-pill text-bg-secondary m-2"
-                            style="padding: 2,5px 0px; width: 100px; text-align: center; opacity: 50%;"><strong
-                                class="fw-light">{{evento.categoria_name}}</strong></div>
-                        <h5 class="card-title">{{ evento.title | uppercase }}</h5>
-                        <p class="card-text">{{ evento.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy'}}</p>
-                        <button class="btn btn-primary w-50 mx-auto d-block"
-                            (click)="verEvento(evento.id!)">Ver más</button>
+                <div class="w-full md:w-72">
+                    <label for="categoriaSelect" class="block text-sm font-medium text-gray-700 mb-2">Filtrar por
+                        categoría</label>
+                    <div class="relative">
+                        <select id="categoriaSelect" [(ngModel)]="categoriaSeleccionada" (change)="filtrarEventos()"
+                            class="block w-full rounded-xl border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-3 pl-4 pr-10 text-base transition bg-white appearance-none cursor-pointer hover:border-blue-300">
+                            <option value="">Todas las categorías</option>
+                            <option *ngFor="let categoria of categorias" [value]="categoria">{{ categoria }}</option>
+                        </select>
+                        <div
+                            class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Featured Events -->
+        <div *ngIf="tieneEventosDestacados()" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Eventos Destacados</h2>
+            <div class="space-y-8">
+                <div *ngFor="let evento of eventos" class="group">
+                    <div *ngIf="evento.destacado"
+                        class="bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition duration-300 grid md:grid-cols-2 min-h-[400px]">
+                        <div class="relative h-64 md:h-full overflow-hidden">
+                            <img [src]="evento.image" alt="Imagen del evento destacado"
+                                class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                            <div class="absolute top-4 left-4">
+                                <span
+                                    class="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider text-black shadow-sm">
+                                    {{evento.categoria_name}}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-8 md:p-12 flex flex-col justify-center">
+                            <span
+                                class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mb-4 w-fit">
+                                <span class="mr-1">⭐</span> Destacado
+                            </span>
+                            <h3 class="text-3xl font-bold text-gray-900 mb-4">{{ evento.title }}</h3>
+                            <p class="text-gray-500 mb-8 flex items-center text-lg">
+                                <svg class="w-5 h-5 mr-3 text-blue-500" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                                {{ evento.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy' }}
+                            </p>
+                            <button (click)="verEvento(evento.id!)"
+                                class="inline-flex items-center px-8 py-3 rounded-full text-white bg-blue-600 hover:bg-blue-700 font-semibold transition shadow-lg hover:shadow-xl w-fit">
+                                Ver Detalles
+                                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Events Grid -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Todos los Eventos</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Using ng-container to filter in loop if needed, but here we iterate over 'eventosFiltrados' -->
+                <ng-container *ngFor="let evento of eventosFiltrados">
+                    <div *ngIf="!evento.destacado"
+                        class="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-300 transform hover:-translate-y-1 flex flex-col h-full">
+                        <div class="relative h-56 overflow-hidden">
+                            <img [src]="evento.image" alt="Imagen del evento"
+                                class="w-full h-full object-cover transition duration-500 group-hover:scale-110">
+                            <div class="absolute top-4 left-4">
+                                <span
+                                    class="px-3 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-black shadow-sm">
+                                    {{evento.categoria_name}}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-6 flex flex-col flex-1">
+                            <h5 class="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{{ evento.title }}</h5>
+                            <p class="text-gray-500 mb-4 text-sm flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                                {{ evento.date | date: 'dd/MM/yyyy' }}
+                            </p>
+                            <button (click)="verEvento(evento.id!)"
+                                class="mt-auto w-full py-3 rounded-xl border border-blue-100 text-blue-600 font-semibold hover:bg-blue-50 transition">
+                                Ver Detalles
+                            </button>
+                        </div>
+                    </div>
+                </ng-container>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="eventosFiltrados.length === 0"
+                class="text-center py-20 bg-white rounded-3xl shadow-sm border border-dashed border-gray-300">
+                <div
+                    class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+                    <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h4 class="text-xl font-bold text-gray-900 mb-1">No se encontraron eventos</h4>
+                <p class="text-gray-500">Prueba con otra categoría</p>
+            </div>
+        </div>
     </div>
-
-
-
 
 </main>

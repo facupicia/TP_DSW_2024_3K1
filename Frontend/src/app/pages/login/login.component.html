@@ -1,53 +1,67 @@
-<main>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg border-bottom position-absolute top-0 w-100" style="background-color: #e3f2fd;">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">EventLife</a>
-    </div>
+<main class="animate-fade-in min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50">
+  <!-- Minimal Header for Login -->
+  <nav class="absolute top-0 w-full p-6">
+    <a href="#" class="text-2xl font-bold text-gray-900">EventLife</a>
   </nav>
 
-
-  <div class="d-flex justify-content-center align-items-center vh-100  custom-mobile">
-    <div class="row border shadow-lg w-75 rounded overflow-hidden custom-mobile-1">
-
-      <div class="col-md-6 d-flex align-items-center justify-content-center left bg-light p-5">
-
-        <form [formGroup]="formLogin" class="w-100">
-          <h3 class="mb-4 text-primary">Bienvenido a EventLife</h3>
-
-          <div class="mb-3">
-            <label for="email" class="form-label">Correo electrónico</label>
-            <input type="email" class="form-control" id="email" aria-describedby="emailHelp" formControlName="email"
-              required [ngClass]="{'is-invalid': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
-            <div id="emailHelp" class="form-text">No compartas tus datos con nadie.</div>
-            <div class="invalid-feedback" *ngIf="formLogin.get('email')?.invalid && formLogin.get('email')?.touched">
-              Por favor, ingresa un correo electrónico válido.
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label for="password" class="form-label">Contraseña</label>
-            <input type="password" class="form-control" id="password" formControlName="password" required
-              [ngClass]="{'is-invalid': formLogin.get('password')?.invalid && formLogin.get('password')?.touched}">
-            <div class="invalid-feedback"
-              *ngIf="formLogin.get('password')?.invalid && formLogin.get('password')?.touched">
-              Por favor, ingresa una contraseña válida.
-            </div>
-          </div>
-
-          <button type="button" class="btn btn-primary w-100 mt-3" (click)="iniciarSesion()"
-            [disabled]="formLogin.invalid">Entrar</button>
-        </form>
-
+  <div class="w-full max-w-4xl grid md:grid-cols-2 bg-white rounded-3xl shadow-2xl overflow-hidden">
+    <!-- Left Side: Form -->
+    <div class="p-8 md:p-12 flex flex-col justify-center">
+      <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 mb-2">Bienvenido</h2>
+        <p class="text-gray-500">Ingresa tus datos para continuar.</p>
       </div>
 
+      <form [formGroup]="formLogin" class="space-y-6">
+        <div>
+          <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Correo electrónico</label>
+          <div class="mt-2">
+            <input type="email" id="email" formControlName="email"
+              class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+              [ngClass]="{'ring-red-300 focus:ring-red-500': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
+            <p *ngIf="formLogin.get('email')?.invalid && formLogin.get('email')?.touched"
+              class="mt-2 text-sm text-red-600">
+              Ingresa un correo válido.
+            </p>
+          </div>
+        </div>
 
-      <div class="col-md-6 bg-primary text-white text-center d-flex flex-column justify-content-center right p-5">
-        <h4 class="mb-3">¿Aún no tienes una cuenta?</h4>
-        <p class="lead fw-light">¡Regístrate hoy y comienza a disfrutar de todos los beneficios que ofrecemos!</p>
-        <a href="register" class="btn btn-outline-light btn-lg mt-3">Registrarse</a>
+        <div>
+          <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Contraseña</label>
+          <div class="mt-2">
+            <input type="password" id="password" formControlName="password"
+              class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+              [ngClass]="{'ring-red-300 focus:ring-red-500': formLogin.get('password')?.invalid && formLogin.get('password')?.touched}">
+            <p *ngIf="formLogin.get('password')?.invalid && formLogin.get('password')?.touched"
+              class="mt-2 text-sm text-red-600">
+              Ingresa tu contraseña.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <button type="button" (click)="iniciarSesion()" [disabled]="formLogin.invalid"
+            class="flex w-full justify-center rounded-md bg-black px-3 py-2.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            Iniciar Sesión
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right Side: CTA -->
+    <div
+      class="relative hidden md:flex flex-col justify-center items-center text-center p-12 bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+      <div class="relative z-10">
+        <h3 class="text-3xl font-bold mb-4">¿Nuevo aquí?</h3>
+        <p class="text-lg opacity-90 mb-8 max-w-xs mx-auto">Regístrate y descubre los mejores eventos de tu ciudad.</p>
+        <a href="register"
+          class="inline-block px-8 py-3 border-2 border-white rounded-full font-semibold hover:bg-white hover:text-blue-600 transition duration-300">
+          Crear Cuenta
+        </a>
       </div>
-
+      <!-- Decorative circle -->
+      <div class="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-black/10 rounded-full blur-3xl"></div>
     </div>
   </div>
 </main>

@@ -1,129 +1,100 @@
-<main>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg border-bottom position-absolute top-0 w-100" style="background-color: #e3f2fd;">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">EventLife</a>
-    </div>
+<main class="animate-fade-in min-h-screen flex flex-col bg-gray-50">
+  <nav class="w-full p-6">
+    <a href="#" class="text-2xl font-bold text-gray-900">EventLife</a>
   </nav>
 
-  <div class="d-flex justify-content-center align-items-center vh-100 bg-light custom-mobile">
-    <div class="row w-100 justify-content-center">
-      <div class="col-md-6 col-lg-8">
-
-        <form [formGroup]="formRegistro" class="p-4 rounded shadow bg-white custom-mobile-1">
-          <h3 class="mb-4 text-center text-primary">Regístrate en Eventlife</h3>
-
-          <!-- Agrupación en dos columnas -->
-
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="firstname" class="form-label">Nombre</label>
-                <input type="text" class="form-control" id="firstname" formControlName="firstname" required
-                  [ngClass]="{'is-invalid': formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched}">
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched">
-                  El nombre es requerido.
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="lastname" class="form-label">Apellido</label>
-                <input type="text" class="form-control" id="lastname" formControlName="lastname" required
-                  [ngClass]="{'is-invalid': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched">
-                  El apellido es requerido.
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <div class="row">
-
-            <div class="col-md-6">
-
-              <div class="mb-3">
-                <label for="email" class="form-label">Correo Electrónico</label>
-                <input type="email" class="form-control" id="email" formControlName="email" aria-describedby="emailHelp"
-                  required
-                  [ngClass]="{'is-invalid': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
-                <div id="emailHelp" class="form-text">Nunca compartas tus datos con nadie.</div>
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched">
-                  Por favor, ingresa un correo electrónico válido.
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="phone" class="form-label">Teléfono</label>
-                <input (input)="formatPhoneNumber($event)" type="text" class="form-control" id="phone"
-                  formControlName="phone" required
-                  [ngClass]="{'is-invalid': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}"
-                  mask="+0 (000) 000-0000" />
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched">
-                  Por favor, ingresa un número de teléfono válido.
-                </div>
-              </div>
-            </div>
-
-          </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="location" class="form-label">Dirección</label>
-                <input type="text" class="form-control" id="location" formControlName="location" required
-                  [ngClass]="{'is-invalid': formRegistro.get('location')?.invalid && formRegistro.get('location')?.touched}">
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('location')?.invalid && formRegistro.get('location')?.touched">
-                  La dirección es requerida.
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="birth" class="form-label">Fecha de Nacimiento</label>
-                <input type="date" class="form-control" id="birth" formControlName="birth" required
-                  [ngClass]="{'is-invalid': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched">
-                  La fecha de nacimiento es requerida.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="password" class="form-label">Contraseña</label>
-                <input type="password" class="form-control" id="password" formControlName="password" required
-                  [ngClass]="{'is-invalid': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
-                <div class="invalid-feedback"
-                  *ngIf="formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched">
-                  La contraseña es requerida.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="d-grid">
-            <button type="button" class="btn btn-primary" (click)="registrarse()"
-              [disabled]="formRegistro.invalid">Registrarse</button>
-          </div>
-
-        </form>
-
+  <div class="flex-grow flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-white rounded-3xl shadow-xl overflow-hidden p-8 md:p-12">
+      <div class="text-center mb-10">
+        <h2 class="text-3xl font-bold text-gray-900 mb-2">Crea tu cuenta</h2>
+        <p class="text-gray-500">Únete a EventLife y empieza a vivir experiencias únicas.</p>
       </div>
+
+      <form [formGroup]="formRegistro" class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="firstname" class="block text-sm font-medium leading-6 text-gray-900">Nombre</label>
+            <div class="mt-2">
+              <input type="text" id="firstname" formControlName="firstname"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched}">
+            </div>
+          </div>
+
+          <div>
+            <label for="lastname" class="block text-sm font-medium leading-6 text-gray-900">Apellido</label>
+            <div class="mt-2">
+              <input type="text" id="lastname" formControlName="lastname"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email</label>
+            <div class="mt-2">
+              <input type="email" id="email" formControlName="email"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
+            </div>
+          </div>
+
+          <div>
+            <label for="phone" class="block text-sm font-medium leading-6 text-gray-900">Teléfono</label>
+            <div class="mt-2">
+              <input (input)="formatPhoneNumber($event)" type="text" id="phone" formControlName="phone"
+                mask="+0 (000) 000-0000"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="location" class="block text-sm font-medium leading-6 text-gray-900">Dirección</label>
+            <div class="mt-2">
+              <input type="text" id="location" formControlName="location"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('location')?.invalid && formRegistro.get('location')?.touched}">
+            </div>
+          </div>
+
+          <div>
+            <label for="birth" class="block text-sm font-medium leading-6 text-gray-900">Fecha de Nacimiento</label>
+            <div class="mt-2">
+              <input type="date" id="birth" formControlName="birth"
+                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+                [ngClass]="{'ring-red-300': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Contraseña</label>
+          <div class="mt-2">
+            <input type="password" id="password" formControlName="password"
+              class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
+              [ngClass]="{'ring-red-300': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
+          </div>
+        </div>
+
+        <div>
+          <button type="button" (click)="registrarse()" [disabled]="formRegistro.invalid"
+            class="flex w-full justify-center rounded-md bg-black px-3 py-3 text-lg font-semibold leading-6 text-white shadow-sm hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
+            Registrarse
+          </button>
+        </div>
+
+        <div class="text-center mt-6">
+          <p class="text-sm text-gray-500">
+            ¿Ya tienes cuenta?
+            <a href="login" class="font-semibold text-blue-600 hover:text-blue-500">Inicia Sesión</a>
+          </p>
+        </div>
+      </form>
     </div>
   </div>
 </main>

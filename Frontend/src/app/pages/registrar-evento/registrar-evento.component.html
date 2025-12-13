@@ -1,155 +1,147 @@
-<main>
+<main class="min-h-screen bg-gray-50 pb-20">
   <app-header></app-header>
 
-  <div class="d-flex justify-content-center align-items-center bg-light custom-mobile" style="min-height: 100vh;">
-    <div class="row w-100 justify-content-center">
-      <div class="col-md-6 col-lg-8">
-        <form class="p-4 bg-white" [formGroup]="formRegistroEvento" (ngSubmit)="createEvent()">
-          <h3 class="mb-4 text-center text-primary">Crea tu Evento</h3>
+  <div class="pt-24 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+        <div class="p-8 md:p-12">
+          <div class="text-center mb-10">
+            <h2 class="text-3xl font-bold text-gray-900">Crea tu Evento</h2>
+            <p class="text-gray-500 mt-2">Comparte tu experiencia con el mundo</p>
+          </div>
 
-          <!-- Agrupación en dos columnas -->
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Nombre del Evento</label>
-                <input formControlName="title" type="text" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('title')?.invalid && formRegistroEvento.get('title')?.touched}"
-                  required>
-                <div *ngIf="formRegistroEvento.get('title')?.invalid && formRegistroEvento.get('title')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
+          <form [formGroup]="formRegistroEvento" (ngSubmit)="createEvent()" class="space-y-8">
+
+            <!-- Section 1: Basic Info -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre del Evento</label>
+                <input formControlName="title" type="text"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('title')?.invalid && formRegistroEvento.get('title')?.touched}">
+                <p *ngIf="formRegistroEvento.get('title')?.invalid && formRegistroEvento.get('title')?.touched"
+                  class="mt-1 text-sm text-red-600">
                   El nombre del evento es obligatorio.
-                </div>
+                </p>
               </div>
-            </div>
 
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Descripción</label>
-                <input formControlName="description" type="text" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('description')?.invalid && formRegistroEvento.get('description')?.touched}"
-                  maxlength="500" required>
-                <div
-                  *ngIf="formRegistroEvento.get('description')?.invalid && formRegistroEvento.get('description')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
+              <div class="col-span-1 md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                <textarea formControlName="description" rows="4" maxlength="500"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('description')?.invalid && formRegistroEvento.get('description')?.touched}"></textarea>
+                <p *ngIf="formRegistroEvento.get('description')?.invalid && formRegistroEvento.get('description')?.touched"
+                  class="mt-1 text-sm text-red-600">
                   La descripción es obligatoria y debe tener hasta 500 caracteres.
-                </div>
+                </p>
               </div>
 
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label">Categoría Evento</label>
-              <select formControlName="category" class="form-select"
-                [ngClass]="{'is-invalid': formRegistroEvento.get('category')?.invalid && formRegistroEvento.get('category')?.touched}">
-                <option value="" disabled selected>Selecciona una categoría</option>
-                <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
-              </select>
-              <div *ngIf="formRegistroEvento.get('category')?.invalid && formRegistroEvento.get('category')?.touched"
-                class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
-                La categoría del evento es obligatoria.
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+                <select formControlName="category"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('category')?.invalid && formRegistroEvento.get('category')?.touched}">
+                  <option value="" disabled selected>Selecciona una categoría</option>
+                  <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
+                </select>
+                <p *ngIf="formRegistroEvento.get('category')?.invalid && formRegistroEvento.get('category')?.touched"
+                  class="mt-1 text-sm text-red-600">
+                  Selecciona una categoría.
+                </p>
               </div>
-            </div>
 
-          </div>
-
-          <div class="row">
-
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Capacidad</label>
-                <input formControlName="capacity" type="number" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('capacity')?.invalid && formRegistroEvento.get('capacity')?.touched}"
-                  required min="1">
-                <div *ngIf="formRegistroEvento.get('capacity')?.invalid && formRegistroEvento.get('capacity')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
-                  La capacidad es obligatoria y debe ser de al menos 10 personas.
-                </div>
-              </div>
-            </div>
-
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Ubicación</label>
-                <input formControlName="location" type="text" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('location')?.invalid && formRegistroEvento.get('location')?.touched}"
-                  required>
-                <div *ngIf="formRegistroEvento.get('location')?.invalid && formRegistroEvento.get('location')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ubicación</label>
+                <input formControlName="location" type="text"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('location')?.invalid && formRegistroEvento.get('location')?.touched}">
+                <p *ngIf="formRegistroEvento.get('location')?.invalid && formRegistroEvento.get('location')?.touched"
+                  class="mt-1 text-sm text-red-600">
                   La ubicación es obligatoria.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 2: Details -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 border-t border-gray-100 pt-8">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Capacidad</label>
+                <input formControlName="capacity" type="number" min="1"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('capacity')?.invalid && formRegistroEvento.get('capacity')?.touched}">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Precio</label>
+                <div class="relative rounded-md shadow-sm">
+                  <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="text-gray-500 sm:text-sm">$</span>
+                  </div>
+                  <input formControlName="price" type="number" min="0"
+                    class="block w-full rounded-lg border-gray-300 pl-7 pr-12 focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                    [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('price')?.invalid && formRegistroEvento.get('price')?.touched}">
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Precio</label>
-                <input formControlName="price" required min="1" type="number" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('price')?.invalid && formRegistroEvento.get('price')?.touched}"
-                  required>
-                <div *ngIf="formRegistroEvento.get('price')?.invalid && formRegistroEvento.get('price')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
-                  El precio es obligatorio.
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Imagen</label>
-                <input formControlName="image" type="text" class="form-control" required>
-              </div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Fecha</label>
-                <input formControlName="date" type="date" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('date')?.invalid && formRegistroEvento.get('date')?.touched}"
-                  required>
-                <div *ngIf="formRegistroEvento.get('date')?.invalid && formRegistroEvento.get('date')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
-                  La fecha del evento es obligatoria.
-                </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Imagen URL</label>
+                <input formControlName="image" type="text"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition">
               </div>
             </div>
 
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label class="form-label">Hora</label>
-                <input formControlName="time" type="time" class="form-control"
-                  [ngClass]="{'is-invalid': formRegistroEvento.get('time')?.invalid && formRegistroEvento.get('time')?.touched}"
-                  required>
-                <div *ngIf="formRegistroEvento.get('time')?.invalid && formRegistroEvento.get('time')?.touched"
-                  class="text-danger" style="font-size: 0.875rem; margin-top: 4px;">
-                  La hora del evento es obligatoria.
-                </div>
+            <!-- Section 3: Date & Time -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-gray-100 pt-8">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                <input formControlName="date" type="date"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('date')?.invalid && formRegistroEvento.get('date')?.touched}">
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Hora</label>
+                <input formControlName="time" type="time"
+                  class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-3 transition"
+                  [ngClass]="{'border-red-300 focus:border-red-500 focus:ring-red-500': formRegistroEvento.get('time')?.invalid && formRegistroEvento.get('time')?.touched}">
               </div>
             </div>
-          </div>
 
-          <div class="d-flex justify-content-md-end gap-4">
-            <button type="submit" class="btn btn-primary " style="width: 150px;">Crear</button>
-            <a type="button" class="btn btn-danger" href="/profile">Cancelar</a>
-          </div>
+            <!-- Actions -->
+            <div class="flex items-center justify-end gap-4 pt-8 border-t border-gray-100">
+              <a href="/profile"
+                class="px-6 py-3 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition">
+                Cancelar
+              </a>
+              <button type="submit" [disabled]="!formRegistroEvento.valid"
+                class="px-8 py-3 rounded-lg text-sm font-semibold text-white bg-black hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-lg hover:shadow-xl">
+                Crear Evento
+              </button>
+            </div>
 
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   </div>
 
-  <div *ngIf="feedbackMessage" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
-    <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-      <div class="toast-header"
-        [ngClass]="{'bg-success text-white': feedbackSuccess, 'bg-danger text-white': !feedbackSuccess}">
-        <strong class="me-auto">Notificación</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+  <!-- Toast Notification -->
+  <div *ngIf="feedbackMessage" class="fixed top-20 right-4 z-50 animate-fade-in-left">
+    <div [ngClass]="{'bg-green-500': feedbackSuccess, 'bg-red-500': !feedbackSuccess}"
+      class="rounded-lg shadow-lg p-4 text-white flex items-center gap-3 min-w-[300px]">
+      <div *ngIf="feedbackSuccess">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
       </div>
-      <div class="toast-body">
-        {{ feedbackMessage }}
+      <div *ngIf="!feedbackSuccess">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
       </div>
+      <p class="font-medium text-sm">{{ feedbackMessage }}</p>
     </div>
   </div>
 

@@ -1,41 +1,44 @@
-<section class="py-5" style="background-color: #f8f9fa;">
-  <div class="container">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+  <div *ngFor="let event of events" class="group">
+    <div
+      class="glass glass-hover h-full rounded-2xl overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2">
+      <!-- Image Container -->
+      <div class="relative h-64 overflow-hidden">
+        <img [src]="event.image" [alt]="event.title"
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+        <div class="absolute top-4 left-4">
+          <span
+            class="px-4 py-1 bg-white/90 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-black shadow-sm">
+            {{event.categoria_name}}
+          </span>
+        </div>
+      </div>
 
-    <h2 class="display-4 font-weight-bold text-center mb-5 text-primary">Eventos Populares</h2> 
-
-    <!-- Carrusel -->
-    <div id="carouselExampleAutoplaying" class="carousel slide position-relative" data-bs-ride="carousel">
-      <div class="carousel-inner">
-        <div class="carousel-item" *ngFor="let eventGroup of eventGroups; let first = first" [class.active]="first">
-          <div class="row justify-content-center">
-            <div class="col-md-4" *ngFor="let event of eventGroup">
-              <div class="card shadow-sm event-card">
-                <img class="card-img-top" [src]="event.image" [alt]="'Imagen del Evento ' + event.title">
-                <div class="rounded-pill text-bg-secondary m-2" style="padding: 2,5px 0px; width: 100px; text-align: center; opacity: 50%;"><strong class="fw-light">{{event.categoria_name}}</strong></div>
-                <div class="card-body text-center d-flex flex-column">
-                  <h5 class="card-title">{{ event.title }}</h5>
-                  <p class="card-text">{{ event.date | date: 'EEEE, d \'de\' MMMM \'de\' yyyy' }}</p>
-                  <a class="btn btn-primary btn-lg mt-auto" href="/event/{{event.id}}" role="button">
-                    Comprar Entradas
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
+      <!-- Content -->
+      <div class="p-6 flex-1 flex flex-col text-left">
+        <div class="flex items-center text-sm text-gray-500 mb-3">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+          </svg>
+          {{ event.date | date: 'dd/MM/yyyy' }}
         </div>
 
-        <!-- Controles del carrusel -->
-        <button class="carousel-control-prev custom-control" type="button" data-bs-target="#carouselExampleAutoplaying"
-        data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Anterior</span>
-      </button>
-      <button class="carousel-control-next custom-control" type="button" data-bs-target="#carouselExampleAutoplaying"
-        data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Siguiente</span>
-      </button>
+        <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tightGroup group-hover:text-blue-600 transition-colors">
+          {{ event.title }}
+        </h3>
+
+        <div class="mt-auto pt-6">
+          <a href="/event/{{event.id}}"
+            class="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 transition">
+            Ver Evento
+            <svg class="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
-</section>
