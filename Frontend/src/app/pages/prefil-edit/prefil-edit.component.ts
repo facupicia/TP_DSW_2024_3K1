@@ -2,7 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router'; // <--- Agregamos RouterLink
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -10,11 +10,13 @@ import { HeaderComponent } from '../../components/header/header.component';
 @Component({
   selector: 'app-prefil-edit',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, HeaderComponent],
+  imports: [ReactiveFormsModule, CommonModule, HeaderComponent, RouterLink], // <--- Lo agregamos aquí
   templateUrl: './prefil-edit.component.html',
   styleUrl: './prefil-edit.component.css'
 })
 export class PrefilEditComponent implements OnInit {
+  // ... resto de tu código igual ...
+  // No hace falta tocar la lógica, ya funciona bien.
   private AccesService = inject(AuthService);
   private router = inject(Router);
   private toastService = inject(ToastService);
@@ -40,7 +42,7 @@ export class PrefilEditComponent implements OnInit {
     if (token) {
       this.AccesService.getProfile().subscribe({
         next: (data) => {
-          this.userId = data.id;  // Almacena el ID del usuario
+          this.userId = data.id;
           this.formEditarPerfil.patchValue({
             imgPerfil: data.imgPerfil,
             firstname: data.firstname,
@@ -58,7 +60,7 @@ export class PrefilEditComponent implements OnInit {
   }
 
   actualizarPerfil() {
-    if (this.userId) { // Asegurarse de que el userId esté disponible
+    if (this.userId) {
       const objeto: UsuarioEdit = {
         id: Number(this.userId),
         firstname: this.formEditarPerfil.value.firstname,
@@ -78,7 +80,6 @@ export class PrefilEditComponent implements OnInit {
         },
         error: (error) => {
           this.toastService.error('Error al actualizar el perfil');
-          console.error('Error al actualizar el usuario:', error);
         }
       });
     } else {
@@ -86,8 +87,4 @@ export class PrefilEditComponent implements OnInit {
     }
     localStorage.removeItem('cachedProfile');
   }
-
-
-
 }
-

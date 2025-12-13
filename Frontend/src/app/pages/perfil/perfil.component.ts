@@ -1,27 +1,30 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common'; // Importante para *ngIf
+import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { AuthService } from '../../services/auth.service';
-import { Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
-import { Evento } from '../../interfaces/event.js';
-import { CommonModule } from '@angular/common';
+import { Evento } from '../../interfaces/event';
 
 @Component({
   selector: 'app-perfil',
   standalone: true,
   imports: [HeaderComponent, CommonModule],
   templateUrl: './perfil.component.html',
-  styleUrl: './perfil.component.css'
+  // Ya no necesitamos styleUrl porque usamos Tailwind en el HTML
+  // styleUrl: './perfil.component.css' 
 })
-
-
 export class PerfilComponent implements OnInit {
   userProfile: any = {};
   eventos: Evento[] = [];
   tieneEventos: boolean = false;
   esAdmin: boolean = false;
 
-  constructor(private profileService: AuthService, private router: Router, private eventoService: EventService) { }
+  constructor(
+    private profileService: AuthService, 
+    private router: Router, 
+    private eventoService: EventService
+  ) { }
 
   ngOnInit(): void {
     if (typeof window !== 'undefined') {
@@ -30,21 +33,22 @@ export class PerfilComponent implements OnInit {
         this.profileService.getProfile().subscribe({
           next: (data) => {
             this.userProfile = data;
-            if (data.rol == "admin") {
-              this.esAdmin = true
+            // Verificamos si es admin de forma segura
+            if (data.rol === "admin") {
+              this.esAdmin = true;
             }
+            // Una vez tenemos el perfil, verificamos los eventos
+            this.verificarEventos();
           },
           error: (err) => {
-            console.error('Error al obtener el perfil:', err);
-            this.router.navigate(['/login']); // Redirige a login si hay un error
+            console.error('Error al obtener perfil:', err);
+            this.router.navigate(['/login']);
           },
         });
       } else {
-        this.router.navigate(['/login']); // Redirige a login si no hay token
+        this.router.navigate(['/login']);
       }
     }
-
-    this.verificarEventos();
   }
 
   verificarEventos() {
@@ -54,34 +58,31 @@ export class PerfilComponent implements OnInit {
         this.tieneEventos = data && data.length > 0;
       },
       error: (err) => {
-        console.error('Error al obtener los eventos:', err);
+        console.error('Error al obtener eventos:', err);
       },
     });
   }
 
-
+  // --- Navegación ---
   panelAdmin() {
-    this.router.navigate(['/admin'])
+    this.router.navigate(['/admin']);
   }
 
   editProfile() {
-    this.router.navigate([`/profile/${this.userProfile.id}`]);
+    // Si tienes el ID en userProfile, úsalo. Si no, ajusta la ruta.
+    if(this.userProfile.id) {
+        this.router.navigate([`/profile/${this.userProfile.id}`]);
+    }
   }
 
   showOrders() {
-    this.router.navigate(['/my-tickets', this.userProfile.id]);
+    if(this.userProfile.id) {
+        this.router.navigate(['/my-tickets', this.userProfile.id]);
+    }
   }
 
-
-
-
-  crearEvento(): void {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.router.navigate(['/create-event']);
-    } else {
-      this.router.navigate(['/login']);
-    }
+  misEventos() {
+    this.router.navigate(['/my-events']);
   }
 
   logout() {
@@ -89,9 +90,4 @@ export class PerfilComponent implements OnInit {
     localStorage.removeItem('cachedProfile');
     this.router.navigate(['/']);
   }
-
-  misEventos() {
-    this.router.navigate(['/my-events']);
-  }
-
 }

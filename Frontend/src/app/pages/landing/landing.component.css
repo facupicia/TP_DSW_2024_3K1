@@ -41,8 +41,17 @@
 
 /* Animación de Levitación Suave */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-12px); } /* Sube 12px suavemente */
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+
+  /* Sube 12px suavemente */
 }
 
 .animate-float {
@@ -51,5 +60,12 @@
 
 /* Una versión con retraso para que no se muevan las dos tarjetas al mismo tiempo */
 .animate-float-delayed {
-  animation: float 6s ease-in-out infinite 3s; /* Empieza 3 segundos después */
+  animation: float 6s ease-in-out infinite 3s;
+  /* Empieza 3 segundos después */
+}
+
+/* Mask Image Compatibility */
+.card-mask {
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: radial-gradient(white, black);
 }

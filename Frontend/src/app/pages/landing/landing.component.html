@@ -14,7 +14,7 @@
 
   </section>
 
-<!-- Cards -->
+  <!-- Cards -->
   <section class="px-4 max-w-7xl mx-auto -mt-16 relative z-40 pb-20">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 
@@ -58,7 +58,7 @@
     </div>
   </section>
 
-<!-- Categories decorativo-->
+  <!-- Categories decorativo-->
   <div class="mt-8 flex flex-wrap justify-center gap-3 animate-fade-in-up delay-200">
     <button
       class="px-5 py-2 rounded-full bg-gray-100 text-sm font-medium text-gray-600 hover:bg-black hover:text-white transition-all duration-300 transform hover:scale-105">
@@ -78,7 +78,7 @@
     </button>
   </div>
 
-<!-- Cards Tendencias-->
+  <!-- Cards Tendencias-->
   <section id="eventos" class="py-24 bg-white border-t border-gray-100">
     <div class="max-w-7xl mx-auto pl-4 md:px-8">
 
@@ -96,8 +96,7 @@
             [routerLink]="['/event', event.id]">
 
             <div
-              class="relative h-[500px] rounded-[32px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 ease-out group/card bg-gray-100 border border-gray-200 transform-gpu z-0"
-              style="-webkit-mask-image: -webkit-radial-gradient(white, black);">
+              class="relative h-[500px] rounded-[32px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 ease-out group/card bg-gray-100 border border-gray-200 transform-gpu z-0 card-mask">
 
               <img [src]="event.image" [alt]="event.title"
                 class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-105">
