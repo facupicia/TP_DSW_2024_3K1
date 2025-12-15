@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { environment } from '../../environments/environment.development';
+import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Evento } from '../interfaces/event';
 import { Observable, tap } from 'rxjs';
@@ -11,7 +11,7 @@ import { Observable, tap } from 'rxjs';
 export class EventService {
 
   private http = inject(HttpClient);
-  private urlBase: string = environment.apiUrl + "/event/";
+  private urlBase: string = environment.apiUrl + "/event";
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
@@ -29,15 +29,15 @@ export class EventService {
   }
 
   obtenerEvento(id: number): Observable<Evento> {
-    return this.http.get<Evento>(`${this.urlBase}${id}`);
+    return this.http.get<Evento>(`${this.urlBase}/${id}`);
   }
 
   borrarEvento(id: number): Observable<Evento> {
-    return this.http.delete<Evento>(`${this.urlBase}${id}`);
+    return this.http.delete<Evento>(`${this.urlBase}/${id}`);
   }
 
   actualizarEvento(id: number, objeto: Evento): Observable<Evento> {
-    return this.http.put<Evento>(`${this.urlBase}${id}`, objeto,);
+    return this.http.put<Evento>(`${this.urlBase}/${id}`, objeto,);
   }
 
   searchEventsByName(searchTerm: string): Observable<any> {

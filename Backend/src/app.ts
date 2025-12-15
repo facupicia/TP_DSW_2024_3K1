@@ -16,8 +16,15 @@ app.use(express.urlencoded({ extended: false }))
 
 // Security Middleware
 app.use(helmet()); // Set secure HTTP headers
+const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
+    .split(",")
+    .map(o => o.trim());
 app.use(cors({
-    origin: process.env.CLIENT_URL || "http://localhost:4200",
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
