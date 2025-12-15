@@ -180,3 +180,48 @@ export const validateTicket = async (req: Request, res: Response) => {
         }
     }
 };
+
+export const cancelTicket = async (req: CustomRequest, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+        if (!userId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(401).json({ message: "No autorizado" });
+        }
+        const ticket = await queryRunner.manager.findOne(Ticket, {
+            where: { id: parseInt(id), userId }
+        });
+        if (!ticket) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({ message: "Ticket no encontrado" });
+        }
+        if (ticket.status === TicketStatus.USED) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({ message: "Ticket ya utilizado" });
+        }
+        if (ticket.status === TicketStatus.CANCELLED) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({ message: "Ticket ya cancelado" });
+        }
+        const event = await queryRunner.manager.findOne(Event, { where: { id: ticket.eventId } });
+        if (!event) {
+            await queryRunner.rollbackTransaction();
+            return res.status(404).json({ message: "Evento no encontrado" });
+        }
+        ticket.status = TicketStatus.CANCELLED;
+        await queryRunner.manager.save(Ticket, ticket);
+        event.capacity += 1;
+        await queryRunner.manager.save(Event, event);
+        await queryRunner.commitTransaction();
+        return res.status(200).json({ message: "Ticket cancelado", ticketId: ticket.id });
+    } catch (error: any) {
+        await queryRunner.rollbackTransaction();
+        return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    } finally {
+        await queryRunner.release();
+    }
+}

@@ -4,6 +4,7 @@ import { User } from "../user/user.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { Category } from "../category/category.entity";
 import { log } from "console";
+import { globalCache } from "../utils/cache";
 
 
 
@@ -87,6 +88,10 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
         const user = await User.findOneBy({ id: req.user!.id });
         if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
 
+        const cacheKey = `events:user:${user.id}`;
+        const cached = globalCache.get(cacheKey);
+        if (cached) return res.json(cached);
+
         const eventos = await Event.find({
             where: { usuario: { id: user.id } },
             relations: {
@@ -99,6 +104,7 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
             }
         });
 
+        globalCache.set(cacheKey, eventos, 30000);
         res.json(eventos);
     } catch (error) {
         res.status(500).json({ message: 'Error al obtener eventos' });
@@ -141,6 +147,10 @@ export const getEvent = async (req: Request, res: Response) => {
 
 export const getEvents = async (req: Request, res: Response) => {
     try {
+        const cacheKey = `events:all`;
+        const cached = globalCache.get(cacheKey);
+        if (cached) return res.json(cached);
+
         const events = await Event.find({
             relations: {
                 usuario: true,
@@ -161,6 +171,7 @@ export const getEvents = async (req: Request, res: Response) => {
             }
         });
 
+        globalCache.set(cacheKey, events, 60000);
         return res.json(events);
     } catch (error) {
         if (error instanceof Error) {

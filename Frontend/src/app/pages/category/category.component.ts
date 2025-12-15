@@ -50,12 +50,14 @@ export class CategoryComponent implements OnInit {
     });
 
     // 2. Cargar Usuarios
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.userService.getUsers().subscribe(res => {
-        this.usuarios = res;
-        this.stats.totalUsers = res.length;
-      });
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        this.userService.getUsers().subscribe(res => {
+          this.usuarios = res;
+          this.stats.totalUsers = res.length;
+        });
+      }
     }
   }
 
@@ -65,18 +67,18 @@ export class CategoryComponent implements OnInit {
 
   crearCategoria() {
     if (this.formCategory.invalid) return;
-    
+
     // CORRECCIÓN 1: Obtenemos el valor directo (string), no creamos un objeto
     const nombreCategoria = this.formCategory.value.name;
-    
+
     // Le pasamos el string directo al servicio
     this.categoryService.cargarCategoria(nombreCategoria).subscribe({
       // CORRECCIÓN 2: Le decimos a TS que 'res' es de tipo 'any' o 'Categoria' para poder pushearlo
-      next: (res: any) => { 
-        
+      next: (res: any) => {
+
         // Al ser 'any', ahora sí nos deja agregarlo al array de Categoria[]
-        this.categorias.push(res); 
-        
+        this.categorias.push(res);
+
         this.stats.totalCategories++;
         this.formCategory.reset();
       },

@@ -42,6 +42,14 @@ export class TicketService {
     return this.http.get<Ticket[]>(`${this.urlBase}/${userID}`);
   }
 
+  cancelarTicket(id: number): Observable<any> {
+    const token = localStorage.getItem('token');
+    const headers: HttpHeaders = new HttpHeaders(
+      token ? { Authorization: `Bearer ${token}` } : {}
+    );
+    return this.http.put<any>(`${this.urlBase}cancel/${id}`, {}, { headers });
+  }
+
 
 }
 

@@ -132,9 +132,16 @@ export class TicketsComponent implements OnInit {
     navigator.clipboard?.writeText(ticket.codigo_unico);
   }
 
-  cancelarTicket(_ticket: any) {
-    // Endpoint pendiente en backend; aquí sólo feedback visual
-    alert('Función de cancelación no disponible aún.');
+  cancelarTicket(ticket: any) {
+    this.tickService.cancelarTicket(Number(ticket.id)).subscribe({
+      next: () => {
+        ticket.status = 'cancelled';
+        this.aplicarFiltroOrden();
+      },
+      error: () => {
+        alert('No se pudo cancelar el ticket');
+      }
+    });
   }
 
   irAEventos() {
