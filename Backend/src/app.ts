@@ -26,10 +26,11 @@ function isOriginAllowed(origin?: string) {
     return false;
 }
 app.use(cors({
-    origin: (origin, callback) => {
-        if (isOriginAllowed(origin)) return callback(null, true);
-        return callback(null, false);
-    },
+    origin: [
+        'http://localhost:4200',                   // Para seguir desarrollando en tu PC
+        'https://event-life.netlify.app',          // <-- ¡TU NUEVO FRONTEND!
+        'https://www.event-life.netlify.app'       // Por si alguien entra con www
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     optionsSuccessStatus: 204
