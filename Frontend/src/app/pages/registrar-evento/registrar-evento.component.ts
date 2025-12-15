@@ -51,7 +51,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     category: ['', Validators.required],
     title: ['', Validators.required],
     description: ['', [Validators.required, Validators.maxLength(500)]],
-    date: ['', [Validators.required]], 
+    date: ['', [Validators.required]],
     time: ['', Validators.required],
     location: ['', Validators.required],
     image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
@@ -83,7 +83,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     // 3. DETECTAR SI ES EDICIÓN O CREACIÓN
     this.route.paramMap.subscribe(params => {
       const id = params.get('id');
-      
+
       if (id) {
         // --- MODO EDICIÓN ---
         this.isEditMode = true;
@@ -124,7 +124,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           capacity: evento.capacity,
           category: evento.categoryId // Asegúrate que tu backend devuelva categoryId
         });
-        
+
         // Si quisieras centrar el mapa en la ubicación guardada, podrías llamar a una función aquí
         // this.geocodeAndSetMap(evento.location);
       },
@@ -136,59 +136,67 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     });
   }
 
- // Modifica setupLocationSearch
-setupLocationSearch() {
-  this.formRegistroEvento.get('location')?.valueChanges.pipe(
-    debounceTime(1000), // AUMENTA ESTO: Nominatim pide máximo 1 petición por segundo
-    distinctUntilChanged(),
-    switchMap(query => {
-      if (query && query.length > 3 && this.showSuggestions) {
-        // AGREGA &email=tu@email.com
-        return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5&addressdetails=1&email=tu_contacto@tudominio.com`); 
-      }
-      return of([]);
-    }),
-    catchError(() => of([]))
-  ).subscribe(results => {
-    this.locationSuggestions = results;
-  });
-}
-
-// Modifica getAddress (Geocodificación inversa)
-private getAddress(lat: number, lng: number) {
-  // AGREGA &email=tu@email.com
-  this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&email=tu_contacto@tudominio.com`)
-    .subscribe({
-      next: (data) => {
-        if (data && data.display_name) {
-          this.formRegistroEvento.patchValue({ location: data.display_name }, { emitEvent: false });
+  // Modifica setupLocationSearch
+  setupLocationSearch() {
+    this.formRegistroEvento.get('location')?.valueChanges.pipe(
+      debounceTime(1000), // AUMENTA ESTO: Nominatim pide máximo 1 petición por segundo
+      distinctUntilChanged(),
+      switchMap(query => {
+        if (query && query.length > 3 && this.showSuggestions) {
+          // AGREGA &email=tu@email.com
+          return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5&addressdetails=1&email=tu_contacto@tudominio.com`);
         }
-      }
+        return of([]);
+      }),
+      catchError(() => of([]))
+    ).subscribe(results => {
+      this.locationSuggestions = results;
     });
-}
+  }
+
+  // Modifica getAddress (Geocodificación inversa)
+  private getAddress(lat: number, lng: number) {
+    // AGREGA &email=tu@email.com
+    this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&email=tu_contacto@tudominio.com`)
+      .subscribe({
+        next: (data) => {
+          if (data && data.display_name) {
+            this.formRegistroEvento.patchValue({ location: data.display_name }, { emitEvent: false });
+          }
+        }
+      });
+  }
 
   // --- LOGICA DE MAPA (Leaflet) ---
   ngAfterViewInit(): void {
     if (typeof window !== 'undefined') {
-      import('leaflet').then(L => {
+      import('leaflet').then((module) => {
+        // SOLUCIÓN: Leaflet a veces viene encapsulado en 'default'
+        const L = module.default || module;
         this.initMap(L);
       });
     }
   }
 
   private initMap(L: any): void {
+    // 1. CORRECCIÓN DE ICONOS PARA PRODUCCIÓN
+    // Definimos los iconos manualmente para evitar que salgan rotos al compilar
     const iconDefault = L.icon({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-  });
-  L.Marker.prototype.options.icon = iconDefault;
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
 
+    // Forzamos al prototipo de Marker a usar este icono
+    L.Marker.prototype.options.icon = iconDefault;
+
+    // 2. INICIALIZAR MAPA
     this.map = L.map('map').setView([-31.4161, -64.1867], 13);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
@@ -203,7 +211,7 @@ private getAddress(lat: number, lng: number) {
   }
 
   onInputLocation() { this.showSuggestions = true; }
-  
+
   closeSuggestions() { setTimeout(() => { this.showSuggestions = false; }, 200); }
 
   selectAddress(item: any) {
@@ -211,7 +219,7 @@ private getAddress(lat: number, lng: number) {
     this.formRegistroEvento.patchValue({ location: item.display_name }, { emitEvent: false });
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
-    
+
     if (this.map) {
       this.map.setView([lat, lng], 16);
       if (this.marker) this.marker.setLatLng([lat, lng]);
