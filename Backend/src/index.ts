@@ -2,7 +2,7 @@
 import app from "./app";
 import AppDataSource from "./db";
 import dotenv from "dotenv";
-
+import { verifyMailer } from "./lib/mailer";
 
 
 
@@ -16,6 +16,8 @@ async function main() {
     console.log("DB connect");
     app.listen(PORT);
     console.log("Server on port", PORT);
+    const mailOk = await verifyMailer();
+    console.log("SMTP ready:", mailOk);
   } catch (error) {
     console.error(error);
   }

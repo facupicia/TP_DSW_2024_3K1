@@ -106,6 +106,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 surname: user.lastname || 'Genérico'
             },
             back_urls,
+            external_reference: `${userId}|${event.id}|${quantity}`,
             metadata: {
                 user_id: Number(userId),
                 event_id: Number(event.id),
@@ -194,9 +195,16 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                 const additional = payment?.additional_info || {};
                 const item = Array.isArray(additional?.items) ? additional.items[0] : undefined;
 
-                const userId = Number(meta.user_id);
-                const eventId = Number(meta.event_id || item?.id);
-                const amount = Number(meta.amount_tickets || item?.quantity || 1);
+                let userId = Number(meta.user_id);
+                let eventId = Number(meta.event_id || item?.id);
+                let amount = Number(meta.amount_tickets || item?.quantity || 1);
+
+                if ((!userId || !eventId || !amount) && payment?.external_reference) {
+                    const parts = String(payment.external_reference).split("|");
+                    userId = Number(parts[0]);
+                    eventId = Number(parts[1]);
+                    amount = Number(parts[2]);
+                }
 
                 if (!userId || !eventId || !amount || amount <= 0) {
                     console.error("WEBHOOK_METADATA_INVALID", { userId, eventId, amount });
@@ -223,8 +231,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                         return res.status(200).json({ received: true, tickets_created: 0, reason: 'no_stock' });
                     }
 
-                    event.capacity -= amount;
-                    await queryRunner.manager.save(event);
+                    // No mutamos capacity; usamos ticketsSold para stock
 
                     const tickets = await Promise.all(
                         Array.from({ length: amount }, async () => {

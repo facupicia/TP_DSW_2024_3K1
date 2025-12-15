@@ -3,12 +3,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-    host: process.env.MAIL_HOST!,
-    port: 465,
-    secure: true,
+    host: process.env.MAIL_HOST || process.env.EMAIL_HOST,
+    port: Number(process.env.MAIL_PORT || process.env.EMAIL_PORT || 465),
+    secure: String(process.env.MAIL_SECURE || process.env.EMAIL_SECURE || 'true') === 'true',
     auth: {
-        user: process.env.MAIL_USER,
-        pass: process.env.MAIL_PASSWORD,
+        user: process.env.MAIL_USER || process.env.EMAIL_USER,
+        pass: process.env.MAIL_PASSWORD || process.env.EMAIL_PASSWORD,
     },
 });
 
@@ -16,6 +16,19 @@ export interface ITicketQR {
     qrCode: string;
     ticketId: string | number; // Puede ser el ID numérico o el código único
 }
+
+let mailerReady = false;
+export const verifyMailer = async (): Promise<boolean> => {
+    try {
+        await transporter.verify();
+        mailerReady = true;
+        return true;
+    } catch {
+        mailerReady = false;
+        return false;
+    }
+};
+export const getMailerStatus = () => (mailerReady ? 'up' : 'down');
 
 // 1. Modificamos el generador de HTML para iterar sobre los objetos tiket
 const generarHtmlConQr = (tickets: ITicketQR[]): string => {
@@ -95,7 +108,7 @@ export const enviarCorreoConQR = async (destinatario: string, tickets: ITicketQR
         });
 
         const mailOptions = {
-            from: process.env.MAIL_FROM!,
+            from: process.env.MAIL_FROM || process.env.EMAIL_FROM!,
             to: destinatario,
             subject: 'Confirmación de compra - Tus Tickets',
             html: htmlContent,

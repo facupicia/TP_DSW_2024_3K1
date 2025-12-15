@@ -9,6 +9,7 @@ import userTicket from "./routers/ticket.routes"
 import categoryRoute from "./routers/category.routes"
 import paymentRoute from "./payment/payment.routes"
 import { errorHandler } from "./middlewares/errorHandler"
+import { getMailerStatus } from "./lib/mailer"
 
 const app = express();
 
@@ -60,7 +61,8 @@ app.get('/health', async (_req, res) => {
         } catch {
             db = 'down';
         }
-        res.status(200).json({ status: 'ok', uptime: process.uptime(), db });
+        const mail = getMailerStatus();
+        res.status(200).json({ status: 'ok', uptime: process.uptime(), db, mail });
     } catch {
         res.status(500).json({ status: 'error' });
     }
