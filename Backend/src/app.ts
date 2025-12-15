@@ -47,8 +47,23 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json());
 
 // Healthcheck
-app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+app.get('/health', async (_req, res) => {
+    try {
+        let db = 'unknown';
+        try {
+            if ((await import("./db")).default.isInitialized) {
+                await (await import("./db")).default.query("SELECT 1");
+                db = 'up';
+            } else {
+                db = 'down';
+            }
+        } catch {
+            db = 'down';
+        }
+        res.status(200).json({ status: 'ok', uptime: process.uptime(), db });
+    } catch {
+        res.status(500).json({ status: 'error' });
+    }
 });
 
 app.use("/api/category", categoryRoute)

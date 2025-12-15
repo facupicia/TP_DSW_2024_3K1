@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/seed.ts",
-    "test:payment": "ts-node-dev --quiet tests/payment.test.ts"
+    "test:payment": "ts-node-dev --quiet tests/payment.test.ts",
+    "migrate:pg": "ts-node src/scripts/migrate-to-postgres.ts",
+    "verify:migration": "ts-node src/scripts/verify-migration.ts"
   },
   "keywords": [],
   "author": "",
@@ -29,6 +31,7 @@
     "mercadopago": "^2.11.0",
     "morgan": "^1.10.0",
     "mysql2": "^3.15.3",
+    "pg": "^8.11.3",
     "nanoid": "^5.0.7",
     "nodemailer": "^7.0.11",
     "qrcode": "^1.5.4",
