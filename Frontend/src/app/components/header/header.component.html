@@ -1,7 +1,7 @@
 <nav class="fixed top-0 w-full z-50 bg-white/30 backdrop-blur-sm border-b border-gray-100 transition-all duration-300">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between items-center h-16">
-      
+
       <div class="flex-shrink-0 flex items-center">
         <a href="#" class="text-xl font-semibold tracking-tight text-gray-900 hover:opacity-70 transition-opacity">
           EventLife
@@ -10,34 +10,80 @@
 
       <div class="hidden md:flex items-center space-x-8">
         <ng-container *ngIf="isLoggedIn">
-          <a href="/events" class="text-[13px] font-medium text-gray-600 hover:text-black transition-colors">Eventos</a>
-          <a (click)="crearEvento()" class="text-[13px] font-medium text-gray-600 hover:text-black cursor-pointer transition-colors">Crear Evento</a>
+          <button (click)="redirectToExplore()"
+            class="text-[13px] font-medium text-gray-700 hover:text-black transition-colors">Explorar</button>
+          <button (click)="crearEvento()"
+            class="text-[13px] font-medium text-gray-700 hover:text-black transition-colors">Crear Evento</button>
         </ng-container>
 
         <ng-container *ngIf="!isLoggedIn">
-          <button (click)="redirectToLogin()" class="text-[13px] font-medium text-gray-900 hover:text-blue-600 transition-colors">
+          <button (click)="redirectToLogin()"
+            class="text-[13px] font-medium text-gray-900 hover:text-blue-600 transition-colors">
             Iniciar sesión
           </button>
-          <button (click)="redirectToRegister()" class="bg-black text-white text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-gray-800 transition-transform active:scale-95">
+          <button (click)="redirectToRegister()"
+            class="bg-black text-white text-[13px] font-medium px-4 py-1.5 rounded-full hover:bg-gray-800 transition-transform active:scale-95">
             Registrarse
           </button>
         </ng-container>
 
         <ng-container *ngIf="isLoggedIn">
-          <img [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
+          <img
+            [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
             class="h-8 w-8 rounded-full object-cover cursor-pointer border border-gray-200 hover:ring-2 hover:ring-gray-200 transition-all"
             (click)="redirectToProfile()">
         </ng-container>
       </div>
 
       <div class="flex items-center md:hidden">
-        <button type="button" class="text-gray-500 hover:text-gray-900 focus:outline-none">
-          <span class="sr-only">Open main menu</span>
-          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button type="button" (click)="toggleMenu()" [attr.aria-expanded]="isMenuOpen" aria-controls="mobile-menu"
+          class="text-gray-700 hover:text-black focus:outline-none focus:ring-2 focus:ring-black rounded-md p-2 transition">
+          <span class="sr-only">Abrir menú</span>
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" [class.hidden]="isMenuOpen">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" [class.hidden]="!isMenuOpen">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
     </div>
   </div>
 </nav>
+
+<div id="mobile-menu" class="md:hidden fixed inset-0 z-[1000]" [class.pointer-events-none]="!isMenuOpen"
+  [attr.hidden]="!isMenuOpen ? '' : null">
+  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity z-[1000]" [class.opacity-0]="!isMenuOpen"
+    (click)="toggleMenu()"></div>
+  <div
+    class="absolute top-0 right-0 w-full sm:w-2/3 max-w-sm bg-white border-l border-gray-100 h-full shadow-2xl transform transition-transform duration-300 z-[1001]"
+    [class.translate-x-full]="!isMenuOpen" role="dialog" aria-modal="true">
+    <nav class="p-6 space-y-4">
+      <ng-container *ngIf="isLoggedIn; else guestLinks">
+        <a #firstMobileLink routerLink="/events" (click)="toggleMenu()" tabindex="0"
+          class="block text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 focus:bg-gray-100 focus:outline-none">Explorar</a>
+        <button (click)="crearEvento(); toggleMenu()"
+          class="w-full text-left text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 focus:bg-gray-100">Crear
+          Evento</button>
+        <button (click)="redirectToProfile(); toggleMenu()"
+          class="w-full text-left text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 focus:bg-gray-100">Perfil</button>
+        <button (click)="redirectToLogout(); toggleMenu()"
+          class="w-full text-left text-red-600 font-bold py-2 px-3 rounded-lg hover:bg-red-50 focus:bg-red-100">Salir</button>
+      </ng-container>
+      <ng-template #guestLinks>
+        <button (click)="redirectToLogin(); toggleMenu()"
+          class="w-full text-left text-gray-700 font-medium py-2 px-3 rounded-lg hover:bg-gray-50 focus:bg-gray-100">Iniciar
+          sesión</button>
+        <button (click)="redirectToRegister(); toggleMenu()"
+          class="w-full text-left bg-black text-white font-bold py-2 px-3 rounded-lg hover:bg-gray-900 focus:outline-none">Registrarse</button>
+      </ng-template>
+    </nav>
+  </div>
+  <button
+    class="absolute top-4 right-4 bg-white rounded-full p-2 shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+    (click)="toggleMenu()" aria-label="Cerrar menú">
+    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+</div>

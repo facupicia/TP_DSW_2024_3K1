@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { AuthService } from '../../services/auth.service';
@@ -11,7 +11,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './header.component.html',
   styleUrl: './header.component.css'
 })
-export class HeaderComponent {
+export class HeaderComponent implements OnDestroy {
   private router = inject(Router)
   private accesService = inject(AuthService);
   user: any;
@@ -25,7 +25,14 @@ export class HeaderComponent {
       this.user = user;
       this.imgPerfil = user?.imgPerfil;
     });
+    this.router.events.subscribe(e => {
+      if ((e as any).constructor.name === 'NavigationEnd' && this.isMenuOpen) {
+        this.isMenuOpen = false;
+        this.manageScrollLock();
+      }
+    });
   }
+
 
 
   redirectToLogin(): void {
@@ -36,13 +43,46 @@ export class HeaderComponent {
     this.router.navigate(['/register']);
   }
 
+  redirectToExplore(): void {
+    this.router.navigate(['/events']);
+  }
+  goExplore(): void {
+    this.router.navigate(['/events']);
+  }
 
   isLoggedIn = typeof localStorage !== 'undefined' && localStorage.getItem('token') !== null;
   showTooltip = false;
   isMenuOpen = false;
+  @ViewChild('firstMobileLink') firstMobileLink?: ElementRef<HTMLAnchorElement>;
 
   toggleMenu() {
     this.isMenuOpen = !this.isMenuOpen;
+    this.manageScrollLock();
+    if (this.isMenuOpen) {
+      setTimeout(() => {
+        this.firstMobileLink?.nativeElement?.focus();
+      }, 0);
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEsc(_e: KeyboardEvent) {
+    if (this.isMenuOpen) {
+      this.isMenuOpen = false;
+      this.manageScrollLock();
+    }
+  }
+
+  private manageScrollLock() {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = this.isMenuOpen ? 'hidden' : '';
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
   }
 
 
