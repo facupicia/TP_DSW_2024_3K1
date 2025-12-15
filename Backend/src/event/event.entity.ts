@@ -43,14 +43,14 @@ export class Event extends BaseEntity {
     })
     active: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updateAd: Date;
-    
+
     @ManyToOne(() => User, usuario => usuario.eventos)
-    @JoinColumn({name: "user_id"})
+    @JoinColumn({ name: "user_id" })
     usuario: User;
 
     @Column()
@@ -70,7 +70,7 @@ export class Event extends BaseEntity {
     @Column()
     categoria_name: string;
 
-    
+
     //category como una clase? evento nocturno, evento musical, evento deportivo, cumpleaños, etc
 
 }

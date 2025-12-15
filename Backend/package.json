@@ -9,7 +9,8 @@
     "seed": "ts-node src/seed.ts",
     "test:payment": "ts-node-dev --quiet tests/payment.test.ts",
     "migrate:pg": "ts-node src/scripts/migrate-to-postgres.ts",
-    "verify:migration": "ts-node src/scripts/verify-migration.ts"
+    "verify:migration": "ts-node src/scripts/verify-migration.ts",
+    "test:timestamp": "ts-node src/scripts/test-timestamp-column.ts"
   },
   "keywords": [],
   "author": "",

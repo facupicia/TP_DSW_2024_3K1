@@ -48,10 +48,10 @@ export class Ticket extends BaseEntity {
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
     purchasePrice: number;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
-    @Column({ type: "datetime", nullable: true })
+    @Column({ type: "timestamp", nullable: true })
     usedAt: Date;
 
 

@@ -44,10 +44,10 @@ export class User extends BaseEntity {
     })
     active: boolean;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamp' })
     updateAd: Date;
 
     @OneToMany(() => Event, evento => evento.usuario)
