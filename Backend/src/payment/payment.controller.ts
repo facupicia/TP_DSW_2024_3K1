@@ -10,6 +10,7 @@ import { generarQRUrl } from "../utils/qr";
 import enviarCorreoConQR from "../lib/mailer";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
+import { PaymentLog } from "./payment.entity";
 
 dotenv.config();
 
@@ -67,7 +68,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
         console.log(`Creando preferencia para User: ${user.email}, Event: ${event.id}, Price: ${event.price}`);
 
-      
+
         const clientUrl = (process.env.CLIENT_URL || 'http://localhost:4200').replace(/\/+$/, '');
         const back_urls = {
             success: `${clientUrl}/checkout/success`,
@@ -106,7 +107,6 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 surname: user.lastname || 'Genérico'
             },
             back_urls,
-            external_reference: `${userId}|${event.id}|${quantity}`,
             metadata: {
                 user_id: Number(userId),
                 event_id: Number(event.id),
@@ -119,6 +119,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         if (notificationUrl) {
             body.notification_url = notificationUrl;
         }
+        // Guardamos datos críticos también en external_reference para futura recuperación en el webhook
+        body.external_reference = `${userId}|${event.id}|${quantity}`;
 
         let result: any;
         const maxAttempts = 3;
@@ -181,6 +183,8 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
             }
         });
 
+        // Mercado Pago envía múltiples temas: merchant_order y payment.
+        // Solo procesamos el tema 'payment' y con id de pago.
         const type = (req.body?.type || req.query?.type || req.query?.topic) as string | undefined;
         const paymentId = (req.body?.data?.id || req.query?.id) as string | undefined;
         if (type === 'payment' && paymentId) {
@@ -195,12 +199,12 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                 const additional = payment?.additional_info || {};
                 const item = Array.isArray(additional?.items) ? additional.items[0] : undefined;
 
+                // Recuperamos datos de compra. Fallback a external_reference si metadata está incompleto.
                 let userId = Number(meta.user_id);
                 let eventId = Number(meta.event_id || item?.id);
                 let amount = Number(meta.amount_tickets || item?.quantity || 1);
-
                 if ((!userId || !eventId || !amount) && payment?.external_reference) {
-                    const parts = String(payment.external_reference).split("|");
+                    const parts = String(payment.external_reference).split('|');
                     userId = Number(parts[0]);
                     eventId = Number(parts[1]);
                     amount = Number(parts[2]);
@@ -215,6 +219,24 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                 await queryRunner.connect();
                 await queryRunner.startTransaction();
                 try {
+                    // Idempotencia: registramos el pago. Si ya existe mpPaymentId, abortamos para evitar duplicados.
+                    const log = queryRunner.manager.create(PaymentLog, {
+                        mpPaymentId: String(paymentId),
+                        externalReference: String(payment?.external_reference || ''),
+                        userId,
+                        eventId,
+                        amount
+                    });
+                    try {
+                        await queryRunner.manager.save(PaymentLog, log);
+                    } catch (e: any) {
+                        if ((e?.message || '').includes('duplicate') || e?.code === '23505') {
+                            await queryRunner.rollbackTransaction();
+                            return res.status(200).json({ received: true, tickets_created: 0, reason: 'already_processed' });
+                        }
+                        throw e;
+                    }
+
                     const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
                     const event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
                     if (!user || !event) {
@@ -231,7 +253,9 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                         return res.status(200).json({ received: true, tickets_created: 0, reason: 'no_stock' });
                     }
 
-                    // No mutamos capacity; usamos ticketsSold para stock
+                    // Actualizamos capacity descontando la cantidad comprada
+                    event.capacity -= amount;
+                    await queryRunner.manager.save(event);
 
                     const tickets = await Promise.all(
                         Array.from({ length: amount }, async () => {
