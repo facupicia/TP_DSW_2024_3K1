@@ -12,13 +12,13 @@ export class CategoryService {
 
 
   private http = inject(HttpClient)
-  private urlBase: string = environment.apiUrl + "/category/"
+  private urlBase: string = environment.apiUrl + "/category"
   constructor() { }
 
   cargarCategoria(objeto: string) {
     if (typeof window !== 'undefined' && window.localStorage) {
 
-      return this.http.post(`${this.urlBase}new`, objeto)
+      return this.http.post(`${this.urlBase}/new`, objeto)
 
     } else {
       return new Observable<Categoria[]>();
@@ -28,7 +28,7 @@ export class CategoryService {
   getCategories(): Observable<Categoria[]> {
     if (typeof window !== 'undefined' && window.localStorage) {
 
-      return this.http.get<{ categories: Categoria[] }>(`${this.urlBase}/`).pipe(
+      return this.http.get<{ categories: Categoria[] }>(`${this.urlBase}`).pipe(
 
         map(response => response.categories) // Asegúrate de acceder a 'categories'
       );
@@ -42,7 +42,7 @@ export class CategoryService {
   }
 
   deleteCategory(id: number): Observable<Categoria> {
-    return this.http.delete<Categoria>(`${this.urlBase}${id}`);
+    return this.http.delete<Categoria>(`${this.urlBase}/${id}`);
 
   }
 

@@ -16,17 +16,23 @@ app.use(express.urlencoded({ extended: false }))
 
 // Security Middleware
 app.use(helmet()); // Set secure HTTP headers
-const allowedOrigins = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
+const allowedOriginsRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
     .split(",")
-    .map(o => o.trim());
+    .map(o => o.trim().replace(/\/+$/, "").toLowerCase());
+function isOriginAllowed(origin?: string) {
+    if (!origin) return true;
+    const o = origin.replace(/\/+$/, "").toLowerCase();
+    if (allowedOriginsRaw.includes(o)) return true;
+    return false;
+}
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error("Not allowed by CORS"));
+        if (isOriginAllowed(origin)) return callback(null, true);
+        return callback(null, false);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    optionsSuccessStatus: 204
 }));
 
 const limiter = rateLimit({
