@@ -35,12 +35,39 @@ export class DetalleEventoComponent implements OnInit {
     this.eventId = this.route.snapshot.paramMap.get('id');
 
     if (this.eventId) {
-      this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
-        this.evento = evento;
-        this.obtenerImagenUsuario(evento.user_id)
+      this.loading = true; // Asegurar loading true al inicio
+
+      this.eventoService.obtenerEvento(Number(this.eventId)).subscribe({
+        next: (evento) => {
+          this.evento = evento;
+          // Solo obtenemos la imagen del usuario si el evento tiene user_id
+          if (evento.user_id) {
+            this.obtenerImagenUsuario(evento.user_id);
+          }
+          this.loading = false; // Loading false cuando tenemos datos
+        },
+        error: (err) => {
+          console.error(err);
+          this.loading = false;
+        }
       });
     }
   }
+
+  addToCalendar() {
+  const { title, description, location, date, time } = this.evento;
+  
+  // Formato de fechas para Google (YYYYMMDDTHHmmSS)
+  // Nota: Esto es una aproximación básica. Idealmente usa librerías como 'date-fns'
+  const startDate = new Date(date + 'T' + time);
+  const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Asumimos 2 horas de duración
+  
+  const format = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+  
+  const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}&dates=${format(startDate)}/${format(endDate)}`;
+  
+  window.open(googleUrl, '_blank');
+}
 
   cargarEvento() {
     this.eventoService.obtenerEvento(Number(this.eventId)).subscribe(
@@ -54,6 +81,21 @@ export class DetalleEventoComponent implements OnInit {
       }
     );
   }
+
+  shareEvent() {
+  if (navigator.share) {
+    navigator.share({
+      title: this.evento.title,
+      text: `¡Mira este evento! ${this.evento.title} en ${this.evento.location}`,
+      url: window.location.href
+    })
+    .catch((error) => console.log('Error compartiendo', error));
+  } else {
+    // Fallback: Copiar al portapapeles
+    navigator.clipboard.writeText(window.location.href);
+    alert('Enlace copiado al portapapeles');
+  }
+}
 
   obtenerImagenUsuario(userId: number): void {
     this.accesService.obtenerImagenUsuario(userId).subscribe(
@@ -76,5 +118,7 @@ export class DetalleEventoComponent implements OnInit {
     }
 
   }
+
+
 
 }

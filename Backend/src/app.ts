@@ -7,6 +7,8 @@ import userRoute from "./routers/user.routes"
 import userEvent from "./routers/event.routes"
 import userTicket from "./routers/ticket.routes"
 import categoryRoute from "./routers/category.routes"
+import paymentRoute from "./payment/payment.routes"
+import { errorHandler } from "./middlewares/errorHandler"
 
 const app = express();
 
@@ -35,5 +37,9 @@ app.use("/api/category", categoryRoute)
 app.use("/api/user", userRoute)
 app.use("/api/event", userEvent)
 app.use("/api/ticket", userTicket)
+app.use("/api/payment", paymentRoute)
+
+// Global error handler (must be after routes)
+app.use(errorHandler)
 
 export default app;

@@ -1,27 +1,144 @@
-<main>
+<main class="min-h-screen bg-gray-50/50 relative overflow-hidden pb-20">
+
+  <div class="relative z-50">
     <app-header></app-header>
-    <div class="container mt-4">
-        <h2 class="text-center mb-4">Mis Tickets</h2>
-        <div *ngIf="tickets.length > 0; else noTickets" class="row">
-          <div *ngFor="let ticket of tickets" class="col-md-6 col-lg-4 mb-4">
-            <div class="card shadow-sm">
-              <div class="card-body">
-                <h5 class="card-title">Ticket ID: {{ ticket.id }}</h5>
-                <p class="card-text"><strong>Código Único:</strong> {{ ticket.codigo_unico }}</p>
-                <p class="card-text"><strong></strong> {{ ticket.titleEvent }}</p>
-              </div>
-              <div class="card-footer text-center">
-                <img [src]="ticket.qrCode" alt="Código QR del ticket" class="img-fluid" style="max-width: 150px;" />
-              </div>
-            </div>
-          </div>
-        </div>
-      
-        <ng-template #noTickets>
-          <p class="text-center text-muted">No tienes tickets disponibles.</p>
-        </ng-template>
+  </div>
+
+  <div class="xmb-light-container">
+    <div class="smoke-wave wave-blue"></div>
+    <div class="smoke-wave wave-purple"></div>
+    <div class="smoke-wave wave-cyan"></div>
+  </div>
+
+  <div class="pt-32 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto relative z-10">
+
+    <div class="mb-12 animate-fade-in-up">
+      <h1 class="text-4xl font-bold text-gray-900 tracking-tight mb-2">Mi Billetera</h1>
+      <p class="text-gray-500">Tus accesos para próximas experiencias.</p>
+    </div>
+
+    <div *ngIf="loading" class="space-y-8 animate-pulse">
+      <div class="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+      <div class="h-48 bg-gray-200 rounded-3xl"></div>
+      <div class="h-48 bg-gray-200 rounded-3xl"></div>
+    </div>
+
+    <div *ngIf="!loading && hasTickets" class="space-y-16">
+
+      <div class="mb-6 flex items-center gap-3">
+        <input [(ngModel)]="searchTerm" (ngModelChange)="aplicarFiltroOrden()" type="text"
+          placeholder="Buscar por evento o ubicación"
+          class="w-full md:w-1/2 px-4 py-3 rounded-2xl border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-black"
+          aria-label="Buscar eventos">
       </div>
 
-</main>
+      <div *ngFor="let group of filteredGroups; trackBy: trackGroup" class="animate-fade-in-up">
 
-  
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-12 h-12 rounded-2xl overflow-hidden shadow-sm border border-white">
+            <img [src]="group.eventImage" class="w-full h-full object-cover">
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900 leading-none">{{ group.eventTitle }}</h2>
+            <p class="text-sm text-gray-500 mt-1 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {{ group.eventLocation }} • {{ group.eventDate | date:'mediumDate' }}
+            </p>
+          </div>
+          <div class="ml-auto flex items-center gap-3">
+            <span class="text-xs text-gray-500">Tickets: {{ group.tickets.length }}</span>
+            <button (click)="toggleGroup(group.eventId)" [attr.aria-expanded]="!collapsed.has(group.eventId)"
+              class="px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-100 text-sm">
+              {{ collapsed.has(group.eventId) ? 'Expandir' : 'Colapsar' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" *ngIf="!collapsed.has(group.eventId)">
+
+          <div *ngFor="let ticket of group.tickets; trackBy: trackTicket"
+            class="ticket-card relative bg-white rounded-[24px] shadow-lg border border-gray-100 overflow-hidden flex h-56 group">
+
+            <div class="flex-1 p-6 flex flex-col justify-between relative z-10">
+              <div class="absolute inset-0 bg-white/90 z-0"></div>
+              <img [src]="group.eventImage"
+                class="absolute inset-0 w-full h-full object-cover opacity-10 blur-xl z-[-1]">
+
+              <div class="relative z-10">
+                <span
+                  class="px-3 py-1 bg-black text-white text-[10px] font-bold uppercase tracking-widest rounded-full">
+                  General
+                </span>
+                <div class="mt-4">
+                  <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Asistente</p>
+                  <p class="font-bold text-gray-900 text-lg">Tú</p>
+                  <div class="mt-2 text-sm text-gray-600">
+                    <span class="font-bold">Precio:</span> ${{ ticket.purchasePrice }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="relative z-10 flex items-center gap-2" [class.text-green-600]="ticket.status === 'valid'"
+                [class.text-gray-500]="ticket.status !== 'valid'">
+                <span class="w-2 h-2 rounded-full" [class.bg-green-500]="ticket.status === 'valid'"
+                  [class.bg-gray-400]="ticket.status !== 'valid'"></span>
+                <span class="text-xs font-bold uppercase tracking-wide">
+                  {{ ticket.status === 'valid' ? 'Válido para ingreso' : (ticket.status === 'used' ? 'Utilizado' :
+                  'Cancelado') }}
+                </span>
+              </div>
+
+              <div class="mt-3 flex items-center gap-2">
+                <button (click)="descargarQR(ticket)"
+                  class="px-3 py-2 rounded-xl bg-gray-900 text-white text-xs font-bold">Descargar</button>
+                <button (click)="copiarCodigo(ticket)"
+                  class="px-3 py-2 rounded-xl border border-gray-200 text-xs font-bold">Copiar código</button>
+                <button (click)="cancelarTicket(ticket)"
+                  class="px-3 py-2 rounded-xl border border-red-200 text-red-600 text-xs font-bold">Cancelar</button>
+              </div>
+            </div>
+
+            <div class="ticket-divider"></div>
+            <div class="ticket-notch notch-top"></div>
+            <div class="ticket-notch notch-bottom"></div>
+
+            <div
+              class="w-[30%] bg-gray-50 p-4 flex flex-col items-center justify-center border-l border-dashed border-gray-200 relative z-10">
+              <div class="bg-white p-2 rounded-xl shadow-sm">
+                <img [src]="ticket.qrCode" class="w-24 h-24 object-contain mix-blend-multiply">
+              </div>
+              <p class="text-[10px] text-gray-400 font-mono mt-2 text-center break-all">
+                {{ ticket.codigo_unico | slice:0:8 }}...
+              </p>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <div *ngIf="!loading && !hasTickets" class="text-center py-32 animate-fade-in-up">
+      <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-400">
+        <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+        </svg>
+      </div>
+      <h3 class="text-xl font-bold text-gray-900 mb-2">Aún no tienes tickets</h3>
+      <p class="text-gray-500 mb-8 max-w-md mx-auto">Tus entradas aparecerán aquí una vez que realices tu primera
+        compra.</p>
+      <button (click)="irAEventos()"
+        class="px-8 py-3 bg-black text-white rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
+        Explorar Eventos
+      </button>
+    </div>
+
+  </div>
+</main>

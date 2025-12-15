@@ -10,17 +10,16 @@
     <div class="smoke-wave wave-cyan"></div>
   </div>
 
-  <div
-    class="flex-1 max-w-7xl mx-auto w-full relative z-10 flex flex-col lg:flex-row overflow-hidden pb-4 px-4 gap-8">
+  <div class="flex-1 max-w-7xl mx-auto w-full relative z-10 flex flex-col lg:flex-row overflow-hidden pb-4 px-4 gap-8">
 
     <div class="w-full lg:w-1/2 h-full overflow-y-auto custom-scrollbar pb-24 pr-4 pt-32 pb-0">
 
       <div class="mb-8 pl-1">
-        <h1 class="text-4xl font-bold text-gray-900 tracking-tight">Nuevo Evento.</h1>
-        <p class="text-gray-500 mt-2 text-lg">Diseña tu próxima experiencia.</p>
+        <h1 class="text-4xl font-bold text-gray-900 tracking-tight">{{ pageTitle }}</h1>
+        <p class="text-gray-500 mt-2 text-lg">{{ pageSubtitle }}</p>
       </div>
 
-      <form [formGroup]="formRegistroEvento" (ngSubmit)="createEvent()" class="space-y-6">
+      <form [formGroup]="formRegistroEvento" (ngSubmit)="onSubmit()" class="space-y-6">
 
         <div class="bg-white/60 backdrop-blur-xl rounded-[32px] p-8 border border-white/60 shadow-sm">
           <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
@@ -45,9 +44,7 @@
                   <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
                 </select>
                 <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                 </div>
               </div>
             </div>
@@ -70,8 +67,6 @@
               <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Fecha</label>
               <input type="date" formControlName="date"
                 class="w-full bg-gray-50 border-none rounded-2xl py-4 px-5 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all shadow-inner text-sm outline-none">
-              <p *ngIf="formRegistroEvento.get('date')?.hasError('pastDate') && formRegistroEvento.get('date')?.touched"
-                class="text-xs text-red-500 ml-2">La fecha debe ser futura</p>
             </div>
             <div class="space-y-2">
               <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Hora</label>
@@ -82,7 +77,7 @@
             <div class="space-y-2 md:col-span-2 relative z-20">
               <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Ubicación</label>
               
-              <input type="text" formControlName="location" placeholder="Escribe para buscar (Ej: Casilda)"
+              <input type="text" formControlName="location" placeholder="Escribe para buscar (Ej: Estadio Monumental)"
                 (input)="onInputLocation()"
                 (blur)="closeSuggestions()"
                 class="w-full bg-gray-50 border-none rounded-2xl py-4 px-5 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all shadow-inner placeholder-gray-400 outline-none">
@@ -94,7 +89,7 @@
                           (mousedown)="selectAddress(item)" 
                           class="px-5 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors">
                           <div class="text-blue-500 shrink-0">
-                              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                           </div>
                           <span class="text-sm text-gray-700 font-medium truncate">{{ item.display_name }}</span>
                       </li>
@@ -135,17 +130,24 @@
         </div>
 
         <div class="flex gap-4 pt-4 pb-12">
-          <a routerLink="/profile"
+          <a routerLink="/my-events"
             class="flex-1 px-6 py-4 rounded-2xl bg-white border border-gray-200 text-gray-600 font-bold hover:bg-gray-50 transition-all active:scale-95 shadow-sm text-center cursor-pointer">
             Cancelar
           </a>
+          
           <button type="submit" [disabled]="formRegistroEvento.invalid || isSubmitting"
             class="flex-[2] px-6 py-4 rounded-2xl bg-black text-white font-bold hover:bg-gray-900 transition-all active:scale-95 shadow-xl shadow-gray-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-            <span *ngIf="!isSubmitting">Publicar Evento</span>
-            <span *ngIf="isSubmitting">Publicando...</span>
-            <svg *ngIf="!isSubmitting" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            
+            <span *ngIf="!isSubmitting">{{ submitButtonText }}</span>
+            <span *ngIf="isSubmitting">{{ isEditMode ? 'Guardando...' : 'Publicando...' }}</span>
+            
+            <svg *ngIf="!isSubmitting && !isEditMode" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
+            <svg *ngIf="!isSubmitting && isEditMode" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <div *ngIf="isSubmitting" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
           </button>
         </div>
 
@@ -155,7 +157,9 @@
     <div class="hidden lg:flex w-1/2 pl-64 h-full flex-col justify-center items-center relative pb-20 pt-10">
 
       <div class="text-center mb-6 animate-fade-in-up">
-        <span class="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-gray-200">Vista Previa</span>
+        <span class="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-gray-200">
+          {{ isEditMode ? 'Vista Previa en Vivo' : 'Vista Previa' }}
+        </span>
         <h2 class="text-xl font-bold text-gray-900 mt-3">Así se verá tu evento</h2>
       </div>
 
@@ -181,9 +185,7 @@
           <div class="h-2/5 p-8 flex flex-col justify-between bg-white relative">
             <div>
               <p class="text-xs font-bold text-blue-600 uppercase tracking-wide mb-1 flex items-center gap-1">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 {{ formRegistroEvento.get('date')?.value || 'Fecha' }} • {{ formRegistroEvento.get('time')?.value || 'Hora' }}
               </p>
               <h3 class="text-3xl font-bold text-gray-900 leading-tight line-clamp-2">

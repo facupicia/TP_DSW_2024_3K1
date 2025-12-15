@@ -22,3 +22,11 @@ async function main() {
 }
 
 main();
+
+process.on('unhandledRejection', (reason: any) => {
+  console.error('UNHANDLED_REJECTION', { reason });
+});
+
+process.on('uncaughtException', (err: any) => {
+  console.error('UNCAUGHT_EXCEPTION', { err });
+});

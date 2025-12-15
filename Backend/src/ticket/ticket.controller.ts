@@ -4,21 +4,10 @@ import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
 import { randomUUID } from "crypto";
 import { Event } from "../event/event.entity";
-import QRCode from "qrcode";
+import { generarQRUrl } from "../utils/qr";
 import enviarCorreoConQR from "../lib/mailer";
 import AppDataSource from "../db"; // Asegúrate de importar tu AppDataSource correctamente
 import { log } from "console";
-
-// Nueva función para generar la URL de validación y el QR
-async function generarQRUrl(codigo_unico: string): Promise<string> {
-    try {
-        // Cambia 'https://tusitio.com' por tu dominio y endpoint de validación
-        const urlValidacion = `https://tusitio.com/validar/${codigo_unico}`;
-        return await QRCode.toDataURL(urlValidacion);
-    } catch (err) {
-        throw new Error("No se pudo generar el QR");
-    }
-}
 
 export const createTicket = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
@@ -130,6 +119,7 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
             relations: { event: true },
             select: {
                 event: {
+                    id: true,
                     title: true,
                     date: true,
                     time: true,

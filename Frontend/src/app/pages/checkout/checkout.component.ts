@@ -4,8 +4,8 @@ import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TicketService } from '../../services/ticket.service';
-import { Ticket } from '../../interfaces/ticket';
 import { HeaderComponent } from '../../components/header/header.component';
+import { interval, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-checkout',
@@ -21,20 +21,25 @@ export class CheckoutComponent implements OnInit {
   private eventoService = inject(EventService);
   private ticketService = inject(TicketService);
 
+  timeLeft: number = 600; // 10 minutos en segundos
+  timerDisplay: string = '10:00';
+  private timerSubscription!: Subscription;
+  // Simulación de capacidad real (esto vendría del evento)
+  ticketsRestantes: number = 100; // Juega con este nro para probar la etique
+
   private eventId: string | null = null;
   evento: any;
-  ticketQuantity: number = 1; // Cantidad inicial
-  total: number = 0; // Total inicial
+  ticketQuantity: number = 1;
+  total: number = 0;
   loading = false;
   showSuccessMessage = false;
   showErrorMessage = false;
+  errorMessageText = '';
+  paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
 
   public formCheckout: FormGroup = this.formBuild.group({
     quantity: [1, [Validators.required, Validators.min(1)]]
   });
-
-  showMessage: boolean = false;
-  message: string = '';
 
   ngOnInit(): void {
     this.eventId = this.route.snapshot.paramMap.get('id');
@@ -42,86 +47,114 @@ export class CheckoutComponent implements OnInit {
     if (this.eventId) {
       this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
         this.evento = evento;
-        this.calculateTotal(); // Calcula el total al cargar el evento
+        this.calculateTotal();
       });
     }
+
+    // Iniciar el temporizador apenas carga el checkout
+    this.startTimer();
   }
 
-  // Incrementa la cantidad de entradas
+  ngOnDestroy(): void {
+    // Limpiar timer al salir
+    if (this.timerSubscription) this.timerSubscription.unsubscribe();
+  }
+
+  // 1. LOGICA TEMPORIZADOR
+  startTimer() {
+    this.timerSubscription = interval(1000).subscribe(() => {
+      if (this.timeLeft > 0) {
+        this.timeLeft--;
+        const minutes = Math.floor(this.timeLeft / 60);
+        const seconds = this.timeLeft % 60;
+        this.timerDisplay = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      } else {
+        // Tiempo agotado: Redirigir o mostrar alerta
+        this.showErrorMessage = true; // Reusamos tu variable de error
+        this.formCheckout.disable(); // Deshabilitar compra
+      }
+    });
+  }
+
+  // 2. LOGICA DE ESCASEZ (Getter inteligente)
+  get scarcityLabel(): { text: string, color: string } | null {
+    // Si quedan menos de 20 entradas, mostramos alerta roja
+    if (this.ticketsRestantes < 20) {
+      return { text: '¡Solo quedan unas pocas!', color: 'text-red-600 bg-red-50 border-red-100' };
+    }
+    // Si quedan menos de 100, alerta amarilla
+    if (this.ticketsRestantes < 100) {
+      return { text: 'Alta demanda 🔥', color: 'text-orange-600 bg-orange-50 border-orange-100' };
+    }
+    // Si hay muchas, no mostramos nada (null)
+    return null;
+  }
+
+
+
   incrementQuantity() {
     this.ticketQuantity++;
-    this.calculateTotal();
+    this.updateFormAndTotal();
   }
 
-  // Decrementa la cantidad de entradas (con un límite mínimo de 1)
   decrementQuantity() {
     if (this.ticketQuantity > 1) {
       this.ticketQuantity--;
-      this.calculateTotal();
+      this.updateFormAndTotal();
     }
   }
 
-  // Calcula el total basado en `ticketQuantity` y `evento.price`
-  calculateTotal() {
-    this.total = this.ticketQuantity * (this.evento?.price || 0);
-  }
-
-  // Actualiza el total cuando cambia manualmente la cantidad en el formulario
-  actualizarTotal() {
-    const cantidad = this.formCheckout.value.quantity;
-    this.ticketQuantity = cantidad;
+  updateFormAndTotal() {
+    this.formCheckout.patchValue({ quantity: this.ticketQuantity });
     this.calculateTotal();
   }
 
-  // Procesa la compra de tickets
+  calculateTotal() {
+    if (this.evento) {
+      this.total = this.ticketQuantity * this.evento.price;
+    }
+  }
+
   comprarTickets() {
     this.showSuccessMessage = false;
     this.showErrorMessage = false;
+    this.errorMessageText = '';
+    this.paymentStatus = 'idle';
 
-    if (!this.formCheckout.valid) {
-      console.error('Formulario incompleto o inválido');
+    if (!this.formCheckout.valid) return;
+
+    this.loading = true;
+    this.paymentStatus = 'processing';
+    const token = localStorage.getItem('token');
+
+    // Si no está logueado, redirigir
+    if (!token) {
+      this.router.navigate(['/login']);
       return;
     }
 
-    this.loading = true;
-
-    const token = localStorage.getItem('token');
-    const cantidadDeTickets = this.ticketQuantity; // Utiliza `ticketQuantity`
-    const cantidadValida = Number.isInteger(cantidadDeTickets) && cantidadDeTickets > 0;
-
-    if (token && this.eventId && cantidadValida) {
-      this.ticketService.comprarTicket({ cantidad: cantidadDeTickets }, Number(this.eventId)).subscribe({
-        next: (response) => {
-          console.log('Boletos comprados:', response);
-          this.showSuccessMessage = true;
+    if (this.eventId) {
+      // 3. LOGICA MERCADO PAGO REAL
+      this.ticketService.comprarTicket({ cantidad: this.ticketQuantity }, Number(this.eventId)).subscribe({
+        next: (response: any) => {
+          if (response.init_point) {
+            window.location.href = response.init_point;
+          } else {
+            console.error('No se recibió init_point de Mercado Pago');
+            this.showErrorMessage = true;
+            this.loading = false;
+            this.paymentStatus = 'failure';
+            this.errorMessageText = 'No se pudo iniciar el pago. Intenta nuevamente.';
+          }
         },
         error: (error) => {
-          console.error('Error al comprar tickets:', error);
+          console.error('Error al generar preferencia:', error);
           this.showErrorMessage = true;
-        },
-        complete: () => {
           this.loading = false;
+          this.paymentStatus = 'failure';
+          this.errorMessageText = error.userMessage || 'Ocurrió un error al generar la preferencia';
         }
       });
-    } else {
-      this.loading = false;
     }
-  }
-
-  crearEvento(): void {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.router.navigate(['/create-event']);
-    } else {
-      this.router.navigate(['/login']);
-    }
-  }
-
-  mostrarMensaje() {
-    this.showMessage = true;
-    this.message = '¡Compra realizada con éxito!';
-    setTimeout(() => {
-      this.showMessage = false;
-    }, 5000);
   }
 }

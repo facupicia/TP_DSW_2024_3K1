@@ -24,20 +24,20 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
         }
 
         if (!token) {
-            return res.status(401).json({ message: 'No token provided' });
+            return res.status(401).json({ code: 'AUTH_NO_TOKEN', message: 'No token provided' });
         }
 
         const tokenData = await verifyToken(token) as IPayload;
 
         if (!tokenData || !tokenData.id) {
-            return res.status(401).json({ message: 'Invalid token data' });
+            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid token data' });
         }
 
         req.user = tokenData;
         next();
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error credentials' });
+        console.error('AUTH_MIDDLEWARE_ERROR', { error });
+        return res.status(401).json({ code: 'AUTH_VALIDATION_ERROR', message: 'Invalid or expired token' });
     }
 };

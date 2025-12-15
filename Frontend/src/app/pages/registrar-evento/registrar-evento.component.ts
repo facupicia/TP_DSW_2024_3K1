@@ -1,15 +1,15 @@
-import { Component, inject, AfterViewInit, OnInit } from '@angular/core'; // Agregamos OnInit
+import { Component, inject, AfterViewInit, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router'; // Importamos ActivatedRoute
 import { EventService } from '../../services/event.service';
-import { Evento } from '../../interfaces/event.js';
+import { Evento } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
 import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
-import { HttpClient } from '@angular/common/http'; // <--- IMPORTANTE
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators'; // <--- IMPORTANTE
+import { HttpClient } from '@angular/common/http';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 
 @Component({
@@ -20,12 +20,20 @@ import { of } from 'rxjs';
   styleUrls: ['./registrar-evento.component.css']
 })
 export class RegistrarEventoComponent implements OnInit, AfterViewInit {
-  private EventService = inject(EventService);
+  private eventService = inject(EventService);
   private categoryService = inject(CategoryService);
   private authService = inject(AuthService);
   private router = inject(Router);
-  private http = inject(HttpClient); // <--- INYECCIÓN
+  private route = inject(ActivatedRoute); // Inyección para leer URL
+  private http = inject(HttpClient);
   public formBuild = inject(FormBuilder);
+
+  // Estados de la vista
+  public isEditMode: boolean = false;
+  public eventId: number | null = null;
+  public pageTitle: string = 'Nuevo Evento.';
+  public pageSubtitle: string = 'Diseña tu próxima experiencia.';
+  public submitButtonText: string = 'Publicar Evento';
 
   public feedbackMessage: string = '';
   public feedbackSuccess: boolean = false;
@@ -33,10 +41,9 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   public categories: Categoria[] = [];
   public userId: number | null = null;
 
-  // Variables para el autocompletado
+  // Variables para mapa y autocompletado
   public locationSuggestions: any[] = [];
   public showSuggestions: boolean = false;
-
   private map: any;
   private marker: any;
 
@@ -60,22 +67,80 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       (error) => console.error('Error al obtener categorías:', error)
     );
 
-    // 2. Obtener Perfil
+    // 2. Obtener Perfil de Usuario (necesario para el ID)
     this.authService.getProfile().subscribe({
       next: (data) => {
         if (data) {
           this.userId = data.id;
-          this.formRegistroEvento.patchValue({ organizer: `${data.firstname} ${data.lastname}` });
+          // Solo ponemos el nombre del organizador si estamos CREANDO
+          if (!this.isEditMode) {
+            this.formRegistroEvento.patchValue({ organizer: `${data.firstname} ${data.lastname}` });
+          }
         }
       }
     });
 
-    // 3. LOGICA DE BUSQUEDA (Autocompletado)
+    // 3. DETECTAR SI ES EDICIÓN O CREACIÓN
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      
+      if (id) {
+        // --- MODO EDICIÓN ---
+        this.isEditMode = true;
+        this.eventId = Number(id);
+        this.pageTitle = 'Editar Evento.';
+        this.pageSubtitle = 'Ajusta los detalles de tu evento.';
+        this.submitButtonText = 'Guardar Cambios';
+        this.loadEventData(this.eventId);
+      } else {
+        // --- MODO CREACIÓN ---
+        this.isEditMode = false;
+        this.pageTitle = 'Nuevo Evento.';
+        this.pageSubtitle = 'Diseña tu próxima experiencia.';
+        this.submitButtonText = 'Publicar Evento';
+      }
+    });
+
+    // 4. Lógica de Autocompletado de Mapa
+    this.setupLocationSearch();
+  }
+
+  // Carga los datos existentes al formulario
+  loadEventData(id: number) {
+    this.eventService.obtenerEvento(id).subscribe({
+      next: (evento) => {
+        // Formatear fecha para input type="date" (YYYY-MM-DD)
+        const dateStr = new Date(evento.date).toISOString().split('T')[0];
+
+        this.formRegistroEvento.patchValue({
+          title: evento.title,
+          description: evento.description,
+          date: dateStr,
+          time: evento.time, // Asumiendo formato HH:mm
+          location: evento.location,
+          image: evento.image,
+          price: evento.price,
+          organizer: evento.organizer,
+          capacity: evento.capacity,
+          category: evento.categoryId // Asegúrate que tu backend devuelva categoryId
+        });
+        
+        // Si quisieras centrar el mapa en la ubicación guardada, podrías llamar a una función aquí
+        // this.geocodeAndSetMap(evento.location);
+      },
+      error: (err) => {
+        console.error(err);
+        this.mostrarFeedback('Error al cargar el evento', false);
+        setTimeout(() => this.router.navigate(['/my-events']), 2000);
+      }
+    });
+  }
+
+  setupLocationSearch() {
     this.formRegistroEvento.get('location')?.valueChanges.pipe(
-      debounceTime(400), // Espera 400ms a que dejes de escribir
+      debounceTime(400),
       distinctUntilChanged(),
       switchMap(query => {
-        // Solo busca si hay más de 3 letras y NO estamos seleccionando una sugerencia (evita bucle)
         if (query && query.length > 3 && this.showSuggestions) {
           return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5`);
         }
@@ -87,45 +152,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     });
   }
 
-  // Activa las sugerencias cuando el usuario escribe
-  onInputLocation() {
-    this.showSuggestions = true;
-  }
-
-  // Oculta las sugerencias con un pequeño delay para permitir el click
-  closeSuggestions() {
-    setTimeout(() => {
-      this.showSuggestions = false;
-    }, 200);
-  }
-
-  // CUANDO EL USUARIO ELIGE UNA DIRECCIÓN DE LA LISTA
-  selectAddress(item: any) {
-    this.showSuggestions = false;
-    
-    // 1. Poner texto en el input
-    this.formRegistroEvento.patchValue({ location: item.display_name }, { emitEvent: false });
-    
-    // 2. Mover el mapa y el marcador
-    const lat = parseFloat(item.lat);
-    const lng = parseFloat(item.lon);
-    
-    if (this.map) {
-      this.map.setView([lat, lng], 16); // Zoom in
-      
-      if (this.marker) {
-        this.marker.setLatLng([lat, lng]);
-      } else {
-        // Importante: Importar L dinámicamente si no está disponible globalmente, 
-        // pero como ya lo usas en initMap, asumimos que el objeto mapa ya tiene acceso a L internamente 
-        // o reutilizamos la lógica. Para asegurar, usamos la referencia al marker existente.
-        // Si no hay marcador, habría que crearlo, pero Leaflet suele requerir 'L'.
-        // Como solución rápida, simulamos un click en el mapa:
-        this.map.fireEvent('click', { latlng: { lat, lng } });
-      }
-    }
-  }
-
+  // --- LOGICA DE MAPA (Leaflet) ---
   ngAfterViewInit(): void {
     if (typeof window !== 'undefined') {
       import('leaflet').then(L => {
@@ -136,116 +163,118 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
 
   private initMap(L: any): void {
     this.map = L.map('map').setView([-31.4161, -64.1867], 13);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap'
     }).addTo(this.map);
 
     this.map.on('click', (e: any) => {
       const { lat, lng } = e.latlng;
-      
-      if (this.marker) {
-        this.marker.setLatLng([lat, lng]);
-      } else {
-        this.marker = L.marker([lat, lng]).addTo(this.map);
-      }
-      
-      // Llamamos a la API reversa solo si fue un click manual
+      if (this.marker) this.marker.setLatLng([lat, lng]);
+      else this.marker = L.marker([lat, lng]).addTo(this.map);
       this.getAddress(lat, lng);
     });
   }
 
+  onInputLocation() { this.showSuggestions = true; }
+  
+  closeSuggestions() { setTimeout(() => { this.showSuggestions = false; }, 200); }
+
+  selectAddress(item: any) {
+    this.showSuggestions = false;
+    this.formRegistroEvento.patchValue({ location: item.display_name }, { emitEvent: false });
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    
+    if (this.map) {
+      this.map.setView([lat, lng], 16);
+      if (this.marker) this.marker.setLatLng([lat, lng]);
+      // Simulamos click para consistencia (opcional si ya importaste L)
+    }
+  }
+
   private getAddress(lat: number, lng: number) {
-    // Usamos HttpClient aquí también para consistencia
     this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
       .subscribe({
         next: (data) => {
           if (data && data.display_name) {
-            // emitEvent: false evita que se dispare la búsqueda de texto nuevamente
             this.formRegistroEvento.patchValue({ location: data.display_name }, { emitEvent: false });
           }
-        },
-        error: (err) => console.error(err)
+        }
       });
   }
 
-  // ... (Resto de tus funciones: getCategoryName, futureDateValidator, createEvent, mostrarFeedback) ...
-  // Asegúrate de copiar las funciones auxiliares que ya tenías
-  futureDateValidator(control: any) {
-      if (!control.value) return null;
-      const inputDate = new Date(control.value);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return inputDate >= today ? null : { pastDate: true };
-  }
-
-  getCategoryName(id: string): string {
-      if (!id) return 'Categoría';
-      const cat = this.categories.find(c => c.id == Number(id));
-      return cat ? cat.name : 'Categoría';
-  }
-
-  createEvent() {
+  // --- SUBMIT (Crear o Editar) ---
+  onSubmit() {
     if (this.formRegistroEvento.invalid) {
       this.formRegistroEvento.markAllAsTouched();
       return;
     }
-    // ... (Tu lógica de createEvent original)
-    // ... asegúrate de copiarla tal cual la tenías
-     if (this.isSubmitting) return;
+    if (this.isSubmitting) return;
 
     if (!this.userId) {
-      this.mostrarFeedback('Debes iniciar sesión para crear un evento', false);
-      setTimeout(() => this.router.navigate(['/login']), 2000);
+      this.mostrarFeedback('Debes iniciar sesión.', false);
       return;
     }
 
     this.isSubmitting = true;
 
-    const selectedCategoryId = parseInt(this.formRegistroEvento.value.category, 10);
-    const selectedCategory = this.categories.find(cat => cat.id === selectedCategoryId);
+    const formValue = this.formRegistroEvento.value;
+    const selectedCategory = this.categories.find(c => c.id == formValue.category);
 
-    if (!selectedCategory) {
-      this.isSubmitting = false;
-      return;
-    }
-
-    const objeto: Evento = {
-      destacado: false,
+    const eventData: Evento = {
+      destacado: false, // Opcional: podrías agregar un check en el form
       user_id: this.userId,
-      title: this.formRegistroEvento.value.title,
-      description: this.formRegistroEvento.value.description,
-      date: this.formRegistroEvento.value.date,
-      time: this.formRegistroEvento.value.time,
-      location: this.formRegistroEvento.value.location,
-      image: this.formRegistroEvento.value.image,
-      price: this.formRegistroEvento.value.price,
-      organizer: this.formRegistroEvento.value.organizer,
-      capacity: this.formRegistroEvento.value.capacity,
-      categoria_name: selectedCategory.name,
-      categoryId: this.formRegistroEvento.value.category,
+      title: formValue.title,
+      description: formValue.description,
+      date: formValue.date,
+      time: formValue.time,
+      location: formValue.location,
+      image: formValue.image,
+      price: formValue.price,
+      organizer: formValue.organizer,
+      capacity: formValue.capacity,
+      categoryId: formValue.category,
+      categoria_name: selectedCategory ? selectedCategory.name : ''
     };
 
-    this.EventService.crearEvento(objeto).subscribe({
-      next: (resp) => {
-        this.mostrarFeedback('Evento creado con éxito!', true);
-        setTimeout(() => {
-          this.router.navigate(['/profile']);
-        }, 1500);
-      },
-      error: (err) => {
-        this.mostrarFeedback('Error al crear el evento', false);
-        this.isSubmitting = false;
-      }
-    });
+    if (this.isEditMode && this.eventId) {
+      // ACTUALIZAR
+      this.eventService.actualizarEvento(this.eventId, eventData).subscribe({
+        next: () => {
+          this.mostrarFeedback('Evento actualizado correctamente', true);
+          setTimeout(() => this.router.navigate(['/my-events']), 1500);
+        },
+        error: (err) => {
+          this.mostrarFeedback('Error al actualizar', false);
+          this.isSubmitting = false;
+        }
+      });
+    } else {
+      // CREAR
+      this.eventService.crearEvento(eventData).subscribe({
+        next: () => {
+          this.mostrarFeedback('Evento creado con éxito!', true);
+          setTimeout(() => this.router.navigate(['/my-events']), 1500); // Mejor ir a 'Mis Eventos'
+        },
+        error: (err) => {
+          this.mostrarFeedback('Error al crear', false);
+          this.isSubmitting = false;
+        }
+      });
+    }
+  }
+
+  // Helpers
+  getCategoryName(id: string): string {
+    if (!id) return 'Categoría';
+    const cat = this.categories.find(c => c.id == Number(id));
+    return cat ? cat.name : 'Categoría';
   }
 
   private mostrarFeedback(mensaje: string, esExito: boolean) {
-      this.feedbackMessage = mensaje;
-      this.feedbackSuccess = esExito;
-      setTimeout(() => {
-        this.feedbackMessage = '';
-      }, 3000);
+    this.feedbackMessage = mensaje;
+    this.feedbackSuccess = esExito;
+    setTimeout(() => { this.feedbackMessage = ''; }, 3000);
   }
 }

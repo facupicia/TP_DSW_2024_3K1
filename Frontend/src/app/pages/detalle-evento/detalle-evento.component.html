@@ -1,115 +1,197 @@
-<main class="min-h-screen bg-gray-50 pb-20">
-  <app-header></app-header>
+<main class="min-h-screen bg-white relative pb-20 overflow-hidden">
 
-  <div class="pt-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" *ngIf="evento">
+  <div class="relative z-50">
+    <app-header></app-header>
+  </div>
 
-    <!-- Hero Image -->
-    <div class="relative w-full h-64 md:h-96 rounded-3xl overflow-hidden shadow-2xl mb-12">
-      <img [src]="evento.image" [alt]="evento.title" class="w-full h-full object-cover">
-      <div class="absolute top-6 left-6">
-        <span
-          class="px-4 py-2 bg-white/90 backdrop-blur-md rounded-full text-sm font-bold uppercase tracking-wider text-black shadow-lg">
-          {{evento.categoria_name}}
-        </span>
+  <div class="xmb-light-container">
+    <div class="smoke-wave wave-blue"></div>
+    <div class="smoke-wave wave-purple"></div>
+    <div class="smoke-wave wave-cyan"></div>
+  </div>
+
+  <div *ngIf="loading" class="pt-32 max-w-7xl mx-auto px-4 animate-pulse relative z-10">
+    <div class="h-96 bg-gray-200 rounded-[40px] mb-8"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div class="lg:col-span-2 space-y-4">
+        <div class="h-10 bg-gray-200 rounded-full w-3/4"></div>
+        <div class="h-4 bg-gray-200 rounded-full w-full"></div>
+        <div class="h-4 bg-gray-200 rounded-full w-full"></div>
+      </div>
+      <div class="h-64 bg-gray-200 rounded-[32px]"></div>
+    </div>
+  </div>
+
+  <div class="pt-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative z-10" *ngIf="evento && !loading">
+
+    <div class="relative w-full h-[400px] md:h-[500px] mb-12 group animate-fade-in-up">
+
+      <div
+        class="absolute -inset-4 rounded-[50px] blur-3xl opacity-40 transition-opacity duration-1000 group-hover:opacity-60"
+        [style.background-image]="'url(' + evento.image + ')'"
+        style="background-size: cover; background-position: center;">
+      </div>
+
+      <div class="relative w-full h-full rounded-[40px] overflow-hidden shadow-2xl border border-white/20">
+        <img [src]="evento.image" [alt]="evento.title"
+          class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105">
+
+        <div class="absolute top-6 left-6">
+          <span
+            class="px-5 py-2 bg-white/20 backdrop-blur-xl border border-white/20 rounded-full text-xs font-bold uppercase tracking-widest text-white shadow-lg">
+            {{evento.categoria_name}}
+          </span>
+        </div>
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
 
-      <!-- Main Content -->
-      <div class="lg:col-span-2 space-y-12">
+      <div class="lg:col-span-8 space-y-10 animate-fade-in-up delay-100">
+
         <div>
-          <p class="text-blue-600 font-semibold mb-2 uppercase tracking-wide">{{ evento.date | date: 'EEEE, d \'de\'
-            MMMM \'de\' yyyy' }}</p>
-          <h1 class="text-4xl md:text-5xl font-extrabold text-gray-900 mb-6">{{ evento.title }}</h1>
-
-          <div class="prose max-w-none text-gray-600 text-lg leading-relaxed">
-            <h3 class="text-xl font-bold text-gray-900 mb-3">Acerca de este evento</h3>
-            <p>{{ evento.description }}</p>
-          </div>
-        </div>
-
-        <!-- Organizer -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-          <img
-            [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
-            alt="Organizador" class="w-16 h-16 rounded-full object-cover border-2 border-gray-200">
-          <div>
-            <p class="text-sm text-gray-500">Organizado por</p>
-            <p class="text-lg font-bold text-gray-900">{{ evento.organizer || 'Anónimo' }}</p>
-          </div>
-          <button
-            class="ml-auto px-6 py-2 rounded-full border border-gray-300 text-sm font-semibold hover:bg-gray-50 transition">
-            Ver Perfil
-          </button>
-        </div>
-
-        <!-- Details Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="glass p-6 rounded-2xl flex items-start gap-4">
-            <div class="p-3 bg-blue-50 rounded-xl text-blue-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-900">Fecha y Hora</h4>
-              <p class="text-gray-600">{{ evento.date | date: 'dd/MM/yyyy' }} - {{ evento.time }} hs</p>
-            </div>
-          </div>
-
-          <div class="glass p-6 rounded-2xl flex items-start gap-4">
-            <div class="p-3 bg-purple-50 rounded-xl text-purple-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-              </svg>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-900">Ubicación</h4>
-              <p class="text-gray-600">{{ evento.location }}</p>
-            </div>
-          </div>
-
-          <div class="glass p-6 rounded-2xl flex items-start gap-4">
-            <div class="p-3 bg-green-50 rounded-xl text-green-600">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
-                </path>
-              </svg>
-            </div>
-            <div>
-              <h4 class="font-bold text-gray-900">Capacidad</h4>
-              <p class="text-gray-600">{{ evento.capacity }} personas</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Sidebar -->
-      <div class="lg:col-span-1">
-        <div class="sticky top-24">
-          <div class="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8">
-            <h3 class="text-2xl font-bold text-gray-900 mb-6">Entradas</h3>
-
-            <div class="flex justify-between items-center mb-8 pb-8 border-b border-gray-100">
-              <span class="text-gray-600 font-medium">Precio por entrada</span>
-              <span class="text-3xl font-bold text-gray-900">${{ evento.price }}</span>
-            </div>
-
-            <button (click)="reservarEntrada(evento.id)"
-              class="w-full py-4 rounded-xl text-white font-bold text-lg bg-black hover:bg-gray-800 shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition duration-300">
-              Reservar Lugar
-            </button>
-
-            <p class="text-center text-xs text-gray-400 mt-4">
-              Garantía de devolución segura via EventLife
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <p class="text-blue-600 font-bold text-sm uppercase tracking-widest">
+              {{ evento.date | date: 'EEEE d, MMMM yyyy' }}
             </p>
           </div>
+          <h1 class="text-4xl md:text-6xl font-bold text-gray-900 tracking-tight leading-tight mb-6">
+            {{ evento.title }}
+          </h1>
+
+          <div
+            class="inline-flex items-center bg-white/60 backdrop-blur-md border border-gray-100 rounded-full p-1.5 pr-6 gap-3 shadow-sm hover:bg-white transition-colors cursor-pointer">
+            <img
+              [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
+              class="w-10 h-10 rounded-full object-cover border border-gray-200">
+            <div class="flex flex-col leading-none">
+              <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Organizado por</span>
+              <span class="text-sm font-bold text-gray-900">{{ evento.organizer || 'Anónimo' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="prose prose-lg text-gray-600 leading-relaxed max-w-none">
+          <h3 class="text-2xl font-bold text-gray-900 mb-4">La Experiencia</h3>
+          <p>{{ evento.description }}</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div
+            class="bg-white/60 backdrop-blur-xl p-6 rounded-[24px] border border-white/60 shadow-sm flex items-start gap-4 hover:bg-white transition-colors">
+            <div class="p-3 bg-purple-50 text-purple-600 rounded-2xl">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900 text-sm uppercase tracking-wide opacity-50 mb-1">Ubicación</h4>
+              <p class="text-gray-900 font-medium text-lg leading-tight">{{ evento.location }}</p>
+            </div>
+          </div>
+
+          <div
+            class="bg-white/60 backdrop-blur-xl p-6 rounded-[24px] border border-white/60 shadow-sm flex items-start gap-4 hover:bg-white transition-colors">
+            <div class="p-3 bg-blue-50 text-blue-600 rounded-2xl">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900 text-sm uppercase tracking-wide opacity-50 mb-1">Horario</h4>
+              <p class="text-gray-900 font-medium text-lg leading-tight">{{ evento.time }} hs</p>
+            </div>
+          </div>
+
+          <div
+            class="bg-white/60 backdrop-blur-xl p-6 rounded-[24px] border border-white/60 shadow-sm flex items-start gap-4 hover:bg-white transition-colors md:col-span-2">
+            <div class="p-3 bg-green-50 text-green-600 rounded-2xl">
+              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900 text-sm uppercase tracking-wide opacity-50 mb-1">Capacidad</h4>
+              <p class="text-gray-900 font-medium text-lg leading-tight">{{ evento.capacity }} asistentes</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="lg:col-span-4 animate-fade-in-up delay-200">
+        <div class="sticky top-32">
+
+          <div
+            class="bg-white/80 backdrop-blur-2xl rounded-[32px] shadow-2xl shadow-gray-200/50 border border-white p-8 relative overflow-hidden">
+
+            <div
+              class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none">
+            </div>
+
+            <h3 class="text-2xl font-bold text-gray-900 mb-6">Entradas</h3>
+
+            <div class="flex justify-between items-end mb-8 pb-8 border-b border-gray-200">
+              <span class="text-gray-500 font-bold uppercase text-xs tracking-wider">Precio Total</span>
+              <div class="text-right">
+                <span class="text-4xl font-bold text-gray-900 tracking-tight">${{ evento.price }}</span>
+                <span class="text-gray-400 text-sm font-medium">/ persona</span>
+              </div>
+            </div>
+
+            <ul class="space-y-3 mb-8">
+              <li class="flex items-center gap-3 text-sm text-gray-600">
+                <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Acceso completo al evento
+              </li>
+              <li class="flex items-center gap-3 text-sm text-gray-600">
+                <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Cancelación gratuita (24h)
+              </li>
+            </ul>
+
+            <button (click)="reservarEntrada(evento.id)"
+              class="w-full py-4 rounded-2xl text-white font-bold text-lg bg-black hover:bg-gray-900 shadow-xl shadow-gray-900/20 transform active:scale-95 transition-all duration-300 flex justify-center items-center gap-2">
+              <span>Reservar Lugar</span>
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
+
+            <button (click)="addToCalendar()"
+              class="w-full mt-3 py-3 rounded-2xl text-gray-600 font-bold text-sm border border-gray-200 hover:bg-gray-50 hover:text-black transition-all flex justify-center items-center gap-2">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Agendar en Google Calendar
+            </button>
+
+            <div class="absolute top-6 right-6 z-20"> <button (click)="shareEvent()"
+                class="w-10 h-10 bg-black/20 backdrop-blur-md border border-black/20 rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-all shadow-lg">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+            </div>
+
+            <p class="text-center text-[10px] text-gray-400 mt-4 uppercase tracking-widest">
+              Pagos procesados de forma segura
+            </p>
+          </div>
+
         </div>
       </div>
 
