@@ -33,8 +33,10 @@ export class AuthService {
 
   login(objeto: Login): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto).pipe(
-      tap(() => {
-        // Al hacer login exitoso, obtenemos el perfil para actualizar el estado
+      tap((resp) => {
+        if (resp?.token && typeof window !== 'undefined') {
+          localStorage.setItem('token', resp.token);
+        }
         this.getProfile().subscribe();
       })
     );

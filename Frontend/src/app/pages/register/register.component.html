@@ -1,100 +1,95 @@
-<main class="animate-fade-in min-h-screen flex flex-col bg-gray-50">
-  <nav class="w-full p-6">
-    <a href="#" class="text-2xl font-bold text-gray-900">EventLife</a>
+<main class="min-h-screen w-full flex items-center justify-center bg-[#F5F5F7] p-4 font-sans relative overflow-hidden py-20">
+
+  <div class="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-200/40 rounded-full blur-[100px] pointer-events-none"></div>
+  <div class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-200/40 rounded-full blur-[100px] pointer-events-none"></div>
+
+  <nav class="absolute top-0 left-0 w-full p-8 z-50">
+    <a routerLink="/" class="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+      EventLife
+    </a>
   </nav>
 
-  <div class="flex-grow flex items-center justify-center p-4">
-    <div class="w-full max-w-3xl bg-white rounded-3xl shadow-xl overflow-hidden p-8 md:p-12">
-      <div class="text-center mb-10">
-        <h2 class="text-3xl font-bold text-gray-900 mb-2">Crea tu cuenta</h2>
-        <p class="text-gray-500">Únete a EventLife y empieza a vivir experiencias únicas.</p>
+  <div class="w-full max-w-3xl bg-white rounded-[40px] shadow-2xl shadow-black/5 p-8 md:p-12 animate-fade-in-up relative z-10">
+    
+    <div class="text-center mb-10">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight mb-3">Crea tu cuenta.</h1>
+      <p class="text-gray-500 text-lg">Únete y empieza a vivir experiencias únicas.</p>
+    </div>
+
+    <form [formGroup]="formRegistro" (ngSubmit)="registrarse()" class="space-y-6">
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Nombre</label>
+          <input type="text" formControlName="firstname" placeholder="Ej: Juan"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched}">
+        </div>
+
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Apellido</label>
+          <input type="text" formControlName="lastname" placeholder="Ej: Pérez"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
+        </div>
       </div>
 
-      <form [formGroup]="formRegistro" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="firstname" class="block text-sm font-medium leading-6 text-gray-900">Nombre</label>
-            <div class="mt-2">
-              <input type="text" id="firstname" formControlName="firstname"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched}">
-            </div>
-          </div>
-
-          <div>
-            <label for="lastname" class="block text-sm font-medium leading-6 text-gray-900">Apellido</label>
-            <div class="mt-2">
-              <input type="text" id="lastname" formControlName="lastname"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
-            </div>
-          </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
+          <input type="email" formControlName="email" placeholder="hola@ejemplo.com"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
+            <p *ngIf="formRegistro.get('email')?.hasError('email') && formRegistro.get('email')?.touched" class="text-red-500 text-xs mt-1 ml-1">Email inválido</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="email" class="block text-sm font-medium leading-6 text-gray-900">Email</label>
-            <div class="mt-2">
-              <input type="email" id="email" formControlName="email"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
-            </div>
-          </div>
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Teléfono</label>
+          <input type="text" formControlName="phone" (input)="formatPhoneNumber($event)" placeholder="0000-000000"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
+        </div>
+      </div>
 
-          <div>
-            <label for="phone" class="block text-sm font-medium leading-6 text-gray-900">Teléfono</label>
-            <div class="mt-2">
-              <input (input)="formatPhoneNumber($event)" type="text" id="phone" formControlName="phone"
-                mask="+0 (000) 000-0000"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
-            </div>
-          </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Dirección</label>
+          <input type="text" formControlName="location" placeholder="Ciudad, Provincia"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('location')?.invalid && formRegistro.get('location')?.touched}">
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label for="location" class="block text-sm font-medium leading-6 text-gray-900">Dirección</label>
-            <div class="mt-2">
-              <input type="text" id="location" formControlName="location"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('location')?.invalid && formRegistro.get('location')?.touched}">
-            </div>
-          </div>
-
-          <div>
-            <label for="birth" class="block text-sm font-medium leading-6 text-gray-900">Fecha de Nacimiento</label>
-            <div class="mt-2">
-              <input type="date" id="birth" formControlName="birth"
-                class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-                [ngClass]="{'ring-red-300': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
-            </div>
-          </div>
+        <div class="group">
+          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Fecha de Nacimiento</label>
+          <input type="date" formControlName="birth"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
         </div>
+      </div>
 
-        <div>
-          <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Contraseña</label>
-          <div class="mt-2">
-            <input type="password" id="password" formControlName="password"
-              class="block w-full rounded-md border-0 py-2.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 transition"
-              [ngClass]="{'ring-red-300': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
-          </div>
-        </div>
+      <div class="group">
+        <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Contraseña</label>
+        <input type="password" formControlName="password" placeholder="••••••••"
+          class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+          [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
+        <p *ngIf="formRegistro.get('password')?.hasError('minlength') && formRegistro.get('password')?.touched" class="text-red-500 text-xs mt-1 ml-1">Mínimo 6 caracteres</p>
+      </div>
 
-        <div>
-          <button type="button" (click)="registrarse()" [disabled]="formRegistro.invalid"
-            class="flex w-full justify-center rounded-md bg-black px-3 py-3 text-lg font-semibold leading-6 text-white shadow-sm hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition">
-            Registrarse
-          </button>
-        </div>
+      <div class="pt-4">
+        <button type="submit" [disabled]="formRegistro.invalid || isLoading"
+          class="w-full bg-black text-white h-14 rounded-full font-bold text-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+          
+          <span *ngIf="!isLoading">Crear Cuenta</span>
+          
+          <div *ngIf="isLoading" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+        </button>
+      </div>
 
-        <div class="text-center mt-6">
-          <p class="text-sm text-gray-500">
-            ¿Ya tienes cuenta?
-            <a href="login" class="font-semibold text-blue-600 hover:text-blue-500">Inicia Sesión</a>
-          </p>
-        </div>
-      </form>
-    </div>
+      <p class="text-center text-gray-500 text-sm">
+        ¿Ya tienes cuenta? 
+        <a routerLink="/login" class="text-black font-bold hover:underline">Inicia Sesión</a>
+      </p>
+
+    </form>
   </div>
 </main>
