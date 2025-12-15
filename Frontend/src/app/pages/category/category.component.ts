@@ -23,6 +23,9 @@ export class CategoryComponent implements OnInit {
   public formBuild = inject(FormBuilder);
 
   public activeTab: TabView = 'dashboard';
+  public isMobileNavOpen = false;
+  public loadingCategories = false;
+  public loadingUsers = false;
 
   public formCategory: FormGroup = this.formBuild.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
@@ -39,30 +42,44 @@ export class CategoryComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.cargarDatos();
+    this.cargarCategorias();
   }
 
-  cargarDatos() {
-    // 1. Cargar Categorías
-    this.categoryService.getCategories().subscribe(res => {
-      this.categorias = res;
-      this.stats.totalCategories = res.length;
+  cargarCategorias() {
+    this.loadingCategories = true;
+    this.categoryService.getCategories().subscribe({
+      next: (res) => {
+        this.categorias = res;
+        this.stats.totalCategories = res.length;
+        this.loadingCategories = false;
+      },
+      error: () => { this.loadingCategories = false; }
     });
+  }
 
-    // 2. Cargar Usuarios
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        this.userService.getUsers().subscribe(res => {
-          this.usuarios = res;
-          this.stats.totalUsers = res.length;
-        });
-      }
-    }
+  cargarUsuarios() {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    this.loadingUsers = true;
+    this.userService.getUsers().subscribe({
+      next: (res) => {
+        this.usuarios = res;
+        this.stats.totalUsers = res.length;
+        this.loadingUsers = false;
+      },
+      error: () => { this.loadingUsers = false; }
+    });
   }
 
   cambiarTab(tab: TabView) {
     this.activeTab = tab;
+    if (tab === 'users' && this.usuarios.length === 0 && !this.loadingUsers) {
+      this.cargarUsuarios();
+    }
+    if (tab === 'categories' && this.categorias.length === 0 && !this.loadingCategories) {
+      this.cargarCategorias();
+    }
   }
 
   crearCategoria() {
@@ -103,4 +120,11 @@ export class CategoryComponent implements OnInit {
       });
     }
   }
+
+  toggleMobileNav() {
+    this.isMobileNavOpen = !this.isMobileNavOpen;
+  }
+
+  trackUser(_i: number, u: Usuario) { return u.id; }
+  trackCategory(_i: number, c: Categoria) { return c.id; }
 }

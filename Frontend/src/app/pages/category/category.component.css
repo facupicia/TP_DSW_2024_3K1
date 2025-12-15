@@ -52,6 +52,39 @@
     z-index: 10;
 }
 
+/* Mobile Nav */
+.mobile-nav {
+    display: none;
+    margin-bottom: 1rem;
+}
+.mobile-toggle {
+    width: 100%;
+    min-height: 48px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    font-weight: 700;
+}
+.mobile-menu {
+    display: none;
+    margin-top: 8px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+}
+.mobile-menu.open { display: block; }
+.mobile-item {
+    width: 100%;
+    min-height: 48px;
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    background: white;
+    font-weight: 600;
+}
+.mobile-item:last-child { border-bottom: none; }
+
 /* KPI Cards */
 .kpi-grid {
     display: grid;
@@ -138,9 +171,37 @@
     box-shadow: 0 0 0 4px rgba(0,0,0,0.05);
 }
 
+/* Touch targets */
+.tap-target {
+    min-width: 48px;
+    min-height: 48px;
+}
+
+/* Skeletons */
+.skeleton-list { display: grid; gap: 12px; }
+.skeleton-item {
+    height: 56px;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 12px;
+}
+@keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
 /* Animaciones de fondo (Reutilizadas) */
 .xmb-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
 .blob { position: absolute; filter: blur(80px); opacity: 0.5; }
 .blob-1 { top: -10%; right: -10%; width: 500px; height: 500px; background: #bfdbfe; border-radius: 50%; animation: float 10s infinite ease-in-out; }
 .blob-2 { bottom: -10%; left: -10%; width: 500px; height: 500px; background: #e9d5ff; border-radius: 50%; animation: float 15s infinite ease-in-out reverse; }
 @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(30px, -30px); } }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .admin-layout { flex-direction: column; }
+    .sidebar { width: 100%; padding: 1rem; order: -1; }
+    .main-content { padding: 1rem; }
+    .mobile-nav { display: block; }
+}
