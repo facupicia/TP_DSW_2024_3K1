@@ -29,9 +29,13 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(morgan("dev"));
+app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json());
 
+// Healthcheck
+app.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
 
 app.use("/api/category", categoryRoute)
 app.use("/api/user", userRoute)
