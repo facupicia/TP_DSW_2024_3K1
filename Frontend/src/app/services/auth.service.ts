@@ -71,6 +71,10 @@ export class AuthService {
     return this.http.delete(`${this.urlBase}${id}`)
   }
 
+  updateRole(id: number, rol: 'user' | 'admin' | 'scanner') {
+    return this.http.put(`${this.urlBase}${id}/role`, { rol });
+  }
+
   logout() {
     this.currentUserSubject.next(null);
   }

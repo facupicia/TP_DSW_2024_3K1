@@ -4,6 +4,7 @@ import { Event } from "./event/event.entity"
 import { Ticket } from "./ticket/ticket.entity"
 import { Category } from "./category/category.entity"
 import { PaymentLog } from "./payment/payment.entity"
+import { RoleAudit } from "./user/roleAudit.entity"
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -22,7 +23,7 @@ const AppDataSource = usePostgres
     ssl: true,
     synchronize: process.env.NODE_ENV !== 'production',
     logging: false,
-    entities: [User, Event, Ticket, Category, PaymentLog],
+    entities: [User, Event, Ticket, Category, PaymentLog, RoleAudit],
     extra: { ssl: { rejectUnauthorized: false } }
   })
   : new DataSource({
@@ -34,7 +35,7 @@ const AppDataSource = usePostgres
     database: process.env.MYSQL_DATABASE || process.env.DB_NAME || 'eventlife',
     synchronize: process.env.NODE_ENV !== 'production',
     logging: false,
-    entities: [User, Event, Ticket, Category, PaymentLog],
+    entities: [User, Event, Ticket, Category, PaymentLog, RoleAudit],
   });
 
 export default AppDataSource;

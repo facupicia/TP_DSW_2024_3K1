@@ -12,7 +12,9 @@
     "migrate:pg": "ts-node src/scripts/migrate-to-postgres.ts",
     "verify:migration": "ts-node src/scripts/verify-migration.ts",
     "test:timestamp": "ts-node src/scripts/test-timestamp-column.ts",
-    "test:db": "ts-node src/scripts/test-connection.ts"
+    "test:db": "ts-node src/scripts/test-connection.ts",
+    "test:auth": "ts-node-dev --quiet tests/auth.bugs.test.ts",
+    "test:roles": "ts-node-dev --quiet tests/role-update.test.ts"
   },
   "keywords": [],
   "author": "",

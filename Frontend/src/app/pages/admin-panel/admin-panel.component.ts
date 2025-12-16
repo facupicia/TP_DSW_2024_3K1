@@ -1,31 +1,37 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormsModule } from '@angular/forms';
 import { CategoryService } from '../../services/category.service';
 import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
+import { ToastService } from '../../services/toast.service';
 import { Usuario } from '../../interfaces/Usuario';
-import { HeaderComponent } from '../../components/header/header.component'; // Opcional si usas el sidebar interno
 
 type TabView = 'dashboard' | 'users' | 'categories';
 
 @Component({
-  selector: 'app-category', // Podrías renombrarlo a app-admin-dashboard
+  selector: 'app-admin-panel',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule], // HeaderComponent quitado si usas layout propio
-  templateUrl: './category.component.html',
-  styleUrls: ['./category.component.css']
+  imports: [ReactiveFormsModule, FormsModule, CommonModule],
+  templateUrl: './admin-panel.component.html',
+  styleUrls: ['./admin-panel.component.css']
 })
-export class CategoryComponent implements OnInit {
+export class AdminPanelComponent implements OnInit {
 
   private userService = inject(AuthService);
   private categoryService = inject(CategoryService);
   public formBuild = inject(FormBuilder);
+  private toast = inject(ToastService);
 
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
   public loadingCategories = false;
   public loadingUsers = false;
+  public updatingRole: Record<number, boolean> = {};
+  public selectedRole: Record<number, 'user' | 'admin' | 'scanner'> = {};
+  public roles: Array<'user' | 'admin' | 'scanner'> = ['user', 'admin', 'scanner'];
+  public currentUser: any = null;
 
   public formCategory: FormGroup = this.formBuild.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
@@ -34,15 +40,17 @@ export class CategoryComponent implements OnInit {
   categorias: Categoria[] = [];
   usuarios: Usuario[] = [];
 
-  // Estadísticas Simples
   stats = {
     totalUsers: 0,
     totalCategories: 0,
-    activeEvents: 12 // Dato fake por ahora
+    activeEvents: 12
   };
 
   ngOnInit(): void {
     this.cargarCategorias();
+    this.userService.currentUser$.subscribe(u => {
+      this.currentUser = u;
+    });
   }
 
   cargarCategorias() {
@@ -65,6 +73,11 @@ export class CategoryComponent implements OnInit {
     this.userService.getUsers().subscribe({
       next: (res) => {
         this.usuarios = res;
+        for (const u of this.usuarios) {
+          if (u.id !== undefined && (u.rol as any)) {
+            this.selectedRole[u.id] = (u.rol as any);
+          }
+        }
         this.stats.totalUsers = res.length;
         this.loadingUsers = false;
       },
@@ -84,18 +97,10 @@ export class CategoryComponent implements OnInit {
 
   crearCategoria() {
     if (this.formCategory.invalid) return;
-
-    // CORRECCIÓN 1: Obtenemos el valor directo (string), no creamos un objeto
     const nombreCategoria = this.formCategory.value.name;
-
-    // Le pasamos el string directo al servicio
     this.categoryService.cargarCategoria(nombreCategoria).subscribe({
-      // CORRECCIÓN 2: Le decimos a TS que 'res' es de tipo 'any' o 'Categoria' para poder pushearlo
       next: (res: any) => {
-
-        // Al ser 'any', ahora sí nos deja agregarlo al array de Categoria[]
         this.categorias.push(res);
-
         this.stats.totalCategories++;
         this.formCategory.reset();
       },
@@ -119,6 +124,35 @@ export class CategoryComponent implements OnInit {
         this.stats.totalUsers--;
       });
     }
+  }
+
+  cambiarRolConfirm(u: Usuario) {
+    if (!this.currentUser || this.currentUser.rol !== 'admin') {
+      this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
+      return;
+    }
+    if (!u.id) return;
+    const nuevoRol = this.selectedRole[u.id];
+    const rolActual = (u.rol as any);
+    if (!nuevoRol) {
+      this.toast.warning('Selecciona un rol válido');
+      return;
+    }
+    if (rolActual === nuevoRol) {
+      this.toast.info('El nuevo rol es igual al actual');
+      return;
+    }
+    this.updatingRole[u.id!] = true;
+    this.userService.updateRole(u.id!, nuevoRol).subscribe({
+      next: (resp: any) => {
+        (u.rol as any) = nuevoRol;
+        this.toast.success('Rol actualizado correctamente');
+        this.updatingRole[u.id!] = false;
+      },
+      error: () => {
+        this.updatingRole[u.id!] = false;
+      }
+    });
   }
 
   toggleMobileNav() {

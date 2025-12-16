@@ -9,7 +9,7 @@ import { MisEventosComponent } from './pages/mis-eventos/mis-eventos.component';
 import { DetalleEventoComponent } from './pages/detalle-evento/detalle-evento.component';
 import { ExploradorEventosComponent } from './pages/explorador-eventos/explorador-eventos.component';
 import { CheckoutComponent } from './pages/checkout/checkout.component';
-import { CategoryComponent } from './pages/category/category.component';
+import { AdminPanelComponent } from './pages/admin-panel/admin-panel.component';
 import { TicketsComponent } from './pages/tickets/tickets.component';
 import { CheckoutSuccessComponent } from './pages/checkout/success.component';
 import { CheckoutFailureComponent } from './pages/checkout/failure.component';
@@ -33,7 +33,7 @@ export const routes: Routes = [
     { path: "checkout/success", component: CheckoutSuccessComponent, title: 'Pago Exitoso' },
     { path: "checkout/failure", component: CheckoutFailureComponent, title: 'Pago Fallido' },
     { path: "checkout/pending", component: CheckoutPendingComponent, title: 'Pago Pendiente' },
-    { path: "admin", component: CategoryComponent, title: 'Categorias Admin' },
+    { path: "admin", component: AdminPanelComponent, title: 'Panel de Administración' },
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
 
     { path: "**", redirectTo: "", pathMatch: "full" }

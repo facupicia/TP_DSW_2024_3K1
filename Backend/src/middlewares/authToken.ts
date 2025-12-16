@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 export interface IPayload {
     id: number;
+    rol?: string;
     iat: number;
 }
 

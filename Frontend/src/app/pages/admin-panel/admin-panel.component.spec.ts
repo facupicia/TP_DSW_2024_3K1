@@ -1,16 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { CategoryComponent } from './category.component';
+import { AdminPanelComponent } from './admin-panel.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 
-describe('CategoryComponent (mobile)', () => {
-  let component: CategoryComponent;
-  let fixture: ComponentFixture<CategoryComponent>;
+describe('AdminPanelComponent (mobile)', () => {
+  let component: AdminPanelComponent;
+  let fixture: ComponentFixture<AdminPanelComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [CategoryComponent, HttpClientTestingModule]
+      imports: [AdminPanelComponent, HttpClientTestingModule]
     }).compileComponents();
-    fixture = TestBed.createComponent(CategoryComponent);
+    fixture = TestBed.createComponent(AdminPanelComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

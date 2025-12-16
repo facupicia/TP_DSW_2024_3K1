@@ -10,6 +10,7 @@ import categoryRoute from "./routers/category.routes"
 import paymentRoute from "./payment/payment.routes"
 import { errorHandler } from "./middlewares/errorHandler"
 import { getMailerStatus } from "./lib/mailer"
+import { setupSwagger } from "./docs/swagger"
 
 const app = express();
 
@@ -46,6 +47,9 @@ app.use(limiter);
 
 app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json());
+
+// Swagger Docs
+setupSwagger(app);
 
 // Healthcheck
 app.get('/health', async (_req, res) => {
