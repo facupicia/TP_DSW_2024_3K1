@@ -14,7 +14,8 @@
     "test:timestamp": "ts-node src/scripts/test-timestamp-column.ts",
     "test:db": "ts-node src/scripts/test-connection.ts",
     "test:auth": "ts-node-dev --quiet tests/auth.bugs.test.ts",
-    "test:roles": "ts-node-dev --quiet tests/role-update.test.ts"
+    "test:roles": "ts-node-dev --quiet tests/role-update.test.ts",
+    "test:google": "ts-node-dev --quiet tests/google-auth.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -45,7 +46,8 @@
     "swagger-ui-express": "^5.0.1",
     "ts-node-dev": "^2.0.0",
     "typeorm": "^0.3.20",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "google-auth-library": "^9.14.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

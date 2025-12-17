@@ -1,10 +1,11 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, PLATFORM_ID } from '@angular/core';
 import { Router, RouterLink } from '@angular/router'; // Agregamos RouterLink
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Login } from '../../interfaces/Login';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -14,11 +15,13 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./login.component.css'],
 })
 export class LoginComponent {
+  declare google: any;
 
   private accesService = inject(AuthService);
   private router = inject(Router);
   private formBuilder = inject(FormBuilder);
   private toastService = inject(ToastService);
+  private platformId = inject(PLATFORM_ID);
 
   public isLoading: boolean = false; // Estado para el spinner
 
@@ -26,6 +29,46 @@ export class LoginComponent {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
   });
+
+  ngAfterViewInit() {
+    this.initGoogle();
+  }
+
+  private initGoogle() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const clientId = environment.googleClientId;
+    const win = window as any;
+    const g = win.google;
+    if (!g || !clientId) return;
+    g.accounts.id.initialize({
+      client_id: clientId,
+      callback: (resp: any) => this.onGoogleCredential(resp?.credential),
+      ux_mode: 'popup',
+      auto_select: false
+    });
+    const btn = document.getElementById('googleBtn');
+    if (btn) {
+      g.accounts.id.renderButton(btn, { theme: 'outline', size: 'large', text: 'continue_with' });
+    }
+  }
+
+  private onGoogleCredential(credential: string) {
+    if (!credential) return;
+    this.isLoading = true;
+    this.accesService.loginWithGoogle(credential).subscribe({
+      next: (response) => {
+        this.toastService.success('Inicio de sesión con Google exitoso');
+        localStorage.setItem('token', response.token);
+        setTimeout(() => {
+          this.router.navigate(['/']);
+        }, 500);
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toastService.error('Error al iniciar sesión con Google');
+      },
+    });
+  }
 
   public iniciarSesion(): void {
     if (this.formLogin.valid) {

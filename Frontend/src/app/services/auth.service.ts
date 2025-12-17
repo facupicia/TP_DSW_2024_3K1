@@ -41,6 +41,16 @@ export class AuthService {
       })
     );
   }
+  loginWithGoogle(credential: string): Observable<ResponseAcceso> {
+    return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }).pipe(
+      tap((resp) => {
+        if (resp?.token && typeof window !== 'undefined') {
+          localStorage.setItem('token', resp.token);
+        }
+        this.getProfile().subscribe();
+      })
+    );
+  }
 
   getProfile(): Observable<any> {
     return this.http.get(`${this.urlBase}profile`).pipe(

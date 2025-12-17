@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { tokenSing } from "../lib/generateToken"
 import { CustomRequest } from "../middlewares/authToken";
 import { Roles } from "../schemas/schema.user";
+import { OAuth2Client } from "google-auth-library";
 
 
 export const signupUser = async (req: Request, res: Response) => {
@@ -231,4 +232,62 @@ async function logRoleChange(adminId: number, userId: number, prevRole: string, 
   audit.newRole = newRole;
   audit.ip = ip;
   await audit.save();
+}
+
+export const googleSignin = async (req: Request, res: Response) => {
+  try {
+    const credential = (req.body as any)?.credential;
+    const clientId = process.env.ID_CLIENT_GOOGLE_OAUTH;
+    if (!clientId) {
+      return res.status(500).json({ code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "OAuth no configurado" });
+    }
+    if (!credential) {
+      return res.status(400).json({ code: "MISSING_CREDENTIAL", message: "Falta credencial de Google" });
+    }
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+    const payload = ticket.getPayload();
+    if (!payload) {
+      return res.status(401).json({ code: "INVALID_TOKEN", message: "Token inválido" });
+    }
+    const iss = payload.iss;
+    if (iss !== "https://accounts.google.com" && iss !== "accounts.google.com") {
+      return res.status(401).json({ code: "INVALID_ISSUER", message: "Emisor inválido" });
+    }
+    const email = payload.email;
+    const emailVerified = payload.email_verified;
+    const firstname = (payload.given_name || "").trim() || "Usuario";
+    const lastname = (payload.family_name || "").trim() || "Google";
+    const picture = payload.picture || undefined;
+    if (!email || emailVerified === false) {
+      return res.status(401).json({ code: "EMAIL_NOT_VERIFIED", message: "Email no verificado" });
+    }
+    const dataSource = (await import("../db")).default;
+    if (!dataSource.isInitialized) {
+      await dataSource.initialize();
+    }
+    const repo = dataSource.getRepository(User);
+    let user = await repo.findOne({ where: { email } });
+    if (!user) {
+      user = new User();
+      user.firstname = firstname;
+      user.lastname = lastname;
+      user.email = email;
+      user.imgPerfil = picture || user.imgPerfil;
+      user.phone = "";
+      user.location = "";
+      user.birth = new Date("1970-01-01");
+      user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 10);
+      await repo.save(user);
+    } else {
+      if (picture && picture !== user.imgPerfil) {
+        user.imgPerfil = picture;
+        await repo.save(user);
+      }
+    }
+    const tokenSession = await tokenSing(user);
+    return res.status(200).json({ token: tokenSession });
+  } catch (error: any) {
+    return res.status(500).json({ code: "GOOGLE_AUTH_ERROR", message: error.message || "Error interno" });
+  }
 }

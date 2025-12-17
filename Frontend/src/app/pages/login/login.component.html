@@ -1,7 +1,11 @@
 <main class="min-h-screen w-full flex items-center justify-center bg-[#F5F5F7] p-4 font-sans relative overflow-hidden">
 
-  <div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-200/40 rounded-full blur-[100px] pointer-events-none"></div>
-  <div class="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/40 rounded-full blur-[100px] pointer-events-none"></div>
+  <div
+    class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-200/40 rounded-full blur-[100px] pointer-events-none">
+  </div>
+  <div
+    class="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-200/40 rounded-full blur-[100px] pointer-events-none">
+  </div>
 
   <nav class="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-50">
     <a href="/" class="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
@@ -10,32 +14,36 @@
     </a>
   </nav>
 
-  <div class="w-full max-w-[1000px] h-auto md:h-[600px] bg-white rounded-[32px] shadow-2xl shadow-black/5 overflow-hidden flex flex-col md:flex-row animate-fade-in-up z-10 relative">
+  <div
+    class="w-full max-w-[1000px] h-auto md:h-[600px] bg-white rounded-[32px] shadow-2xl shadow-black/5 overflow-hidden flex flex-col md:flex-row animate-fade-in-up z-10 relative">
 
     <div class="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-center relative">
-      
+
       <div class="max-w-sm mx-auto w-full">
         <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3 tracking-tight">Hola de nuevo.</h1>
         <p class="text-gray-500 mb-10 text-lg">Tu próxima experiencia te espera.</p>
 
         <form [formGroup]="formLogin" (ngSubmit)="iniciarSesion()" class="space-y-5">
-          
+
           <div class="group">
-            <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
+            <label
+              class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
             <input type="email" formControlName="email" placeholder="nombre@ejemplo.com"
               class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
               [ngClass]="{'ring-2 ring-red-100 bg-red-50': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
-            
-            <p *ngIf="formLogin.get('email')?.invalid && formLogin.get('email')?.touched" 
-               class="text-red-500 text-xs mt-2 ml-1 font-medium animate-pulse">
-               Ingresa un correo válido
+
+            <p *ngIf="formLogin.get('email')?.invalid && formLogin.get('email')?.touched"
+              class="text-red-500 text-xs mt-2 ml-1 font-medium animate-pulse">
+              Ingresa un correo válido
             </p>
           </div>
 
           <div class="group">
             <div class="flex justify-between items-center mb-2 ml-1">
-              <label class="text-xs font-bold text-gray-400 uppercase tracking-wider transition-colors group-focus-within:text-blue-600">Contraseña</label>
-              <a href="#" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu contraseña?</a>
+              <label
+                class="text-xs font-bold text-gray-400 uppercase tracking-wider transition-colors group-focus-within:text-blue-600">Contraseña</label>
+              <a href="#" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu
+                contraseña?</a>
             </div>
             <input type="password" formControlName="password" placeholder="••••••••"
               class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
@@ -44,26 +52,32 @@
 
           <button type="submit" [disabled]="formLogin.invalid || isLoading"
             class="w-full bg-black text-white h-14 rounded-full font-bold text-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed mt-4">
-            
+
             <span *ngIf="!isLoading">Iniciar Sesión</span>
-            
-            <div *ngIf="isLoading" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+
+            <div *ngIf="isLoading" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin">
+            </div>
           </button>
 
         </form>
 
         <p class="text-center mt-8 text-gray-500 text-sm">
-          ¿No tienes cuenta? 
+          ¿No tienes cuenta?
           <a routerLink="/register" class="text-black font-bold hover:underline">Regístrate</a>
         </p>
+        <div class="mt-6">
+          <div id="googleBtn" class="w-full flex justify-center"></div>
+        </div>
       </div>
     </div>
 
     <div class="hidden md:block w-1/2 relative overflow-hidden bg-black">
-      <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 hover:scale-105 transition-transform duration-[20s]"></div>
-      
+      <div
+        class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-60 hover:scale-105 transition-transform duration-[20s]">
+      </div>
+
       <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-      
+
       <div class="absolute bottom-0 left-0 w-full p-12 text-white z-10">
         <div class="bg-white/10 backdrop-blur-md border border-white/10 p-6 rounded-3xl shadow-2xl">
           <p class="font-medium text-blue-300 uppercase tracking-widest text-xs mb-2">Descubre</p>

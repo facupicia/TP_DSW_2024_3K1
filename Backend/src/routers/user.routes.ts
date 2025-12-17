@@ -1,7 +1,7 @@
 import { Router } from "express"
-import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole } from "../user/user.controller"
+import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin } from "../user/user.controller"
 import { schemaValidation } from "../middlewares/schemaValidacion"
-import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema } from "../schemas/schema.user"
+import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema } from "../schemas/schema.user"
 import { checkAuthToken } from "../middlewares/authToken"
 import { checkRoleAuth } from "../middlewares/checkRole"
 
@@ -17,6 +17,7 @@ router.get("/profile", checkAuthToken, checkRoleAuth(["user", "admin"]), profile
 
 router.post("/login", schemaValidation(signinUserSchema), signinUser)
 
+router.post("/google", schemaValidation(googleSigninSchema), googleSignin)
 
 router.post("/register", schemaValidation(signupUserSchema), signupUser)
 
