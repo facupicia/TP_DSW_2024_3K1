@@ -1,0 +1,15 @@
+:host {
+  display: block;
+}
+
+/* Opcional: Personalizar la barra de scroll si hay overflow */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E5E5EA;
+  border-radius: 4px;
+}
