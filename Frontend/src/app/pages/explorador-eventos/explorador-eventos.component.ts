@@ -93,7 +93,7 @@ export class ExploradorEventosComponent implements OnInit {
       const matchesSearch = this.searchTerm ? evento.title.toLowerCase().includes(this.searchTerm.toLowerCase()) : true;
       return matchesCategory && matchesSearch;
     });
-    
+
     // IMPORTANTE: Resetear a página 1 cuando se filtra
     this.currentPage = 1;
   }

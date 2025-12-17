@@ -50,6 +50,11 @@ export class PerfilComponent implements OnInit {
       }
     }
   }
+  verEstadisticas() {
+    // Asegúrate de que esta sea la ruta que definiste en tu app.routes.ts
+    // para el componente CreatorStatsComponent
+    this.router.navigate(['creator/stats']);
+  }
 
   verificarEventos() {
     this.eventoService.obtenerEventosUsuario().subscribe({

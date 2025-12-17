@@ -15,7 +15,7 @@ export class EventService {
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
-    return this.http.post<Evento>(`${this.urlBase}new`, objeto);
+    return this.http.post<Evento>(`${this.urlBase}/new`, objeto);
 
   }
 

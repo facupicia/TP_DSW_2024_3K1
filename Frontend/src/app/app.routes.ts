@@ -14,6 +14,7 @@ import { TicketsComponent } from './pages/tickets/tickets.component';
 import { CheckoutSuccessComponent } from './pages/checkout/success.component';
 import { CheckoutFailureComponent } from './pages/checkout/failure.component';
 import { CheckoutPendingComponent } from './pages/checkout/pending.component';
+import { CreatorStatsComponent } from './pages/creator-stats/creator-stats.component';
 
 
 import { authGuard } from './guards/auth.guard'; // Importar el guard
@@ -35,6 +36,7 @@ export const routes: Routes = [
     { path: "checkout/pending", component: CheckoutPendingComponent, title: 'Pago Pendiente' },
     { path: "admin", component: AdminPanelComponent, title: 'Panel de Administración' },
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
+    { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard] },
 
     { path: "**", redirectTo: "", pathMatch: "full" }
 ];

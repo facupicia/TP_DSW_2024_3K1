@@ -1,80 +1,101 @@
-<main class="min-h-screen bg-slate-50 pb-20 pt-28 relative overflow-hidden"> 
+<main class="min-h-screen bg-slate-50 pb-20 pt-28 relative overflow-hidden">
   <app-header></app-header>
 
-<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] z-0 pointer-events-none overflow-visible">
-    
-    <div class="absolute top-0 left-10 w-96 h-96 bg-blue-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob opacity-70"></div>
-    
-    <div class="absolute top-0 right-10 w-96 h-96 bg-purple-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob animation-delay-2000 opacity-70"></div>
-    
-    <div class="absolute -bottom-20 left-1/2 w-96 h-96 bg-pink-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob animation-delay-4000 opacity-70"></div>
-  
+  <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] z-0 pointer-events-none overflow-visible">
+
+    <div
+      class="absolute top-0 left-10 w-96 h-96 bg-blue-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob opacity-70">
+    </div>
+
+    <div
+      class="absolute top-0 right-10 w-96 h-96 bg-purple-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob animation-delay-2000 opacity-70">
+    </div>
+
+    <div
+      class="absolute -bottom-20 left-1/2 w-96 h-96 bg-pink-500/40 rounded-full blur-3xl mix-blend-multiply filter animate-blob animation-delay-4000 opacity-70">
+    </div>
+
   </div>
 
   <div class="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-    
+
     <div class="mb-8 animate-fade-in-up">
       <h1 class="text-4xl font-bold text-slate-900 tracking-tight">Tu Perfil.</h1>
       <p class="text-slate-500 mt-2 text-lg">Tu centro de control personal.</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      
+
       <div class="lg:col-span-1 animate-fade-in-up delay-100">
-        
-        <div class="bg-white rounded-[32px] shadow-xl shadow-blue-900/5 overflow-hidden border border-gray-270 relative">
-          
-          <div class="h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 w-full absolute top-0 left-0"></div>
+
+        <div
+          class="bg-white rounded-[32px] shadow-xl shadow-blue-900/5 overflow-hidden border border-gray-270 relative">
+
+          <div class="h-32 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 w-full absolute top-0 left-0">
+          </div>
 
           <div class="p-8 pt-0 flex flex-col items-center text-center relative mt-16">
-             
-             <div class="relative group cursor-pointer mb-4">
-                <img [src]="userProfile?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'" 
-                     alt="Avatar" 
-                     class="relative w-32 h-32 rounded-full object-cover border-[6px] border-white shadow-lg transition-transform group-hover:scale-105"
-                     (click)="editProfile()">
-                
-                <div class="absolute bottom-2 right-2 bg-white text-blue-600 p-2 rounded-full shadow-md border border-gray-100 group-hover:bg-blue-50 transition-colors">
-                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </div>
-             </div>
 
-             <h2 class="text-2xl font-bold text-slate-900 mb-1">
-               {{ userProfile?.firstname }} {{ userProfile?.lastname }}
-             </h2>
-             <p class="text-slate-500 font-medium text-sm mb-6">{{ userProfile?.email }}</p>
+            <div class="relative group cursor-pointer mb-4">
+              <img
+                [src]="userProfile?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
+                alt="Avatar"
+                class="relative w-32 h-32 rounded-full object-cover border-[6px] border-white shadow-lg transition-transform group-hover:scale-105"
+                (click)="editProfile()">
 
-             <div class="flex gap-2 mb-8">
-               <span *ngIf="esAdmin" class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wide border border-indigo-200">Admin</span>
-               <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">Usuario</span>
-             </div>
+              <div
+                class="absolute bottom-2 right-2 bg-white text-blue-600 p-2 rounded-full shadow-md border border-gray-100 group-hover:bg-blue-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </div>
+            </div>
 
-             <div class="w-full space-y-3 mt-auto">
-                <button (click)="editProfile()" class="w-full py-3 px-4 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 active:scale-95 flex justify-center items-center gap-2">
-                   Editar Perfil
-                </button>
-                <button (click)="logout()" class="w-full py-3 px-4 rounded-xl bg-white border border-slate-200 text-red-500 font-medium hover:bg-red-50 hover:border-red-200 transition-all active:scale-95">
-                   Cerrar Sesión
-                </button>
-             </div>
+            <h2 class="text-2xl font-bold text-slate-900 mb-1">
+              {{ userProfile?.firstname }} {{ userProfile?.lastname }}
+            </h2>
+            <p class="text-slate-500 font-medium text-sm mb-6">{{ userProfile?.email }}</p>
+
+            <div class="flex gap-2 mb-8">
+              <span *ngIf="esAdmin"
+                class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wide border border-indigo-200">Admin</span>
+              <span
+                class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">Usuario</span>
+            </div>
+
+            <div class="w-full space-y-3 mt-auto">
+              <button (click)="editProfile()"
+                class="w-full py-3 px-4 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/20 active:scale-95 flex justify-center items-center gap-2">
+                Editar Perfil
+              </button>
+              <button (click)="logout()"
+                class="w-full py-3 px-4 rounded-xl bg-white border border-slate-200 text-red-500 font-medium hover:bg-red-50 hover:border-red-200 transition-all active:scale-95">
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="lg:col-span-2 space-y-6 animate-fade-in-up delay-200">
-        
+
         <div class="bg-white/80 backdrop-blur-md rounded-[32px] p-8 shadow-xl border border-gray-300">
           <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
             <span class="bg-blue-50 text-blue-600 p-2.5 rounded-xl border border-blue-100">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
             </span>
             Información Personal
           </h3>
-          
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
             <div class="group">
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nombre Completo</p>
-              <p class="text-slate-800 font-semibold text-lg">{{ userProfile?.firstname }} {{ userProfile?.lastname }}</p>
+              <p class="text-slate-800 font-semibold text-lg">{{ userProfile?.firstname }} {{ userProfile?.lastname }}
+              </p>
             </div>
             <div class="group">
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Email</p>
@@ -88,50 +109,94 @@
               <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ubicación</p>
               <p class="text-slate-800 font-semibold text-lg">{{ userProfile?.location || 'No especificado' }}</p>
             </div>
+
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          
-          <div (click)="showOrders()" class="bg-white p-6 rounded-[24px] shadow-sm border border-gray-200 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden ">
-            <div class="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            
+        <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-6">
+
+
+          <div (click)="showOrders()"
+            class="bg-white p-6 rounded-[24px] shadow-sm border border-gray-200 cursor-pointer group hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden ">
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            </div>
+
             <div class="relative z-10">
-                <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
-                </div>
-                <h4 class="text-lg font-bold text-slate-900">Mis Tickets</h4>
-                <p class="text-sm text-slate-500 mt-1">Tus códigos QR y accesos.</p>
+              <div
+                class="w-12 h-12 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                </svg>
+              </div>
+              <h4 class="text-lg font-bold text-slate-900">Mis Tickets</h4>
+              <p class="text-sm text-slate-500 mt-1">Tus códigos QR y accesos.</p>
             </div>
           </div>
 
-          <div *ngIf="tieneEventos" (click)="misEventos()" class="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 cursor-pointer group hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-cyan-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            
+          <div *ngIf="tieneEventos" (click)="misEventos()"
+            class="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 cursor-pointer group hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-cyan-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            </div>
+
             <div class="relative z-10">
-                <div class="w-12 h-12 bg-cyan-100 text-cyan-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
-                   <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                </div>
-                <h4 class="text-lg font-bold text-slate-900">Mis Eventos</h4>
-                <p class="text-sm text-slate-500 mt-1">Gestiona lo que organizaste.</p>
+              <div
+                class="w-12 h-12 bg-cyan-100 text-cyan-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h4 class="text-lg font-bold text-slate-900">Mis Eventos</h4>
+              <p class="text-sm text-slate-500 mt-1">Gestiona lo que organizaste.</p>
             </div>
           </div>
 
-          <div *ngIf="esAdmin" (click)="panelAdmin()" class="bg-slate-900 p-6 rounded-[24px] shadow-lg shadow-slate-900/20 border border-slate-800 cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 sm:col-span-2 relative overflow-hidden">
-             <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
-             
-             <div class="relative z-10 flex items-center justify-between">
+          <div *ngIf="tieneEventos" (click)="verEstadisticas()"
+            class="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 cursor-pointer group hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-orange-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            </div>
+
+            <div class="relative z-10">
+              <div
+                class="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+                </svg>
+              </div>
+              <h4 class="text-lg font-bold text-slate-900">Estadísticas</h4>
+              <p class="text-sm text-slate-500 mt-1">Métricas y rendimiento.</p>
+            </div>
+          </div>
+
+          <div *ngIf="esAdmin" (click)="panelAdmin()"
+            class="bg-slate-900 p-6 rounded-[24px] shadow-lg shadow-slate-900/20 border border-slate-800 cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 sm:col-span-2 relative overflow-hidden">
+            <div
+              class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none">
+            </div>
+
+            <div class="relative z-10 flex items-center justify-between">
               <div>
                 <h4 class="text-lg font-bold text-white">Panel de Administración</h4>
                 <p class="text-sm text-slate-400 mt-1">Control total del sistema.</p>
               </div>
-              <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
-                 <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <div
+                class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
               </div>
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   </div>

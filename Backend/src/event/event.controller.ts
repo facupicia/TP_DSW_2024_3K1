@@ -5,6 +5,7 @@ import { CustomRequest } from "../middlewares/authToken";
 import { Category } from "../category/category.entity";
 import { log } from "console";
 import { globalCache } from "../utils/cache";
+import PDFDocument from "pdfkit";
 
 
 
@@ -53,7 +54,9 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
 export const updateEvent = async (req: Request, res: Response) => {
     try {
         const { title, capacity, date, description, time, price, location, image, categoryId } = req.body;
-        const event = await Event.findOneBy({ id: parseInt(req.params.id) })
+        const idNum = parseInt(req.params.id);
+        if (isNaN(idNum) || idNum <= 0) return res.status(400).json({ message: "Invalid event id" });
+        const event = await Event.findOneBy({ id: idNum })
 
         if (!event) return res.status(404).json({ message: "Event does not exist" })
 
@@ -111,11 +114,221 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
     }
 }
 
+const getPeriodRange = (period?: string) => {
+    const now = new Date();
+    const start = new Date(now);
+    switch (period) {
+        case 'diario':
+        case 'daily':
+            start.setHours(0, 0, 0, 0);
+            break;
+        case 'semanal':
+        case 'weekly':
+            {
+                const day = now.getDay();
+                const diff = (day + 6) % 7; // lunes inicio
+                start.setDate(now.getDate() - diff);
+                start.setHours(0, 0, 0, 0);
+            }
+            break;
+        case 'mensual':
+        case 'monthly':
+            start.setDate(1);
+            start.setHours(0, 0, 0, 0);
+            break;
+        case 'anual':
+        case 'yearly':
+            start.setMonth(0, 1);
+            start.setHours(0, 0, 0, 0);
+            break;
+        default:
+            start.setFullYear(1970, 0, 1);
+            start.setHours(0, 0, 0, 0);
+    }
+    return { start, end: now };
+};
+
+export const getCreatorStats = async (req: CustomRequest, res: Response) => {
+    try {
+        const user = await User.findOneBy({ id: req.user!.id });
+        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+        const { period } = req.query as { period?: string };
+        const { start, end } = getPeriodRange(period);
+
+        const events = await Event.createQueryBuilder("event")
+            .leftJoinAndSelect("event.tickets", "ticket")
+            .leftJoinAndSelect("event.category", "category")
+            .where("event.user_id = :uid", { uid: user.id })
+            .getMany();
+
+        const totalEvents = events.length;
+        let totalParticipants = 0;
+        let totalCapacity = 0;
+        const categoryCount: Record<string, number> = {};
+
+        events.forEach(ev => {
+            const participantsForEvent = ev.tickets?.filter(t => t.createdAt >= start && t.createdAt <= end).length || 0;
+            totalParticipants += participantsForEvent;
+            totalCapacity += ev.capacity || 0;
+            const cname = ev.categoria_name || (ev.category?.name ?? 'Sin categoría');
+            categoryCount[cname] = (categoryCount[cname] ?? 0) + 1;
+        });
+
+        const averageParticipants = totalEvents > 0 ? Number((totalParticipants / totalEvents).toFixed(2)) : 0;
+        const attendanceRate = totalCapacity > 0 ? Number((totalParticipants / totalCapacity).toFixed(4)) : 0;
+
+        const distribution = Object.entries(categoryCount).map(([name, count]) => ({ name, count }));
+
+        return res.json({
+            period: period ?? 'total',
+            totalEventsCreated: totalEvents,
+            averageParticipantsPerEvent: averageParticipants,
+            attendanceRate,
+            categoryDistribution: distribution
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al calcular estadísticas' });
+    }
+};
+
+export const getCreatorStatsComparative = async (req: CustomRequest, res: Response) => {
+    try {
+        const user = await User.findOneBy({ id: req.user!.id });
+        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+        const { period } = req.query as { period?: string };
+        const { start, end } = getPeriodRange(period);
+
+        const events = await Event.createQueryBuilder("event")
+            .leftJoinAndSelect("event.tickets", "ticket")
+            .where("event.user_id = :uid", { uid: user.id })
+            .getMany();
+
+        const comparative = events.map(ev => {
+            const ticketsInPeriod = (ev.tickets ?? []).filter(t => t.createdAt >= start && t.createdAt <= end);
+            const participants = ticketsInPeriod.length;
+            const revenue = ticketsInPeriod.reduce((sum, t) => sum + Number(t.purchasePrice ?? 0), 0);
+            const attendance = ev.capacity > 0 ? Number((participants / ev.capacity).toFixed(4)) : 0;
+            return {
+                id: ev.id,
+                title: ev.title,
+                participants,
+                revenue: Number(revenue.toFixed(2)),
+                attendanceRate: attendance
+            };
+        });
+
+        return res.json({ period: period ?? 'total', comparative });
+    } catch (error) {
+        res.status(500).json({ message: 'Error al obtener comparativa' });
+    }
+};
+
+export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
+    try {
+        const user = await User.findOneBy({ id: req.user!.id });
+        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+        const { period } = req.query as { period?: string };
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const interval = setInterval(async () => {
+            const { start, end } = getPeriodRange(period);
+            const events = await Event.createQueryBuilder("event")
+                .leftJoinAndSelect("event.tickets", "ticket")
+                .where("event.user_id = :uid", { uid: user.id })
+                .getMany();
+
+            const totalEvents = events.length;
+            let totalParticipants = 0;
+            let totalCapacity = 0;
+            events.forEach(ev => {
+                const participantsForEvent = ev.tickets?.filter(t => t.createdAt >= start && t.createdAt <= end).length || 0;
+                totalParticipants += participantsForEvent;
+                totalCapacity += ev.capacity || 0;
+            });
+            const averageParticipants = totalEvents > 0 ? Number((totalParticipants / totalEvents).toFixed(2)) : 0;
+            const attendanceRate = totalCapacity > 0 ? Number((totalParticipants / totalCapacity).toFixed(4)) : 0;
+
+            const payload = JSON.stringify({
+                totalEventsCreated: totalEvents,
+                averageParticipantsPerEvent: averageParticipants,
+                attendanceRate
+            });
+            res.write(`data: ${payload}\n\n`);
+        }, 5000);
+
+        req.on('close', () => {
+            clearInterval(interval);
+        });
+    } catch (error) {
+        res.status(500).end();
+    }
+};
+
+export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) => {
+    try {
+        const user = await User.findOneBy({ id: req.user!.id });
+        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+        const { period } = req.query as { period?: string };
+        const { start, end } = getPeriodRange(period);
+
+        const events = await Event.createQueryBuilder("event")
+            .leftJoinAndSelect("event.tickets", "ticket")
+            .leftJoinAndSelect("event.category", "category")
+            .where("event.user_id = :uid", { uid: user.id })
+            .getMany();
+
+        let totalParticipants = 0;
+        let totalCapacity = 0;
+        const doc = new PDFDocument({ size: 'A4', margin: 50 });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=\"estadisticas-eventos.pdf\"');
+        doc.pipe(res);
+
+        doc.fontSize(18).text('Panel de Estadísticas de Creador', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(12).text(`Periodo: ${period ?? 'total'}`);
+        doc.text(`Usuario: ${user.firstname ?? ''} ${user.lastname ?? ''}`);
+        doc.moveDown();
+
+        events.forEach(ev => {
+            const ticketsInPeriod = (ev.tickets ?? []).filter(t => t.createdAt >= start && t.createdAt <= end);
+            const participants = ticketsInPeriod.length;
+            totalParticipants += participants;
+            totalCapacity += ev.capacity || 0;
+        });
+        const averageParticipants = events.length > 0 ? Number((totalParticipants / events.length).toFixed(2)) : 0;
+        const attendanceRate = totalCapacity > 0 ? Number((totalParticipants / totalCapacity).toFixed(4)) : 0;
+
+        doc.text(`Eventos creados: ${events.length}`);
+        doc.text(`Promedio de participantes por evento: ${averageParticipants}`);
+        doc.text(`Tasa de asistencia (confirmados/cupos): ${attendanceRate}`);
+        doc.moveDown();
+        doc.text('Comparativa de eventos:', { underline: true });
+        doc.moveDown(0.5);
+
+        events.forEach(ev => {
+            const ticketsInPeriod = (ev.tickets ?? []).filter(t => t.createdAt >= start && t.createdAt <= end);
+            const participants = ticketsInPeriod.length;
+            const revenue = ticketsInPeriod.reduce((sum, t) => sum + Number(t.purchasePrice ?? 0), 0);
+            const attendance = ev.capacity > 0 ? Number((participants / ev.capacity).toFixed(4)) : 0;
+            doc.text(`- ${ev.title} | Participantes: ${participants} | Ingresos: $${Number(revenue).toFixed(2)} | Asistencia: ${attendance}`);
+        });
+
+        doc.end();
+    } catch (error) {
+        res.status(500).json({ message: 'Error al exportar PDF' });
+    }
+};
 export const getEvent = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const idNum = parseInt(id);
+        if (isNaN(idNum) || idNum <= 0) return res.status(400).json({ message: "Invalid event id" });
         const event = await Event.findOne({
-            where: { id: parseInt(id) },
+            where: { id: idNum },
             relations: {
                 usuario: true,
                 category: true
@@ -208,7 +421,9 @@ export const getEventByName = async (req: Request, res: Response) => {
 export const deleteEvent = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const result = await Event.delete({ id: parseInt(id) });
+        const idNum = parseInt(id);
+        if (isNaN(idNum) || idNum <= 0) return res.status(400).json({ message: "Invalid event id" });
+        const result = await Event.delete({ id: idNum });
 
         if (result.affected === 0)
             return res.status(404).json({ message: "User not found" });

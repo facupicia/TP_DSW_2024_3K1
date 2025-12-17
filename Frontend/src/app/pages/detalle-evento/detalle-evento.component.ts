@@ -34,7 +34,11 @@ export class DetalleEventoComponent implements OnInit {
 
     this.eventId = this.route.snapshot.paramMap.get('id');
 
-    if (this.eventId) {
+    if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
+      this.router.navigate(['/']);
+      return;
+    }
+    {
       this.loading = true; // Asegurar loading true al inicio
 
       this.eventoService.obtenerEvento(Number(this.eventId)).subscribe({
@@ -70,6 +74,10 @@ export class DetalleEventoComponent implements OnInit {
 }
 
   cargarEvento() {
+    if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
+      this.router.navigate(['/']);
+      return;
+    }
     this.eventoService.obtenerEvento(Number(this.eventId)).subscribe(
       (data: Evento) => {
         this.evento = data;

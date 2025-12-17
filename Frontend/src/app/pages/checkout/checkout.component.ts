@@ -44,12 +44,14 @@ export class CheckoutComponent implements OnInit {
   ngOnInit(): void {
     this.eventId = this.route.snapshot.paramMap.get('id');
 
-    if (this.eventId) {
-      this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
-        this.evento = evento;
-        this.calculateTotal();
-      });
+    if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
+      this.router.navigate(['/']);
+      return;
     }
+    this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
+      this.evento = evento;
+      this.calculateTotal();
+    });
 
     // Iniciar el temporizador apenas carga el checkout
     this.startTimer();
