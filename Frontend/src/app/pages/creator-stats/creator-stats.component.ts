@@ -18,6 +18,10 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
     metrics: any = { totalEventsCreated: 0, averageParticipantsPerEvent: 0, attendanceRate: 0, categoryDistribution: [] };
     comparative: any[] = [];
     refresh$: Subscription | null = null;
+    isDesktop = true;
+    private mq!: MediaQueryList;
+    private mqListener!: (e: MediaQueryListEvent) => void;
+    mobileDetailOpen = false;
 
     // 1. Agrega estas variables a tu clase
     totalRevenue: number = 0;
@@ -55,6 +59,12 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
     constructor(private stats: StatsService) { }
 
     ngOnInit(): void {
+        if (typeof window !== 'undefined') {
+            this.mq = window.matchMedia('(min-width: 768px)');
+            this.isDesktop = this.mq.matches;
+            this.mqListener = (e: MediaQueryListEvent) => { this.isDesktop = e.matches; this.updateCharts(); };
+            this.mq.addEventListener('change', this.mqListener);
+        }
         this.loadAll();
         // Polling cada 10s para no saturar
         this.refresh$ = interval(10000).pipe(
@@ -67,6 +77,9 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
 
     ngOnDestroy(): void {
         this.refresh$?.unsubscribe();
+        if (this.mq && this.mqListener) {
+            this.mq.removeEventListener('change', this.mqListener);
+        }
     }
 
     onPeriodChange() {
@@ -106,11 +119,24 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
         const categories = this.metrics.categoryDistribution.map((d: any) => d.name);
         const values = this.metrics.categoryDistribution.map((d: any) => d.count);
 
-        this.categoryChartOptions = {
-            ...this.categoryChartOptions,
-            series: [{ name: 'Eventos', data: values }],
-            xaxis: { ...this.categoryChartOptions.xaxis, categories }
-        };
+        if (this.isDesktop) {
+            this.categoryChartOptions = {
+                ...this.categoryChartOptions,
+                chart: { ...this.categoryChartOptions.chart, type: 'bar' },
+                series: [{ name: 'Eventos', data: values }],
+                xaxis: { ...this.categoryChartOptions.xaxis, categories },
+                legend: { show: false }
+            };
+        } else {
+            this.categoryChartOptions = {
+                ...this.categoryChartOptions,
+                chart: { ...this.categoryChartOptions.chart, type: 'donut', height: 320 },
+                series: values,
+                labels: categories,
+                legend: { show: true, position: 'bottom' },
+                dataLabels: { enabled: true }
+            };
+        }
     }
 
     updateComparativeChart() {
@@ -137,5 +163,8 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
             a.click();
             window.URL.revokeObjectURL(url);
         });
+    }
+    toggleMobileDetail() {
+        this.mobileDetailOpen = !this.mobileDetailOpen;
     }
 }

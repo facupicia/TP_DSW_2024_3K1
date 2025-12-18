@@ -21,6 +21,9 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   eventId!: number;
   eventTitle = '';
   isLoading = true;
+  isDesktop = true;
+  private mq!: MediaQueryList;
+  private mqListener!: (e: MediaQueryListEvent) => void;
 
   // Datos iniciales
   data: { participants: number, revenue: number, attendanceRate: number } = {
@@ -98,6 +101,12 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       return;
     }
     this.eventId = Number(idParam);
+    if (typeof window !== 'undefined') {
+      this.mq = window.matchMedia('(min-width: 768px)');
+      this.isDesktop = this.mq.matches;
+      this.mqListener = (e: MediaQueryListEvent) => { this.isDesktop = e.matches; };
+      this.mq.addEventListener('change', this.mqListener);
+    }
 
     // Carga inicial
     this.load();
@@ -110,6 +119,9 @@ export class EventStatsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.refresh$?.unsubscribe();
+    if (this.mq && this.mqListener) {
+      this.mq.removeEventListener('change', this.mqListener);
+    }
   }
 
   onPeriodChange() {

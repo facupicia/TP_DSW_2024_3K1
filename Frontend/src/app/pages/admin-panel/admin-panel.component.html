@@ -111,62 +111,120 @@
       </div>
 
       <div *ngSwitchCase="'users'" class="animate-fade-in-up">
-        <div class="glass-table-container">
-          <div *ngIf="loadingUsers" class="skeleton-list">
-            <div class="skeleton-item" *ngFor="let i of [1,2,3,4]"></div>
+        <div
+          class="glass-table-container overflow-hidden border border-gray-100 rounded-[24px] md:rounded-[32px] bg-white shadow-sm">
+
+          <div *ngIf="loadingUsers" class="p-6 space-y-4">
+            <div *ngFor="let i of [1,2,3,4]" class="h-20 bg-gray-50 animate-pulse rounded-2xl"></div>
           </div>
-          <table class="custom-table" *ngIf="!loadingUsers">
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Rol</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let u of usuarios; trackBy: trackUser">
-                <td>
+
+          <div *ngIf="!loadingUsers">
+
+            <div class="block md:hidden">
+              <div *ngFor="let u of usuarios; trackBy: trackUser" class="p-5 border-b border-gray-50 last:border-0">
+
+                <div class="flex items-center justify-between mb-4">
                   <div class="flex items-center gap-3">
                     <div
-                      class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                      class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
                       {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
                     </div>
-                    <span class="font-bold text-gray-900">{{ u.firstname }} {{ u.lastname }}</span>
+                    <div class="flex flex-col">
+                      <span class="font-bold text-gray-900 leading-tight">{{ u.firstname }} {{ u.lastname }}</span>
+                      <span class="text-xs font-bold text-blue-500 uppercase">{{ (u.rol || 'user') }}</span>
+                    </div>
                   </div>
-                </td>
 
-                <td>
-                  <div class="flex items-center gap-3">
-                    <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase">
-                      {{ (u.rol || 'user') | uppercase }}
-                    </span>
-                    <select class="modern-input" [disabled]="updatingRole[u.id!]" [(ngModel)]="selectedRole[u.id!]"
-                      name="role-{{u.id}}">
+                  <button (click)="eliminarUsuario(u.id)"
+                    class="p-2 text-gray-400 hover:text-red-500 active:bg-red-50 rounded-full transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="relative">
+                    <select
+                      class="w-full p-3 bg-gray-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-black appearance-none"
+                      [disabled]="updatingRole[u.id!]" [(ngModel)]="selectedRole[u.id!]" name="role-{{u.id}}">
                       <option *ngFor="let r of roles" [value]="r">{{ r | uppercase }}</option>
                     </select>
-                  </div>
-                </td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <button (click)="cambiarRolConfirm(u)"
-                      [disabled]="updatingRole[u.id!] || (selectedRole[u.id!] === (u.rol || 'user'))"
-                      class="tap-target px-4 py-2 bg-black text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Actualizar Rol">
-                      {{ updatingRole[u.id!] ? 'Actualizando...' : 'Confirmar' }}
-                    </button>
-                    <button (click)="eliminarUsuario(u.id)"
-                      class="tap-target hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-lg transition-colors"
-                      title="Eliminar Usuario">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                       </svg>
-                    </button>
+                    </div>
                   </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+
+                  <button (click)="cambiarRolConfirm(u)"
+                    [disabled]="updatingRole[u.id!] || (selectedRole[u.id!] === (u.rol || 'user'))"
+                    class="w-full py-3 bg-black text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-30">
+                    {{ updatingRole[u.id!] ? 'Actualizando...' : 'Confirmar Cambio de Rol' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="hidden md:block overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-50/50">
+                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Usuario</th>
+                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Rol</th>
+                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let u of usuarios; trackBy: trackUser"
+                    class="hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-0">
+                    <td class="p-6">
+                      <div class="flex items-center gap-3">
+                        <div
+                          class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                          {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
+                        </div>
+                        <span class="font-bold text-gray-900">{{ u.firstname }} {{ u.lastname }}</span>
+                      </div>
+                    </td>
+
+                    <td class="p-6">
+                      <div class="flex items-center gap-3">
+                        <span
+                          class="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold uppercase shrink-0">
+                          {{ (u.rol || 'user') }}
+                        </span>
+                        <select
+                          class="p-2 bg-transparent border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-black"
+                          [disabled]="updatingRole[u.id!]" [(ngModel)]="selectedRole[u.id!]" name="role-{{u.id}}">
+                          <option *ngFor="let r of roles" [value]="r">{{ r | uppercase }}</option>
+                        </select>
+                      </div>
+                    </td>
+
+                    <td class="p-6">
+                      <div class="flex items-center justify-end gap-2">
+                        <button (click)="cambiarRolConfirm(u)"
+                          [disabled]="updatingRole[u.id!] || (selectedRole[u.id!] === (u.rol || 'user'))"
+                          class="px-4 py-2 bg-black text-white rounded-xl text-xs font-bold transition-all hover:bg-gray-800 disabled:opacity-50">
+                          {{ updatingRole[u.id!] ? '...' : 'Confirmar' }}
+                        </button>
+                        <button (click)="eliminarUsuario(u.id)"
+                          class="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
         </div>
       </div>
 

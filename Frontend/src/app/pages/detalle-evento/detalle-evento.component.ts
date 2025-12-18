@@ -28,82 +28,80 @@ export class DetalleEventoComponent implements OnInit {
   loading = true;
 
   ngOnInit(): void {
-    if (typeof localStorage !== 'undefined') {
-      this.isLoggedIn = localStorage.getItem('token') !== null;
-    }
+  // 1. Verificar Login
+  if (typeof localStorage !== 'undefined') {
+    this.isLoggedIn = !!localStorage.getItem('token'); // '!!' convierte a boolean
+  }
 
-    this.eventId = this.route.snapshot.paramMap.get('id');
+  // 2. Obtener ID
+  const idParam = this.route.snapshot.paramMap.get('id');
+  this.eventId = idParam;
 
-    if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
-      this.router.navigate(['/']);
-      return;
-    }
-    {
-      this.loading = true; // Asegurar loading true al inicio
+  // 3. Validar ID
+  if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
+    this.router.navigate(['/events']); // Mejor redirigir a /events que a home
+    return;
+  }
 
-      this.eventoService.obtenerEvento(Number(this.eventId)).subscribe({
-        next: (evento) => {
-          this.evento = evento;
-          // Solo obtenemos la imagen del usuario si el evento tiene user_id
-          if (evento.user_id) {
-            this.obtenerImagenUsuario(evento.user_id);
-          }
-          this.loading = false; // Loading false cuando tenemos datos
-        },
-        error: (err) => {
-          console.error(err);
-          this.loading = false;
-        }
-      });
+  // 4. Cargar datos
+  this.cargarEvento(Number(this.eventId));
+}
+
+cargarEvento(id: number) {
+  this.loading = true;
+  this.eventoService.obtenerEvento(id).subscribe({
+    next: (data) => {
+      this.evento = data;
+      // Cargar organizador si existe
+      if (data.user_id) {
+        this.obtenerImagenUsuario(data.user_id);
+      }
+      this.loading = false;
+    },
+    error: (err) => {
+      console.error('Error:', err);
+      this.loading = false;
+      this.router.navigate(['/events']); // Redirigir si falla la carga
     }
+  });
+}
+
+  // En tu clase DetalleEventoComponent
+  getGoogleMapsUrl(location: string): string {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   }
 
   addToCalendar() {
-  const { title, description, location, date, time } = this.evento;
-  
-  // Formato de fechas para Google (YYYYMMDDTHHmmSS)
-  // Nota: Esto es una aproximación básica. Idealmente usa librerías como 'date-fns'
-  const startDate = new Date(date + 'T' + time);
-  const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Asumimos 2 horas de duración
-  
-  const format = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
-  
-  const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}&dates=${format(startDate)}/${format(endDate)}`;
-  
-  window.open(googleUrl, '_blank');
-}
+    const { title, description, location, date, time } = this.evento;
 
-  cargarEvento() {
-    if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
-      this.router.navigate(['/']);
-      return;
-    }
-    this.eventoService.obtenerEvento(Number(this.eventId)).subscribe(
-      (data: Evento) => {
-        this.evento = data;
-        this.loading = false;
-      },
-      (error: any) => {
-        console.error('Error al cargar el evento', error);
-        this.loading = false;
-      }
-    );
+    // Formato de fechas para Google (YYYYMMDDTHHmmSS)
+    // Nota: Esto es una aproximación básica. Idealmente usa librerías como 'date-fns'
+    const startDate = new Date(date + 'T' + time);
+    const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Asumimos 2 horas de duración
+
+    const format = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
+
+    const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}&dates=${format(startDate)}/${format(endDate)}`;
+
+    window.open(googleUrl, '_blank');
   }
+
+
 
   shareEvent() {
-  if (navigator.share) {
-    navigator.share({
-      title: this.evento.title,
-      text: `¡Mira este evento! ${this.evento.title} en ${this.evento.location}`,
-      url: window.location.href
-    })
-    .catch((error) => console.log('Error compartiendo', error));
-  } else {
-    // Fallback: Copiar al portapapeles
-    navigator.clipboard.writeText(window.location.href);
-    alert('Enlace copiado al portapapeles');
+    if (navigator.share) {
+      navigator.share({
+        title: this.evento.title,
+        text: `¡Mira este evento! ${this.evento.title} en ${this.evento.location}`,
+        url: window.location.href
+      })
+        .catch((error) => console.log('Error compartiendo', error));
+    } else {
+      // Fallback: Copiar al portapapeles
+      navigator.clipboard.writeText(window.location.href);
+      alert('Enlace copiado al portapapeles');
+    }
   }
-}
 
   obtenerImagenUsuario(userId: number): void {
     this.accesService.obtenerImagenUsuario(userId).subscribe(

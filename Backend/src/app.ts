@@ -39,9 +39,18 @@ app.use(cors({
 }));
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: "Too many requests from this IP, please try again later"
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+        const reset = res.getHeader('ratelimit-reset') || res.getHeader('x-ratelimit-reset');
+        res.status(options.statusCode).json({
+            code: "RATE_LIMITED",
+            message: "Demasiadas solicitudes desde este cliente. Intenta de nuevo más tarde.",
+            retryAfter: reset ?? null
+        });
+    }
 });
 app.use(limiter);
 

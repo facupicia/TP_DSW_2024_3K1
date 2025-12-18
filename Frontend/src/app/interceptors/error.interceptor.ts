@@ -2,9 +2,13 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../services/toast.service';
+import { Router } from '@angular/router';
+import { AuthService } from '../services/auth.service';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
+    const router = inject(Router);
+    const authService = inject(AuthService);
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
@@ -21,9 +25,22 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         break;
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
+                        if (typeof window !== 'undefined') {
+                            localStorage.removeItem('token');
+                        }
+                        authService.logout();
+                        router.navigate(['/login']);
                         break;
                     case 403:
                         errorMessage = 'No tienes permisos para realizar esta acción.';
+                        if (typeof window !== 'undefined') {
+                            localStorage.removeItem('token');
+                        }
+                        authService.logout();
+                        router.navigate(['/login']);
+                        break;
+                    case 429:
+                        errorMessage = 'Demasiadas solicitudes. Intenta nuevamente en unos segundos.';
                         break;
                     case 404:
                         errorMessage = 'Recurso no encontrado.';
