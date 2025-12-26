@@ -11,13 +11,17 @@ import paymentRoute from "./payment/payment.routes"
 import { errorHandler } from "./middlewares/errorHandler"
 import { getMailerStatus } from "./lib/mailer"
 import { setupSwagger } from "./docs/swagger"
+import { requestId } from "./lib/requestId"
+import { metricsMiddleware, metricsHandler } from "./lib/metrics"
 
 const app = express();
 
 app.use(express.urlencoded({ extended: false }))
+app.use(requestId)
+app.use(metricsMiddleware)
 
 // Security Middleware
-app.use(helmet()); // Set secure HTTP headers
+app.use(helmet({ crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } })); // Allow Google OAuth popups
 const allowedOriginsRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
     .split(",")
     .map(o => o.trim().replace(/\/+$/, "").toLowerCase());
@@ -28,14 +32,12 @@ function isOriginAllowed(origin?: string) {
     return false;
 }
 app.use(cors({
-    origin: [
-        'http://localhost:4200',                   // Para seguir desarrollando en tu PC
-        'https://event-life.netlify.app',          // <-- ¡TU NUEVO FRONTEND!
-        'https://www.event-life.netlify.app'       // Por si alguien entra con www
-    ],
+    origin: (origin, cb) => cb(null, isOriginAllowed(origin) ? origin : false),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    optionsSuccessStatus: 204
+    optionsSuccessStatus: 204,
+    allowedHeaders: ['Authorization', 'Content-Type', 'token', 'X-Requested-With'],
+    exposedHeaders: ['x-request-id']
 }));
 
 const limiter = rateLimit({
@@ -80,6 +82,9 @@ app.get('/health', async (_req, res) => {
         res.status(500).json({ status: 'error' });
     }
 });
+
+// Métricas Prometheus
+app.get('/metrics', metricsHandler)
 
 app.use("/api/category", categoryRoute)
 app.use("/api/user", userRoute)

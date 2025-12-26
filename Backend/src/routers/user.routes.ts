@@ -29,7 +29,7 @@ router.get("/", checkAuthToken, checkRoleAuth(["admin"]), getUsers)
 router.get("/:id", getUser)
 
 
-router.delete("/:id", deleteUser)
+router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteUser)
 
 // Admin: actualizar rol de usuario
 router.put("/:id/role", checkAuthToken, checkRoleAuth(["admin"]), schemaValidation(updateUserRoleSchema), updateUserRole)

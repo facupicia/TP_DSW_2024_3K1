@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { Event } from "../event/event.entity";
 import { generarQRUrl } from "../utils/qr";
 import enviarCorreoConQR from "../lib/mailer";
+import { createTicketsForPurchase } from "../services/ticket.service";
 import AppDataSource from "../db"; // Asegúrate de importar tu AppDataSource correctamente
 import { log } from "console";
 
@@ -39,7 +40,10 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
-        const event = await queryRunner.manager.findOne(Event, { where: { id: parseInt(eventID) } });
+        const event = await queryRunner.manager.createQueryBuilder(Event, "e")
+            .setLock("pessimistic_write")
+            .where("e.id = :id", { id: parseInt(eventID) })
+            .getOne();
         if (!event) {
             return res.status(404).json({ message: "Evento no encontrado" });
         }
@@ -66,24 +70,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
         event.capacity -= cantidadTickets;
         await queryRunner.manager.save(event);
 
-        const tickets = await Promise.all(
-            Array.from({ length: cantidadTickets }, async () => {
-                const codigo_unico = randomUUID();
-                const qrCode = await generarQRUrl(codigo_unico);
-
-                return queryRunner.manager.create(Ticket, {
-                    event,
-                    user,
-                    eventId: event.id,
-                    userId: user.id,
-                    codigo_unico,
-                    qrCode,
-                    titleEvent: event.title,
-                    purchasePrice: event.price,
-                    status: TicketStatus.VALID
-                });
-            })
-        );
+        const tickets = await createTicketsForPurchase(event, user, cantidadTickets);
 
         await queryRunner.manager.save(Ticket, tickets);
 
@@ -159,10 +146,15 @@ export const validateTicket = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Ticket cancelado", valid: false });
         }
 
-        // Marcar como usado
-        ticket.status = TicketStatus.USED;
-        ticket.usedAt = new Date();
-        await ticket.save();
+        // Marcar como usado de forma atómica
+        const result = await Ticket.createQueryBuilder()
+            .update(Ticket)
+            .set({ status: TicketStatus.USED, usedAt: new Date() })
+            .where("id = :id AND status = :status", { id: ticket.id, status: TicketStatus.VALID })
+            .execute();
+        if (!result.affected || result.affected === 0) {
+            return res.status(400).json({ message: "Ticket ya fue utilizado o inválido", valid: false });
+        }
 
         return res.json({
             message: "Ticket válido. Acceso permitido.",
@@ -207,7 +199,10 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({ message: "Ticket ya cancelado" });
         }
-        const event = await queryRunner.manager.findOne(Event, { where: { id: ticket.eventId } });
+        const event = await queryRunner.manager.createQueryBuilder(Event, "e")
+            .setLock("pessimistic_write")
+            .where("e.id = :id", { id: ticket.eventId })
+            .getOne();
         if (!event) {
             await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "Evento no encontrado" });

@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, Index } from 'typeorm';
 import { Event } from '../event/event.entity';
 import { User } from '../user/user.entity';
 
@@ -26,12 +26,14 @@ export class Ticket extends BaseEntity {
     @JoinColumn({ name: "user_Id" })
     user: User;
 
+    @Index('idx_ticket_eventId')
     @Column()
     eventId: number;
 
     @Column()
     titleEvent: string;
 
+    @Index('idx_ticket_userId')
     @Column()
     userId: number;
 

@@ -5,27 +5,19 @@ import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import { Category } from "../category/category.entity";
 
-function ds(opts: {
-    type: "mysql" | "postgres";
-    url?: string;
-    host?: string;
-    port?: number;
-    user?: string;
-    password?: string;
-    database?: string;
-}) {
+function postgresDS() {
     return new DataSource({
-        type: opts.type as any,
-        url: opts.url,
-        host: opts.host,
-        port: opts.port,
-        username: opts.user,
-        password: opts.password,
-        database: opts.database,
-        ssl: opts.type === "postgres" ? true : undefined,
+        type: "postgres",
+        url: process.env.POSTGRES_URL || process.env.DATABASE_URL,
+        host: process.env.PGHOST,
+        port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
+        username: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+        database: process.env.PGDATABASE,
+        ssl: true,
         logging: false,
         entities: [User, Event, Ticket, Category],
-        extra: opts.type === "postgres" ? { ssl: { rejectUnauthorized: false } } : undefined,
+        extra: { ssl: { rejectUnauthorized: false } },
     });
 }
 
@@ -40,30 +32,10 @@ async function countAll(conn: DataSource) {
 }
 
 async function run() {
-    const mysql = ds({
-        type: "mysql",
-        host: process.env.MYSQL_HOST || process.env.MYSQL_ADDON_HOST || "127.0.0.1",
-        port: Number(process.env.MYSQL_PORT || 3306),
-        user: process.env.MYSQL_USER || process.env.MYSQL_ADDON_USER || "root",
-        password: process.env.MYSQL_PASSWORD || process.env.MYSQL_ADDON_PASSWORD || "",
-        database: process.env.MYSQL_DATABASE || process.env.DB_NAME || "eventlife",
-    });
-    const pg = ds({
-        type: "postgres",
-        url: process.env.POSTGRES_URL || process.env.DATABASE_URL,
-        host: process.env.PGHOST,
-        port: process.env.PGPORT ? Number(process.env.PGPORT) : undefined,
-        user: process.env.PGUSER,
-        password: process.env.PGPASSWORD,
-        database: process.env.PGDATABASE,
-    });
-
-    await mysql.initialize();
+    const pg = postgresDS();
     await pg.initialize();
-    const a = await countAll(mysql);
-    const b = await countAll(pg);
-    console.table({ mysql: a, postgres: b });
-    await mysql.destroy();
+    const counts = await countAll(pg);
+    console.table({ postgres: counts });
     await pg.destroy();
     process.exit(0);
 }

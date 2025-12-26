@@ -53,7 +53,17 @@ export const getUsers = async (req: Request, res: Response) => {
 export const getUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const user = await User.findOneBy({ id: parseInt(id) });
+    const user = await User.findOne({
+      where: { id: parseInt(id) },
+      select: {
+        id: true,
+        firstname: true,
+        lastname: true,
+        imgPerfil: true,
+        rol: true,
+        active: true
+      }
+    });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 

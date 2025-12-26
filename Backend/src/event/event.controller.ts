@@ -257,7 +257,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
                 attendanceRate
             });
             res.write(`data: ${payload}\n\n`);
-        }, 5000);
+        }, 10000);
 
         req.on('close', () => {
             clearInterval(interval);

@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, OneToMany, ManyToOne, JoinColumn } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, OneToMany, ManyToOne, JoinColumn, Index } from "typeorm"
 import { Ticket } from "../ticket/ticket.entity";
 import { User } from "../user/user.entity";
 import { Category } from "../category/category.entity";
@@ -47,12 +47,13 @@ export class Event extends BaseEntity {
     createdAt: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
-    updateAd: Date;
+    updatedAt: Date;
 
     @ManyToOne(() => User, usuario => usuario.eventos)
     @JoinColumn({ name: "user_id" })
     usuario: User;
 
+    @Index('idx_event_user_id')
     @Column()
     user_id: number;
 

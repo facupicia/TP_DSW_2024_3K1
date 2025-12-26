@@ -48,7 +48,7 @@ export class User extends BaseEntity {
     createdAt: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
-    updateAd: Date;
+    updatedAt: Date;
 
     @OneToMany(() => Event, evento => evento.usuario)
     eventos: Event[];

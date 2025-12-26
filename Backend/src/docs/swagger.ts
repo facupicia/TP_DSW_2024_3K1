@@ -71,5 +71,40 @@ export function setupSwagger(app: Express) {
       },
     },
   };
+  doc.paths["/api/user/{id}"] = {
+    get: {
+      tags: ["User"],
+      summary: "Obtener usuario por ID (admin)",
+      parameters: [{ in: "path", name: "id", required: true, schema: { type: "integer" } }],
+      responses: {
+        200: { description: "Usuario" },
+        401: { description: "No autenticado" },
+        403: { description: "No autorizado" },
+        404: { description: "Usuario no encontrado" }
+      }
+    },
+    delete: {
+      tags: ["User"],
+      summary: "Eliminar usuario por ID (admin)",
+      parameters: [{ in: "path", name: "id", required: true, schema: { type: "integer" } }],
+      responses: {
+        204: { description: "Eliminado" },
+        401: { description: "No autenticado" },
+        403: { description: "No autorizado" },
+        404: { description: "Usuario no encontrado" }
+      }
+    }
+  };
+  doc.paths["/api/payment/webhook"] = {
+    post: {
+      tags: ["Payment"],
+      summary: "Webhook de MercadoPago con firma HMAC",
+      responses: {
+        200: { description: "Recibido" },
+        401: { description: "Firma inválida" },
+        500: { description: "Error interno" }
+      }
+    }
+  };
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(specs));
 }

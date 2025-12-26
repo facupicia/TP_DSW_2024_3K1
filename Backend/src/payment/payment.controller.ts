@@ -8,6 +8,8 @@ import { User } from "../user/user.entity";
 import { TicketStatus } from "../ticket/ticket.entity";
 import { generarQRUrl } from "../utils/qr";
 import enviarCorreoConQR from "../lib/mailer";
+import { createTicketsForPurchase } from "../services/ticket.service";
+import { logger } from "../lib/logger";
 import { randomUUID } from "crypto";
 import dotenv from "dotenv";
 import { PaymentLog } from "./payment.entity";
@@ -173,26 +175,17 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
 export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     try {
-        console.log("MP_WEBHOOK_HIT", {
-            method: req.method,
-            query: req.query,
-            body: req.body,
-            headers: {
-                'x-signature': req.header('x-signature'),
-                'x-request-id': req.header('x-request-id'),
-            }
-        });
+        const rawParsed = (req as any).parsedBody;
+        const body = rawParsed ?? req.body ?? {};
+        const type = (body?.type || req.query?.type || req.query?.topic) as string | undefined;
+        const paymentId = (body?.data?.id || req.query?.id) as string | undefined;
 
-        // Mercado Pago envía múltiples temas: merchant_order y payment.
-        // Solo procesamos el tema 'payment' y con id de pago.
-        const type = (req.body?.type || req.query?.type || req.query?.topic) as string | undefined;
-        const paymentId = (req.body?.data?.id || req.query?.id) as string | undefined;
         if (type === 'payment' && paymentId) {
             const resp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
                 headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` }
             });
             const payment = await resp.json();
-            console.log("MP_PAYMENT_DETAIL", paymentId, payment?.status, payment?.status_detail);
+            logger.info("MP_PAYMENT_DETAIL", { id: paymentId, status: payment?.status, detail: payment?.status_detail, rid: (req as any).rid });
 
             if (payment?.status === 'approved') {
                 const meta = payment?.metadata || {};
@@ -238,9 +231,18 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                     }
 
                     const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
-                    const event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
+                    let event: Event | null = null;
+                    const qbFn: any = (queryRunner.manager as any).createQueryBuilder;
+                    if (typeof qbFn === "function") {
+                        event = await qbFn.call(queryRunner.manager, Event, "e")
+                            .setLock("pessimistic_write")
+                            .where("e.id = :id", { id: eventId })
+                            .getOne();
+                    } else {
+                        event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
+                    }
                     if (!user || !event) {
-                        console.error("WEBHOOK_USER_OR_EVENT_NOT_FOUND", { userId, eventId });
+                        logger.error("WEBHOOK_USER_OR_EVENT_NOT_FOUND", { userId, eventId, rid: (req as any).rid });
                         await queryRunner.rollbackTransaction();
                         return res.status(200).json({ received: true, tickets_created: 0, reason: 'user_or_event_not_found' });
                     }
@@ -248,32 +250,16 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                     const ticketsSold = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
                     const availableStock = event.capacity - ticketsSold;
                     if (availableStock < amount) {
-                        console.error("WEBHOOK_NO_STOCK", { availableStock, amount });
+                        logger.warn("WEBHOOK_NO_STOCK", { availableStock, amount, rid: (req as any).rid });
                         await queryRunner.rollbackTransaction();
                         return res.status(200).json({ received: true, tickets_created: 0, reason: 'no_stock' });
                     }
 
-                    // Actualizamos capacity descontando la cantidad comprada
+                    // Actualizamos capacity descontando la cantidad comprada bajo lock
                     event.capacity -= amount;
                     await queryRunner.manager.save(event);
 
-                    const tickets = await Promise.all(
-                        Array.from({ length: amount }, async () => {
-                            const codigo_unico = randomUUID();
-                            const qrCode = await generarQRUrl(codigo_unico);
-                            return queryRunner.manager.create(Ticket, {
-                                event,
-                                user,
-                                eventId: event.id,
-                                userId: user.id,
-                                codigo_unico,
-                                qrCode,
-                                titleEvent: event.title,
-                                purchasePrice: event.price,
-                                status: TicketStatus.VALID
-                            });
-                        })
-                    );
+                    const tickets = await createTicketsForPurchase(event, user, amount);
                     await queryRunner.manager.save(Ticket, tickets);
 
                     if (user.email) {
@@ -285,7 +271,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                     await queryRunner.commitTransaction();
                     return res.status(200).json({ received: true, tickets_created: amount });
                 } catch (err: any) {
-                    console.error("WEBHOOK_TICKET_CREATE_ERROR", err?.message || err);
+                    logger.error("WEBHOOK_TICKET_CREATE_ERROR", { error: err?.message || err, rid: (req as any).rid });
                     await queryRunner.rollbackTransaction();
                     return res.status(200).json({ received: true, tickets_created: 0, reason: 'internal_error' });
                 } finally {
@@ -296,7 +282,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
 
         return res.status(200).json({ received: true });
     } catch (err: any) {
-        console.error("MP_WEBHOOK_ERROR", err?.message || err);
+        logger.error("MP_WEBHOOK_ERROR", { error: err?.message || err, rid: (req as any).rid });
         return res.status(500).json({ code: 'WEBHOOK_ERROR', message: 'Error procesando webhook' });
     }
 };
