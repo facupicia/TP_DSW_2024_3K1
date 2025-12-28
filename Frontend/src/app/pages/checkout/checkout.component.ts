@@ -140,6 +140,18 @@ export class CheckoutComponent implements OnInit {
       this.ticketService.comprarTicket({ cantidad: this.ticketQuantity }, Number(this.eventId)).subscribe({
         next: (response: any) => {
           if (response.init_point) {
+            try {
+              const lastPurchase = {
+                preferenceId: response.id,
+                external_reference: response.external_reference,
+                eventId: Number(this.eventId),
+                quantity: this.ticketQuantity,
+                at: Date.now()
+              };
+              if (typeof window !== 'undefined' && window.localStorage) {
+                window.localStorage.setItem('lastPurchase', JSON.stringify(lastPurchase));
+              }
+            } catch {}
             window.location.href = response.init_point;
           } else {
             console.error('No se recibió init_point de Mercado Pago');

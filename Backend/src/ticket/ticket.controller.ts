@@ -7,6 +7,7 @@ import { Event } from "../event/event.entity";
 import { generarQRUrl } from "../utils/qr";
 import enviarCorreoConQR from "../lib/mailer";
 import { createTicketsForPurchase } from "../services/ticket.service";
+import { PaymentLog } from "../payment/payment.entity";
 import AppDataSource from "../db"; // Asegúrate de importar tu AppDataSource correctamente
 import { log } from "console";
 
@@ -118,6 +119,72 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
         return res.status(200).json(tickets);
     } catch (error: any) {
         return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    }
+}
+
+export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) => {
+    try {
+        console.log("1. Iniciando getLastPurchaseTickets");
+
+        // VALIDACIÓN DE TOKEN
+        const userId = req.user?.id;
+        if (!userId) {
+            console.log("Error: Usuario no identificado en request");
+            return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'No autorizado' });
+        }
+        console.log(`2. Usuario ID: ${userId}`);
+
+        // VERIFICACIÓN DE CONEXIÓN A BD
+        if (!AppDataSource.isInitialized) {
+            console.log("3. Base de datos no inicializada. Intentando conectar...");
+            await AppDataSource.initialize();
+        }
+
+        const logRepo = AppDataSource.getRepository(PaymentLog);
+        const ticketRepo = AppDataSource.getRepository(Ticket);
+
+        // BUSCAR LOG
+        console.log("4. Buscando último log de pago...");
+        const lastLog = await logRepo.findOne({
+            where: { userId },
+            order: { createdAt: 'DESC' as any } // 'as any' a veces es necesario por versiones de TS
+        });
+
+        if (!lastLog) {
+            console.log("5. No se encontraron logs.");
+            return res.status(200).json({ tickets: [], status: 'no_logs' });
+        }
+        console.log(`6. Log encontrado. EventID: ${lastLog.eventId}, Cantidad: ${lastLog.amount}`);
+
+        // BUSCAR TICKETS
+        console.log("7. Buscando tickets...");
+        // Usamos find básico para evitar errores de QueryBuilder por ahora
+        const tickets = await ticketRepo.find({
+            where: { 
+                userId: userId, 
+                eventId: lastLog.eventId 
+            },
+            take: lastLog.amount,
+            order: { createdAt: 'DESC' as any },
+            relations: { event: true } // Traemos el evento para verificar que la relación funciona
+        });
+
+        console.log(`8. Tickets encontrados: ${tickets.length}`);
+
+        if (tickets.length > 0) {
+            return res.status(200).json({ tickets, status: 'approved' });
+        }
+
+        return res.status(200).json({ tickets: [], status: 'processing' });
+
+    } catch (error: any) {
+        // AQUÍ ESTÁ LA MAGIA: Verás el error real en tu consola y en el navegador
+        console.error("🔴 CRITICAL ERROR EN GET_LAST_TICKETS:", error);
+        return res.status(500).json({ 
+            message: 'Error interno del servidor', 
+            details: error.message, // Esto nos dirá si es "Column eventId not found"
+            stack: error.stack 
+        });
     }
 }
 

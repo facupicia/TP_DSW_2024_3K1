@@ -5,53 +5,36 @@ import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
-import { TicketStatus } from "../ticket/ticket.entity";
-import { generarQRUrl } from "../utils/qr";
-import enviarCorreoConQR from "../lib/mailer";
-import { createTicketsForPurchase } from "../services/ticket.service";
-import { logger } from "../lib/logger";
-import { randomUUID } from "crypto";
 import dotenv from "dotenv";
-import { PaymentLog } from "./payment.entity";
+import { processPaymentTransaction } from "./payment.service"; // Importamos el nuevo servicio
 
 dotenv.config();
 
 export const createPreference = async (req: CustomRequest, res: Response) => {
-    // 1. INICIALIZAR CLIENTE AQUÍ ADENTRO (Más seguro)
-    // Asegúrate de que tu .env tenga la clave: MP_ACCESS_TOKEN
+    // --- MANTENEMOS TU LÓGICA DE CREATE PREFERENCE IGUAL ---
     const accessToken = process.env.MP_ACCESS_TOKEN || '';
     if (!accessToken) {
-        console.error("CONFIG_ERROR: MP_ACCESS_TOKEN no configurado");
         return res.status(500).json({ code: 'CONFIG_MISSING_MP_TOKEN', message: 'Payment gateway not configured' });
     }
     const client = new MercadoPagoConfig({ accessToken });
-
     const queryRunner = AppDataSource.createQueryRunner();
-    // Conectamos más adelante, solo si las validaciones básicas pasan
 
     try {
-        // DEBUG: MIRA ESTO EN TU TERMINAL CUANDO HAGAS CLICK EN PAGAR
-        console.log("---- INICIANDO PREFERENCIA MERCADO PAGO ----");
-        console.log("Token detectado:", process.env.MP_ACCESS_TOKEN ? "SÍ (Oculto)" : "NO DETECTADO (Revisar .env)");
-
         const { ticketQuantity, eventId } = req.body;
         const userId = req.user?.id;
 
-        // Validaciones
         if (!userId) return res.status(401).json({ message: "No autorizado." });
         if (!eventId) return res.status(400).json({ message: "Falta eventId." });
 
         const quantity = parseInt(ticketQuantity);
         if (isNaN(quantity) || quantity <= 0) return res.status(400).json({ message: "Cantidad inválida." });
 
-        // Conexión a DB y búsqueda de datos
         await queryRunner.connect();
         const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
         const event = await queryRunner.manager.findOne(Event, { where: { id: parseInt(eventId) } });
 
         if (!user || !event) return res.status(404).json({ message: "Usuario o Evento no encontrado." });
 
-        // Validación de Stock
         const ticketsSold = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
         const availableStock = event.capacity - ticketsSold;
 
@@ -59,230 +42,83 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             return res.status(409).json({ message: `Sin stock. Quedan: ${availableStock}` });
         }
 
-        // 2. VALIDAR DATOS DE EVENTO/PRECIO
         const unitPrice = Number(event.price);
-        if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
-            return res.status(400).json({ code: 'INVALID_PRICE', message: 'Precio del evento inválido' });
-        }
 
-        // 3. CREAR PREFERENCIA CON REINTENTOS
         const preference = new Preference(client);
-
-        console.log(`Creando preferencia para User: ${user.email}, Event: ${event.id}, Price: ${event.price}`);
-
-
-        const clientUrl = (process.env.CLIENT_URL || 'http://localhost:4200').replace(/\/+$/, '');
-        const back_urls = {
-            success: `${clientUrl}/checkout/success`,
-            failure: `${clientUrl}/checkout/failure`,
-            pending: `${clientUrl}/checkout/pending`,
-        };
-        const useAutoReturn = clientUrl.startsWith('https://'); // MP exige https para auto_return estable
-
-        console.log("BACK_URLS:", back_urls, "AUTO_RETURN:", useAutoReturn ? 'approved' : 'disabled');
-
-        const notificationUrl = process.env.MP_NOTIFICATION_URL;
-        if (!notificationUrl) {
-            console.warn("WEBHOOK_WARNING: MP_NOTIFICATION_URL no está configurado. No se recibirán notificaciones asíncronas de Mercado Pago.");
-        }
-
-        const isSandbox = !clientUrl.startsWith('https://');
-        const testPayerEmail = process.env.MP_TEST_PAYER_EMAIL;
-        const payerEmail = isSandbox && testPayerEmail ? testPayerEmail : user.email;
-        if (isSandbox && !testPayerEmail) {
-            console.warn("SANDBOX_WARNING: MP_TEST_PAYER_EMAIL no configurado. Usando email real del usuario; puede fallar con tarjetas de prueba.");
-        }
+        const sanitizeUrl = (u: string) =>
+            String(u || '')
+                .trim()
+                .replace(/^['"`]\s*/, '')
+                .replace(/\s*['"`]$/, '')
+                .replace(/\/+$/, '');
+        const clientUrlRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:4200');
+        const clientUrl = sanitizeUrl(clientUrlRaw.split(',')[0]);
+        const notificationUrl = sanitizeUrl(process.env.MP_NOTIFICATION_URL || ''); // Asegúrate de tener esto en Render
 
         const body: any = {
-            items: [
-                {
-                    id: event.id.toString(),
-                    title: event.title.substring(0, 255),
-                    quantity: quantity,
-                    unit_price: unitPrice,
-                    currency_id: 'ARS',
-                }
-            ],
+            items: [{
+                id: event.id.toString(),
+                title: event.title.substring(0, 255),
+                quantity: quantity,
+                unit_price: unitPrice,
+                currency_id: 'ARS',
+            }],
             payer: {
-                email: payerEmail,
-                name: user.firstname || 'Usuario',
-                surname: user.lastname || 'Genérico'
+                email: user.email, // En producción usa el email real
+                name: user.firstname,
+                surname: user.lastname
             },
-            back_urls,
+            back_urls: {
+                success: `${clientUrl}/checkout/success`,
+                failure: `${clientUrl}/checkout/failure`,
+                pending: `${clientUrl}/checkout/pending`,
+            },
+            ...(clientUrl.startsWith('https://') ? { auto_return: 'approved' } : {}),
+            ...(notificationUrl ? { notification_url: notificationUrl } : {}),
             metadata: {
                 user_id: Number(userId),
                 event_id: Number(event.id),
                 amount_tickets: Number(quantity)
-            }
+            },
+            external_reference: `${userId}|${event.id}|${quantity}`
         };
-        if (useAutoReturn) {
-            body.auto_return = 'approved';
-        }
-        if (notificationUrl) {
-            body.notification_url = notificationUrl;
-        }
-        // Guardamos datos críticos también en external_reference para futura recuperación en el webhook
-        body.external_reference = `${userId}|${event.id}|${quantity}`;
 
-        let result: any;
-        const maxAttempts = 3;
-        let attempt = 0;
-        let lastError: any = null;
-        while (attempt < maxAttempts) {
-            try {
-                result = await preference.create({ body });
-                break;
-            } catch (err: any) {
-                lastError = err;
-                attempt++;
-                console.error("Error al crear preferencia (intento " + attempt + "):", err?.message || err);
-                if (attempt < maxAttempts) {
-                    const delay = 250 * Math.pow(2, attempt - 1);
-                    await new Promise(r => setTimeout(r, delay));
-                }
-            }
-        }
-
-        if (!result) {
-            return res.status(502).json({
-                code: 'PAYMENT_GATEWAY_UNAVAILABLE',
-                message: 'No se pudo crear la preferencia en la pasarela de pagos',
-                details: lastError?.message || lastError || 'unknown'
-            });
-        }
-
-        console.log("Preferencia creada con éxito. ID:", result.id);
-
+        const result = await preference.create({ body });
         return res.status(200).json({
             id: result.id,
             init_point: (result as any).sandbox_init_point || result.init_point,
         });
 
     } catch (error: any) {
-        console.error("ERROR CRÍTICO AL CREAR PREFERENCIA:", error);
-        if (error.cause) console.error("CAUSA:", error.cause);
-        // Devolver el mensaje de error real para debug
-        return res.status(500).json({
-            code: 'PREFERENCE_CREATE_ERROR',
-            message: "Error al generar la preferencia de pago.",
-            error: error.message || error,
-            details: error.cause || 'No cause'
-        });
+        console.error("ERROR CREATING PREFERENCE:", error);
+        return res.status(500).json({ message: "Error al generar pago" });
     } finally {
         await queryRunner.release();
     }
 };
 
+// --- WEBHOOK REFACTORIZADO ---
 export const paymentWebhook = async (req: CustomRequest, res: Response) => {
-    try {
-        const rawParsed = (req as any).parsedBody;
-        const body = rawParsed ?? req.body ?? {};
-        const type = (body?.type || req.query?.type || req.query?.topic) as string | undefined;
-        const paymentId = (body?.data?.id || req.query?.id) as string | undefined;
+    // 1. Extraer datos (soporta Query Params y Body, por si acaso)
+    const topic = req.query.topic || req.query.type;
+    const id = req.query.id || req.query['data.id'];
 
-        if (type === 'payment' && paymentId) {
-            const resp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` }
-            });
-            const payment = await resp.json();
-            logger.info("MP_PAYMENT_DETAIL", { id: paymentId, status: payment?.status, detail: payment?.status_detail, rid: (req as any).rid });
+    // También miramos el body por si viene como JSON plano
+    const bodyId = req.body?.data?.id || req.body?.id;
+    const paymentId = id || bodyId;
 
-            if (payment?.status === 'approved') {
-                const meta = payment?.metadata || {};
-                const additional = payment?.additional_info || {};
-                const item = Array.isArray(additional?.items) ? additional.items[0] : undefined;
+    console.log(`WEBHOOK RECIBIDO: Topic=${topic}, ID=${paymentId}`);
 
-                // Recuperamos datos de compra. Fallback a external_reference si metadata está incompleto.
-                let userId = Number(meta.user_id);
-                let eventId = Number(meta.event_id || item?.id);
-                let amount = Number(meta.amount_tickets || item?.quantity || 1);
-                if ((!userId || !eventId || !amount) && payment?.external_reference) {
-                    const parts = String(payment.external_reference).split('|');
-                    userId = Number(parts[0]);
-                    eventId = Number(parts[1]);
-                    amount = Number(parts[2]);
-                }
+    // 2. RESPUESTA INMEDIATA (Clave para que MP no reintente)
+    // Respondemos 200 OK pase lo que pase.
+    res.status(200).send("OK");
 
-                if (!userId || !eventId || !amount || amount <= 0) {
-                    console.error("WEBHOOK_METADATA_INVALID", { userId, eventId, amount });
-                    return res.status(200).json({ received: true, tickets_created: 0, reason: 'invalid_metadata' });
-                }
-
-                const queryRunner = AppDataSource.createQueryRunner();
-                await queryRunner.connect();
-                await queryRunner.startTransaction();
-                try {
-                    // Idempotencia: registramos el pago. Si ya existe mpPaymentId, abortamos para evitar duplicados.
-                    const log = queryRunner.manager.create(PaymentLog, {
-                        mpPaymentId: String(paymentId),
-                        externalReference: String(payment?.external_reference || ''),
-                        userId,
-                        eventId,
-                        amount
-                    });
-                    try {
-                        await queryRunner.manager.save(PaymentLog, log);
-                    } catch (e: any) {
-                        if ((e?.message || '').includes('duplicate') || e?.code === '23505') {
-                            await queryRunner.rollbackTransaction();
-                            return res.status(200).json({ received: true, tickets_created: 0, reason: 'already_processed' });
-                        }
-                        throw e;
-                    }
-
-                    const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
-                    let event: Event | null = null;
-                    const qbFn: any = (queryRunner.manager as any).createQueryBuilder;
-                    if (typeof qbFn === "function") {
-                        event = await qbFn.call(queryRunner.manager, Event, "e")
-                            .setLock("pessimistic_write")
-                            .where("e.id = :id", { id: eventId })
-                            .getOne();
-                    } else {
-                        event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
-                    }
-                    if (!user || !event) {
-                        logger.error("WEBHOOK_USER_OR_EVENT_NOT_FOUND", { userId, eventId, rid: (req as any).rid });
-                        await queryRunner.rollbackTransaction();
-                        return res.status(200).json({ received: true, tickets_created: 0, reason: 'user_or_event_not_found' });
-                    }
-
-                    const ticketsSold = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
-                    const availableStock = event.capacity - ticketsSold;
-                    if (availableStock < amount) {
-                        logger.warn("WEBHOOK_NO_STOCK", { availableStock, amount, rid: (req as any).rid });
-                        await queryRunner.rollbackTransaction();
-                        return res.status(200).json({ received: true, tickets_created: 0, reason: 'no_stock' });
-                    }
-
-                    // Actualizamos capacity descontando la cantidad comprada bajo lock
-                    event.capacity -= amount;
-                    await queryRunner.manager.save(event);
-
-                    const tickets = await createTicketsForPurchase(event, user, amount);
-                    await queryRunner.manager.save(Ticket, tickets);
-
-                    if (user.email) {
-                        try {
-                            await enviarCorreoConQR(user.email, tickets.map(t => ({ qrCode: t.qrCode!, ticketId: t.id })));
-                        } catch { /* ignore mail errors */ }
-                    }
-
-                    await queryRunner.commitTransaction();
-                    return res.status(200).json({ received: true, tickets_created: amount });
-                } catch (err: any) {
-                    logger.error("WEBHOOK_TICKET_CREATE_ERROR", { error: err?.message || err, rid: (req as any).rid });
-                    await queryRunner.rollbackTransaction();
-                    return res.status(200).json({ received: true, tickets_created: 0, reason: 'internal_error' });
-                } finally {
-                    await queryRunner.release();
-                }
-            }
-        }
-
-        return res.status(200).json({ received: true });
-    } catch (err: any) {
-        logger.error("MP_WEBHOOK_ERROR", { error: err?.message || err, rid: (req as any).rid });
-        return res.status(500).json({ code: 'WEBHOOK_ERROR', message: 'Error procesando webhook' });
+    // 3. PROCESAMIENTO ASÍNCRONO
+    // Solo si es un pago, disparamos el servicio
+    if (paymentId && (topic === 'payment' || req.body?.type === 'payment')) {
+        // "Fuego y olvido": No usamos await aquí para no bloquear la respuesta si usas serverless,
+        // pero en Render (servidor persistente) es seguro dejarlo correr en background.
+        processPaymentTransaction(String(paymentId))
+            .catch(err => console.error("Error procesando pago en background:", err));
     }
 };

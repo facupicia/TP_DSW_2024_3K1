@@ -42,6 +42,15 @@ export class TicketService {
     return this.http.get<Ticket[]>(`${this.urlBase}/${userID}`);
   }
 
+  getLastPurchase(): Observable<{ tickets: Ticket[]; status: string }> {
+    return this.http.get<{ tickets: Ticket[]; status: string }>(
+      `${environment.apiUrl}/ticket/last-purchase`
+    ).pipe(
+      timeout(10000),
+      catchError(err => throwError(() => err))
+    );
+  }
+
   cancelarTicket(id: number): Observable<any> {
     const token = localStorage.getItem('token');
     const headers: HttpHeaders = new HttpHeaders(

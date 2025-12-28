@@ -14,28 +14,29 @@ export class Ticket extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-
     @Column({ unique: true })
     codigo_unico: string;
 
+    // CORRECCIÓN 1: Unificamos la relación con la columna ID
+    @Column()
+    @Index('idx_ticket_eventId')
+    eventId: number;
+
     @ManyToOne(() => Event, event => event.tickets)
-    @JoinColumn({ name: "event_Id" })
+    @JoinColumn({ name: "eventId" }) // Apunta a la columna de arriba
     event: Event;
 
-    @ManyToOne(() => User, user => user.tickets)
-    @JoinColumn({ name: "user_Id" })
-    user: User;
-
-    @Index('idx_ticket_eventId')
+    // CORRECCIÓN 2: Lo mismo para el usuario
     @Column()
-    eventId: number;
+    @Index('idx_ticket_userId')
+    userId: number;
+
+    @ManyToOne(() => User, user => user.tickets)
+    @JoinColumn({ name: "userId" }) // Apunta a la columna de arriba
+    user: User;
 
     @Column()
     titleEvent: string;
-
-    @Index('idx_ticket_userId')
-    @Column()
-    userId: number;
 
     @Column({ type: "text" })
     qrCode: string;
@@ -55,6 +56,4 @@ export class Ticket extends BaseEntity {
 
     @Column({ type: "timestamp", nullable: true })
     usedAt: Date;
-
-
 }

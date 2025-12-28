@@ -1,5 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { inject, Injector } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../services/toast.service';
 import { Router } from '@angular/router';
@@ -8,10 +8,11 @@ import { AuthService } from '../services/auth.service';
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
     const router = inject(Router);
-    const authService = inject(AuthService);
+    const injector = inject(Injector);
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
+            const authService = injector.get(AuthService);
             let errorMessage = 'Ocurrió un error inesperado';
 
             if (typeof ErrorEvent !== 'undefined' && error.error instanceof ErrorEvent) {
