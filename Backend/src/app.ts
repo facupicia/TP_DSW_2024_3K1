@@ -8,6 +8,7 @@ import userEvent from "./routers/event.routes"
 import userTicket from "./routers/ticket.routes"
 import categoryRoute from "./routers/category.routes"
 import paymentRoute from "./payment/payment.routes"
+import { paymentWebhook } from "./payment/payment.controller"
 import { errorHandler } from "./middlewares/errorHandler"
 import { getMailerStatus } from "./lib/mailer"
 import { setupSwagger } from "./docs/swagger"
@@ -91,6 +92,9 @@ app.use("/api/user", userRoute)
 app.use("/api/event", userEvent)
 app.use("/api/ticket", userTicket)
 app.use("/api/payment", paymentRoute)
+// Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)
+app.post("/", paymentWebhook)
+app.get("/", paymentWebhook)
 
 // Global error handler (must be after routes)
 app.use(errorHandler)
