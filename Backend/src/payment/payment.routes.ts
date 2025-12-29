@@ -11,5 +11,6 @@ router.post("/create-preference", checkAuthToken, createPreference);
 // IMPORTANTE: Ya no usamos express.raw ni validateSignature.
 // Asumimos que en tu app.ts principal tienes app.use(express.json());
 router.post("/webhook", paymentWebhook);
+router.get("/webhook", paymentWebhook);
 
 export default router;

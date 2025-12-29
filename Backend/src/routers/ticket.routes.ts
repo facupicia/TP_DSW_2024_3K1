@@ -10,9 +10,9 @@ const router = Router()
 
 //ruta protegida 
 router.put("/validate", checkAuthToken, checkRoleAuth(["scanner", "admin"]), validateTicket)
+router.get("/last-purchase", checkAuthToken, checkRoleAuth(["user", "admin"]), getLastPurchaseTickets)
 router.post("/buy/:id", checkAuthToken, checkRoleAuth(["user", "admin"]), createTicket)
 router.get("/:id", checkAuthToken, checkRoleAuth(["user", "admin"]), getTickets)
 router.put("/cancel/:id", checkAuthToken, checkRoleAuth(["user", "admin"]), cancelTicket)
-router.get("/last-purchase", checkAuthToken, checkRoleAuth(["user", "admin"]), getLastPurchaseTickets)
 
 export default router
