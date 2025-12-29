@@ -86,7 +86,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         const result = await preference.create({ body });
         return res.status(200).json({
             id: result.id,
-            init_point: (result as any).sandbox_init_point || result.init_point,
+            init_point: result.init_point, // <--- ¡Solo esto! Sin condiciones raras.
         });
 
     } catch (error: any) {
