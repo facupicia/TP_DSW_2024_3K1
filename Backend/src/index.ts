@@ -18,7 +18,7 @@ async function main() {
     app.listen(PORT);
     console.log("Server on port", PORT);
     const mailOk = await verifyMailer();
-    console.log("SMTP ready:", mailOk);
+    console.log("Mailer listo:", mailOk);
   } catch (error) {
     console.error(error);
   }

@@ -22,7 +22,6 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
         const { id: eventID } = req.params;
         const userId = req.user?.id;
 
-
         if (!userId) {
             return res.status(401).json({ message: "No autorizado. Token inválido o expirado." });
         }
@@ -36,54 +35,59 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             return res.status(400).json({ message: "Cantidad inválida." });
         }
 
-        // Fetch User and Event with simpler queries first to debug 404
+        // 1. Buscar Usuario
         const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
         if (!user) {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
+        // 2. Buscar Evento (con bloqueo pesimista para evitar sobreventa)
         const event = await queryRunner.manager.createQueryBuilder(Event, "e")
             .setLock("pessimistic_write")
             .where("e.id = :id", { id: parseInt(eventID) })
             .getOne();
+            
         if (!event) {
             return res.status(404).json({ message: "Evento no encontrado" });
         }
 
-        // capacidad disponible
-        const ticketsVendidos = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } }); // Correct relation query
+        // 3. Verificar Stock
+        const ticketsVendidos = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
         const capacidadDisponible = event.capacity - ticketsVendidos;
-
 
         if (capacidadDisponible < cantidadTickets) {
             return res.status(400).json({ message: `No hay suficientes boletos disponibles. Quedan ${capacidadDisponible} boletos.` });
         }
 
-        // Restar la cantidad de boletos comprados de la capacidad (If logic requires updating event capacity directly, though usually calculated dynamically)
-        // Note: Logic above used 'ticketsVendidos' count, so modifying event.capacity might be redundant if capacity is static max. 
-        // Assuming current logic wants to decrease static capacity field:
-        // event.capacity -= cantidadTickets; 
-        // await queryRunner.manager.save(event);
-        // BETTER APPROACH: Keep capacity static max, just check count vs max. 
-        // Since original code modified it, I will stick to original intent but warn: usually capacity is Max capacity, not current.
-        // If 'capacity' means 'remaining', then decrement is correct. 
-        // Let's assume 'capacity' is REMAINING capacity based on previous code: "event.capacity -= cantidad;"
-
+        // 4. Actualizar Capacidad (restando stock)
         event.capacity -= cantidadTickets;
         await queryRunner.manager.save(event);
 
+        // 5. Crear Tickets
         const tickets = await createTicketsForPurchase(event, user, cantidadTickets);
-
         await queryRunner.manager.save(Ticket, tickets);
 
+        // 6. Enviar Correo con el NUEVO formato (Eventbrite style)
         if (user.email) {
+            // Formatear la fecha para que se vea bonita (opcional)
+            const dateObj = new Date(event.date);
+            const formattedDate = !isNaN(dateObj.getTime()) 
+                ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                : String(event.date);
+
             try {
                 await enviarCorreoConQR(user.email, tickets.map(ticket => ({
                     qrCode: ticket.qrCode!,
-                    ticketId: ticket.id
+                    ticketId: ticket.id,
+                    // --- DATOS PARA EL FORMATO PDF ---
+                    eventTitle: event.title,
+                    eventDate: `${formattedDate} ${event.time}`, // Ej: "Lunes, 25 de Diciembre... 20:00"
+                    eventLocation: event.location,
+                    buyerName: `${user.firstname} ${user.lastname}`
                 })));
             } catch (emailErr) {
-                // Don't fail transaction just for email
+                console.error("Error enviando email (no bloqueante):", emailErr);
+                // No fallamos la transacción solo por el email
             }
         }
 
@@ -98,7 +102,6 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
         await queryRunner.release();
     }
 };
-
 
 export const getTickets = async (req: CustomRequest, res: Response) => {
     try {
