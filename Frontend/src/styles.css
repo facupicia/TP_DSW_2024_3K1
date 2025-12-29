@@ -2,18 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Glassmorphism Utility */
+:root {
+  /* Variables ajustadas para estilo Apple Premium */
+  --toast-width: 380px;
+  --toast-radius: 20px; /* Más redondeado */
+  --toast-shadow: 0 8px 30px rgba(0, 0, 0, 0.12); /* Sombra difusa */
+  --toast-border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* Utilidades Glassmorphism (Mantenidas) */
 .glass {
-  @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl;
 }
 
 .glass-dark {
-  @apply bg-black/30 backdrop-blur-lg border border-white/10 shadow-xl;
+  @apply bg-black/60 backdrop-blur-xl border border-white/10 shadow-xl;
 }
 
-/* Minimalist Reset/Basics if not covered by Tailwind Base */
 body {
-  @apply bg-gray-50 text-gray-900;
-  /* Optional: Smooth scrolling */
+  @apply bg-[#F5F5F7] text-slate-900; /* Fondo Apple gris muy claro */
   scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased; /* Texto nítido */
+}
+
+/* --- ESTILOS DEL TOAST (FEEDBACK) --- */
+
+#toast-container {
+  pointer-events: none; /* Permite clic a través del contenedor */
+}
+
+#toast-container * {
+  pointer-events: auto; /* Reactiva clics en el toast */
+}
+
+#toast-container .toast {
+  position: relative;
+  overflow: hidden;
+  margin: 0 0 12px;
+  padding: 16px 20px;
+  width: var(--toast-width);
+  max-width: 90vw;
+  border-radius: var(--toast-radius);
+  background-position: 15px center;
+  background-repeat: no-repeat;
+  background-size: 24px;
+  box-shadow: var(--toast-shadow);
+  color: #1d1d1f; /* Negro Apple */
+  border: var(--toast-border);
+  
+  /* Efecto Glass */
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  
+  /* Animación suave */
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform: translateY(0);
+}
+
+/* Efecto Hover: Levantar ligeramente */
+#toast-container .toast:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px);
+  background-color: rgba(255, 255, 255, 0.95);
+}
+
+/* Tipografía */
+.toast-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+  color: #000;
+}
+
+.toast-message {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6e6e73; /* Gris Apple */
+  line-height: 1.4;
+}
+
+/* --- VARIANTES DE COLOR (Sutiles) --- */
+
+/* ÉXITO: Fondo verde muy pálido + Icono */
+#toast-container .toast-success {
+  background-color: rgba(240, 253, 244, 0.9); /* Green-50 */
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2316a34a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
+}
+
+/* ERROR: Fondo rojo muy pálido + Icono */
+#toast-container .toast-error {
+  background-color: rgba(254, 242, 242, 0.9); /* Red-50 */
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23dc2626'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
+}
+
+/* INFO: Fondo azul muy pálido + Icono */
+#toast-container .toast-info {
+  background-color: rgba(240, 249, 255, 0.9); /* Sky-50 */
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230ea5e9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
+}
+
+/* WARNING: Fondo naranja muy pálido + Icono */
+#toast-container .toast-warning {
+  background-color: rgba(255, 251, 235, 0.9); /* Amber-50 */
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23f59e0b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' /%3E%3C/svg%3E");
+}
+
+/* Ajuste de posición para móviles */
+@media (max-width: 640px) {
+  #toast-container .toast {
+    width: 90vw;
+    margin: 8px auto;
+  }
+}
+
+/* --- ARREGLO PARA GRÁFICOS (APEXCHARTS) --- */
+/* Esto elimina los errores rojos en consola sobre 'passive events' */
+.apexcharts-canvas {
+  touch-action: none;
 }
