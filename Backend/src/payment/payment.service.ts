@@ -1,6 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import AppDataSource from "../db";
-import { PaymentLog, PaymentStatus } from "./payment.entity"; // <--- 1. IMPORTAR PaymentStatus
+import { PaymentLog, PaymentStatus } from "./payment.entity"; 
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -20,43 +20,58 @@ export const processPaymentTransaction = async (paymentId: string) => {
             return;
         }
 
-        const meta = payment.metadata || {};
-        const additional = payment.additional_info || {};
-        const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
+        // --- LÓGICA DE EXTRACCIÓN ROBUSTA ---
+        let userId = 0;
+        let eventId = 0;
+        let amount = 0;
 
-        let userId = Number(meta.user_id);
-        let eventId = Number(meta.event_id || item?.id);
-        let amount = Number(meta.amount_tickets || item?.quantity || 1);
-
-        if ((!userId || !eventId || !amount) && payment.external_reference) {
+        // 1. Prioridad: External Reference (Conciliación Financiera)
+        if (payment.external_reference) {
             const parts = String(payment.external_reference).split('|');
-            userId = Number(parts[0]);
-            eventId = Number(parts[1]);
-            amount = Number(parts[2]);
+            if (parts.length === 3) {
+                userId = Number(parts[0]);
+                eventId = Number(parts[1]);
+                amount = Number(parts[2]);
+            }
+        }
+
+        // 2. Fallback: Metadata (Si external_reference falló o no vino)
+        if (!userId || !eventId) {
+            const meta = payment.metadata || {};
+            const additional = payment.additional_info || {};
+            const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
+
+            userId = Number(meta.user_id);
+            eventId = Number(meta.event_id || item?.id);
+            amount = Number(meta.amount_tickets || item?.quantity || 1);
         }
 
         if (!userId || !eventId || !amount || amount <= 0) {
-            logger.error("WEBHOOK_INVALID_METADATA", { paymentId, userId, eventId, amount });
+            logger.error("WEBHOOK_DATA_MISSING", { paymentId, userId, eventId, amount });
             return;
         }
+        // -------------------------------------
 
         const queryRunner = AppDataSource.createQueryRunner();
         await queryRunner.connect();
         await queryRunner.startTransaction();
 
         try {
-            // Insertar log inicial idempotente (PROCESSING por defecto)
+            // Log de idempotencia (Evita procesar el mismo pago dos veces)
             const log = queryRunner.manager.create(PaymentLog, {
                 mpPaymentId: String(paymentId),
                 externalReference: String(payment.external_reference || ''),
                 userId,
                 eventId,
-                amount
+                amount,
+                status: PaymentStatus.PROCESSING
             });
+            
             try {
                 await queryRunner.manager.save(log);
             } catch (e: any) {
-                if (e?.code === '23505') {
+                // Si ya existe (código de error de unicidad en BD), ignoramos
+                if (e?.code === '23505' || e?.message?.includes('unique')) {
                     logger.info("PAYMENT_ALREADY_PROCESSED", { id: paymentId });
                     await queryRunner.rollbackTransaction();
                     return;
@@ -69,62 +84,52 @@ export const processPaymentTransaction = async (paymentId: string) => {
 
             const event = await queryRunner.manager
                 .createQueryBuilder(Event, "e")
-                .setLock("pessimistic_write")
+                .setLock("pessimistic_write") // Bloqueo para evitar sobreventa concurrente
                 .where("e.id = :id", { id: eventId })
                 .getOne();
 
             if (!event) throw new Error(`Event not found: ${eventId}`);
 
+            // Validación de Stock en tiempo real
             const ticketsSold = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
             const availableStock = event.capacity - ticketsSold;
 
             if (availableStock < amount) {
                 logger.warn("WEBHOOK_NO_STOCK", { eventId, availableStock, requested: amount });
-                // Aquí deberías marcar el log como FAILED si quisieras llevar registro de fallos de stock
-                log.status = PaymentStatus.FAILED;
-                await queryRunner.manager.save(log);
-
-                await queryRunner.commitTransaction(); // Commit para guardar el log de fallo
+                // Marcamos el pago como fallido en nuestro log
+                await queryRunner.manager.update(PaymentLog, log.id, { status: PaymentStatus.FAILED });
+                await queryRunner.commitTransaction();
                 return;
             }
 
-            event.capacity -= amount;
-            await queryRunner.manager.save(event);
-
+            // Crear Tickets
             const tickets = await createTicketsForPurchase(event, user, amount);
             await queryRunner.manager.save(Ticket, tickets);
 
-            // Actualizar estado a COMPLETED de forma segura por clave única
-            await queryRunner.manager.createQueryBuilder()
-                .update(PaymentLog)
-                .set({ status: PaymentStatus.COMPLETED })
-                .where("mpPaymentId = :id", { id: String(paymentId) })
-                .execute();
+            // Actualizar estado del log a COMPLETADO
+            await queryRunner.manager.update(PaymentLog, log.id, { status: PaymentStatus.COMPLETED });
 
             await queryRunner.commitTransaction();
-            logger.info("TICKETS_CREATED_SUCCESS", { paymentId, amount, ticketIds: tickets.map(t => t.id) });
+            logger.info("TICKETS_CREATED", { paymentId, amount });
 
+            // Enviar Email (Fuera de la transacción para no bloquear)
             if (user.email) {
                 try {
-                    // Formateamos la fecha para que se vea bien en el PDF (Ej: "Lunes, 25 de Diciembre...")
                     const dateObj = new Date(event.date);
                     const formattedDate = !isNaN(dateObj.getTime())
                         ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
                         : String(event.date);
 
-                    // Enviamos el correo con TODOS los datos nuevos
                     await enviarCorreoConQR(user.email, tickets.map(t => ({
                         qrCode: t.qrCode!,
                         ticketId: t.id,
-                        // --- AGREGAMOS ESTOS CAMPOS ---
                         eventTitle: event.title,
                         eventDate: `${formattedDate} ${event.time}`,
                         eventLocation: event.location,
                         buyerName: `${user.firstname} ${user.lastname}`
                     })));
-
                 } catch (mailError) {
-                    logger.error("MAIL_SEND_ERROR", { paymentId, error: mailError });
+                    logger.error("MAIL_ERROR", { paymentId });
                 }
             }
 
@@ -136,6 +141,6 @@ export const processPaymentTransaction = async (paymentId: string) => {
         }
 
     } catch (error: any) {
-        logger.error("PROCESS_PAYMENT_ERROR", { paymentId, error: error?.message || error });
+        logger.error("PROCESS_PAYMENT_FATAL", { paymentId, error: error?.message });
     }
 };
