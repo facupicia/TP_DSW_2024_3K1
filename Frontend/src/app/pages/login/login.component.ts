@@ -1,4 +1,4 @@
-import { Component, inject, PLATFORM_ID } from '@angular/core';
+import { Component, inject, PLATFORM_ID, NgZone } from '@angular/core';
 import { Router, RouterLink } from '@angular/router'; // Agregamos RouterLink
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
@@ -22,6 +22,7 @@ export class LoginComponent {
   private formBuilder = inject(FormBuilder);
   private toastService = inject(ToastService);
   private platformId = inject(PLATFORM_ID);
+  private ngZone = inject(NgZone);
 
   public isLoading: boolean = false; // Estado para el spinner
 
@@ -36,34 +37,61 @@ export class LoginComponent {
 
   private initGoogle() {
     if (!isPlatformBrowser(this.platformId)) return;
-    const clientId = environment.googleClientId;
-    const win = window as any;
-    const g = win.google;
-    if (!g || !clientId) return;
-    g.accounts.id.initialize({
-      client_id: clientId,
-      callback: (resp: any) => this.onGoogleCredential(resp?.credential),
-      ux_mode: 'popup',
-      auto_select: false
-    });
-    const btn = document.getElementById('googleBtn');
-    if (btn) {
-      g.accounts.id.renderButton(btn, { theme: 'outline', size: 'large', text: 'continue_with' });
+
+    const checkGoogle = setInterval(() => {
+      const win = window as any;
+      const g = win.google;
+      if (g && environment.googleClientId) {
+        clearInterval(checkGoogle);
+        this.renderGoogleButton(g);
+      }
+    }, 100);
+
+    // Timeout de seguridad para dejar de buscar
+    setTimeout(() => clearInterval(checkGoogle), 5000);
+  }
+
+  private renderGoogleButton(g: any) {
+    try {
+      g.accounts.id.initialize({
+        client_id: environment.googleClientId,
+        callback: (resp: any) => {
+          this.ngZone.run(() => {
+            this.onGoogleCredential(resp?.credential);
+          });
+        },
+        ux_mode: 'popup',
+        auto_select: false,
+        itp_support: true // Polyfill para Intelligent Tracking Prevention (Safari)
+      });
+      const btn = document.getElementById('googleBtn');
+      if (btn) {
+        g.accounts.id.renderButton(btn, { theme: 'outline', size: 'large', text: 'continue_with' });
+      }
+    } catch (error) {
+      console.error('Error inicializando Google Auth:', error);
     }
   }
 
   private onGoogleCredential(credential: string) {
     if (!credential) return;
     this.isLoading = true;
+    console.log('Iniciando autenticación con Google...');
+
     this.accesService.loginWithGoogle(credential).subscribe({
       next: (response) => {
+        console.log('Autenticación exitosa');
         this.toastService.success('Inicio de sesión con Google exitoso');
         localStorage.setItem('token', response.token);
-        setTimeout(() => {
-          this.router.navigate(['/']);
-        }, 500);
+        // Aseguramos que la navegación ocurra dentro de la zona de Angular
+        this.ngZone.run(() => {
+          setTimeout(() => {
+            this.router.navigate(['/']);
+          }, 500);
+        });
       },
-      error: () => {
+      error: (err) => {
+        console.error('Error en auth Google:', err);
         this.isLoading = false;
         this.toastService.error('Error al iniciar sesión con Google');
       },

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { Router, RouterModule } from '@angular/router'; // <--- IMPORTANTE: RouterModule
 import { AuthService } from '../../services/auth.service';
 
@@ -13,14 +13,17 @@ import { AuthService } from '../../services/auth.service';
 export class HeaderComponent implements OnDestroy {
   router = inject(Router)
   private accesService = inject(AuthService);
+  private cd = inject(ChangeDetectorRef);
 
   // Usaremos 'user' para el estado reactivo en lugar de la variable estática isLoggedIn
   user: any = null;
   isMenuOpen = false;
+  ngZone: any;
 
   ngOnInit(): void {
     this.accesService.currentUser$.subscribe(user => {
       this.user = user;
+      this.cd.detectChanges(); // Forzar actualización de vista para asegurar reactividad inmediata
     });
 
     // Cerrar menú al cambiar de ruta
@@ -51,9 +54,11 @@ export class HeaderComponent implements OnDestroy {
     this.accesService.logout();
     this.isMenuOpen = false;
     this.manageScrollLock();
-    this.router.navigate(['/login']);
+    this.ngZone.run(() => {
+      this.router.navigate(['/login']);
+    });
   }
-
+  
   redirectToProfile() {
     this.navigateMobile('/profile');
   }

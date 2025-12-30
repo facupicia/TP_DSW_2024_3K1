@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Usuario } from '../interfaces/Usuario';
-import { Observable, tap, throwError, BehaviorSubject } from 'rxjs';
+import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchError } from 'rxjs';
 import { ResponseAcceso } from '../interfaces/ResponseAcceso';
 import { Login } from '../interfaces/Login';
 import { UsuarioEdit } from '../interfaces/UsuarioEdit';
@@ -23,7 +23,9 @@ export class AuthService {
   constructor() {
     // Opcional: Recuperar sesión al recargar
     if (typeof window !== 'undefined' && localStorage.getItem('token')) {
-      this.getProfile().subscribe();
+      this.getProfile().subscribe({
+        error: (err) => console.error('Error restaurando sesión:', err)
+      });
     }
   }
 
@@ -37,25 +39,39 @@ export class AuthService {
         if (resp?.token && typeof window !== 'undefined') {
           localStorage.setItem('token', resp.token);
         }
-        this.getProfile().subscribe();
-      })
+      }),
+      // Encadenamos la obtención del perfil para asegurar que el estado esté actualizado antes de completar
+      switchMap((resp) => this.getProfile().pipe(
+        map(() => resp)
+      ))
     );
   }
+
   loginWithGoogle(credential: string): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }).pipe(
       tap((resp) => {
         if (resp?.token && typeof window !== 'undefined') {
           localStorage.setItem('token', resp.token);
         }
-        this.getProfile().subscribe();
-      })
+      }),
+      // Encadenamos la obtención del perfil
+      switchMap((resp) => this.getProfile().pipe(
+        map(() => resp)
+      ))
     );
   }
 
   getProfile(): Observable<any> {
     return this.http.get(`${this.urlBase}profile`).pipe(
       tap(profile => {
+        console.log('Perfil actualizado en estado global');
         this.currentUserSubject.next(profile); // Actualiza el estado reactivo
+      }),
+      catchError(err => {
+        // Si falla el perfil (ej. token inválido), limpiamos la sesión
+        console.error('Error obteniendo perfil:', err);
+        this.logout();
+        return throwError(() => err);
       })
     );
   }
@@ -86,6 +102,7 @@ export class AuthService {
   }
 
   logout() {
+    console.log('Cerrando sesión...');
     this.currentUserSubject.next(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');

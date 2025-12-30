@@ -118,31 +118,26 @@ export class TicketsComponent implements OnInit {
     else this.collapsed.add(id);
   }
 
+  // NUEVA FUNCIÓN COMPARTIR
+  compartirTicket(ticket: any, group: EventGroup) {
+    const shareData = {
+      title: `Mi Entrada para ${group.eventTitle}`,
+      text: `¡Hola! Aquí tienes mi entrada para ${group.eventTitle} el ${group.eventDate}. Ubicación: ${group.eventLocation}. Código: ${ticket.codigo_unico}`,
+      url: ticket.qrCode // Compartimos el enlace al QR
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData)
+        .then(() => console.log('Ticket compartido con éxito'))
+        .catch((err) => console.log('Error al compartir', err));
+    } else {
+      // Fallback si el navegador no soporta share nativo (Desktop)
+    }
+  }
+
   trackGroup(_i: number, g: EventGroup) { return g.eventId; }
   trackTicket(_i: number, t: any) { return t.id || t.codigo_unico; }
 
-  descargarQR(ticket: any) {
-    const a = document.createElement('a');
-    a.href = ticket.qrCode;
-    a.download = `ticket_${ticket.id || ticket.codigo_unico}.png`;
-    a.click();
-  }
-
-  copiarCodigo(ticket: any) {
-    navigator.clipboard?.writeText(ticket.codigo_unico);
-  }
-
-  cancelarTicket(ticket: any) {
-    this.tickService.cancelarTicket(Number(ticket.id)).subscribe({
-      next: () => {
-        ticket.status = 'cancelled';
-        this.aplicarFiltroOrden();
-      },
-      error: () => {
-        alert('No se pudo cancelar el ticket');
-      }
-    });
-  }
 
   irAEventos() {
     this.router.navigate(['/events']);
