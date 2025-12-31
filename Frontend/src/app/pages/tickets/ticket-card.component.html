@@ -1,0 +1,105 @@
+<div class="scene perspective-1000 w-full h-[500px] flex justify-center items-center select-none"
+    (mousemove)="onMouseMove($event)" (mouseleave)="onMouseLeave()">
+
+    <div #card
+        class="ticket-3d relative w-[300px] h-[500px] rounded-[30px] transition-transform duration-100 ease-linear shadow-2xl"
+        [style.transform]="'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)'" [class.is-active]="isActive">
+
+        <div class="absolute inset-0 rounded-[30px] overflow-hidden bg-gray-900 border border-white/20">
+            <img [src]="group.eventImage"
+                class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay">
+            <div class="absolute inset-0 bg-gradient-to-br from-black/80 via-black/40 to-transparent"></div>
+
+            <div class="absolute inset-0 opacity-[0.15]"
+                style="background-image: url('https://grainy-gradients.vercel.app/noise.svg');"></div>
+        </div>
+
+        <div class="absolute inset-0 rounded-[30px] pointer-events-none z-20 mix-blend-overlay opacity-0 transition-opacity duration-300"
+            [class.opacity-100]="isActive"
+            [style.background]="'radial-gradient(circle at ' + shineX + '% ' + shineY + '%, rgba(255,255,255,0.4) 0%, transparent 60%)'">
+        </div>
+
+        <div class="absolute inset-0 p-6 flex flex-col justify-between z-30 text-white"
+            style="transform: translateZ(40px)">
+
+            <div class="flex justify-between items-start">
+                <div
+                    class="bg-white/10 backdrop-blur-md border border-white/10 px-1 py-1 rounded-full text-[8px] font-bold  tracking-widest shadow-lg">
+                    EventLife
+                </div>
+            </div>
+
+            <div style="transform: translateZ(20px)">
+                <h2
+                    class="text-3xl font-black leading-none mb-3 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] tracking-tight">
+                    {{ group.eventTitle }}
+                </h2>
+
+                <div class="inline-flex items-center gap-3  px-3 py-1.5">
+
+                    <div class="flex items-center gap-1.5 text-blue-200">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span class="text-xs font-bold uppercase tracking-wider">{{ group.eventDate | date:'dd MMM'
+                            }}</span>
+                    </div>
+
+                    <div class="w-px h-3 bg-white/20"></div>
+
+                    <div class="flex items-center gap-1.5 text-gray-200 min-w-0">
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="text-xs font-medium truncate max-w-[140px]">{{ group.eventLocation }}</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="space-y-4">
+
+                <div class="relative group cursor-pointer" style="transform: translateZ(30px)">
+                    <div class="absolute inset-0 pointer-events-none">
+                        <div class="absolute -inset-2 rounded-xl
+           bg-gradient-to-r from-blue-600/80 via-cyan-400/70 to-purple-700/80
+           blur-2xl opacity-40
+           group-hover:opacity-80
+           transition duration-500">
+                        </div>
+
+                        <div class="absolute -inset-[1px] rounded-xl
+           bg-gradient-to-r from-white/40 via-blue-300/50 to-white/40
+           blur-sm opacity-40">
+                        </div>
+                    </div>
+
+                    <div class="relative bg-white p-3 rounded-xl shadow-xl">
+                        <img [src]="ticket.qrCode"
+                            class="w-full h-auto aspect-square object-contain mix-blend-multiply">
+                    </div>
+                    <p class="text-[8px] text-center text-gray-400 font-mono mt-2 tracking-widest uppercase">
+                        {{ ticket.codigo_unico }}
+                    </p>
+                </div>
+
+                <div class="justify-center flex ">
+                    <button (click)="compartir()"
+                        class="px-6 py-1 rounded-full text-[10px] bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-md text-xs font-bold transition-all">
+                        Compartir
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <div
+            class="absolute inset-0 rounded-[30px] border border-white/10 z-40 pointer-events-none shadow-[inset_0_0_20px_rgba(255,255,255,0.05)]">
+        </div>
+
+    </div>
+</div>

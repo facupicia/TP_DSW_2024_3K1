@@ -37,7 +37,7 @@ export class LoginComponent {
 
   private initGoogle() {
     if (!isPlatformBrowser(this.platformId)) return;
-
+    
     const checkGoogle = setInterval(() => {
       const win = window as any;
       const g = win.google;
@@ -77,7 +77,7 @@ export class LoginComponent {
     if (!credential) return;
     this.isLoading = true;
     console.log('Iniciando autenticación con Google...');
-
+    
     this.accesService.loginWithGoogle(credential).subscribe({
       next: (response) => {
         console.log('Autenticación exitosa');
@@ -85,9 +85,9 @@ export class LoginComponent {
         localStorage.setItem('token', response.token);
         // Aseguramos que la navegación ocurra dentro de la zona de Angular
         this.ngZone.run(() => {
-          setTimeout(() => {
-            this.router.navigate(['/']);
-          }, 500);
+           setTimeout(() => {
+             this.router.navigate(['/']);
+           }, 500);
         });
       },
       error: (err) => {

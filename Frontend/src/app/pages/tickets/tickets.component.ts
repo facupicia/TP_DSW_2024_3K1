@@ -4,8 +4,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
+import { TicketCardComponent } from './ticket-card.component'; // Asegúrate de importar tu componente 3D
 
-// Interfaz para ordenar el caos
 interface EventGroup {
   eventTitle: string;
   eventDate: string;
@@ -18,7 +18,7 @@ interface EventGroup {
 @Component({
   selector: 'app-tickets',
   standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule],
+  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent],
   templateUrl: './tickets.component.html',
   styleUrl: './tickets.component.css'
 })
@@ -30,23 +30,24 @@ export class TicketsComponent implements OnInit {
   private userID: string | null = null;
 
   loading = true;
-  // Ya no usamos un array plano, sino grupos
   groupedTickets: EventGroup[] = [];
   filteredGroups: EventGroup[] = [];
   hasTickets = false;
   searchTerm = '';
-  collapsed: Set<number> = new Set();
+
+  // CAMBIO CLAVE: Usamos 'expanded' en lugar de 'collapsed'
+  // Al iniciar vacío (new Set()), todo estará cerrado por defecto.
+  expanded: Set<number> = new Set();
 
   ngOnInit(): void {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
-      // Intentamos obtener ID de la ruta, si no, del localStorage (opcional)
       this.userID = this.route.snapshot.paramMap.get('id');
 
       if (token && this.userID) {
         this.cargarTickets();
       } else {
-        this.loading = false; // No hay usuario, no cargamos
+        this.loading = false;
       }
     }
   }
@@ -55,7 +56,6 @@ export class TicketsComponent implements OnInit {
     this.tickService.getTicketsByUser(Number(this.userID)).subscribe({
       next: (data) => {
         this.agruparTicketsPorEvento(data);
-        this.aplicarFiltroOrden();
         this.loading = false;
       },
       error: (err) => {
@@ -65,7 +65,6 @@ export class TicketsComponent implements OnInit {
     });
   }
 
-  // LA MAGIA: Convertir lista plana en grupos por evento
   agruparTicketsPorEvento(tickets: any[]) {
     if (!tickets || tickets.length === 0) {
       this.hasTickets = false;
@@ -91,7 +90,6 @@ export class TicketsComponent implements OnInit {
       groups[evtId].tickets.push(ticket);
     });
 
-    // Convertimos el objeto map a un array para el HTML
     this.groupedTickets = Object.values(groups);
     this.aplicarFiltroOrden();
   }
@@ -105,41 +103,35 @@ export class TicketsComponent implements OnInit {
         (g.eventLocation || '').toLowerCase().includes(term)
       );
     }
+    // Ordenar por fecha más reciente primero
     groups.sort((a, b) => {
       const da = new Date(a.eventDate).getTime();
       const db = new Date(b.eventDate).getTime();
-      return da - db;
+      return db - da;
     });
     this.filteredGroups = groups;
   }
 
+  // LÓGICA INVERTIDA: Si está, lo saca (cierra). Si no, lo agrega (abre).
   toggleGroup(id: number) {
-    if (this.collapsed.has(id)) this.collapsed.delete(id);
-    else this.collapsed.add(id);
+    if (this.expanded.has(id)) {
+      this.expanded.delete(id);
+    } else {
+      // Opcional: Si quieres modo "Acordeón estricto" (solo uno abierto a la vez), descomenta esto:
+      // this.expanded.clear(); 
+      this.expanded.add(id);
+    }
   }
 
-  // NUEVA FUNCIÓN COMPARTIR
-  compartirTicket(ticket: any, group: EventGroup) {
-    const shareData = {
-      title: `Mi Entrada para ${group.eventTitle}`,
-      text: `¡Hola! Aquí tienes mi entrada para ${group.eventTitle} el ${group.eventDate}. Ubicación: ${group.eventLocation}. Código: ${ticket.codigo_unico}`,
-      url: ticket.qrCode // Compartimos el enlace al QR
-    };
-
-    if (navigator.share) {
-      navigator.share(shareData)
-        .then(() => console.log('Ticket compartido con éxito'))
-        .catch((err) => console.log('Error al compartir', err));
-    } else {
-      // Fallback si el navegador no soporta share nativo (Desktop)
-    }
+  // Helper para el HTML
+  isExpanded(id: number): boolean {
+    return this.expanded.has(id);
   }
 
   trackGroup(_i: number, g: EventGroup) { return g.eventId; }
   trackTicket(_i: number, t: any) { return t.id || t.codigo_unico; }
 
-
   irAEventos() {
-    this.router.navigate(['/events']);
+    this.router.navigate(['/explore']); // Ajusta según tu ruta real
   }
 }
