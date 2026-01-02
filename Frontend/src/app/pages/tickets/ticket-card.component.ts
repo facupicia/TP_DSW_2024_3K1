@@ -23,6 +23,7 @@ export class TicketCardComponent {
 
   // Lógica de Movimiento 3D (Mouse Move)
   onMouseMove(e: MouseEvent) {
+    if (window.innerWidth < 768) return;
     if (!this.card) return;
     
     const rect = this.card.nativeElement.getBoundingClientRect();
@@ -49,6 +50,8 @@ export class TicketCardComponent {
     this.rotateY = 0;
     this.isActive = false;
   }
+
+  
 
  
   compartir() { 

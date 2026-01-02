@@ -31,3 +31,40 @@ h2, p, div {
     backface-visibility: hidden; 
     -webkit-font-smoothing: antialiased;
 }
+
+
+/* CONFIGURACIÓN DEL ESPACIO 3D */
+.perspective-1000 {
+    perspective: 1000px;
+}
+
+.ticket-3d {
+    transform-style: preserve-3d;
+    /* Fondo base por defecto */
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(20px); /* PESADO PARA MÓVIL */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+/* --- 🚑 MEDIA QUERY SALVAVIDAS --- */
+@media (max-width: 768px) {
+    .ticket-3d {
+        /* 1. Quitamos el blur pesado */
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        
+        /* 2. Ponemos un fondo sólido oscuro (simula el cristal pero sin cálculo) */
+        background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+        
+        /* 3. Simplificamos sombras */
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+        
+        /* 4. Forzamos que la tarjeta esté plana (sin rotación) */
+        transform: none !important;
+    }
+
+    /* Opcional: Desactivamos la animación de flotar para ahorrar batería */
+    .ticket-3d:not(.is-active) {
+        animation: none !important;
+    }
+}
