@@ -1,9 +1,49 @@
 :host {
     display: block;
+    height: 100vh;
+    overflow: hidden;
 }
 
-zxing-scanner {
+/* Scanner Laser Animation */
+@keyframes scan-line {
+    0% { transform: translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(250px); opacity: 0; }
+}
+
+.scan-laser {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: 2px;
+    background: #4ade80; /* Green tint */
+    box-shadow: 0 0 10px #4ade80, 0 0 20px #4ade80;
+    position: absolute;
+    top: 0;
+    animation: scan-line 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Custom Corner Borders for Viewfinder */
+.corner-border {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-color: rgba(255, 255, 255, 0.8);
+    border-style: solid;
+    border-width: 0;
+    transition: all 0.3s ease;
+}
+
+.corner-tl { top: 0; left: 0; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 12px; }
+.corner-tr { top: 0; right: 0; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 12px; }
+.corner-bl { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 12px; }
+.corner-br { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 12px; }
+
+/* Modal Slide Up Animation */
+.modal-enter {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
