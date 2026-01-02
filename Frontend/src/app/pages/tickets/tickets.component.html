@@ -1,23 +1,20 @@
 <main class="min-h-screen relative overflow-hidden bg-slate-100 pb-24 select-none">
 
-  <!-- Fondo glass animado -->
   <div class="xmb-light-container">
     <div class="smoke-wave wave-blue"></div>
     <div class="smoke-wave wave-cyan"></div>
   </div>
 
-  <!-- Header -->
   <div class="relative z-50">
     <app-header></app-header>
   </div>
 
   <div class="pt-28 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
 
-    <!-- Título -->
     <div class="mb-10 text-center animate-fade-in-up">
       <h1 class="text-4xl sm:text-5xl font-black tracking-tight
-               bg-clip-text text-transparent
-               bg-gradient-to-r from-blue-600 to-cyan-500">
+                bg-clip-text text-transparent
+                bg-gradient-to-r from-blue-600 to-cyan-500">
         Mis tickets
       </h1>
       <p class="text-slate-500 mt-2 text-sm sm:text-base">
@@ -25,15 +22,14 @@
       </p>
     </div>
 
-    <!-- Buscador (mobile first) -->
     <div *ngIf="!loading && hasTickets" class="mb-8 animate-fade-in-up">
       <div class="relative rounded-2xl bg-white/60 backdrop-blur-xl
-               border border-white/40 shadow-lg">
+                  border border-white/40 shadow-lg">
 
         <input [(ngModel)]="searchTerm" (ngModelChange)="aplicarFiltroOrden()" type="text"
           placeholder="Buscar tickets..." class="w-full pl-12 pr-4 py-4 rounded-2xl
-                 bg-transparent text-slate-900 placeholder-slate-400
-                 focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+                   bg-transparent text-slate-900 placeholder-slate-400
+                   focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
 
         <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2">
           <path stroke="currentColor" stroke-width="2" fill="none" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -41,36 +37,30 @@
       </div>
     </div>
 
-    <!-- Loading -->
     <div *ngIf="loading" class="space-y-4 animate-pulse">
       <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
       <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
     </div>
 
-    <!-- LISTA -->
     <div *ngIf="!loading && hasTickets" class="space-y-4">
 
       <div *ngFor="let group of filteredGroups; trackBy: trackGroup">
 
-        <!-- CARD HEADER -->
         <div (click)="toggleGroup(group.eventId)" class="relative rounded-3xl overflow-hidden cursor-pointer
-                 bg-white/60 backdrop-blur-xl
-                 border border-white/40
-                 shadow-lg transition-all active:scale-[0.98]" [class.shadow-blue-200]="isExpanded(group.eventId)">
+                   bg-white/60 backdrop-blur-xl
+                   border border-white/40
+                   shadow-lg transition-all active:scale-[0.98]" [class.shadow-blue-200]="isExpanded(group.eventId)">
 
-          <!-- Indicador -->
           <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 transition-opacity"
             [style.opacity]="isExpanded(group.eventId) ? '1' : '0'">
           </div>
 
           <div class="flex items-center gap-4 p-4">
 
-            <!-- Imagen -->
             <div class="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-slate-200">
               <img [src]="group.eventImage" class="w-full h-full object-cover" />
             </div>
 
-            <!-- Info -->
             <div class="flex-1 min-w-0">
               <h2 class="font-bold text-slate-900 truncate" [class.text-blue-600]="isExpanded(group.eventId)">
                 {{ group.eventTitle }}
@@ -84,9 +74,8 @@
               </p>
             </div>
 
-            <!-- Chevron grande (mobile friendly) -->
             <div class="w-10 h-10 rounded-full flex items-center justify-center
-                     bg-white/70 border border-white/50 transition-transform"
+                       bg-white/70 border border-white/50 transition-transform"
               [class.rotate-180]="isExpanded(group.eventId)">
               <svg class="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -96,15 +85,18 @@
           </div>
         </div>
 
-        <!-- CONTENIDO -->
         <div class="grid transition-[grid-template-rows,opacity] duration-500 ease-out" [ngClass]="isExpanded(group.eventId)
     ? 'grid-rows-[1fr] opacity-100'
     : 'grid-rows-[0fr] opacity-0'">
           <div class="overflow-hidden">
             <div class="pt-5 grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
-              <app-ticket-card *ngFor="let ticket of group.tickets; trackBy: trackTicket" [ticket]="ticket"
-                [group]="group">
+              
+              <app-ticket-card *ngFor="let ticket of group.tickets; trackBy: trackTicket" 
+                [ticket]="ticket"
+                [group]="group"
+                (onShare)="compartirTicketNativo(ticket, group)">
               </app-ticket-card>
+              
             </div>
           </div>
         </div>
@@ -114,7 +106,6 @@
 
     </div>
 
-    <!-- Vacío -->
     <div *ngIf="!loading && !hasTickets" class="text-center py-24 animate-fade-in-up">
       <div
         class="w-24 h-24 mx-auto rounded-full bg-white/60 backdrop-blur border flex items-center justify-center mb-6">
@@ -130,5 +121,35 @@
       </button>
     </div>
 
+  </div>
+
+  <div id="ticket-export-container" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
+    <div id="ticket-to-share"
+      class="w-[350px] bg-white text-black p-6 rounded-3xl border border-gray-200 flex flex-col items-center gap-4 shadow-xl">
+
+      <div class="w-full h-40 rounded-2xl overflow-hidden relative mb-2">
+        <img [src]="sharingEventImage" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <h2 class="text-white font-bold text-2xl text-center px-4">{{ sharingEventTitle }}</h2>
+        </div>
+      </div>
+
+      <div class="text-center w-full border-b border-dashed border-gray-300 pb-4">
+        <p class="text-sm text-gray-500 uppercase tracking-widest font-bold">Fecha</p>
+        <p class="text-lg font-bold text-gray-900">{{ sharingEventDate | date:'fullDate' }}</p>
+        <p class="text-sm text-gray-400 mt-1">{{ sharingEventLocation }}</p>
+      </div>
+
+      <div class="bg-gray-100 p-4 rounded-xl">
+        <img [src]="sharingQrCode" class="w-48 h-48 mix-blend-multiply">
+      </div>
+
+      <div class="text-center">
+        <p class="text-xs text-gray-400 uppercase font-mono tracking-widest">Código Único</p>
+        <p class="font-mono font-bold text-lg">{{ sharingTicketCode }}</p>
+        <p class="text-[10px] text-gray-400 mt-2">Ticket válido para 1 persona • EventLife</p>
+      </div>
+
+    </div>
   </div>
 </main>

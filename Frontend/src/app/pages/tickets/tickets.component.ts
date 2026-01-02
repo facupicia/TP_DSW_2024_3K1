@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
 import { TicketCardComponent } from './ticket-card.component'; // Asegúrate de importar tu componente 3D
+import html2canvas from 'html2canvas'; // <--- IMPORTANTE
 
 interface EventGroup {
   eventTitle: string;
@@ -35,6 +36,13 @@ export class TicketsComponent implements OnInit {
   hasTickets = false;
   searchTerm = '';
 
+  sharingEventTitle = '';
+  sharingEventImage = '';
+  sharingEventDate = '';
+  sharingEventLocation = '';
+  sharingQrCode = '';
+  sharingTicketCode = '';
+
   // CAMBIO CLAVE: Usamos 'expanded' en lugar de 'collapsed'
   // Al iniciar vacío (new Set()), todo estará cerrado por defecto.
   expanded: Set<number> = new Set();
@@ -51,6 +59,64 @@ export class TicketsComponent implements OnInit {
       }
     }
   }
+
+  async compartirTicketNativo(ticket: any, group: EventGroup) {
+    // 1. Preparamos los datos en la plantilla oculta
+    this.sharingEventTitle = group.eventTitle;
+    this.sharingEventImage = group.eventImage;
+    this.sharingEventDate = group.eventDate;
+    this.sharingEventLocation = group.eventLocation;
+    this.sharingQrCode = ticket.qrCode;
+    this.sharingTicketCode = ticket.codigo_unico;
+
+    // Esperamos un milisegundo para que Angular actualice el HTML oculto
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    const element = document.getElementById('ticket-to-share');
+    if (!element) return;
+
+    try {
+      // 2. Generamos la imagen (Canvas)
+      const canvas = await html2canvas(element, {
+        scale: 2, // Mejor calidad (Retina)
+        backgroundColor: '#ffffff', // Fondo blanco seguro
+        logging: false
+      });
+
+      // 3. Convertimos Canvas a Blob (Archivo)
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+
+        const file = new File([blob], `ticket_${ticket.codigo_unico}.png`, { type: 'image/png' });
+
+        // 4. Usamos la API Nativa de Compartir
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `Entrada: ${group.eventTitle}`,
+              text: `¡Hola! Aquí tienes tu entrada para ${group.eventTitle}.`
+            });
+            console.log('¡Compartido con éxito!');
+          } catch (err) {
+            console.error('Error al compartir', err);
+          }
+        } else {
+          // Fallback para PC o navegadores viejos: Descargar la imagen
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = `entrada_${group.eventTitle}.png`;
+          link.click();
+          alert('Imagen descargada (Tu navegador no soporta compartir directo).');
+        }
+      }, 'image/png');
+
+    } catch (error) {
+      console.error('Falló la generación de imagen', error);
+      alert('No pudimos generar la imagen del ticket.');
+    }
+  }
+
 
   cargarTickets() {
     this.tickService.getTicketsByUser(Number(this.userID)).subscribe({

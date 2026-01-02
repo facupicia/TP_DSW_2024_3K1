@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, ViewChild, HostListener } from '@angular/core';
+import { Component, ElementRef, Input, ViewChild, HostListener,EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -11,6 +11,7 @@ import { CommonModule } from '@angular/common';
 export class TicketCardComponent {
   @Input() ticket: any;
   @Input() group: any; // Datos del evento (título, fecha, imagen)
+  @Output() onShare = new EventEmitter<any>(); // <--- Nuevo Output
 
   @ViewChild('card') card!: ElementRef;
   
@@ -20,6 +21,11 @@ export class TicketCardComponent {
   shineX = 0;
   shineY = 0;
   isActive = false;
+
+  compartir() { 
+      // En vez de la lógica vieja, avisamos al padre
+      this.onShare.emit(); 
+  }
 
   // Lógica de Movimiento 3D (Mouse Move)
   onMouseMove(e: MouseEvent) {
@@ -51,18 +57,5 @@ export class TicketCardComponent {
     this.isActive = false;
   }
 
-  
 
- 
-  compartir() { 
-      if (navigator.share) {
-          navigator.share({
-              title: this.group.eventTitle,
-              text: `Mi Ticket para ${this.group.eventTitle}`,
-              url: this.ticket.qrCode
-          });
-      } else {
-          alert("Link copiado!");
-      }
-  }
 }
