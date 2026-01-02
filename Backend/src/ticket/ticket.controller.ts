@@ -12,8 +12,6 @@ import { PaymentLog } from "../payment/payment.entity";
 import AppDataSource from "../db"; // Asegúrate de importar tu AppDataSource correctamente
 import { log } from "console";
 
-import { TicketImageService } from "../services/ticket-image.service";
-
 export const createTicket = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -105,39 +103,8 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
     }
 }
 
-export const getTicketImage = async (req: CustomRequest, res: Response) => {
-    try {
-        const { id } = req.params;
-        const userId = req.user?.id;
-
-        if (!userId) {
-            return res.status(401).json({ message: "No autorizado" });
-        }
-
-        const ticket = await Ticket.findOne({
-            where: { id: parseInt(id), userId: userId },
-            relations: { event: true }
-        });
-
-        if (!ticket) {
-            return res.status(404).json({ message: "Ticket no encontrado" });
-        }
-
-        const imageService = new TicketImageService();
-        const imageBuffer = await imageService.generateTicketImage(ticket);
-
-        res.set('Content-Type', 'image/png');
-        res.set('Content-Disposition', `attachment; filename="ticket-${ticket.codigo_unico}.png"`);
-        res.send(imageBuffer);
-
-    } catch (error: any) {
-        console.error("Error generating ticket image:", error);
-        return res.status(500).json({ message: 'Error generando imagen del ticket', error: error.message });
-    }
-};
-;
-
 export const getTickets = async (req: CustomRequest, res: Response) => {
+
     try {
         const { id: userID } = req.params;
         const tickets = await Ticket.find({
