@@ -26,6 +26,9 @@ export class Event extends BaseEntity {
     @Column()
     capacity: number;
 
+    @Column({ default: 0 })
+    soldCount: number;
+
     @Column({ type: 'date' })
     date: Date;
 

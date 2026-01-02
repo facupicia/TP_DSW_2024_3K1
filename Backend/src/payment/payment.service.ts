@@ -1,6 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import AppDataSource from "../db";
-import { PaymentLog, PaymentStatus } from "./payment.entity"; 
+import { PaymentLog, PaymentStatus } from "./payment.entity";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -66,7 +66,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 amount,
                 status: PaymentStatus.PROCESSING
             });
-            
+
             try {
                 await queryRunner.manager.save(log);
             } catch (e: any) {
@@ -82,25 +82,35 @@ export const processPaymentTransaction = async (paymentId: string) => {
             const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
             if (!user) throw new Error(`User not found: ${userId}`);
 
-            const event = await queryRunner.manager
-                .createQueryBuilder(Event, "e")
-                .setLock("pessimistic_write") // Bloqueo para evitar sobreventa concurrente
-                .where("e.id = :id", { id: eventId })
-                .getOne();
+            // OPTIMIZACIÓN: Actualización atómica de stock sin bloqueo pesimista
+            // Incrementamos soldCount solo si no supera la capacidad
+            const updateResult = await queryRunner.manager
+                .createQueryBuilder()
+                .update(Event)
+                .set({ soldCount: () => `"soldCount" + ${amount}` })
+                .where("id = :id", { id: eventId })
+                .andWhere("(\"soldCount\" + :amount) <= capacity", { amount })
+                .execute();
 
-            if (!event) throw new Error(`Event not found: ${eventId}`);
+            if (updateResult.affected === 0) {
+                // Si no se actualizó ninguna fila, es porque no hay stock o el evento no existe
+                // Verificamos si el evento existe para dar un log más preciso
+                const eventExists = await queryRunner.manager.exists(Event, { where: { id: eventId } });
 
-            // Validación de Stock en tiempo real
-            const ticketsSold = await queryRunner.manager.count(Ticket, { where: { event: { id: event.id } } });
-            const availableStock = event.capacity - ticketsSold;
+                if (!eventExists) {
+                    throw new Error(`Event not found: ${eventId}`);
+                }
 
-            if (availableStock < amount) {
-                logger.warn("WEBHOOK_NO_STOCK", { eventId, availableStock, requested: amount });
+                logger.warn("WEBHOOK_NO_STOCK_ATOMIC", { eventId, requested: amount });
                 // Marcamos el pago como fallido en nuestro log
                 await queryRunner.manager.update(PaymentLog, log.id, { status: PaymentStatus.FAILED });
                 await queryRunner.commitTransaction();
                 return;
             }
+
+            // Recuperamos el evento para datos de tickets (ya con el stock actualizado, pero necesitamos datos estáticos)
+            const event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
+            if (!event) throw new Error("Event not found after update"); // Should not happen
 
             // Crear Tickets
             const tickets = await createTicketsForPurchase(event, user, amount);

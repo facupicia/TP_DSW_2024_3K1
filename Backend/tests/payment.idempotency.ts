@@ -6,6 +6,7 @@ function mockRes() {
   const res: any = {};
   res.status = (code: number) => { res.statusCode = code; return res; };
   res.json = (body: any) => { res.body = body; return res; };
+  res.send = (body: any) => { res.body = body; return res; };
   return res;
 }
 
@@ -26,6 +27,30 @@ const payments: any[] = [];
       if ((entity as any).name === 'Event') return events.find(e => e.id === opts.where.id) || null;
       return null;
     },
+    update: (entity: any, idOrCriteria: any, data: any) => {
+      // Mock simple update for PaymentLog
+      if (entity?.name === 'PaymentLog') return;
+      return Promise.resolve();
+    },
+    exists: async () => true, // Mock exists check
+    createQueryBuilder: () => ({
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            andWhere: () => ({
+              execute: async () => {
+                // Simular éxito de actualización de stock
+                // Verificar si hay capacidad en el mock events
+                const evt = events[0];
+                // Lógica simple: si hay capacidad, affected = 1
+                if (evt.capacity > tickets.length) return { affected: 1 };
+                return { affected: 0 };
+              }
+            })
+          })
+        })
+      })
+    }),
     count: async (_entity: any, _opts: any) => tickets.length,
     create: (_entity: any, data: any) => ({ ...data }),
     save: async (entity: any, data: any) => {
