@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { TicketService } from '../../services/ticket.service';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -43,6 +43,8 @@ export class TicketsComponent implements OnInit {
   sharingQrCode = '';
   sharingTicketCode = '';
 
+  private cdr = inject(ChangeDetectorRef); // <--- 2. INYECTARLO
+
   // CAMBIO CLAVE: Usamos 'expanded' en lugar de 'collapsed'
   // Al iniciar vacío (new Set()), todo estará cerrado por defecto.
   expanded: Set<number> = new Set();
@@ -60,8 +62,8 @@ export class TicketsComponent implements OnInit {
     }
   }
 
-  async compartirTicketNativo(ticket: any, group: EventGroup) {
-    // 1. Preparamos los datos en la plantilla oculta
+ async compartirTicketNativo(ticket: any, group: EventGroup) {
+    // 1. Llenamos los datos
     this.sharingEventTitle = group.eventTitle;
     this.sharingEventImage = group.eventImage;
     this.sharingEventDate = group.eventDate;
@@ -69,51 +71,59 @@ export class TicketsComponent implements OnInit {
     this.sharingQrCode = ticket.qrCode;
     this.sharingTicketCode = ticket.codigo_unico;
 
-    // Esperamos un milisegundo para que Angular actualice el HTML oculto
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // 2. FORZAMOS ACTUALIZACIÓN DEL DOM (Sin esperar 100ms)
+    // Esto hace que el HTML oculto se actualice instantáneamente
+    this.cdr.detectChanges(); 
 
     const element = document.getElementById('ticket-to-share');
     if (!element) return;
 
     try {
-      // 2. Generamos la imagen (Canvas)
+      // 3. GENERAMOS LA IMAGEN CON CORS ACTIVADO
       const canvas = await html2canvas(element, {
-        scale: 2, // Mejor calidad (Retina)
-        backgroundColor: '#ffffff', // Fondo blanco seguro
-        logging: false
+        scale: 2, 
+        backgroundColor: '#ffffff',
+        useCORS: true, // <--- CRÍTICO: Permite cargar imágenes externas
+        logging: false, // Desactivar logs para producción
+        // Evitamos que clone iframes o cosas raras que ralentizan
+        ignoreElements: (el) => el.tagName === 'IFRAME' 
       });
 
-      // 3. Convertimos Canvas a Blob (Archivo)
       canvas.toBlob(async (blob) => {
-        if (!blob) return;
+        if (!blob) {
+            alert("Error: No se pudo generar la imagen."); 
+            return;
+        }
 
-        const file = new File([blob], `ticket_${ticket.codigo_unico}.png`, { type: 'image/png' });
+        const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
 
-        // 4. Usamos la API Nativa de Compartir
+        // 4. INTENTAMOS COMPARTIR
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           try {
             await navigator.share({
               files: [file],
-              title: `Entrada: ${group.eventTitle}`,
-              text: `¡Hola! Aquí tienes tu entrada para ${group.eventTitle}.`
+              // A veces iOS prefiere que no mandes texto si mandas archivos, probemos minimalista
+              title: 'Mi Entrada', 
             });
-            console.log('¡Compartido con éxito!');
-          } catch (err) {
-            console.error('Error al compartir', err);
+          } catch (err: any) {
+            // Si el usuario cancela, no es un error grave.
+            if (err.name !== 'AbortError') {
+                console.error('Error compartiendo:', err);
+                alert('No se pudo abrir el menú compartir. Intenta descargar.');
+            }
           }
         } else {
-          // Fallback para PC o navegadores viejos: Descargar la imagen
+          // FALLBACK: Si el navegador no soporta compartir archivos (ej: Chrome en Android a veces falla)
           const link = document.createElement('a');
           link.href = canvas.toDataURL('image/png');
           link.download = `entrada_${group.eventTitle}.png`;
           link.click();
-          alert('Imagen descargada (Tu navegador no soporta compartir directo).');
         }
       }, 'image/png');
 
     } catch (error) {
-      console.error('Falló la generación de imagen', error);
-      alert('No pudimos generar la imagen del ticket.');
+      console.error('Falló html2canvas:', error);
+      alert('Hubo un problema generando la imagen del ticket.');
     }
   }
 
