@@ -16,6 +16,7 @@ import { CheckoutFailureComponent } from './pages/checkout/failure.component';
 import { CheckoutPendingComponent } from './pages/checkout/pending.component';
 import { CreatorStatsComponent } from './pages/creator-stats/creator-stats.component';
 import { EventStatsComponent } from './pages/event-stats/event-stats.component';
+import { ScannerComponent } from './pages/scanner/scanner.component';
 
 
 import { authGuard } from './guards/auth.guard'; // Importar el guard
@@ -39,6 +40,7 @@ export const routes: Routes = [
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
     { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard] },
     { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard] },
+    { path: "scanner", component: ScannerComponent, title: 'Escáner', canActivate: [authGuard] },
 
     { path: "**", redirectTo: "", pathMatch: "full" }
 ];

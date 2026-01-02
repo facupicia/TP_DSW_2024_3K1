@@ -1,0 +1,88 @@
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
+    <div class="max-w-md mx-auto">
+        <!-- Header -->
+        <div class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Escáner de Entradas</h1>
+            <p class="text-gray-600 dark:text-gray-400 mt-2">Escanea el código QR de la entrada</p>
+        </div>
+
+        <!-- Scanner Container -->
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mb-6 relative">
+            <div class="aspect-square bg-black relative">
+                <zxing-scanner [enable]="enableScanner" [formats]="allowedFormats" (scanSuccess)="onScanSuccess($event)"
+                    (camerasFound)="onCamerasFound($event)" (permissionResponse)="onHasPermission($event)"
+                    class="w-full h-full object-cover"></zxing-scanner>
+
+                <!-- Overlay Guides -->
+                <div class="absolute inset-0 border-2 border-indigo-500 opacity-50 pointer-events-none"
+                    style="margin: 20%;"></div>
+
+                <!-- Status Messages -->
+                <div *ngIf="!hasPermission"
+                    class="absolute inset-0 flex items-center justify-center bg-black/80 text-white p-4 text-center">
+                    <p>Por favor permite el acceso a la cámara para escanear.</p>
+                </div>
+                <div *ngIf="hasPermission && !hasDevices"
+                    class="absolute inset-0 flex items-center justify-center bg-black/80 text-white p-4 text-center">
+                    <p>No se encontraron cámaras.</p>
+                </div>
+            </div>
+
+            <!-- Result Overlay -->
+            <div *ngIf="scanResult" class="p-6 border-t border-gray-100 dark:border-gray-700">
+                <div [ngClass]="{
+                    'bg-green-100 text-green-800': scanResult.status === 'success',
+                    'bg-red-100 text-red-800': scanResult.status === 'error'
+                }" class="rounded-lg p-4 mb-4 text-center">
+                    <p class="font-bold text-lg">
+                        {{ scanResult.status === 'success' ? '¡Entrada Válida!' : 'Entrada Inválida' }}
+                    </p>
+                    <p class="text-sm mt-1">{{ scanResult.message }}</p>
+                </div>
+
+                <div *ngIf="scanResult.ticket" class="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                    <div class="flex justify-between">
+                        <span>Evento:</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ scanResult.ticket.titleEvent
+                            }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Asistente:</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ scanResult.ticket.user?.firstname }}
+                            {{ scanResult.ticket.user?.lastname }}</span>
+                    </div>
+                    <div class="flex justify-between" *ngIf="scanResult.ticket.usedAt">
+                        <span>Usado:</span>
+                        <span class="font-medium">{{ scanResult.ticket.usedAt | date:'short' }}</span>
+                    </div>
+                </div>
+
+                <button (click)="resetScan()"
+                    class="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    Escanear Siguiente
+                </button>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Escaneos Recientes</h2>
+            <div class="space-y-3">
+                <div *ngFor="let item of scanHistory"
+                    class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-white text-sm">{{ item.titleEvent }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ item.usedAt | date:'shortTime' }}</p>
+                    </div>
+                    <span
+                        class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                        Validado
+                    </span>
+                </div>
+                <div *ngIf="scanHistory.length === 0" class="text-center text-gray-500 text-sm py-4">
+                    No hay escaneos recientes
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

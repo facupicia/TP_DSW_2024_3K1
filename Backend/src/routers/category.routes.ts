@@ -8,7 +8,7 @@ import { schemaValidation } from "../middlewares/schemaValidacion";
 const router = Router()
 
 router.post("/new", schemaValidation(createCategorySchema), checkAuthToken, checkRoleAuth(["admin"]), createCategory)
-router.get("/", checkAuthToken,checkRoleAuth(["user", "admin"]), getCategories)
+router.get("/", checkAuthToken,checkRoleAuth(["user", "admin", "scanner"]), getCategories)
 router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteCategory)
 router.get("/:id", getCategoryByID)
 

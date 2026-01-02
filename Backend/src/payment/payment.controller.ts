@@ -42,12 +42,12 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
         const unitPrice = Number(event.price);
         const preference = new Preference(client);
-
+        
         // Sanitización de URLs
         const sanitizeUrl = (u: string) => String(u || '').trim().replace(/\/+$/, '');
         const clientUrlRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:4200');
         const clientUrl = sanitizeUrl(clientUrlRaw.split(',')[0]);
-        const notificationUrl = sanitizeUrl(process.env.MP_NOTIFICATION_URL || '');
+        const notificationUrl = sanitizeUrl(process.env.MP_NOTIFICATION_URL || ''); 
 
         // --- CONCILIACIÓN FINANCIERA ---
         // Creamos la etiqueta única. Formato: USER_ID | EVENT_ID | QUANTITY
@@ -73,10 +73,10 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             },
             auto_return: clientUrl.startsWith('https') ? 'approved' : undefined,
             notification_url: notificationUrl,
-
+            
             // ESTO ES LO QUE TE PIDE MERCADO PAGO PARA EL 100/100
             external_reference: externalRef,
-
+            
             metadata: {
                 user_id: Number(userId),
                 event_id: Number(event.id),
@@ -85,7 +85,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         };
 
         const result = await preference.create({ body });
-
+        
         return res.status(200).json({
             id: result.id,
             init_point: result.init_point, // Enlace inteligente (Sandbox o Prod según credenciales)

@@ -28,6 +28,15 @@
                     <option value="">Histórico Total</option>
                 </select>
 
+                <button (click)="exportCsv()"
+                    class="bg-white text-gray-700 border border-gray-200 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-50 hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                    <span>CSV</span>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                </button>
+
                 <button (click)="exportPdf()"
                     class="bg-black text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 hover:shadow-lg transition-all active:scale-95 flex items-center gap-2">
                     <span>Exportar PDF</span>

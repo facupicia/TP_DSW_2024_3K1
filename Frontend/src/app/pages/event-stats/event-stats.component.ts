@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { StatsService } from '../../services/stats.service';
 import { NgApexchartsModule, ChartComponent, ApexOptions } from 'ng-apexcharts';
-import { catchError, of, Subscription, switchMap, interval, tap } from 'rxjs';
+import { catchError, of, Subscription, interval } from 'rxjs';
 import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
@@ -17,7 +17,6 @@ import { HeaderComponent } from '../../components/header/header.component';
 export class EventStatsComponent implements OnInit, OnDestroy {
   @ViewChild('chart') chart!: ChartComponent;
 
-  period = 'mensual';
   eventId!: number;
   eventTitle = '';
   isLoading = true;
@@ -25,69 +24,34 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   private mq!: MediaQueryList;
   private mqListener!: (e: MediaQueryListEvent) => void;
 
-  // Datos iniciales
+  // Datos
   data: { participants: number, revenue: number, attendanceRate: number } = {
     participants: 0,
     revenue: 0,
     attendanceRate: 0
   };
 
-  // Configuración de Chart estilo Apple
-  public chartOptions: Partial<ApexOptions> | any = {
+  demographics: { ages: any, locations: any[] } = { ages: {}, locations: [] };
+
+  // Chart configurations
+  ageChartOptions: Partial<ApexOptions> | any = {
     series: [],
-    chart: {
-      type: 'bar',
-      height: 350,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-      toolbar: { show: false }, // Sin toolbar para limpieza
-      animations: { enabled: true }
-    },
-    colors: ['#007AFF', '#34C759'], // Azul Apple y Verde Dinero
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: '40%',
-        borderRadius: 6 // Bordes redondeados en las barras
-      },
-    },
+    chart: { type: 'donut', height: 350, fontFamily: 'inherit' },
+    labels: [],
+    colors: ['#3b82f6', '#8b5cf6', '#06b6d4', '#f97316'],
+    dataLabels: { enabled: true },
+    legend: { position: 'bottom' },
+    title: { text: 'Distribución por Edad', align: 'center' }
+  };
+
+  locationChartOptions: Partial<ApexOptions> | any = {
+    series: [],
+    chart: { type: 'bar', height: 350, fontFamily: 'inherit', toolbar: { show: false } },
+    plotOptions: { bar: { borderRadius: 4, horizontal: true } },
     dataLabels: { enabled: false },
-    stroke: { show: true, width: 2, colors: ['transparent'] },
-    xaxis: {
-      categories: [],
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        style: { colors: '#8E8E93', fontSize: '12px' }
-      }
-    },
-    yaxis: [
-      {
-        seriesName: 'Participantes',
-        title: { text: 'Participantes', style: { color: '#007AFF' } },
-        labels: { style: { colors: '#8E8E93' } }
-      },
-      {
-        opposite: true, // Eje derecho para el dinero
-        seriesName: 'Ingresos',
-        title: { text: 'Ingresos', style: { color: '#34C759' } },
-        labels: {
-          style: { colors: '#8E8E93' },
-          formatter: (value: number) => { return `$${value}` }
-        }
-      }
-    ],
-    grid: {
-      borderColor: '#F2F2F7',
-      strokeDashArray: 4, // Rejilla punteada sutil
-      yaxis: { lines: { show: true } }
-    },
-    tooltip: {
-      theme: 'light',
-      y: {
-        formatter: function (val: number) { return val; }
-      }
-    },
-    legend: { show: true, position: 'top', horizontalAlign: 'left' }
+    xaxis: { categories: [] },
+    colors: ['#10b981'],
+    title: { text: 'Top Ubicaciones', align: 'center' }
   };
 
   refresh$: Subscription | null = null;
@@ -101,6 +65,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       return;
     }
     this.eventId = Number(idParam);
+
     if (typeof window !== 'undefined') {
       this.mq = window.matchMedia('(min-width: 768px)');
       this.isDesktop = this.mq.matches;
@@ -108,13 +73,8 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       this.mq.addEventListener('change', this.mqListener);
     }
 
-    // Carga inicial
     this.load();
-
-    // Polling cada 10s para actualizaciones en vivo (menos agresivo que 5s)
-    this.refresh$ = interval(10000).pipe(
-      switchMap(() => this.stats.getComparative(this.period).pipe(catchError(() => of({ comparative: [] }))))
-    ).subscribe(c => this.processData(c));
+    this.refresh$ = interval(10000).subscribe(() => this.load());
   }
 
   ngOnDestroy(): void {
@@ -124,55 +84,49 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     }
   }
 
-  onPeriodChange() {
-    this.isLoading = true;
-    this.load();
-  }
-
   load() {
-    this.stats.getComparative(this.period).pipe(
+    this.stats.getEventStats(this.eventId).pipe(
       catchError(() => {
         this.isLoading = false;
-        return of({ comparative: [] });
+        return of(null);
       })
-    ).subscribe(c => this.processData(c));
+    ).subscribe(data => {
+      if (data) this.processData(data);
+      this.isLoading = false;
+    });
   }
 
-  processData(response: any) {
-    const row = (response.comparative || []).find((r: any) => r.id === this.eventId);
-
-    if (!row && !this.isLoading) {
-      // Solo redirigir si ya terminó de cargar y no encuentra nada
-      // this.router.navigate(['/my-events']); 
-      // Comentado para evitar rebotes si la API falla momentáneamente
-      return;
-    }
-
-    if (row) {
-      this.eventTitle = row.title;
-      this.data = {
-        participants: row.participants,
-        revenue: row.revenue,
-        attendanceRate: row.attendanceRate
-      };
-      this.updateChart();
-    }
-    this.isLoading = false;
+  processData(data: any) {
+    this.eventTitle = data.title;
+    this.data = {
+      participants: data.totalParticipants,
+      revenue: data.revenue,
+      attendanceRate: data.attendanceRate
+    };
+    this.demographics = data.demographics;
+    this.updateCharts();
   }
 
-  updateChart() {
-    this.chartOptions.series = [
-      { name: 'Participantes', data: [this.data.participants] },
-      { name: 'Ingresos', data: [this.data.revenue] }
-    ];
-
-    this.chartOptions.xaxis = {
-      categories: [this.period.charAt(0).toUpperCase() + this.period.slice(1)]
+  updateCharts() {
+    // Age Chart
+    const ageLabels = Object.keys(this.demographics.ages);
+    const ageValues = Object.values(this.demographics.ages) as number[];
+    this.ageChartOptions = {
+      ...this.ageChartOptions,
+      series: ageValues,
+      labels: ageLabels
     };
 
-    // Forzar actualización visual si es necesario
-    if (this.chart) {
-      this.chart.updateSeries(this.chartOptions.series);
-    }
+    // Location Chart
+    // Sort locations by value desc
+    const sortedLocs = [...this.demographics.locations].sort((a, b) => b.value - a.value).slice(0, 10);
+    const locNames = sortedLocs.map((d: any) => d.name);
+    const locValues = sortedLocs.map((d: any) => d.value);
+
+    this.locationChartOptions = {
+      ...this.locationChartOptions,
+      series: [{ name: 'Participantes', data: locValues }],
+      xaxis: { categories: locNames }
+    };
   }
 }

@@ -19,10 +19,11 @@ export class PerfilComponent implements OnInit {
   eventos: Evento[] = [];
   tieneEventos: boolean = false;
   esAdmin: boolean = false;
+  esScanner: boolean = false;
 
   constructor(
-    private profileService: AuthService, 
-    private router: Router, 
+    private profileService: AuthService,
+    private router: Router,
     private eventoService: EventService
   ) { }
 
@@ -36,6 +37,9 @@ export class PerfilComponent implements OnInit {
             // Verificamos si es admin de forma segura
             if (data.rol === "admin") {
               this.esAdmin = true;
+            }
+            if (data.rol === "scanner" || data.rol === "admin") {
+              this.esScanner = true;
             }
             // Una vez tenemos el perfil, verificamos los eventos
             this.verificarEventos();
@@ -75,19 +79,23 @@ export class PerfilComponent implements OnInit {
 
   editProfile() {
     // Si tienes el ID en userProfile, úsalo. Si no, ajusta la ruta.
-    if(this.userProfile.id) {
-        this.router.navigate([`/profile/${this.userProfile.id}`]);
+    if (this.userProfile.id) {
+      this.router.navigate([`/profile/${this.userProfile.id}`]);
     }
   }
 
   showOrders() {
-    if(this.userProfile.id) {
-        this.router.navigate(['/my-tickets', this.userProfile.id]);
+    if (this.userProfile.id) {
+      this.router.navigate(['/my-tickets', this.userProfile.id]);
     }
   }
 
   misEventos() {
     this.router.navigate(['/my-events']);
+  }
+
+  irAlScanner() {
+    this.router.navigate(['/scanner']);
   }
 
   logout() {

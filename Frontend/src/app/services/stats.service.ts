@@ -22,5 +22,20 @@ export class StatsService {
             responseType: 'blob'
         });
     }
+
+    exportCsv(period: string): Observable<Blob> {
+        return this.http.get(`${this.baseUrl}/stats/export-csv`, {
+            params: { period },
+            responseType: 'blob'
+        });
+    }
+
+    getPlatformStats(): Observable<any> {
+        return this.http.get<any>(`${this.baseUrl}/stats/platform`);
+    }
+
+    getEventStats(eventId: number): Observable<any> {
+        return this.http.get<any>(`${this.baseUrl}/stats/event/${eventId}`);
+    }
 }
 

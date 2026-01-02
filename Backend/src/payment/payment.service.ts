@@ -1,6 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import AppDataSource from "../db";
-import { PaymentLog, PaymentStatus } from "./payment.entity";
+import { PaymentLog, PaymentStatus } from "./payment.entity"; 
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -66,7 +66,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 amount,
                 status: PaymentStatus.PROCESSING
             });
-
+            
             try {
                 await queryRunner.manager.save(log);
             } catch (e: any) {
@@ -96,7 +96,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 // Si no se actualizó ninguna fila, es porque no hay stock o el evento no existe
                 // Verificamos si el evento existe para dar un log más preciso
                 const eventExists = await queryRunner.manager.exists(Event, { where: { id: eventId } });
-
+                
                 if (!eventExists) {
                     throw new Error(`Event not found: ${eventId}`);
                 }

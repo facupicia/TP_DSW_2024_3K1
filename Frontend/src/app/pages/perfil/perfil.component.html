@@ -173,6 +173,25 @@
             </div>
           </div>
 
+          <div *ngIf="esScanner" (click)="irAlScanner()"
+            class="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100 cursor-pointer group hover:shadow-xl hover:shadow-indigo-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            </div>
+
+            <div class="relative z-10">
+              <div
+                class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
+              <h4 class="text-lg font-bold text-slate-900">Escáner QR</h4>
+              <p class="text-sm text-slate-500 mt-1">Validar entradas.</p>
+            </div>
+          </div>
+
           <div *ngIf="esAdmin" (click)="panelAdmin()"
             class="bg-slate-900 p-6 rounded-[24px] shadow-lg shadow-slate-900/20 border border-slate-800 cursor-pointer group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 sm:col-span-2 relative overflow-hidden">
             <div

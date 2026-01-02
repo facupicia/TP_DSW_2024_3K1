@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { StatsService } from '../../services/stats.service';
 import { Usuario } from '../../interfaces/Usuario';
 
 type TabView = 'dashboard' | 'users' | 'categories';
@@ -23,6 +24,7 @@ export class AdminPanelComponent implements OnInit {
   private categoryService = inject(CategoryService);
   public formBuild = inject(FormBuilder);
   private toast = inject(ToastService);
+  private statsService = inject(StatsService);
 
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
@@ -43,13 +45,25 @@ export class AdminPanelComponent implements OnInit {
   stats = {
     totalUsers: 0,
     totalCategories: 0,
-    activeEvents: 12
+    activeEvents: 0
   };
 
   ngOnInit(): void {
     this.cargarCategorias();
     this.userService.currentUser$.subscribe(u => {
       this.currentUser = u;
+    });
+    this.loadPlatformStats();
+  }
+
+  loadPlatformStats() {
+    this.statsService.getPlatformStats().subscribe({
+      next: (data) => {
+        this.stats.totalUsers = data.totalUsers;
+        this.stats.activeEvents = data.totalEvents;
+        // this.stats.averageParticipation = data.averageParticipation;
+      },
+      error: (err) => console.error('Error loading platform stats', err)
     });
   }
 

@@ -56,4 +56,11 @@ export class Ticket extends BaseEntity {
 
     @Column({ type: "timestamp", nullable: true })
     usedAt: Date;
+
+    @Column({ nullable: true })
+    scannedById: number;
+
+    @ManyToOne(() => User, { nullable: true })
+    @JoinColumn({ name: "scannedById" })
+    scannedBy: User;
 }

@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import userRoute from "./routers/user.routes"
 import userEvent from "./routers/event.routes"
 import userTicket from "./routers/ticket.routes"
+import scannerRoute from "./scanner/scanner.routes"
 import categoryRoute from "./routers/category.routes"
 import paymentRoute from "./payment/payment.routes"
 import { paymentWebhook } from "./payment/payment.controller"
@@ -91,6 +92,7 @@ app.use("/api/category", categoryRoute)
 app.use("/api/user", userRoute)
 app.use("/api/event", userEvent)
 app.use("/api/ticket", userTicket)
+app.use("/api/scanner", scannerRoute)
 app.use("/api/payment", paymentRoute)
 // Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)
 app.post("/", paymentWebhook)
