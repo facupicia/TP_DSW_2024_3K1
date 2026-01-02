@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
 import { TicketCardComponent } from './ticket-card.component'; // Asegúrate de importar tu componente 3D
-import html2canvas from 'html2canvas'; // <--- IMPORTANTE
+import * as htmlToImage from 'html-to-image'; // <--- NUEVA LIBRERÍA
 
 interface EventGroup {
   eventTitle: string;
@@ -62,70 +62,54 @@ export class TicketsComponent implements OnInit {
     }
   }
 
- async compartirTicketNativo(ticket: any, group: EventGroup) {
-    // 1. Llenamos los datos
-    this.sharingEventTitle = group.eventTitle;
-    this.sharingEventImage = group.eventImage;
-    this.sharingEventDate = group.eventDate;
-    this.sharingEventLocation = group.eventLocation;
-    this.sharingQrCode = ticket.qrCode;
-    this.sharingTicketCode = ticket.codigo_unico;
+async compartirTicketNativo(ticket: any, group: EventGroup) {
+  // 1. Llenar datos
+  this.sharingEventTitle = group.eventTitle;
+  this.sharingEventImage = group.eventImage;
+  this.sharingEventDate = group.eventDate;
+  this.sharingEventLocation = group.eventLocation;
+  this.sharingQrCode = ticket.qrCode;
+  this.sharingTicketCode = ticket.codigo_unico;
 
-    // 2. FORZAMOS ACTUALIZACIÓN DEL DOM (Sin esperar 100ms)
-    // Esto hace que el HTML oculto se actualice instantáneamente
-    this.cdr.detectChanges(); 
+  // 2. Forzar actualización del DOM
+  this.cdr.detectChanges();
 
-    const element = document.getElementById('ticket-to-share');
-    if (!element) return;
+  const element = document.getElementById('ticket-to-share');
+  if (!element) return;
 
-    try {
-      // 3. GENERAMOS LA IMAGEN CON CORS ACTIVADO
-      const canvas = await html2canvas(element, {
-        scale: 2, 
-        backgroundColor: '#ffffff',
-        useCORS: true, // <--- CRÍTICO: Permite cargar imágenes externas
-        logging: false, // Desactivar logs para producción
-        // Evitamos que clone iframes o cosas raras que ralentizan
-        ignoreElements: (el) => el.tagName === 'IFRAME' 
+  try {
+    // 3. GENERAR IMAGEN (PNG)
+    // html-to-image maneja mejor las esperas de carga de imágenes internas
+    const dataUrl = await htmlToImage.toPng(element, {
+      backgroundColor: '#ffffff',
+      cacheBust: true, // Ayuda a que no cachee imágenes rotas
+      pixelRatio: 2    // Alta calidad (Retina)
+    });
+
+    // 4. Convertir Base64 a Archivo para compartir
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
+
+    // 5. Compartir
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Mi Entrada',
+        text: `Entrada para ${group.eventTitle}`
       });
-
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-            alert("Error: No se pudo generar la imagen."); 
-            return;
-        }
-
-        const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
-
-        // 4. INTENTAMOS COMPARTIR
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              // A veces iOS prefiere que no mandes texto si mandas archivos, probemos minimalista
-              title: 'Mi Entrada', 
-            });
-          } catch (err: any) {
-            // Si el usuario cancela, no es un error grave.
-            if (err.name !== 'AbortError') {
-                console.error('Error compartiendo:', err);
-                alert('No se pudo abrir el menú compartir. Intenta descargar.');
-            }
-          }
-        } else {
-          // FALLBACK: Si el navegador no soporta compartir archivos (ej: Chrome en Android a veces falla)
-          const link = document.createElement('a');
-          link.href = canvas.toDataURL('image/png');
-          link.download = `entrada_${group.eventTitle}.png`;
-          link.click();
-        }
-      }, 'image/png');
-
-    } catch (error) {
-      console.error('Falló html2canvas:', error);
-      alert('Hubo un problema generando la imagen del ticket.');
+    } else {
+      // Fallback
+      const link = document.createElement('a');
+      link.download = `ticket-${ticket.codigo_unico}.png`;
+      link.href = dataUrl;
+      link.click();
     }
+
+  } catch (error) {
+    console.error('Error generando imagen:', error);
+    alert('No se pudo crear la imagen del ticket. Intenta de nuevo.');
   }
+}
 
 
   cargarTickets() {
