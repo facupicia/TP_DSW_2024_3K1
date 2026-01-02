@@ -59,6 +59,9 @@ export class TicketService {
     return this.http.put<any>(`${this.urlBase}cancel/${id}`, {}, { headers });
   }
 
-
+  getTicketImage(id: number): Observable<Blob> {
+    return this.http.get(`${this.urlBase}share/${id}`, { responseType: 'blob' });
+  }
 }
+
 

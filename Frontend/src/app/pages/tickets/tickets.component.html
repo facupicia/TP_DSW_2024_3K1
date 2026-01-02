@@ -90,13 +90,11 @@
     : 'grid-rows-[0fr] opacity-0'">
           <div class="overflow-hidden">
             <div class="pt-5 grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
-              
-              <app-ticket-card *ngFor="let ticket of group.tickets; trackBy: trackTicket" 
-                [ticket]="ticket"
-                [group]="group"
-                (onShare)="compartirTicketNativo(ticket, group)">
+
+              <app-ticket-card *ngFor="let ticket of group.tickets; trackBy: trackTicket" [ticket]="ticket"
+                [group]="group" (onShare)="compartirTicketNativo(ticket, group)">
               </app-ticket-card>
-              
+
             </div>
           </div>
         </div>
@@ -123,33 +121,5 @@
 
   </div>
 
-  <div id="ticket-export-container" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
-    <div id="ticket-to-share"
-      class="w-[350px] bg-white text-black p-6 rounded-3xl border border-gray-200 flex flex-col items-center gap-4 shadow-xl">
 
-      <div class="w-full h-40 rounded-2xl overflow-hidden relative mb-2">
-        <img [src]="sharingEventImage" class="w-full h-full object-cover">
-        <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
-          <h2 class="text-white font-bold text-2xl text-center px-4">{{ sharingEventTitle }}</h2>
-        </div>
-      </div>
-
-      <div class="text-center w-full border-b border-dashed border-gray-300 pb-4">
-        <p class="text-sm text-gray-500 uppercase tracking-widest font-bold">Fecha</p>
-        <p class="text-lg font-bold text-gray-900">{{ sharingEventDate | date:'fullDate' }}</p>
-        <p class="text-sm text-gray-400 mt-1">{{ sharingEventLocation }}</p>
-      </div>
-
-      <div class="bg-gray-100 p-4 rounded-xl">
-        <img [src]="sharingQrCode" class="w-48 h-48 mix-blend-multiply">
-      </div>
-
-      <div class="text-center">
-        <p class="text-xs text-gray-400 uppercase font-mono tracking-widest">Código Único</p>
-        <p class="font-mono font-bold text-lg">{{ sharingTicketCode }}</p>
-        <p class="text-[10px] text-gray-400 mt-2">Ticket válido para 1 persona • EventLife</p>
-      </div>
-
-    </div>
-  </div>
 </main>

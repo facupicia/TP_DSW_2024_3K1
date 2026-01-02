@@ -4,8 +4,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
-import { TicketCardComponent } from './ticket-card.component'; // Asegúrate de importar tu componente 3D
-import * as htmlToImage from 'html-to-image'; // <--- NUEVA LIBRERÍA
+import { TicketCardComponent } from './ticket-card.component';
 
 interface EventGroup {
   eventTitle: string;
@@ -36,14 +35,7 @@ export class TicketsComponent implements OnInit {
   hasTickets = false;
   searchTerm = '';
 
-  sharingEventTitle = '';
-  sharingEventImage = '';
-  sharingEventDate = '';
-  sharingEventLocation = '';
-  sharingQrCode = '';
-  sharingTicketCode = '';
-
-  private cdr = inject(ChangeDetectorRef); // <--- 2. INYECTARLO
+  private cdr = inject(ChangeDetectorRef);
 
   // CAMBIO CLAVE: Usamos 'expanded' en lugar de 'collapsed'
   // Al iniciar vacío (new Set()), todo estará cerrado por defecto.
@@ -62,54 +54,37 @@ export class TicketsComponent implements OnInit {
     }
   }
 
-async compartirTicketNativo(ticket: any, group: EventGroup) {
-  // 1. Llenar datos
-  this.sharingEventTitle = group.eventTitle;
-  this.sharingEventImage = group.eventImage;
-  this.sharingEventDate = group.eventDate;
-  this.sharingEventLocation = group.eventLocation;
-  this.sharingQrCode = ticket.qrCode;
-  this.sharingTicketCode = ticket.codigo_unico;
+  compartirTicketNativo(ticket: any, group: EventGroup) {
+    this.tickService.getTicketImage(ticket.id).subscribe({
+      next: async (blob) => {
+        const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
 
-  // 2. Forzar actualización del DOM
-  this.cdr.detectChanges();
-
-  const element = document.getElementById('ticket-to-share');
-  if (!element) return;
-
-  try {
-    // 3. GENERAR IMAGEN (PNG)
-    // html-to-image maneja mejor las esperas de carga de imágenes internas
-    const dataUrl = await htmlToImage.toPng(element, {
-      backgroundColor: '#ffffff',
-      cacheBust: true, // Ayuda a que no cachee imágenes rotas
-      pixelRatio: 2    // Alta calidad (Retina)
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Mi Entrada',
+              text: `Entrada para ${group.eventTitle}`
+            });
+          } catch (err) {
+            console.error('Error al compartir:', err);
+          }
+        } else {
+          // Fallback: Descargar
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `ticket-${ticket.codigo_unico}.png`;
+          link.click();
+          window.URL.revokeObjectURL(url);
+        }
+      },
+      error: (err) => {
+        console.error('Error generando imagen:', err);
+        alert('No se pudo generar la imagen del ticket. Intenta de nuevo.');
+      }
     });
-
-    // 4. Convertir Base64 a Archivo para compartir
-    const blob = await (await fetch(dataUrl)).blob();
-    const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
-
-    // 5. Compartir
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: 'Mi Entrada',
-        text: `Entrada para ${group.eventTitle}`
-      });
-    } else {
-      // Fallback
-      const link = document.createElement('a');
-      link.download = `ticket-${ticket.codigo_unico}.png`;
-      link.href = dataUrl;
-      link.click();
-    }
-
-  } catch (error) {
-    console.error('Error generando imagen:', error);
-    alert('No se pudo crear la imagen del ticket. Intenta de nuevo.');
   }
-}
 
 
   cargarTickets() {
