@@ -5,6 +5,7 @@ import { Ticket } from '../ticket/ticket.entity';
 export class TicketImageService {
 
     async generateTicketImage(ticket: Ticket): Promise<Buffer> {
+        console.log("Launching Puppeteer with executable path:", puppeteer.executablePath());
         const browser = await puppeteer.launch({
             headless: true,
             args: [
@@ -92,19 +93,20 @@ export class TicketImageService {
         `;
 
         try {
-            await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+            await page.setContent(htmlContent, { waitUntil: 'load', timeout: 60000 });
             const element = await page.$('#ticket-card');
-            if (!element) throw new Error("Ticket element not found");
+            if (!element) throw new Error("Ticket element not found in DOM");
 
             // Screenshot with transparent background
             const imageBuffer = await element.screenshot({ type: 'png', omitBackground: true });
 
             await browser.close();
             return Buffer.from(imageBuffer);
-        } catch (error) {
+        } catch (error: any) {
             await browser.close();
-            console.error("Error generating ticket image:", error);
-            throw new Error("Failed to generate ticket image");
+            console.error("Error generating ticket image detailed:", error);
+            // Propagate the real error message
+            throw new Error(`Failed to generate ticket image: ${error.message}`);
         }
     }
 }

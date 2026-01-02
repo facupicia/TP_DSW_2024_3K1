@@ -13,6 +13,5 @@ services:
         value: production
       - key: PORT
         value: 3000
-      - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/project/src/Backend/.cache/puppeteer
+
     healthCheckPath: /health
