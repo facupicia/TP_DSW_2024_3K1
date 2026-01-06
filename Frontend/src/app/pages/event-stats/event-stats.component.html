@@ -1,132 +1,140 @@
-<div class="min-h-screen bg-slate-50 pb-20 pt-28 relative overflow-hidden transition-all duration-300">
-  <app-header></app-header>
-  <div class="sticky top-0 z-20 bg-[#F5F5F7]/80 backdrop-blur-md border-b border-gray-200/50 px-6 py-4 mb-8">
-    <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div class="flex items-center gap-4">
-        <a [routerLink]="['/creator-stats']"
-          class="flex items-center justify-center w-10 h-10 rounded-full bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-100 transition-colors">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-        </a>
-        <div>
-          <h1 class="text-xl md:text-2xl font-bold tracking-tight">
-            {{ isLoading ? 'Cargando...' : (eventTitle || 'Estadísticas del Evento') }}
-          </h1>
-          <p class="text-sm text-slate-500 font-medium">Dashboard de Rendimiento</p>
-        </div>
-      </div>
-    </div>
-  </div>
+<main class="min-h-screen bg-slate-50 pb-20 pt-28 relative overflow-hidden font-sans">
+    
+    <app-header></app-header>
 
-  <div class="max-w-6xl mx-auto px-6 space-y-6">
-
-    <div *ngIf="isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-      <div class="h-40 bg-gray-200 rounded-2xl"></div>
-      <div class="h-40 bg-gray-200 rounded-2xl"></div>
-      <div class="h-40 bg-gray-200 rounded-2xl"></div>
-    </div>
-
-    <div *ngIf="!isLoading" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-      <div
-        class="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-2">
-            <div class="p-2 bg-green-50 rounded-lg text-green-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" x2="12" y1="2" y2="22" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
+    <div class="sticky top-0 z-20 bg-slate-50/80 backdrop-blur-md border-b border-gray-200/50 px-4 py-4 mb-8">
+        <div class="max-w-6xl mx-auto flex items-center gap-4">
+            <a [routerLink]="['/creator-stats']"
+                class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m15 18-6-6 6-6" />
+                </svg>
+            </a>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                    {{ isLoading ? 'Cargando...' : (eventTitle || 'Estadísticas del Evento') }}
+                    <span *ngIf="!isLoading" class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] uppercase font-bold tracking-wider">Activo</span>
+                </h1>
+                <p class="text-xs text-slate-500 font-medium">Dashboard Operativo</p>
             </div>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Ingresos Totales</span>
-          </div>
         </div>
-        <div class="mt-4">
-          <div class="text-4xl font-extrabold text-slate-900 tracking-tight">
-            {{ data.revenue | currency:'USD':'symbol':'1.0-0' }}
-          </div>
-          <div class="text-sm text-green-600 font-medium mt-1 flex items-center gap-1">
-            <span class="bg-green-100 px-2 py-0.5 rounded-full text-xs">Acumulado</span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-2">
-            <div class="p-2 bg-blue-50 rounded-lg text-blue-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-            </div>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Participantes</span>
-          </div>
-        </div>
-        <div class="mt-4">
-          <div class="text-4xl font-extrabold text-slate-900 tracking-tight">
-            {{ data.participants }}
-          </div>
-          <div class="text-sm text-blue-600 font-medium mt-1 flex items-center gap-1">
-            <span class="bg-blue-100 px-2 py-0.5 rounded-full text-xs">Total</span>
-            registrados
-          </div>
-        </div>
-      </div>
-
-      <div
-        class="bg-white rounded-2xl p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-2">
-            <div class="p-2 bg-orange-50 rounded-lg text-orange-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 12h10" />
-                <path d="M9 4v16" />
-                <path d="M3 9l3 3-3 3" />
-                <path d="M12 6L2 12l10 6" />
-              </svg>
-            </div>
-            <span class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Ocupación</span>
-          </div>
-        </div>
-        <div class="mt-4">
-          <div class="text-4xl font-extrabold text-slate-900 tracking-tight">
-            {{ data.attendanceRate | percent:'1.0-1' }}
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-2 mt-3 overflow-hidden">
-            <div class="bg-orange-500 h-2 rounded-full transition-all duration-1000 ease-out"
-              [style.width.%]="data.attendanceRate * 100"></div>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <div *ngIf="!isLoading" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Age Chart -->
-      <div class="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-6 md:p-8">
-        <h2 class="text-lg font-bold text-slate-900 mb-6">Distribución por Edad</h2>
-        <apx-chart [series]="ageChartOptions.series" [chart]="ageChartOptions.chart" [labels]="ageChartOptions.labels"
-          [colors]="ageChartOptions.colors" [legend]="ageChartOptions.legend" [dataLabels]="ageChartOptions.dataLabels">
-        </apx-chart>
-      </div>
+    <div class="max-w-6xl mx-auto px-6 space-y-6 animate-fade-in-up">
 
-      <!-- Location Chart -->
-      <div class="bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-6 md:p-8">
-        <h2 class="text-lg font-bold text-slate-900 mb-6">Top Ubicaciones</h2>
-        <apx-chart [series]="locationChartOptions.series" [chart]="locationChartOptions.chart"
-          [xaxis]="locationChartOptions.xaxis" [plotOptions]="locationChartOptions.plotOptions"
-          [colors]="locationChartOptions.colors" [dataLabels]="locationChartOptions.dataLabels">
-        </apx-chart>
-      </div>
+        <div *ngIf="isLoading" class="grid grid-cols-1 md:grid-cols-4 gap-6 animate-pulse">
+            <div class="h-32 bg-gray-200 rounded-2xl" *ngFor="let i of [1,2,3,4]"></div>
+        </div>
+
+        <div *ngIf="!isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 relative overflow-hidden group hover:shadow-md transition-all">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ingresos</span>
+                </div>
+                <div class="text-2xl font-black text-slate-900">{{ data.revenue | currency:'USD':'symbol':'1.0-0' }}</div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" /></svg>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vendidos</span>
+                </div>
+                <div class="text-2xl font-black text-slate-900">{{ data.participants }}</div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all relative overflow-hidden">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="p-2 bg-green-50 text-green-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Check-in</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <div class="text-2xl font-black text-slate-900">{{ checkInCount }}</div>
+                    <div class="text-xs font-bold text-green-600 mb-1">+{{ checkInPercentage }}%</div>
+                </div>
+                <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+                    <div class="bg-green-500 h-full rounded-full transition-all duration-1000" [style.width.%]="checkInPercentage"></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    </div>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ocupación</span>
+                </div>
+                <div class="text-2xl font-black text-slate-900">{{ data.attendanceRate | percent }}</div>
+            </div>
+
+        </div>
+
+        <div *ngIf="!isLoading" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6">
+                <apx-chart
+                    [series]="salesCurveOptions.series"
+                    [chart]="salesCurveOptions.chart"
+                    [stroke]="salesCurveOptions.stroke"
+                    [fill]="salesCurveOptions.fill"
+                    [colors]="salesCurveOptions.colors"
+                    [xaxis]="salesCurveOptions.xaxis"
+                    [grid]="salesCurveOptions.grid"
+                    [title]="salesCurveOptions.title"
+                    [tooltip]="salesCurveOptions.tooltip"
+                ></apx-chart>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col justify-center">
+                <apx-chart
+                    [series]="ticketTypeOptions.series"
+                    [chart]="ticketTypeOptions.chart"
+                    [labels]="ticketTypeOptions.labels"
+                    [colors]="ticketTypeOptions.colors"
+                    [plotOptions]="ticketTypeOptions.plotOptions"
+                    [legend]="ticketTypeOptions.legend"
+                    [title]="ticketTypeOptions.title"
+                ></apx-chart>
+            </div>
+
+        </div>
+
+        <div *ngIf="!isLoading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6">
+                <apx-chart
+                    [series]="ageChartOptions.series"
+                    [chart]="ageChartOptions.chart"
+                    [plotOptions]="ageChartOptions.plotOptions"
+                    [xaxis]="ageChartOptions.xaxis"
+                    [colors]="ageChartOptions.colors"
+                    [grid]="ageChartOptions.grid"
+                    [title]="ageChartOptions.title"
+                ></apx-chart>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6">
+                <apx-chart
+                    [series]="locationChartOptions.series"
+                    [chart]="locationChartOptions.chart"
+                    [plotOptions]="locationChartOptions.plotOptions"
+                    [xaxis]="locationChartOptions.xaxis"
+                    [colors]="locationChartOptions.colors"
+                    [grid]="locationChartOptions.grid"
+                    [title]="locationChartOptions.title"
+                    [dataLabels]="locationChartOptions.dataLabels"
+                ></apx-chart>
+            </div>
+
+        </div>
+
     </div>
-
-  </div>
-</div>
+</main>
