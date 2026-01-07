@@ -133,9 +133,6 @@ npm start
 ```
 Accede a `http://localhost:4200`.
 
-## 🗂️ Modelo de Datos
-
-![BD-model](https://github.com/user-attachments/assets/b9073a30-146a-48f5-a714-da181598b182)
 
 ## 👥 Autores
 
