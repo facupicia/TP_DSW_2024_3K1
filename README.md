@@ -64,9 +64,11 @@ El proyecto destaca por su arquitectura escalable, seguridad robusta y una exper
 
 ## 📸 Capturas y Demos
 
-| Compra de Entradas | Inicio de Sesión |
-|:------------------:|:----------------:|
-| ![Compra](https://github.com/user-attachments/assets/8b8ab58c-cb85-45e2-af85-b192b3887248) | ![Login](https://github.com/user-attachments/assets/3464a6b6-ba78-46a9-b594-2b9a95c90f96) |
+
+![Landig](https://github.com/user-attachments/assets/578b0b73-47db-4505-93f1-2aee1c46df43) ![Explorar](https://github.com/user-attachments/assets/00011087-feef-4d34-8c77-c5bdd55897a0) 
+![Login](https://github.com/user-attachments/assets/9c38c6da-914b-4a40-b32d-63bfd30a44d0) ![Crear](https://github.com/user-attachments/assets/ac93bc79-5454-4731-824c-4214e77b5355) 
+![Perfil](https://github.com/user-attachments/assets/7d6ba359-3dcf-46f1-a9fb-9b434a1d6abe) ![Tickets](https://github.com/user-attachments/assets/51e4350b-7c5c-4f41-b32a-a2920562b8eb) 
+![Estadisticas](https://github.com/user-attachments/assets/00c592d4-f063-4138-a914-e9cfc86afbf9) 
 
 ## ⚙️ Instalación y Ejecución
 
