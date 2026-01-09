@@ -23,6 +23,8 @@ app.use(requestId)
 app.use(metricsMiddleware)
 
 // Security Middleware
+// Configuración crítica para Google OAuth en navegadores modernos y Safari
+// Permite que la ventana emergente de Google (popup) se comunique con la ventana principal
 app.use(helmet({ crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } })); // Allow Google OAuth popups
 const allowedOriginsRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
     .split(",")

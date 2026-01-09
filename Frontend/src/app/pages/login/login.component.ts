@@ -48,7 +48,12 @@ export class LoginComponent {
     }, 100);
 
     // Timeout de seguridad para dejar de buscar
-    setTimeout(() => clearInterval(checkGoogle), 5000);
+    setTimeout(() => {
+      clearInterval(checkGoogle);
+      if (!(window as any).google) {
+        console.warn('Google Auth script no cargó correctamente. Verifique su conexión o bloqueadores de anuncios.');
+      }
+    }, 5000);
   }
 
   private renderGoogleButton(g: any) {
@@ -60,9 +65,10 @@ export class LoginComponent {
             this.onGoogleCredential(resp?.credential);
           });
         },
-        ux_mode: 'popup',
+        ux_mode: 'popup', // 'popup' es preferible para SPAs. Si falla en móvil, considere 'redirect'.
         auto_select: false,
-        itp_support: true // Polyfill para Intelligent Tracking Prevention (Safari)
+        itp_support: true // CRÍTICO: Soporte para Safari Intelligent Tracking Prevention
+        // Nota: ASWebAuthenticationSession es para apps nativas. En web, itp_support es la clave.
       });
       const btn = document.getElementById('googleBtn');
       if (btn) {
