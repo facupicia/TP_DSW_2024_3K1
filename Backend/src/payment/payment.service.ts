@@ -4,6 +4,7 @@ import { PaymentLog, PaymentStatus } from "./payment.entity";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
+import { TicketType } from "../ticketType/ticketType.entity";
 import { createTicketsForPurchase } from "../services/ticket.service";
 import enviarCorreoConQR from "../lib/mailer";
 import { logger } from "../lib/logger";
@@ -22,32 +23,33 @@ export const processPaymentTransaction = async (paymentId: string) => {
 
         // --- LÓGICA DE EXTRACCIÓN ROBUSTA ---
         let userId = 0;
-        let eventId = 0;
+        let ticketTypeId = 0;
         let amount = 0;
+        // eventId lo sacaremos del TicketType
 
         // 1. Prioridad: External Reference (Conciliación Financiera)
         if (payment.external_reference) {
             const parts = String(payment.external_reference).split('|');
             if (parts.length === 3) {
                 userId = Number(parts[0]);
-                eventId = Number(parts[1]);
+                ticketTypeId = Number(parts[1]); // AHORA ES TICKET_TYPE_ID
                 amount = Number(parts[2]);
             }
         }
 
         // 2. Fallback: Metadata (Si external_reference falló o no vino)
-        if (!userId || !eventId) {
+        if (!userId || !ticketTypeId) {
             const meta = payment.metadata || {};
             const additional = payment.additional_info || {};
             const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
 
             userId = Number(meta.user_id);
-            eventId = Number(meta.event_id || item?.id);
+            ticketTypeId = Number(meta.ticket_type_id || item?.id);
             amount = Number(meta.amount_tickets || item?.quantity || 1);
         }
 
-        if (!userId || !eventId || !amount || amount <= 0) {
-            logger.error("WEBHOOK_DATA_MISSING", { paymentId, userId, eventId, amount });
+        if (!userId || !ticketTypeId || !amount || amount <= 0) {
+            logger.error("WEBHOOK_DATA_MISSING", { paymentId, userId, ticketTypeId, amount });
             return;
         }
         // -------------------------------------
@@ -57,12 +59,29 @@ export const processPaymentTransaction = async (paymentId: string) => {
         await queryRunner.startTransaction();
 
         try {
+            // Buscamos primero el ticketType para saber el eventId y validar
+             const ticketType = await queryRunner.manager.findOne(TicketType, { 
+                where: { id: ticketTypeId },
+                relations: ["event"]
+            });
+
+            if (!ticketType) {
+                 logger.error("TICKET_TYPE_NOT_FOUND", { ticketTypeId });
+                 // No podemos registrar log asociado a evento si no tenemos el ticketType... 
+                 // Pero intentamos registrar con eventId 0 o algo para auditoria?
+                 // Mejor abortar o registrar log de error.
+                 throw new Error(`TicketType not found: ${ticketTypeId}`);
+            }
+
+            const eventId = ticketType.event.id;
+
             // Log de idempotencia (Evita procesar el mismo pago dos veces)
             const log = queryRunner.manager.create(PaymentLog, {
                 mpPaymentId: String(paymentId),
                 externalReference: String(payment.external_reference || ''),
                 userId,
                 eventId,
+                ticketTypeId,
                 amount,
                 status: PaymentStatus.PROCESSING
             });
@@ -83,37 +102,28 @@ export const processPaymentTransaction = async (paymentId: string) => {
             if (!user) throw new Error(`User not found: ${userId}`);
 
             // OPTIMIZACIÓN: Actualización atómica de stock sin bloqueo pesimista
-            // Incrementamos soldCount solo si no supera la capacidad
+            // Incrementamos soldCount solo si no supera la capacidad del TicketType
             const updateResult = await queryRunner.manager
                 .createQueryBuilder()
-                .update(Event)
+                .update(TicketType)
                 .set({ soldCount: () => `"soldCount" + ${amount}` })
-                .where("id = :id", { id: eventId })
+                .where("id = :id", { id: ticketTypeId })
                 .andWhere("(\"soldCount\" + :amount) <= capacity", { amount })
                 .execute();
 
             if (updateResult.affected === 0) {
-                // Si no se actualizó ninguna fila, es porque no hay stock o el evento no existe
-                // Verificamos si el evento existe para dar un log más preciso
-                const eventExists = await queryRunner.manager.exists(Event, { where: { id: eventId } });
-                
-                if (!eventExists) {
-                    throw new Error(`Event not found: ${eventId}`);
-                }
-
-                logger.warn("WEBHOOK_NO_STOCK_ATOMIC", { eventId, requested: amount });
+                // Si no se actualizó ninguna fila, es porque no hay stock o el ticketType no existe
+                logger.warn("WEBHOOK_NO_STOCK_ATOMIC", { ticketTypeId, requested: amount });
                 // Marcamos el pago como fallido en nuestro log
                 await queryRunner.manager.update(PaymentLog, log.id, { status: PaymentStatus.FAILED });
                 await queryRunner.commitTransaction();
                 return;
             }
 
-            // Recuperamos el evento para datos de tickets (ya con el stock actualizado, pero necesitamos datos estáticos)
-            const event = await queryRunner.manager.findOne(Event, { where: { id: eventId } });
-            if (!event) throw new Error("Event not found after update"); // Should not happen
-
             // Crear Tickets
-            const tickets = await createTicketsForPurchase(event, user, amount);
+            // Necesitamos pasarle el ticketType actualizado? createTicketsForPurchase usa ticketType para precio y ID.
+            // El objeto ticketType que tenemos 'ticketType' tiene los datos (aunque soldCount viejo, pero precio y ID sirven).
+            const tickets = await createTicketsForPurchase(ticketType, user, amount);
             await queryRunner.manager.save(Ticket, tickets);
 
             // Actualizar estado del log a COMPLETADO
@@ -125,6 +135,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
             // Enviar Email (Fuera de la transacción para no bloquear)
             if (user.email) {
                 try {
+                    const event = ticketType.event;
                     const dateObj = new Date(event.date);
                     const formattedDate = !isNaN(dateObj.getTime())
                         ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -136,7 +147,8 @@ export const processPaymentTransaction = async (paymentId: string) => {
                         eventTitle: event.title,
                         eventDate: `${formattedDate} ${event.time}`,
                         eventLocation: event.location,
-                        buyerName: `${user.firstname} ${user.lastname}`
+                        buyerName: `${user.firstname} ${user.lastname}`,
+                        ticketType: ticketType.name
                     })));
                 } catch (mailError) {
                     logger.error("MAIL_ERROR", { paymentId });

@@ -1,80 +1,83 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, OneToMany, ManyToOne, JoinColumn, Index } from "typeorm"
-import { Ticket } from "../ticket/ticket.entity";
+import {
+    Entity,
+    Column,
+    PrimaryGeneratedColumn,
+    CreateDateColumn,
+    UpdateDateColumn,
+    BaseEntity,
+    OneToMany,
+    ManyToOne,
+    JoinColumn,
+    Index
+} from "typeorm";
+
+import { TicketType } from "../ticketType/ticketType.entity";
 import { User } from "../user/user.entity";
 import { Category } from "../category/category.entity";
 
-@Entity()
+@Entity("event")
 export class Event extends BaseEntity {
 
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
+    @Column({ type: "varchar", length: 255 })
     title: string;
 
-    @Column()
+    @Column({ type: "varchar", length: 255 })
     location: string;
 
-    @Column()
+    @Column({ type: "varchar", length: 255 })
     organizer: string;
 
-    @Column({
-        default: "https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.shutterstock.com%2Fes%2Fsearch%2Fevento%2Bnocturno&psig=AOvVaw1_855_855&ust=1721633000963000&source=images&cd=vfe&opi=89978449&ved=0CBEQjRxqFwoTCPCF54uQ1IYDFQAAAAAdAAAAABAE"
-    })
-    image: string
+    @Column({ type: "varchar", nullable: true })
+    image: string;
 
-    @Column()
-    capacity: number;
-
-    @Column({ default: 0 })
-    soldCount: number;
-
-    @Column({ type: 'date' })
+    @Column({ type: "date" })
+    @Index()
     date: Date;
 
     @Column({ type: "time" })
     time: string;
 
-    @Column()
-    price: number;
-
-    @Column()
+    @Column({ type: "varchar", length: 500, nullable: true })
     description: string;
 
-    @Column({
-        default: true
-    })
+    @Column({ default: true })
     active: boolean;
 
-    @CreateDateColumn({ type: 'timestamp' })
-    createdAt: Date;
+    @Column({ default: false })
+    destacado: boolean;
 
-    @UpdateDateColumn({ type: 'timestamp' })
-    updatedAt: Date;
+    @Column({ default: 0 })
+    minAge: number; // 0 = sin restricción, 18 = +18, 21 = +21, etc.
 
-    @ManyToOne(() => User, usuario => usuario.eventos)
+    /* ===================== RELATIONS ===================== */
+
+    @ManyToOne(() => User, user => user.eventos, { nullable: false })
     @JoinColumn({ name: "user_id" })
-    usuario: User;
+    user: User;
 
-    @Index('idx_event_user_id')
     @Column()
     user_id: number;
 
-    @Column({
-        default: false
-    })
-    destacado: boolean;
-
-    @OneToMany(() => Ticket, ticket => ticket.event)
-    tickets: Ticket[];
-
-    @ManyToOne(() => Category, category => category.events)
+    @ManyToOne(() => Category, category => category.events, { nullable: false })
+    @JoinColumn({ name: "categoryId" })
     category: Category;
 
     @Column()
-    categoria_name: string;
+    categoryId: number;
 
+    @OneToMany(() => TicketType, ticketType => ticketType.event, {
+        cascade: true
+    })
+    ticketTypes: TicketType[];
 
-    //category como una clase? evento nocturno, evento musical, evento deportivo, cumpleaños, etc
+    /* ===================== TIMESTAMPS ===================== */
 
+    @CreateDateColumn({ type: "timestamp" })
+    createdAt: Date;
+
+    @UpdateDateColumn({ type: "timestamp" })
+    updatedAt: Date;
 }

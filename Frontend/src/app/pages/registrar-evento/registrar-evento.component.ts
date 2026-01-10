@@ -1,8 +1,8 @@
 import { Component, inject, AfterViewInit, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router'; // Importamos ActivatedRoute
 import { EventService } from '../../services/event.service';
-import { Evento } from '../../interfaces/event';
+import { Evento, TicketType } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
@@ -55,10 +55,14 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     time: ['', Validators.required],
     location: ['', Validators.required],
     image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
-    price: ['', [Validators.required, Validators.min(0)]],
     organizer: ['Organizer', Validators.required],
-    capacity: ['', [Validators.required, Validators.min(10)]],
+    minAge: [0], // 0 = sin restricción, 18 = +18, etc.
+    ticketTypes: this.formBuild.array([])
   });
+
+  get ticketTypes() {
+    return this.formRegistroEvento.get('ticketTypes') as FormArray;
+  }
 
   ngOnInit(): void {
     // 1. Cargar Categorías
@@ -98,11 +102,29 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
         this.pageTitle = 'Nuevo Evento.';
         this.pageSubtitle = 'Diseña tu próxima experiencia.';
         this.submitButtonText = 'Publicar Evento';
+        // Add one default ticket type
+        this.addTicketType();
       }
     });
 
     // 4. Lógica de Autocompletado de Mapa
     this.setupLocationSearch();
+  }
+
+  addTicketType(data?: TicketType) {
+    const group = this.formBuild.group({
+      id: [data?.id || null],
+      name: [data?.name || 'General', Validators.required],
+      price: [data?.price || 0, [Validators.required, Validators.min(0)]],
+      capacity: [data?.capacity || 100, [Validators.required, Validators.min(1)]],
+      description: [data?.description || ''],
+      active: [data?.active ?? true]
+    });
+    this.ticketTypes.push(group);
+  }
+
+  removeTicketType(index: number) {
+    this.ticketTypes.removeAt(index);
   }
 
   // Carga los datos existentes al formulario
@@ -116,14 +138,26 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           title: evento.title,
           description: evento.description,
           date: dateStr,
-          time: evento.time, // Asumiendo formato HH:mm
+          time: evento.time,
           location: evento.location,
           image: evento.image,
-          price: evento.price,
           organizer: evento.organizer,
-          capacity: evento.capacity,
-          category: evento.categoryId // Asegúrate que tu backend devuelva categoryId
+          category: evento.categoryId,
+          minAge: evento.minAge || 0
         });
+
+        // Load Ticket Types
+        this.ticketTypes.clear();
+        if (evento.ticketTypes && evento.ticketTypes.length > 0) {
+          evento.ticketTypes.forEach(tt => this.addTicketType(tt));
+        } else {
+          // Fallback if no ticket types (should not happen in new logic, but for safety)
+          this.addTicketType({
+            name: 'Entrada General',
+            price: evento.price || 0,
+            capacity: evento.capacity || 100
+          } as TicketType);
+        }
 
         // Si quisieras centrar el mapa en la ubicación guardada, podrías llamar a una función aquí
         // this.geocodeAndSetMap(evento.location);
@@ -241,13 +275,18 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       return;
     }
 
+    if (this.ticketTypes.length === 0) {
+      this.mostrarFeedback('Debes agregar al menos un tipo de entrada.', false);
+      return;
+    }
+
     this.isSubmitting = true;
 
     const formValue = this.formRegistroEvento.value;
     const selectedCategory = this.categories.find(c => c.id == formValue.category);
 
     const eventData: Evento = {
-      destacado: false, // Opcional: podrías agregar un check en el form
+      destacado: false,
       user_id: this.userId,
       title: formValue.title,
       description: formValue.description,
@@ -255,11 +294,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       time: formValue.time,
       location: formValue.location,
       image: formValue.image,
-      price: formValue.price,
       organizer: formValue.organizer,
-      capacity: formValue.capacity,
-      categoryId: formValue.category,
-      categoria_name: selectedCategory ? selectedCategory.name : ''
+      categoryId: Number(formValue.category),
+      categoria_name: selectedCategory ? selectedCategory.name : '',
+      minAge: Number(formValue.minAge) || 0,
+      ticketTypes: formValue.ticketTypes
     };
 
     if (this.isEditMode && this.eventId) {
@@ -300,5 +339,12 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     this.feedbackMessage = mensaje;
     this.feedbackSuccess = esExito;
     setTimeout(() => { this.feedbackMessage = ''; }, 3000);
+  }
+
+  // Helper para preview de precio
+  getMinPrice(): number {
+    const types = this.ticketTypes.value;
+    if (!types || types.length === 0) return 0;
+    return Math.min(...types.map((t: any) => t.price));
   }
 }

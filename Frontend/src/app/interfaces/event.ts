@@ -1,5 +1,15 @@
 
 
+export interface TicketType {
+    id?: number;
+    name: string;
+    description?: string;
+    price: number;
+    capacity: number;
+    soldCount?: number;
+    active?: boolean;
+}
+
 export interface Evento {
     destacado: boolean;
     user_id: number;
@@ -9,13 +19,15 @@ export interface Evento {
     date: Date;
     location: string;
     organizer: string;
-    capacity: number;
-    price: number;
-    image: string;  
-    time: string,
-    categoryId?: number,
-    categoria_name?: string
-    category?: string
-    
+    image: string;
+    time: string;
+    categoryId?: number;
+    categoria_name?: string;
+    category?: string;
+    ticketTypes?: TicketType[];
+    minAge?: number; // 0 = sin restricción, 18 = +18, etc.
+    // Legacy fields (optional/deprecated for display)
+    capacity?: number;
+    price?: number;
 }
 

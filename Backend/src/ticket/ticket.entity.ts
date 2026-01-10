@@ -1,66 +1,90 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, Index } from 'typeorm';
-import { Event } from '../event/event.entity';
-import { User } from '../user/user.entity';
+import {
+    Entity,
+    Column,
+    PrimaryGeneratedColumn,
+    CreateDateColumn,
+    UpdateDateColumn,
+    BaseEntity,
+    ManyToOne,
+    JoinColumn,
+    Index
+} from "typeorm";
+
+import { User } from "../user/user.entity";
+import { TicketType } from "../ticketType/ticketType.entity";
 
 export enum TicketStatus {
-    VALID = 'valid',
-    USED = 'used',
-    CANCELLED = 'cancelled'
+    ACTIVE = "active",
+    USED = "used",
+    CANCELLED = "cancelled"
 }
 
-@Entity()
+@Entity("ticket")
 export class Ticket extends BaseEntity {
 
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ unique: true })
+    /* ===================== IDENTIFICATION ===================== */
+
+    @Column({ type: "varchar", unique: true })
+    @Index({ unique: true })
     codigo_unico: string;
-
-    // CORRECCIÓN 1: Unificamos la relación con la columna ID
-    @Column()
-    @Index('idx_ticket_eventId')
-    eventId: number;
-
-    @ManyToOne(() => Event, event => event.tickets)
-    @JoinColumn({ name: "eventId" }) // Apunta a la columna de arriba
-    event: Event;
-
-    // CORRECCIÓN 2: Lo mismo para el usuario
-    @Column()
-    @Index('idx_ticket_userId')
-    userId: number;
-
-    @ManyToOne(() => User, user => user.tickets)
-    @JoinColumn({ name: "userId" }) // Apunta a la columna de arriba
-    user: User;
-
-    @Column()
-    titleEvent: string;
 
     @Column({ type: "text" })
     qrCode: string;
 
+    /* ===================== RELATIONS ===================== */
+
+    @ManyToOne(() => TicketType, ticketType => ticketType.tickets, {
+        nullable: false,
+        onDelete: "RESTRICT"
+    })
+    @JoinColumn({ name: "ticketTypeId" })
+    ticketType: TicketType;
+
+    @Column()
+    ticketTypeId: number;
+
+    @ManyToOne(() => User, user => user.tickets, {
+        nullable: false,
+        onDelete: "RESTRICT"
+    })
+    @JoinColumn({ name: "userId" })
+    user: User;
+
+    @Column()
+    userId: number;
+
+    /* ===================== BUSINESS DATA ===================== */
+
     @Column({
         type: "enum",
         enum: TicketStatus,
-        default: TicketStatus.VALID
+        default: TicketStatus.ACTIVE
     })
     status: TicketStatus;
 
-    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    @Column({ type: "numeric", precision: 12, scale: 2 })
     purchasePrice: number;
 
-    @CreateDateColumn({ type: 'timestamp' })
-    createdAt: Date;
+    /* ===================== ACCESS CONTROL ===================== */
 
     @Column({ type: "timestamp", nullable: true })
-    usedAt: Date;
-
-    @Column({ nullable: true })
-    scannedById: number;
+    usedAt: Date | null;
 
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: "scannedById" })
-    scannedBy: User;
+    scannedBy: User | null;
+
+    @Column({ nullable: true })
+    scannedById: number | null;
+
+    /* ===================== TIMESTAMPS ===================== */
+
+    @CreateDateColumn({ type: "timestamp" })
+    createdAt: Date;
+
+    @UpdateDateColumn({ type: "timestamp" })
+    updatedAt: Date;
 }

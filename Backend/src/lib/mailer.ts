@@ -23,6 +23,7 @@ export interface ITicketQR {
     eventDate?: string;
     eventLocation?: string;
     buyerName?: string;
+    ticketType?: string;
 }
 
 const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {

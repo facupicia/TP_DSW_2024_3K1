@@ -24,7 +24,7 @@ export class ScannerController {
 
             const ticket = await Ticket.findOne({
                 where: { codigo_unico: cleanCode },
-                relations: ["user", "event"]
+                relations: ["user", "ticketType", "ticketType.event"]
             });
 
             // --- Validaciones de Existencia ---
@@ -47,14 +47,15 @@ export class ScannerController {
             // --- 2. MEJORA: Validación de Evento (Opcional pero recomendada) ---
             // Verifica que el evento no haya terminado hace días.
             // Esto asume que tienes una propiedad 'date' en tu entidad Event.
-            const eventDate = new Date(ticket.event.date); // Asegúrate que sea objeto Date
+            const event = ticket.ticketType.event;
+            const eventDate = new Date(event.date); // Asegúrate que sea objeto Date
             const now = new Date();
             // Ejemplo: Si el evento fue hace más de 24hs, no dejar pasar
             const hoursDiff = (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
             
             if (hoursDiff > 24) { 
                  return res.status(409).json({ 
-                    message: `Este ticket es de un evento pasado: ${ticket.event.title} (${ticket.event.date})` 
+                    message: `Este ticket es de un evento pasado: ${event.title} (${event.date})` 
                  });
             }
             
@@ -83,7 +84,7 @@ export class ScannerController {
 
             const tickets = await Ticket.find({
                 where: { scannedById: scannerId },
-                relations: ["event", "user"],
+                relations: ["ticketType", "ticketType.event", "user"],
                 order: { usedAt: "DESC" },
                 take: 20 // Bajar a 20 o 30 para que cargue más rápido en móviles
             });

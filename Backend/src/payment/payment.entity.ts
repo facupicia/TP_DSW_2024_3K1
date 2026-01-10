@@ -22,6 +22,9 @@ export class PaymentLog {
   @Column()
   userId: number;
 
+  @Column({ nullable: true })
+  ticketTypeId: number;
+
   @Column()
   eventId: number;
 

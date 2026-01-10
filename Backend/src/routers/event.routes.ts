@@ -1,7 +1,7 @@
 import { Router } from "express"
 import { getEvent, createEvent, deleteEvent, getEventByName, getEventsByUser, updateEvent, getEvents, getCreatorStats, getCreatorStatsComparative, streamCreatorStats, exportCreatorStatsPdf, getPlatformStats, getEventStats, exportCreatorStatsCsv } from "../event/event.controller"
 import { createTicket } from "../ticket/ticket.controller"
-import { createEventSchema } from "../schemas/schema.event"
+import { createEventSchema, updateEventSchema } from "../schemas/schema.event"
 import { schemaValidation } from "../middlewares/schemaValidacion"
 import { checkAuthToken } from "../middlewares/authToken"
 import { checkRoleAuth } from "../middlewares/checkRole"
@@ -27,7 +27,7 @@ router.get("/stats/event/:id", checkAuthToken, checkRoleAuth(["user", "admin", "
 // 3. Rutas Dinámicas (Con :id) - Deben ir al final
 router.post("/:id/buy", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]), createTicket)
 router.get("/:id", getEvent)
-router.delete("/:id", deleteEvent)
-router.put("/:id", updateEvent)
+router.delete("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]), deleteEvent)
+router.put("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]), schemaValidation(updateEventSchema), updateEvent)
 
 export default router
