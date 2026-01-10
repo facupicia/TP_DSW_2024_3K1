@@ -13,7 +13,10 @@ export const signupUserSchema = z.object({
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
                 message: "El número de teléfono no es válido.",
             }),
-        location: z.string().min(1, "Lastname is required"),
+        pais: z.string().min(1, "Pais is required"),    
+        provincia: z.string().min(1, "Provincia is required"),
+        ciudad: z.string().min(1, "Ciudad is required"),
+        address: z.string().min(1, "Address is required"),
         birth: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida"),
     })
 })
@@ -31,8 +34,11 @@ export const updateUserSchema = z.object({
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
                 message: "El número de teléfono no es válido.",
             }),
-        location: z.string().min(1, "Lastname is required"),
-        birth: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida"),
+        pais: z.string().min(1, "Pais is required").optional(),
+        provincia: z.string().min(1, "Provincia is required").optional(),
+        ciudad: z.string().min(1, "Ciudad is required").optional(),
+        address: z.string().min(1, "Address is required").optional(),
+        birth: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida").optional(),
         imgPerfil: z.string().optional(),
     }),
     params: z.object({

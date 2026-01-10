@@ -24,8 +24,17 @@ export class Event extends BaseEntity {
     @Column({ type: "varchar", length: 255 })
     title: string;
 
-    @Column({ type: "varchar", length: 255 })
-    location: string;
+    @Column({ type: "varchar", length: 100,nullable: true })
+    pais: string;
+
+    @Column({ type: "varchar", length: 100,nullable: true })
+    provincia: string;
+
+    @Column({ type: "varchar", length: 100,nullable: true })
+    ciudad: string;
+
+    @Column({ type: "varchar", length: 255, nullable: true })
+    direccion: string;
 
     @Column({ type: "varchar", length: 255 })
     organizer: string;
@@ -50,7 +59,7 @@ export class Event extends BaseEntity {
     destacado: boolean;
 
     @Column({ default: 0 })
-    minAge: number; // 0 = sin restricción, 18 = +18, 21 = +21, etc.
+    minAge: number;
 
     /* ===================== RELATIONS ===================== */
 

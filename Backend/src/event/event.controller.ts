@@ -4,6 +4,7 @@ import { Category } from "../category/category.entity";
 import { User } from "../user/user.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { TicketType } from "../ticketType/ticketType.entity";
+import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 
 /* ======================================================
@@ -17,7 +18,10 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
     try {
         const {
             title,
-            location,
+            pais,
+            provincia,
+            ciudad,
+            direccion,
             organizer,
             image,
             date,
@@ -45,10 +49,12 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Category not found" });
         }
 
-        // 1. Crear Evento
         const event = new Event();
         event.title = title;
-        event.location = location;
+        event.pais = pais;
+        event.provincia = provincia;
+        event.ciudad = ciudad;
+        event.direccion = direccion;
         event.organizer = organizer;
         event.image = image;
         event.date = date;
@@ -127,7 +133,10 @@ export const updateEvent = async (req: Request, res: Response) => {
 
         const {
             title,
-            location,
+            pais,
+            provincia,
+            ciudad,
+            direccion,
             organizer,
             image,
             date,
@@ -150,7 +159,10 @@ export const updateEvent = async (req: Request, res: Response) => {
         }
 
         event.title = title ?? event.title;
-        event.location = location ?? event.location;
+        event.pais = pais ?? event.pais;
+        event.provincia = provincia ?? event.provincia;
+        event.ciudad = ciudad ?? event.ciudad;
+        event.direccion = direccion ?? event.direccion;
         event.organizer = organizer ?? event.organizer;
         event.image = image ?? event.image;
         event.date = date ?? event.date;
@@ -353,7 +365,60 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
 };
 
 export const getCreatorStatsComparative = async (req: CustomRequest, res: Response) => {
-    return res.json({ message: "Stats endpoint pending refactor for TicketType architecture" });
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Obtener todos los eventos del creador
+        const events = await Event.find({
+            where: { user_id: userId, active: true },
+            relations: ['ticketTypes'],
+            order: { date: 'DESC' }
+        });
+
+        const comparative = await Promise.all(events.map(async (event) => {
+            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
+
+            if (ticketTypeIds.length === 0) {
+                return {
+                    eventId: event.id,
+                    title: event.title,
+                    participants: 0,
+                    revenue: 0,
+                    attendanceRate: 0
+                };
+            }
+
+            const stats = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder('t')
+                .select([
+                    'COUNT(t.id) as "totalTickets"',
+                    'SUM(t.purchasePrice) as "totalRevenue"',
+                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+                ])
+                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+                .getRawOne();
+
+            const totalTickets = parseInt(stats?.totalTickets || '0');
+            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
+            const usedCount = parseInt(stats?.usedCount || '0');
+
+            return {
+                eventId: event.id,
+                title: event.title,
+                participants: totalTickets,
+                revenue: totalRevenue,
+                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
+            };
+        }));
+
+        return res.json({ comparative });
+    } catch (error) {
+        console.error("Error getting comparative stats:", error);
+        return res.status(500).json({ message: "Error al obtener estadísticas comparativas" });
+    }
 };
 
 export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
@@ -369,7 +434,121 @@ export const getPlatformStats = async (req: CustomRequest, res: Response) => {
 };
 
 export const getEventStats = async (req: CustomRequest, res: Response) => {
-    return res.json({ message: "Stats endpoint pending refactor" });
+    try {
+        const eventId = parseInt(req.params.id);
+        const userId = req.user?.id;
+
+        // Verificar que el evento existe y pertenece al usuario
+        const event = await Event.findOne({
+            where: { id: eventId, user_id: userId },
+            relations: ['ticketTypes']
+        });
+
+        if (!event) {
+            return res.status(404).json({ message: "Evento no encontrado" });
+        }
+
+        // 1. Obtener todos los tickets del evento (via ticketTypes)
+        const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
+
+        if (ticketTypeIds.length === 0) {
+            return res.json({
+                title: event.title,
+                totalParticipants: 0,
+                revenue: 0,
+                attendanceRate: 0,
+                checkInCount: 0,
+                ticketTypeDistribution: [],
+                salesByDay: [],
+                demographics: { ages: {}, locations: [] }
+            });
+        }
+
+        // Query para estadísticas de tickets
+        const ticketStats = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .select([
+                'COUNT(t.id) as "totalTickets"',
+                'SUM(t.purchasePrice) as "totalRevenue"',
+                'SUM(CASE WHEN t.status = \'used\' THEN 1 ELSE 0 END) as "usedCount"'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .getRawOne();
+
+        const totalTickets = parseInt(ticketStats?.totalTickets || '0');
+        const totalRevenue = parseFloat(ticketStats?.totalRevenue || '0');
+        const usedCount = parseInt(ticketStats?.usedCount || '0');
+        const attendanceRate = totalTickets > 0 ? usedCount / totalTickets : 0;
+
+        // 2. Distribución por tipo de ticket
+        const ticketTypeDistribution = event.ticketTypes.map(tt => ({
+            name: tt.name,
+            count: tt.soldCount || 0,
+            revenue: (tt.soldCount || 0) * Number(tt.price)
+        }));
+
+        // 3. Ventas por día (últimos 7 días)
+        const salesByDay = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .select([
+                'DATE(t.createdAt) as date',
+                'COUNT(t.id) as count'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .groupBy('DATE(t.createdAt)')
+            .orderBy('date', 'DESC')
+            .limit(7)
+            .getRawMany();
+
+        // 4. Demografía (edad y ciudad de compradores)
+        const demographics = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.user', 'u')
+            .select([
+                'u.birth as "birth"',
+                'u.ciudad as "ciudad"'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .getRawMany();
+
+        // Procesar edades
+        const ages: Record<string, number> = {};
+        const ciudades: Record<string, number> = {};
+        const now = new Date();
+
+        demographics.forEach((d: any) => {
+            // Calcular edad
+            if (d.birth) {
+                const birth = new Date(d.birth);
+                const age = Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+                const ageGroup = age < 18 ? '-18' : age < 25 ? '18-24' : age < 35 ? '25-34' : age < 45 ? '35-44' : '45+';
+                ages[ageGroup] = (ages[ageGroup] || 0) + 1;
+            }
+            // Contar ciudades
+            if (d.ciudad) {
+                ciudades[d.ciudad] = (ciudades[d.ciudad] || 0) + 1;
+            }
+        });
+
+        const ciudadesArray = Object.entries(ciudades)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 10);
+
+        return res.json({
+            title: event.title,
+            totalParticipants: totalTickets,
+            revenue: totalRevenue,
+            attendanceRate,
+            checkInCount: usedCount,
+            ticketTypeDistribution,
+            salesByDay: salesByDay.map((s: any) => ({ date: s.date, count: parseInt(s.count) })),
+            demographics: { ages, ciudades: ciudadesArray }
+        });
+    } catch (error) {
+        console.error("Error getting event stats:", error);
+        return res.status(500).json({ message: "Error al obtener estadísticas" });
+    }
 };
 
 export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) => {

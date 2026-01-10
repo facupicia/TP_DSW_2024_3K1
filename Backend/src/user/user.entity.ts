@@ -22,8 +22,17 @@ export class User extends BaseEntity {
     @Column()
     phone: string;
 
-    @Column()
-    location: string;
+    @Column({ nullable: true })
+    address: string;  // Dirección completa (opcional, para compatibilidad)
+
+    @Column({ type: "varchar", length: 100, nullable: true })
+    pais: string;
+
+    @Column({ type: "varchar", length: 100, nullable: true })
+    provincia: string;
+
+    @Column({ type: "varchar", length: 100, nullable: true })
+    ciudad: string;
 
     @Column({ type: 'date' })
     birth: Date;

@@ -121,7 +121,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
                     ticketId: ticket.id,
                     eventTitle: event.title,
                     eventDate: `${formattedDate} ${event.time}`,
-                    eventLocation: event.location,
+                    eventLocation: event.direccion,
                     buyerName: `${user.firstname} ${user.lastname}`,
                     ticketType: ticketType.name
                 })));

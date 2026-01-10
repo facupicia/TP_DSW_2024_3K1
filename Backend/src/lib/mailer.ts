@@ -43,7 +43,7 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
         const attachments = [
             {
                 content: pdfBase64,
-                name: "Mis_Entradas_EventLife.pdf"
+                name: "Entradas-EventLife.pdf"
             }
         ];
         

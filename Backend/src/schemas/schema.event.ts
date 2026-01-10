@@ -5,7 +5,10 @@ const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 export const createEventSchema = z.object({
     body: z.object({
         title: z.string().min(1, "El nombre es obligatorio"),
-        location: z.string().min(1, "La ubicación es obligatoria"),
+        pais: z.string().min(1, "El país es obligatorio"),
+        provincia: z.string().min(1, "La provincia es obligatoria"),
+        ciudad: z.string().min(1, "La ciudad es obligatoria"),
+        direccion: z.string().min(1, "La dirección es obligatoria"),
         organizer: z.string().min(1, "El organizador es obligatorio"),
         image: z.string().optional(),
         date: z.string().refine(date => {

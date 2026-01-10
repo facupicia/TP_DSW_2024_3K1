@@ -10,15 +10,18 @@ import { OAuth2Client } from "google-auth-library";
 
 export const signupUser = async (req: Request, res: Response) => {
   try {
-    const { firstname, lastname, email, password, phone, location, birth } = req.body;
+    const { firstname, lastname, email, password, phone, pais, provincia, ciudad, birth, address } = req.body;
 
     // Encriptar password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = new User();
-    user.phone = phone
-    user.birth = birth
-    user.location = location
+    user.phone = phone;
+    user.birth = birth;
+    user.address = address;
+    user.pais = pais;
+    user.provincia = provincia;
+    user.ciudad = ciudad;
     user.firstname = firstname;
     user.lastname = lastname;
     user.email = email;
@@ -77,14 +80,16 @@ export const getUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { firstname, lastname, email, password, rol, phone, birth, location, imgPerfil } = req.body
+    const { firstname, lastname, email, password, rol, phone, birth, pais, provincia, ciudad, imgPerfil } = req.body
     const user = await User.findOneBy({ id: parseInt(req.params.id) })
 
     if (!user) return res.status(404).json({ message: "User does not exist" })
     user.firstname = firstname
     user.phone = phone
     user.birth = birth
-    user.location = location
+    user.pais = pais
+    user.provincia = provincia
+    user.ciudad = ciudad
     user.imgPerfil = imgPerfil
     user.lastname = lastname
     user.email = email
@@ -171,7 +176,10 @@ export const profile = async (req: CustomRequest, res: Response) => {
       lastname: user.lastname,
       email: user.email,
       phone: user.phone,
-      location: user.location,
+      address: user.address,
+      pais: user.pais,
+      provincia: user.provincia,
+      ciudad: user.ciudad,
       birth: user.birth,
       imgPerfil: user.imgPerfil,
       rol: user.rol
@@ -285,7 +293,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       user.email = email;
       user.imgPerfil = picture || user.imgPerfil;
       user.phone = "";
-      user.location = "";
+      user.address = "";
       user.birth = new Date("1970-01-01");
       user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 10);
       await repo.save(user);

@@ -146,7 +146,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
                         ticketId: t.id,
                         eventTitle: event.title,
                         eventDate: `${formattedDate} ${event.time}`,
-                        eventLocation: event.location,
+                        eventLocation: event.direccion,
                         buyerName: `${user.firstname} ${user.lastname}`,
                         ticketType: ticketType.name
                     })));

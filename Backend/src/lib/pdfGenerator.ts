@@ -48,9 +48,9 @@ export const generateTicketsPDF = async (tickets: TicketData[]): Promise<string>
 
             // Detalles del Evento
             doc.fontSize(12).font('Helvetica').fillColor('#333333');
-            doc.text(`📅 Fecha: ${eventDate}`);
+            doc.text(`Fecha: ${eventDate}`);
             doc.moveDown(0.2);
-            doc.text(`📍 Lugar: ${eventLocation}`);
+            doc.text(`Ubicación: ${eventLocation}`);
             doc.moveDown(0.2);
             
             // Info del Comprador
