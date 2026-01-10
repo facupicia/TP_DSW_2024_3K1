@@ -7,6 +7,7 @@ import { TicketService } from '../../services/ticket.service';
 import { HeaderComponent } from '../../components/header/header.component';
 import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-checkout',
@@ -21,18 +22,19 @@ export class CheckoutComponent implements OnInit {
   public formBuild = inject(FormBuilder);
   private eventoService = inject(EventService);
   private ticketService = inject(TicketService);
+  private toastService = inject(ToastService);
 
   timeLeft: number = 600; // 10 minutos en segundos
   timerDisplay: string = '10:00';
   private timerSubscription!: Subscription;
-  
+
   ticketsRestantes: number = 100; // Será actualizado con el stock real del tipo
 
   private eventId: string | null = null;
   evento: any;
   ticketTypes: TicketType[] = [];
   selectedTicketType: TicketType | null = null;
-  
+
   ticketQuantity: number = 1;
   total: number = 0;
   loading = false;
@@ -56,22 +58,22 @@ export class CheckoutComponent implements OnInit {
     this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
-      
+
       // Auto-select first active ticket type
       if (this.ticketTypes.length > 0) {
-          const firstActive = this.ticketTypes.find(t => t.active !== false);
-          if (firstActive) {
-              this.formCheckout.patchValue({ ticketTypeId: firstActive.id });
-              this.onTicketTypeChange(firstActive.id!);
-          }
+        const firstActive = this.ticketTypes.find(t => t.active !== false);
+        if (firstActive) {
+          this.formCheckout.patchValue({ ticketTypeId: firstActive.id });
+          this.onTicketTypeChange(firstActive.id!);
+        }
       } else {
         // Fallback for legacy events without ticketTypes (should not happen with new logic)
         this.selectedTicketType = {
-            id: 0,
-            name: 'Entrada General',
-            price: evento.price || 0,
-            capacity: evento.capacity || 100,
-            active: true
+          id: 0,
+          name: 'Entrada General',
+          price: evento.price || 0,
+          capacity: evento.capacity || 100,
+          active: true
         };
         this.calculateTotal();
       }
@@ -79,7 +81,7 @@ export class CheckoutComponent implements OnInit {
 
     // Escuchar cambios en el tipo de ticket
     this.formCheckout.get('ticketTypeId')?.valueChanges.subscribe(id => {
-        this.onTicketTypeChange(Number(id));
+      this.onTicketTypeChange(Number(id));
     });
 
     // Iniciar el temporizador apenas carga el checkout
@@ -87,11 +89,11 @@ export class CheckoutComponent implements OnInit {
   }
 
   onTicketTypeChange(id: number) {
-      this.selectedTicketType = this.ticketTypes.find(t => t.id == id) || null;
-      if (this.selectedTicketType) {
-          this.ticketsRestantes = this.selectedTicketType.capacity - (this.selectedTicketType.soldCount || 0);
-          this.calculateTotal();
-      }
+    this.selectedTicketType = this.ticketTypes.find(t => t.id == id) || null;
+    if (this.selectedTicketType) {
+      this.ticketsRestantes = this.selectedTicketType.capacity - (this.selectedTicketType.soldCount || 0);
+      this.calculateTotal();
+    }
   }
 
   ngOnDestroy(): void {
@@ -133,8 +135,8 @@ export class CheckoutComponent implements OnInit {
 
   incrementQuantity() {
     if (this.selectedTicketType && this.ticketQuantity < this.ticketsRestantes) {
-        this.ticketQuantity++;
-        this.updateFormAndTotal();
+      this.ticketQuantity++;
+      this.updateFormAndTotal();
     }
   }
 
@@ -154,8 +156,8 @@ export class CheckoutComponent implements OnInit {
     if (this.selectedTicketType) {
       this.total = this.ticketQuantity * this.selectedTicketType.price;
     } else if (this.evento && !this.ticketTypes.length) {
-       // Legacy fallback
-       this.total = this.ticketQuantity * (this.evento.price || 0);
+      // Legacy fallback
+      this.total = this.ticketQuantity * (this.evento.price || 0);
     }
   }
 
@@ -181,7 +183,7 @@ export class CheckoutComponent implements OnInit {
     if (this.eventId) {
       // 3. LOGICA MERCADO PAGO REAL
       const ticketTypeId = this.selectedTicketType?.id || 0; // 0 for legacy fallback? Backend requires ID now.
-      
+
       this.ticketService.comprarTicket({ cantidad: this.ticketQuantity, ticketTypeId }).subscribe({
         next: (response: any) => {
           if (response.init_point) {
@@ -197,22 +199,20 @@ export class CheckoutComponent implements OnInit {
               if (typeof window !== 'undefined' && window.localStorage) {
                 window.localStorage.setItem('lastPurchase', JSON.stringify(lastPurchase));
               }
-            } catch {}
+            } catch { }
             window.location.href = response.init_point;
           } else {
-            console.error('No se recibió init_point de Mercado Pago');
+            this.toastService.error('No se pudo iniciar el pago. Intenta nuevamente.');
             this.showErrorMessage = true;
             this.loading = false;
             this.paymentStatus = 'failure';
-            this.errorMessageText = 'No se pudo iniciar el pago. Intenta nuevamente.';
           }
         },
         error: (error) => {
-          console.error('Error al generar preferencia:', error);
+          // Error interceptor will show toast, but we also set component state
           this.showErrorMessage = true;
           this.loading = false;
           this.paymentStatus = 'failure';
-          this.errorMessageText = error.userMessage || 'Ocurrió un error al generar la preferencia';
         }
       });
     }

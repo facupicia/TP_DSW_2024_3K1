@@ -6,6 +6,7 @@ import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
 import { TicketCardComponent } from './ticket-card.component';
 import * as htmlToImage from 'html-to-image';
+import { ToastService } from '../../services/toast.service';
 
 interface EventGroup {
   eventTitle: string;
@@ -27,6 +28,7 @@ export class TicketsComponent implements OnInit {
   private tickService = inject(TicketService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private toastService = inject(ToastService);
 
   private userID: string | null = null;
 
@@ -110,8 +112,7 @@ export class TicketsComponent implements OnInit {
       }
 
     } catch (error) {
-      console.error('Error generando imagen:', error);
-      alert('No se pudo crear la imagen del ticket. Intenta de nuevo.');
+      this.toastService.error('No se pudo crear la imagen del ticket. Intenta de nuevo.');
     }
   }
 
@@ -122,8 +123,8 @@ export class TicketsComponent implements OnInit {
         this.agruparTicketsPorEvento(data);
         this.loading = false;
       },
-      error: (err) => {
-        console.error('Error al obtener los tickets:', err);
+      error: () => {
+        // Error handled by interceptor
         this.loading = false;
       },
     });

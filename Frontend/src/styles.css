@@ -3,125 +3,149 @@
 @tailwind utilities;
 
 :root {
-  /* Variables ajustadas para estilo Apple Premium */
-  --toast-width: 380px;
-  --toast-radius: 20px; /* Más redondeado */
-  --toast-shadow: 0 8px 30px rgba(0, 0, 0, 0.12); /* Sombra difusa */
-  --toast-border: 1px solid rgba(255, 255, 255, 0.5);
+  /* Apple Glass Variables */
+  --glass-bg: rgba(255, 255, 255, 0.20); /* Translucidez alta */
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.02);
+  
+  /* Colores Semánticos (Usados para texto/iconos, no fondos sólidos) */
+  --color-success: #059669; /* Emerald 600 */
+  --color-error: #dc2626;   /* Red 600 */
+  --color-info: #2563eb;    /* Blue 600 */
+  --color-warning: #d97706; /* Amber 600 */
 }
 
-/* Utilidades Glassmorphism (Mantenidas) */
-.glass {
-  @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl;
-}
-
-.glass-dark {
-  @apply bg-black/60 backdrop-blur-xl border border-white/10 shadow-xl;
-}
-
+/* Reset básico para asegurar la fuente */
 body {
-  @apply bg-[#F5F5F7] text-slate-900; /* Fondo Apple gris muy claro */
-  scroll-behavior: smooth;
-  -webkit-font-smoothing: antialiased; /* Texto nítido */
+  @apply bg-[#F5F5F7] text-[#1d1d1f];
+  -webkit-font-smoothing: antialiased;
 }
 
-/* --- ESTILOS DEL TOAST (FEEDBACK) --- */
-
+/* --- CONTENEDOR DE TOASTS --- */
 #toast-container {
-  pointer-events: none; /* Permite clic a través del contenedor */
+  @apply fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none;
 }
 
-#toast-container * {
-  pointer-events: auto; /* Reactiva clics en el toast */
-}
-
-#toast-container .toast {
-  position: relative;
-  overflow: hidden;
-  margin: 0 0 12px;
-  padding: 16px 20px;
-  width: var(--toast-width);
-  max-width: 90vw;
-  border-radius: var(--toast-radius);
-  background-position: 15px center;
-  background-repeat: no-repeat;
-  background-size: 24px;
-  box-shadow: var(--toast-shadow);
-  color: #1d1d1f; /* Negro Apple */
-  border: var(--toast-border);
+/* --- ESTILOS BASE DE NGX-TOASTR (OVERRIDE) --- */
+/* Esto reemplaza la caja sólida por la caja de cristal */
+.ngx-toastr {
+  @apply pointer-events-auto relative overflow-hidden flex items-start gap-3 p-4 min-w-[340px] max-w-[400px];
+  @apply rounded-[33px] border border-white/50;
   
-  /* Efecto Glass */
-  background-color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* El efecto Glassmorphism Real */
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   
-  /* Animación suave */
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  transform: translateY(0);
+  /* Sombra suave estilo Apple (difusa, no dura) */
+  box-shadow: var(--glass-shadow) !important;
+  
+  /* Tipografía base */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #121213 !important;
+  
+  /* Animación */
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: toast-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  
+  opacity: 1 !important; /* Forzar opacidad del contenedor (el background maneja la transparencia) */
 }
 
-/* Efecto Hover: Levantar ligeramente */
-#toast-container .toast:hover {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
-  transform: translateY(-2px);
-  background-color: rgba(255, 255, 255, 0.95);
+/* Efecto hover: un poco más blanco para interactividad */
+.ngx-toastr:hover {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12) !important;
+  transform: translateY(-1px);
 }
 
-/* Tipografía */
-.toast-title {
-  font-weight: 700;
-  font-size: 15px;
-  margin-bottom: 4px;
-  color: #000;
+/* --- VARIANTES POR TIPO (Mantenemos el glass, cambiamos acentos) --- */
+/* En lugar de fondos sólidos, usamos bordes sutiles y colores de texto/icono */
+
+/* ÉXITO */
+.toast-success {
+  /* Fondo con un tinte imperceptible verde, manteniendo blur */
+  background-image: linear-gradient(to right, rgba(236, 253, 245, 0.6), transparent) !important; 
+  border-left: 6px solid var(--color-success) !important;
+}
+
+/* Icono customizado via CSS si ngx no inyecta uno propio, o para colorear el existente */
+.toast-success::before {
+  @apply text-emerald-600;
+}
+
+
+/* ERROR */
+.toast-error {
+  background-image: linear-gradient(to right, rgba(254, 242, 242, 0.6), transparent) !important;
+  border-left: 6px solid var(--color-error) !important;
+}
+
+/* INFO */
+.toast-info {
+  background-image: linear-gradient(to right, rgba(239, 246, 255, 0.6), transparent) !important;
+  border-left: 6px solid var(--color-info) !important;
+}
+
+/* WARNING */
+.toast-warning {
+  background-image: linear-gradient(to right, rgba(255, 251, 235, 0.6), transparent) !important;
+  border-left: 6px solid var(--color-warning) !important;
+}
+
+
+/* --- TIPOGRAFÍA Y CONTENIDO INTERNO --- */
+
+/* Ajuste del contenedor de texto para alinearlo con el icono */
+.ngx-toastr > div {
+  @apply flex flex-col justify-center;
+}
+
+.toast-success .toast-title  {
+  @apply text-[17px] font-semibold tracking-tight text-[var(--color-success)] mb-0.5 ;
+}
+
+.toast-error .toast-title{
+  @apply text-[17px] font-semibold tracking-tight text-[var(--color-error)] mb-0.5;
+}
+
+.toast-info .toast-title{
+  @apply text-[17px] font-semibold tracking-tight text-[var(--color-info)] mb-0.5;
+}
+
+.toast-warning .toast-title{
+  @apply text-[17px] font-semibold tracking-tight text-[var(--color-warning)] mb-0.5;
 }
 
 .toast-message {
-  font-size: 14px;
-  font-weight: 500;
-  color: #6e6e73; /* Gris Apple */
-  line-height: 1.4;
+  @apply text-[13px] font-normal leading-relaxed text-[#79797e];
 }
 
-/* --- VARIANTES DE COLOR (Sutiles) --- */
-
-/* ÉXITO: Fondo verde muy pálido + Icono */
-#toast-container .toast-success {
-  background-color: rgba(240, 253, 244, 0.9); /* Green-50 */
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2316a34a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
+/* Si ngx-toastr inyecta un botón de cierre */
+.toast-close-button {
+  @apply absolute top-3 right-3 text-[#79797e] opacity-60 hover:opacity-100 transition-opacity;
+  font-weight: 300;
+  text-shadow: none !important;
 }
 
-/* ERROR: Fondo rojo muy pálido + Icono */
-#toast-container .toast-error {
-  background-color: rgba(254, 242, 242, 0.9); /* Red-50 */
-  border: 1px solid rgba(248, 113, 113, 0.2);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23dc2626'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
-}
-
-/* INFO: Fondo azul muy pálido + Icono */
-#toast-container .toast-info {
-  background-color: rgba(240, 249, 255, 0.9); /* Sky-50 */
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%230ea5e9'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3C/svg%3E");
-}
-
-/* WARNING: Fondo naranja muy pálido + Icono */
-#toast-container .toast-warning {
-  background-color: rgba(255, 251, 235, 0.9); /* Amber-50 */
-  border: 1px solid rgba(251, 191, 36, 0.2);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23f59e0b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' /%3E%3C/svg%3E");
-}
-
-/* Ajuste de posición para móviles */
-@media (max-width: 640px) {
-  #toast-container .toast {
-    width: 90vw;
-    margin: 8px auto;
+/* --- ANIMACIONES --- */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px) blur(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0) blur(0);
   }
 }
 
-/* --- ARREGLO PARA GRÁFICOS (APEXCHARTS) --- */
-/* Esto elimina los errores rojos en consola sobre 'passive events' */
-.apexcharts-canvas {
-  touch-action: none;
+/* --- MEDIA QUERIES --- */
+@media (max-width: 640px) {
+  #toast-container {
+    @apply top-4 right-1/2 translate-x-1/2 w-[90%] items-center;
+  }
+  
+  .ngx-toastr {
+    @apply min-w-full w-full;
+  }
 }

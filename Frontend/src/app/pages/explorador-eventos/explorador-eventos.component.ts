@@ -44,8 +44,8 @@ export class ExploradorEventosComponent implements OnInit {
         this.eventosFiltrados = eventos;
         this.isLoading = false;
       },
-      error: (err) => {
-        console.error('Error cargando eventos:', err);
+      error: () => {
+        // Error handled by interceptor
         this.isLoading = false;
       }
     });
@@ -58,14 +58,11 @@ export class ExploradorEventosComponent implements OnInit {
       next: (eventos) => {
         this.eventos = eventos;
         this.eventosFiltrados = eventos;
-
-        // FILTRAR DESTACADOS AQUÍ
         this.destacados = eventos.filter(e => e.destacado);
-
         this.isLoading = false;
       },
-      error: (err) => {
-        console.error('Error cargando eventos destacados:', err);
+      error: () => {
+        // Error handled by interceptor
         this.isLoading = false;
       }
     });

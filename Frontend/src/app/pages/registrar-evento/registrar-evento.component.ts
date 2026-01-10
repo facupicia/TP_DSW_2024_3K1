@@ -11,6 +11,7 @@ import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-registrar-evento',
@@ -27,6 +28,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   private route = inject(ActivatedRoute); // Inyección para leer URL
   private http = inject(HttpClient);
   public formBuild = inject(FormBuilder);
+  private toastService = inject(ToastService);
 
   // Estados de la vista
   public isEditMode: boolean = false;
@@ -35,8 +37,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   public pageSubtitle: string = 'Diseña tu próxima experiencia.';
   public submitButtonText: string = 'Publicar Evento';
 
-  public feedbackMessage: string = '';
-  public feedbackSuccess: boolean = false;
   public isSubmitting: boolean = false;
   public categories: Categoria[] = [];
   public userId: number | null = null;
@@ -66,10 +66,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     // 1. Cargar Categorías
-    this.categoryService.getCategories().subscribe(
-      (data) => this.categories = data,
-      (error) => console.error('Error al obtener categorías:', error)
-    );
+    this.categoryService.getCategories().subscribe({
+      next: (data) => this.categories = data
+      // Error handled by interceptor
+    });
 
     // 2. Obtener Perfil de Usuario (necesario para el ID)
     this.authService.getProfile().subscribe({
@@ -162,9 +162,8 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
         // Si quisieras centrar el mapa en la ubicación guardada, podrías llamar a una función aquí
         // this.geocodeAndSetMap(evento.location);
       },
-      error: (err) => {
-        console.error(err);
-        this.mostrarFeedback('Error al cargar el evento', false);
+      error: () => {
+        // Error message handled by interceptor
         setTimeout(() => this.router.navigate(['/my-events']), 2000);
       }
     });
@@ -271,12 +270,12 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     if (this.isSubmitting) return;
 
     if (!this.userId) {
-      this.mostrarFeedback('Debes iniciar sesión.', false);
+      this.toastService.warning('Debes iniciar sesión.');
       return;
     }
 
     if (this.ticketTypes.length === 0) {
-      this.mostrarFeedback('Debes agregar al menos un tipo de entrada.', false);
+      this.toastService.warning('Debes agregar al menos un tipo de entrada.');
       return;
     }
 
@@ -305,11 +304,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       // ACTUALIZAR
       this.eventService.actualizarEvento(this.eventId, eventData).subscribe({
         next: () => {
-          this.mostrarFeedback('Evento actualizado correctamente', true);
+          this.toastService.success('Evento actualizado correctamente');
           setTimeout(() => this.router.navigate(['/my-events']), 1500);
         },
-        error: (err) => {
-          this.mostrarFeedback('Error al actualizar', false);
+        error: () => {
+          // Error message handled by interceptor
           this.isSubmitting = false;
         }
       });
@@ -317,11 +316,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       // CREAR
       this.eventService.crearEvento(eventData).subscribe({
         next: () => {
-          this.mostrarFeedback('Evento creado con éxito!', true);
-          setTimeout(() => this.router.navigate(['/my-events']), 1500); // Mejor ir a 'Mis Eventos'
+          this.toastService.success('Evento creado con éxito!');
+          setTimeout(() => this.router.navigate(['/my-events']), 1500);
         },
-        error: (err) => {
-          this.mostrarFeedback('Error al crear', false);
+        error: () => {
+          // Error message handled by interceptor
           this.isSubmitting = false;
         }
       });
@@ -335,11 +334,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     return cat ? cat.name : 'Categoría';
   }
 
-  private mostrarFeedback(mensaje: string, esExito: boolean) {
-    this.feedbackMessage = mensaje;
-    this.feedbackSuccess = esExito;
-    setTimeout(() => { this.feedbackMessage = ''; }, 3000);
-  }
 
   // Helper para preview de precio
   getMinPrice(): number {

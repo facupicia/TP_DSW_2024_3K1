@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { Evento } from '../../interfaces/event';
 import { HeaderComponent } from '../../components/header/header.component';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-detalle-evento',
@@ -19,6 +20,7 @@ export class DetalleEventoComponent implements OnInit {
   private router = inject(Router);
   private eventoService = inject(EventService);
   private accesService = inject(AuthService);
+  private toastService = inject(ToastService);
   private eventId: string | null = null;
 
   isLoggedIn = false;
@@ -58,10 +60,10 @@ export class DetalleEventoComponent implements OnInit {
         }
         this.loading = false;
       },
-      error: (err) => {
-        console.error('Error:', err);
+      error: () => {
+        // Error message handled by interceptor
         this.loading = false;
-        this.router.navigate(['/events']); // Redirigir si falla la carga
+        this.router.navigate(['/events']);
       }
     });
   }
@@ -99,7 +101,7 @@ export class DetalleEventoComponent implements OnInit {
     } else {
       // Fallback: Copiar al portapapeles
       navigator.clipboard.writeText(window.location.href);
-      alert('Enlace copiado al portapapeles');
+      this.toastService.info('Enlace copiado al portapapeles');
     }
   }
 
@@ -132,15 +134,13 @@ export class DetalleEventoComponent implements OnInit {
   }
 
   obtenerImagenUsuario(userId: number): void {
-    this.accesService.obtenerImagenUsuario(userId).subscribe(
-      (user) => {
+    this.accesService.obtenerImagenUsuario(userId).subscribe({
+      next: (user) => {
         this.user = user;
         this.imgPerfil = user.imgPerfil;
-      },
-      (error) => {
-        console.error('Error al obtener la imagen del usuario:', error);
       }
-    );
+      // Error handled by interceptor (silent for profile image)
+    });
   }
 
   // Calcular edad del usuario
@@ -171,7 +171,7 @@ export class DetalleEventoComponent implements OnInit {
           const userAge = this.calculateAge(profile.birth);
 
           if (userAge < this.evento.minAge) {
-            alert(`Este evento requiere +${this.evento.minAge} años.\n\nTu edad registrada es ${userAge} años.\n\nNo puedes comprar entradas para este evento.`);
+            this.toastService.warning(`Este evento requiere +${this.evento.minAge} años. Tu edad registrada es ${userAge} años.`);
             return;
           }
         }
@@ -180,12 +180,9 @@ export class DetalleEventoComponent implements OnInit {
         this.router.navigate([`/ticket/${eventId}`]);
       },
       error: (err) => {
-        console.error('Error obteniendo perfil:', err);
-        // Si el error es 401, redirigir al login
+        // Error message handled by interceptor, but we handle 401 specially
         if (err.status === 401) {
           this.router.navigate(['/login']);
-        } else {
-          alert('Error al verificar tu perfil. Intenta nuevamente.');
         }
       }
     });

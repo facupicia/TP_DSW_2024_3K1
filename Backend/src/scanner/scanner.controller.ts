@@ -52,13 +52,13 @@ export class ScannerController {
             const now = new Date();
             // Ejemplo: Si el evento fue hace más de 24hs, no dejar pasar
             const hoursDiff = (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
-            
-            if (hoursDiff > 24) { 
-                 return res.status(409).json({ 
-                    message: `Este ticket es de un evento pasado: ${event.title} (${event.date})` 
-                 });
+
+            if (hoursDiff > 24) {
+                return res.status(409).json({
+                    message: `Este ticket es de un evento pasado: ${event.title} (${event.date})`
+                });
             }
-            
+
             // --- Éxito ---
             ticket.status = TicketStatus.USED;
             ticket.usedAt = new Date();
