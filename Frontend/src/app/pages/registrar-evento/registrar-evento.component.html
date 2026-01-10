@@ -93,16 +93,17 @@
             </div>
           </div>
 
-          <!-- Location in separate row -->
-          <div class="mt-5 space-y-2 relative z-20">
-            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Ubicación</label>
+          <!-- Location Section -->
+          <div class="mt-5 space-y-4 relative z-20">
+            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Buscar Ubicación</label>
 
-            <input type="text" formControlName="location" placeholder="Escribe para buscar (Ej: Estadio Monumental)"
-              (input)="onInputLocation()" (blur)="closeSuggestions()"
+            <!-- Search Input (not a form control, just triggers search) -->
+            <input type="text" placeholder="Escribe para buscar (Ej: Estadio Monumental)"
+              (input)="onInputLocation($event)" (blur)="closeSuggestions()" #locationSearch
               class="w-full bg-gray-50 border-none rounded-2xl py-4 px-5 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 focus:bg-white transition-all shadow-inner placeholder-gray-400 outline-none">
 
             <div *ngIf="showSuggestions && locationSuggestions.length > 0"
-              class="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in-up max-h-60 overflow-y-auto custom-scrollbar">
+              class="absolute top-20 left-0 w-full mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in-up max-h-60 overflow-y-auto custom-scrollbar">
               <ul>
                 <li *ngFor="let item of locationSuggestions" (mousedown)="selectAddress(item)"
                   class="px-5 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors">
@@ -117,6 +118,30 @@
                   <span class="text-sm text-gray-700 font-medium truncate">{{ item.display_name }}</span>
                 </li>
               </ul>
+            </div>
+
+            <!-- Location Fields Grid -->
+            <div class="grid grid-cols-2 gap-4 mt-4">
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">País</label>
+                <input type="text" formControlName="pais" readonly
+                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Provincia</label>
+                <input type="text" formControlName="provincia" readonly
+                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Ciudad</label>
+                <input type="text" formControlName="ciudad" readonly
+                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Dirección</label>
+                <input type="text" formControlName="direccion"
+                  class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium text-sm focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none">
+              </div>
             </div>
 
             <div class="mt-4 h-64 w-full rounded-2xl overflow-hidden shadow-inner border border-gray-200 z-0 relative"

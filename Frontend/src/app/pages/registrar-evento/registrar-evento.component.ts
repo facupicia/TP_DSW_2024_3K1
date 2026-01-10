@@ -10,7 +10,7 @@ import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
 import { HttpClient } from '@angular/common/http';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { ToastService } from '../../services/toast.service';
 
 @Component({
@@ -44,6 +44,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   // Variables para mapa y autocompletado
   public locationSuggestions: any[] = [];
   public showSuggestions: boolean = false;
+  private locationSearch$ = new Subject<string>();
   private map: any;
   private marker: any;
 
@@ -53,7 +54,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     description: ['', [Validators.required, Validators.maxLength(500)]],
     date: ['', [Validators.required]],
     time: ['', Validators.required],
-    location: ['', Validators.required],
+    pais: ['', Validators.required],
+    provincia: ['', Validators.required],
+    ciudad: ['', Validators.required],
+    direccion: [''],
     image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
     organizer: ['Organizer', Validators.required],
     minAge: [0], // 0 = sin restricción, 18 = +18, etc.
@@ -139,7 +143,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           description: evento.description,
           date: dateStr,
           time: evento.time,
-          location: evento.location,
+          pais: evento.pais,
+          provincia: evento.provincia,
+          ciudad: evento.ciudad,
+          direccion: evento.direccion || '',
           image: evento.image,
           organizer: evento.organizer,
           category: evento.categoryId,
@@ -171,7 +178,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
 
   // Modifica setupLocationSearch
   setupLocationSearch() {
-    this.formRegistroEvento.get('location')?.valueChanges.pipe(
+    this.locationSearch$.pipe(
       debounceTime(1000), // AUMENTA ESTO: Nominatim pide máximo 1 petición por segundo
       distinctUntilChanged(),
       switchMap(query => {
@@ -187,14 +194,25 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     });
   }
 
+  onInputLocation(event: Event) {
+    this.showSuggestions = true;
+    const input = event.target as HTMLInputElement;
+    this.locationSearch$.next(input.value);
+  }
+
   // Modifica getAddress (Geocodificación inversa)
   private getAddress(lat: number, lng: number) {
-    // AGREGA &email=tu@email.com
-    this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&email=tu_contacto@tudominio.com`)
+    this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&email=tu_contacto@tudominio.com`)
       .subscribe({
         next: (data) => {
-          if (data && data.display_name) {
-            this.formRegistroEvento.patchValue({ location: data.display_name }, { emitEvent: false });
+          if (data && data.address) {
+            const addr = data.address;
+            this.formRegistroEvento.patchValue({
+              pais: addr.country || '',
+              provincia: addr.state || addr.region || '',
+              ciudad: addr.city || addr.town || addr.village || addr.municipality || '',
+              direccion: [addr.road, addr.house_number].filter(Boolean).join(' ') || ''
+            }, { emitEvent: false });
           }
         }
       });
@@ -242,21 +260,23 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       this.getAddress(lat, lng);
     });
   }
-
-  onInputLocation() { this.showSuggestions = true; }
-
   closeSuggestions() { setTimeout(() => { this.showSuggestions = false; }, 200); }
 
   selectAddress(item: any) {
     this.showSuggestions = false;
-    this.formRegistroEvento.patchValue({ location: item.display_name }, { emitEvent: false });
+    const addr = item.address || {};
+    this.formRegistroEvento.patchValue({
+      pais: addr.country || '',
+      provincia: addr.state || addr.region || '',
+      ciudad: addr.city || addr.town || addr.village || addr.municipality || '',
+      direccion: [addr.road, addr.house_number].filter(Boolean).join(' ') || item.display_name
+    }, { emitEvent: false });
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
 
     if (this.map) {
       this.map.setView([lat, lng], 16);
       if (this.marker) this.marker.setLatLng([lat, lng]);
-      // Simulamos click para consistencia (opcional si ya importaste L)
     }
   }
 
@@ -291,7 +311,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       description: formValue.description,
       date: formValue.date,
       time: formValue.time,
-      location: formValue.location,
+      pais: formValue.pais,
+      provincia: formValue.provincia,
+      ciudad: formValue.ciudad,
+      direccion: formValue.direccion,
       image: formValue.image,
       organizer: formValue.organizer,
       categoryId: Number(formValue.category),

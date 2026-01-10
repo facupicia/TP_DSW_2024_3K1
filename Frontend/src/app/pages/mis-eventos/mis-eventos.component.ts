@@ -46,7 +46,8 @@ export class MisEventosComponent implements OnInit {
       const term = this.searchTerm.toLowerCase();
       this.eventosFiltrados = this.eventos.filter(e =>
         e.title.toLowerCase().includes(term) ||
-        e.location.toLowerCase().includes(term)
+        (e.direccion?.toLowerCase().includes(term) ?? false) ||
+        (e.ciudad?.toLowerCase().includes(term) ?? false)
       );
     }
   }

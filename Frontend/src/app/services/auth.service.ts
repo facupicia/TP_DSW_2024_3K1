@@ -106,6 +106,7 @@ export class AuthService {
     this.currentUserSubject.next(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
+      localStorage.removeItem('cachedProfile');
     }
   }
 }

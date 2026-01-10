@@ -99,8 +99,7 @@ export class PerfilComponent implements OnInit {
   }
 
   logout() {
-    localStorage.removeItem('token');
-    localStorage.removeItem('cachedProfile');
+    this.profileService.logout();
     this.router.navigate(['/']);
   }
 }

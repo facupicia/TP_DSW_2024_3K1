@@ -68,7 +68,8 @@
 
                                         <div
                                             class="opacity-0 transition-opacity duration-500 delay-100 group-hover:opacity-100">
-                                            <p class="text-white/70 text-sm line-clamp-1 mb-4">{{ evento.location }}</p>
+                                            <p class="text-white/70 text-sm line-clamp-1 mb-4">{{ evento.ciudad }}, {{
+                                                evento.provincia }}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -179,7 +180,7 @@
                             <div class="p-5">
                                 <p class="text-xs font-bold text-blue-600 mb-1">{{ evento.date | date:'shortDate' }}</p>
                                 <h4 class="font-bold text-gray-900 text-lg mb-1 line-clamp-1">{{ evento.title }}</h4>
-                                <p class="text-sm text-gray-500">{{ evento.location }}</p>
+                                <p class="text-sm text-gray-500">{{ evento.ciudad }}, {{ evento.provincia }}</p>
                             </div>
                         </div>
                     </ng-container>

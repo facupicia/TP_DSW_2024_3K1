@@ -2,10 +2,13 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
-import { Router, RouterLink } from '@angular/router'; // <--- Agregamos RouterLink
+import { Router, RouterLink } from '@angular/router';
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
+import { HttpClient } from '@angular/common/http';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-prefil-edit',
@@ -15,23 +18,70 @@ import { HeaderComponent } from '../../components/header/header.component';
   styleUrl: './prefil-edit.component.css'
 })
 export class PrefilEditComponent implements OnInit {
-  // ... resto de tu código igual ...
-  // No hace falta tocar la lógica, ya funciona bien.
   private AccesService = inject(AuthService);
   private router = inject(Router);
   private toastService = inject(ToastService);
+  private http = inject(HttpClient);
   public formBuild = inject(FormBuilder);
+
+  // Nominatim search
+  public locationSuggestions: any[] = [];
+  public showSuggestions: boolean = false;
+  private locationSearch$ = new Subject<string>();
 
   public formEditarPerfil: FormGroup = this.formBuild.group({
     imgPerfil: [''],
     firstname: [''],
     lastname: [''],
     phone: ['', [Validators.pattern('[0-9]+')]],
-    location: [''],
+    pais: [''],
+    provincia: [''],
+    ciudad: [''],
     birth: [''],
+    address: [''],
   });
 
   private userId: string | null = null;
+
+  constructor() {
+    this.setupLocationSearch();
+  }
+
+  setupLocationSearch() {
+    this.locationSearch$.pipe(
+      debounceTime(800),
+      distinctUntilChanged(),
+      switchMap(query => {
+        if (query && query.length > 2 && this.showSuggestions) {
+          return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5&addressdetails=1`);
+        }
+        return of([]);
+      }),
+      catchError(() => of([]))
+    ).subscribe(results => {
+      this.locationSuggestions = results;
+    });
+  }
+
+  onInputLocation(event: Event) {
+    this.showSuggestions = true;
+    const input = event.target as HTMLInputElement;
+    this.locationSearch$.next(input.value);
+  }
+
+  closeSuggestions() {
+    setTimeout(() => { this.showSuggestions = false; }, 200);
+  }
+
+  selectAddress(item: any) {
+    this.showSuggestions = false;
+    const addr = item.address || {};
+    this.formEditarPerfil.patchValue({
+      pais: addr.country || '',
+      provincia: addr.state || addr.region || '',
+      ciudad: addr.city || addr.town || addr.village || addr.municipality || ''
+    });
+  }
 
   ngOnInit(): void {
     this.cargarDatosUsuario();
@@ -48,7 +98,10 @@ export class PrefilEditComponent implements OnInit {
             firstname: data.firstname,
             lastname: data.lastname,
             phone: data.phone,
-            location: data.location,
+            pais: data.pais || '',
+            provincia: data.provincia || '',
+            ciudad: data.ciudad || '',
+            address: data.address || '',
             birth: data.birth,
           });
         },
@@ -66,7 +119,10 @@ export class PrefilEditComponent implements OnInit {
         firstname: this.formEditarPerfil.value.firstname,
         lastname: this.formEditarPerfil.value.lastname,
         phone: this.formEditarPerfil.value.phone.toString(),
-        location: this.formEditarPerfil.value.location,
+        pais: this.formEditarPerfil.value.pais,
+        provincia: this.formEditarPerfil.value.provincia,
+        ciudad: this.formEditarPerfil.value.ciudad,
+        address: this.formEditarPerfil.value.address,
         birth: this.formEditarPerfil.value.birth,
         imgPerfil: this.formEditarPerfil.value.imgPerfil
       };

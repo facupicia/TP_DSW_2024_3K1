@@ -3,7 +3,10 @@ export interface UsuarioEdit {
   firstname: string;
   lastname: string;
   phone: string;
-  location: string;
+  pais?: string;
+  provincia?: string;
+  ciudad?: string;
   birth: string;
   imgPerfil: string;
+  address?: string;
 }

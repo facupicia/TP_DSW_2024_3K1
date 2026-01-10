@@ -79,7 +79,8 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          <a [href]="getGoogleMapsUrl(evento.location)" target="_blank"
+          <a [href]="getGoogleMapsUrl(evento.direccion + ', ' + evento.ciudad + ', ' + evento.provincia)"
+            target="_blank"
             class="group bg-white/60 backdrop-blur-xl p-6 rounded-[24px] border border-white/60 shadow-sm flex items-start gap-4 hover:bg-white hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer">
             <div class="p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100 transition-colors rounded-2xl">
               <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -100,7 +101,7 @@
               </div>
               <p
                 class="text-gray-900 font-medium text-lg leading-tight underline decoration-transparent group-hover:decoration-purple-300 transition-all">
-                {{ evento.location }}
+                {{ evento.direccion ? evento.direccion + ', ' : '' }}{{ evento.ciudad }}, {{ evento.provincia }}
               </p>
               <span class="text-xs text-purple-600 font-bold mt-1 block">Ver en Google Maps</span>
             </div>

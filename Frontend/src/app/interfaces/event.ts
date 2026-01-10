@@ -17,7 +17,10 @@ export interface Evento {
     title: string;
     description: string;
     date: Date;
-    location: string;
+    pais: string;
+    provincia: string;
+    ciudad: string;
+    direccion?: string;
     organizer: string;
     image: string;
     time: string;

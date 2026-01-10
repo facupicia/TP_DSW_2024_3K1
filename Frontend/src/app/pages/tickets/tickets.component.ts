@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { TicketService } from '../../services/ticket.service';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
 import { TicketCardComponent } from './ticket-card.component';
@@ -20,7 +20,7 @@ interface EventGroup {
 @Component({
   selector: 'app-tickets',
   standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent],
+  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink] ,
   templateUrl: './tickets.component.html',
   styleUrl: './tickets.component.css'
 })

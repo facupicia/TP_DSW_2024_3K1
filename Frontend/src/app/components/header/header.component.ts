@@ -16,16 +16,11 @@ export class HeaderComponent implements OnDestroy {
   private cd = inject(ChangeDetectorRef);
   private ngZone = inject(NgZone);
 
-  // Usaremos 'user' para el estado reactivo en lugar de la variable estática isLoggedIn
-  user: any = null;
+  // Usaremos 'user' para el estado reactivo
+  user$ = this.accesService.currentUser$;
   isMenuOpen = false;
 
   ngOnInit(): void {
-    this.accesService.currentUser$.subscribe(user => {
-      this.user = user;
-      this.cd.detectChanges(); // Forzar actualización de vista para asegurar reactividad inmediata
-    });
-
     // Cerrar menú al cambiar de ruta
     this.router.events.subscribe(() => {
       this.isMenuOpen = false;
@@ -46,7 +41,11 @@ export class HeaderComponent implements OnDestroy {
   }
 
   crearEvento(): void {
-    const route = this.user ? '/create-event' : '/tickets'; // Usamos this.user que es reactivo
+    // Para acciones puntuales, podemos ver el valor actual del BehaviorSubject desde el servicio si es público, 
+    // o suscribirnos una vez. Aqui asumimos que currentUser$ viene de un BehaviorSubject.
+    // O mejor, verificamos si hay token.
+    const isAuthenticated = localStorage.getItem('token');
+    const route = isAuthenticated ? '/create-event' : '/tickets';
     this.navigateMobile(route);
   }
 
@@ -58,7 +57,7 @@ export class HeaderComponent implements OnDestroy {
       this.router.navigate(['/login']);
     });
   }
-  
+
   redirectToProfile() {
     this.navigateMobile('/profile');
   }

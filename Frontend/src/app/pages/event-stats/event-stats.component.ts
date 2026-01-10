@@ -20,19 +20,23 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   eventId!: number;
   eventTitle = '';
   isLoading = true;
-  
+
   // Datos Principales
   data: { participants: number, revenue: number, attendanceRate: number } = {
     participants: 0,
     revenue: 0,
     attendanceRate: 0
   };
-  
+
   // KPI Calculado (Simulado)
-  checkInCount = 0; 
+  checkInCount = 0;
   checkInPercentage = 0;
 
-  demographics: { ages: any, locations: any[] } = { ages: {}, locations: [] };
+  demographics: { ages: any, ciudades: any[] } = { ages: {}, ciudades: [] };
+
+  // Datos reales del backend
+  ticketTypeData: any[] = [];
+  salesByDayData: any[] = [];
 
   // --- CONFIGURACIÓN DE GRÁFICOS ---
 
@@ -127,57 +131,71 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       attendanceRate: data.attendanceRate
     };
     this.demographics = data.demographics;
-    
-    // --- SIMULACIÓN DE DATOS (Hasta que el backend los traiga reales) ---
-    
-    // 1. Check-in: Asumimos que el 65% ya ingresó (dato operativo crítico)
-    this.checkInCount = Math.floor(this.data.participants * 0.65);
-    this.checkInPercentage = 65;
+
+    // Usar datos REALES del backend
+    this.checkInCount = data.checkInCount || 0;
+    this.checkInPercentage = data.totalParticipants > 0
+      ? Math.round((data.checkInCount / data.totalParticipants) * 100)
+      : 0;
+
+    // Guardar distribución real de tickets
+    this.ticketTypeData = data.ticketTypeDistribution || [];
+    this.salesByDayData = data.salesByDay || [];
 
     this.updateCharts();
   }
 
   updateCharts() {
-    // 1. SALES CURVE (Simulada: Distribuimos las ventas en 7 días)
-    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    // Creamos una curva "creíble" basada en el total
-    const base = this.data.participants / 15; 
-    const trend = [1, 1.5, 2, 0.8, 3, 5, 2].map(factor => Math.floor(base * factor));
-    
-    this.salesCurveOptions = {
+    // 1. SALES CURVE - Usar datos REALES si existen, sino generar placeholder
+    if (this.salesByDayData && this.salesByDayData.length > 0) {
+      const reversed = [...this.salesByDayData].reverse(); // Ordenar cronológicamente
+      this.salesCurveOptions = {
         ...this.salesCurveOptions,
-        series: [{ name: 'Ventas', data: trend }],
-        xaxis: { ...this.salesCurveOptions.xaxis, categories: days }
-    };
+        series: [{ name: 'Ventas', data: reversed.map((s: any) => s.count) }],
+        xaxis: { ...this.salesCurveOptions.xaxis, categories: reversed.map((s: any) => s.date?.substring(5, 10) || 'N/A') }
+      };
+    } else {
+      // Placeholder si no hay datos
+      this.salesCurveOptions = {
+        ...this.salesCurveOptions,
+        series: [{ name: 'Ventas', data: [] }],
+        xaxis: { ...this.salesCurveOptions.xaxis, categories: [] }
+      };
+    }
 
-    // 2. TICKET TYPES (Simulado)
-    const vip = Math.floor(this.data.participants * 0.15); // 15% VIP
-    const early = Math.floor(this.data.participants * 0.25); // 25% Anticipadas
-    const general = this.data.participants - vip - early;
-    
-    this.ticketTypeOptions = {
+    // 2. TICKET TYPES - Usar datos REALES
+    if (this.ticketTypeData && this.ticketTypeData.length > 0) {
+      this.ticketTypeOptions = {
         ...this.ticketTypeOptions,
-        series: [general, vip, early]
-    };
+        labels: this.ticketTypeData.map((t: any) => t.name),
+        series: this.ticketTypeData.map((t: any) => t.count)
+      };
+    } else {
+      this.ticketTypeOptions = {
+        ...this.ticketTypeOptions,
+        labels: ['Sin datos'],
+        series: [0]
+      };
+    }
 
     // 3. EDAD
     const ageLabels = Object.keys(this.demographics.ages || {});
     const ageValues = Object.values(this.demographics.ages || {}) as number[];
     this.ageChartOptions = {
-        ...this.ageChartOptions,
-        series: [{ name: 'Participantes', data: ageValues }],
-        xaxis: { ...this.ageChartOptions.xaxis, categories: ageLabels }
+      ...this.ageChartOptions,
+      series: [{ name: 'Participantes', data: ageValues }],
+      xaxis: { ...this.ageChartOptions.xaxis, categories: ageLabels }
     };
 
-    // 4. UBICACIÓN
-    const sortedLocs = [...(this.demographics.locations || [])]
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 5); // Solo Top 5
-        
+    // 4. CIUDADES
+    const sortedCities = [...(this.demographics.ciudades || [])]
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Solo Top 5
+
     this.locationChartOptions = {
-        ...this.locationChartOptions,
-        series: [{ name: 'Participantes', data: sortedLocs.map(d => d.value) }],
-        xaxis: { ...this.locationChartOptions.xaxis, categories: sortedLocs.map(d => d.name) }
+      ...this.locationChartOptions,
+      series: [{ name: 'Participantes', data: sortedCities.map(d => d.value) }],
+      xaxis: { ...this.locationChartOptions.xaxis, categories: sortedCities.map(d => d.name) }
     };
   }
 }

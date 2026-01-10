@@ -10,21 +10,21 @@
       </div>
 
       <div class="hidden md:flex items-center space-x-8">
-        <ng-container *ngIf="user">
+        <ng-container *ngIf="user$ | async as user">
           <button (click)="router.navigate(['/events'])"
             class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Explorar</button>
           <button (click)="crearEvento()"
             class="text-sm font-medium text-gray-600 hover:text-black transition-colors">Crear Evento</button>
         </ng-container>
 
-        <ng-container *ngIf="!user">
+        <ng-container *ngIf="(user$ | async) === null">
           <button routerLink="/login"
             class="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">Iniciar sesión</button>
           <button routerLink="/register"
             class="bg-black text-white text-sm font-medium px-5 py-2 rounded-full hover:bg-gray-800 transition-transform active:scale-95">Registrarse</button>
         </ng-container>
 
-        <ng-container *ngIf="user">
+        <ng-container *ngIf="user$ | async as user">
           <img
             [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
             class="h-9 w-9 rounded-full object-cover cursor-pointer border-2 border-transparent hover:border-gray-200 transition-all"
@@ -59,7 +59,7 @@
     class="absolute top-0 right-0 w-[85%] max-w-[300px] h-full bg-white/90 backdrop-blur-xl border-l border-white/20 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col pt-24 px-6"
     [class.translate-x-full]="!isMenuOpen">
 
-    <div *ngIf="user" class="mb-8 flex flex-col items-center text-center animate-fade-in-up">
+    <div *ngIf="user$ | async as user" class="mb-8 flex flex-col items-center text-center animate-fade-in-up">
       <img
         [src]="user.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
         class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md mb-3">
@@ -68,7 +68,7 @@
     </div>
 
     <nav class="flex flex-col gap-2 w-full">
-      <ng-container *ngIf="user; else guestLinks">
+      <ng-container *ngIf="user$ | async as user; else guestLinks">
         <button (click)="navigateMobile('/events')"
           class="flex items-center w-full text-left p-4 rounded-xl text-gray-700 font-medium hover:bg-gray-100/80 active:scale-[0.98] transition-all">
           <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -5,11 +5,12 @@ import { StatsService } from '../../services/stats.service';
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { HeaderComponent } from '../../components/header/header.component';
 import { interval, Subscription, switchMap, of, catchError } from 'rxjs';
+import { RouterModule } from '@angular/router';
 
 @Component({
     selector: 'app-creator-stats',
     standalone: true,
-    imports: [CommonModule, FormsModule, NgApexchartsModule, HeaderComponent],
+    imports: [CommonModule, FormsModule, NgApexchartsModule, HeaderComponent,RouterModule],
     templateUrl: './creator-stats.component.html',
     styleUrls: ['./creator-stats.component.css']
 })
