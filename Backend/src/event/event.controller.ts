@@ -318,7 +318,7 @@ export const getEvents = async (req: Request, res: Response) => {
         return res.json(events);
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ message: "Error fetching events" });
+        return res.status(500).json({ message: error.message || "Error fetching events" });
     }
 };
 

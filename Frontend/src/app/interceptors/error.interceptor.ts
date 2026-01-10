@@ -47,7 +47,9 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         errorMessage = 'Recurso no encontrado.';
                         break;
                     case 500:
-                        errorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
+                        // [MODIFIED] Show server message if available for debugging
+                        errorMessage = error.error.message || 'Error interno del servidor. Por favor, intenta más tarde.';
+                        console.error('SERVER ERROR 500 DETAILS:', error);
                         break;
                     default:
                         errorMessage = `Error ${error.status}: ${error.error.message || error.message}`;
