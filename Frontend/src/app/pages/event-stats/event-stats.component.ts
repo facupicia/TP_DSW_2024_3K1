@@ -112,6 +112,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   }
 
   load() {
+    if (typeof window === 'undefined' || !localStorage.getItem('token')) return;
     this.stats.getEventStats(this.eventId).pipe(
       catchError(() => {
         this.isLoading = false;

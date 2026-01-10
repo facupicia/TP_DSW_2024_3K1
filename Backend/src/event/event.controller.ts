@@ -6,6 +6,7 @@ import { CustomRequest } from "../middlewares/authToken";
 import { TicketType } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
+import { log } from "console";
 
 /* ======================================================
    CREATE EVENT
@@ -318,6 +319,19 @@ export const getEvents = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: "Error fetching events" });
+    }
+};
+
+export const getEventsNumber = async (req: Request, res: Response) => {
+    try {
+        const count = await Event.count({ where: { active: true } });
+
+        return res.json({
+            activeEvents: count
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Error fetching events count" });
     }
 };
 

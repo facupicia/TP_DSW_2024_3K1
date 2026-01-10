@@ -6,11 +6,11 @@ import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms'; // Necesario para el buscador
 import { ToastService } from '../../services/toast.service';
-
+import { RouterLink } from '@angular/router';
 @Component({
   selector: 'app-mis-eventos',
   standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule],
+  imports: [CommonModule, HeaderComponent, FormsModule, RouterLink],
   templateUrl: './mis-eventos.component.html',
   styleUrl: './mis-eventos.component.css'
 })

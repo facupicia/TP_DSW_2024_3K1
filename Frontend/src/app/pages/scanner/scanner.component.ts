@@ -4,11 +4,12 @@ import { ZXingScannerModule } from '@zxing/ngx-scanner';
 import { ScannerService } from '../../services/scanner.service';
 import { ToastService } from '../../services/toast.service';
 import { BarcodeFormat } from '@zxing/library';
+import { RouterLink } from '@angular/router';
 
 @Component({
     selector: 'app-scanner',
     standalone: true,
-    imports: [CommonModule, ZXingScannerModule],
+    imports: [CommonModule, ZXingScannerModule, RouterLink],
     templateUrl: './scanner.component.html',
     styleUrls: ['./scanner.component.css']
 })

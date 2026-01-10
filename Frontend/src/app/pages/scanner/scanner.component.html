@@ -1,5 +1,7 @@
 <div class="relative h-screen w-full bg-black overflow-hidden flex flex-col">
 
+
+
     <div class="absolute inset-0 z-0">
         <zxing-scanner [enable]="enableScanner" [torch]="torchEnabled" [device]="currentDevice"
             [formats]="allowedFormats" (scanSuccess)="onScanSuccess($event)" (camerasFound)="onCamerasFound($event)"
@@ -24,13 +26,12 @@
 
     <div
         class="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
-        <button (click)="resetScan()"
-            class="text-white/90 backdrop-blur-md bg-white/10 p-2 rounded-full hover:bg-white/20 transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m15 18-6-6 6-6" />
-            </svg>
-        </button>
+<a [routerLink]="['/profile']" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </a>
         <span class="text-white font-semibold tracking-wide text-lg">Escanear</span>
         <div class="w-10"></div>
     </div>

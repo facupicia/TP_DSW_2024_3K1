@@ -1,5 +1,7 @@
 
 
+import { Categoria } from './categoria';
+
 export interface TicketType {
     id?: number;
     name: string;
@@ -26,7 +28,7 @@ export interface Evento {
     time: string;
     categoryId?: number;
     categoria_name?: string;
-    category?: string;
+    category?: Categoria | any;
     ticketTypes?: TicketType[];
     minAge?: number; // 0 = sin restricción, 18 = +18, etc.
     // Legacy fields (optional/deprecated for display)

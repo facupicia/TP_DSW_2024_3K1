@@ -8,6 +8,7 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { StatsService } from '../../services/stats.service';
 import { Usuario } from '../../interfaces/Usuario';
+import { EventService } from '../../services/event.service';
 
 type TabView = 'dashboard' | 'users' | 'categories';
 
@@ -25,6 +26,7 @@ export class AdminPanelComponent implements OnInit {
   public formBuild = inject(FormBuilder);
   private toast = inject(ToastService);
   private statsService = inject(StatsService);
+  private eventService = inject(EventService);
 
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
@@ -53,19 +55,22 @@ export class AdminPanelComponent implements OnInit {
     this.userService.currentUser$.subscribe(u => {
       this.currentUser = u;
     });
-    this.loadPlatformStats();
+   
+
+    this.cargarUsuarios();
+    this.getEvents();
   }
 
-  loadPlatformStats() {
-    this.statsService.getPlatformStats().subscribe({
-      next: (data) => {
-        this.stats.totalUsers = data.totalUsers;
-        this.stats.activeEvents = data.totalEvents;
-        // this.stats.averageParticipation = data.averageParticipation;
-      },
-      error: (err) => console.error('Error loading platform stats', err)
-    });
-  }
+getEvents() {
+  this.eventService.getEventsNumber().subscribe({
+    next: (data) => {
+      this.stats.activeEvents = data;
+      console.log(this.stats.activeEvents);
+    },
+    error: (err) => console.error(err)
+  });
+}
+
 
   cargarCategorias() {
     this.loadingCategories = true;

@@ -122,7 +122,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
         return res.status(200).json({
             id: result.id,
-            init_point: result.sandbox_init_point, // Enlace inteligente (Sandbox o Prod según credenciales)
+            init_point: result.init_point, // Enlace inteligente (Sandbox o Prod según credenciales) sandbox_init_point
         });
 
     } catch (error: any) {

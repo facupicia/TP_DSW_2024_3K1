@@ -1,5 +1,5 @@
 import { Router } from "express"
-import { getEvent, createEvent, deleteEvent, getEventByName, getEventsByUser, updateEvent, getEvents, getCreatorStats, getCreatorStatsComparative, streamCreatorStats, exportCreatorStatsPdf, getPlatformStats, getEventStats, exportCreatorStatsCsv } from "../event/event.controller"
+import { getEvent, createEvent, deleteEvent, getEventByName, getEventsByUser, updateEvent, getEvents, getCreatorStats, getCreatorStatsComparative, streamCreatorStats, exportCreatorStatsPdf, getPlatformStats, getEventStats, exportCreatorStatsCsv, getEventsNumber } from "../event/event.controller"
 import { createTicket } from "../ticket/ticket.controller"
 import { createEventSchema, updateEventSchema } from "../schemas/schema.event"
 import { schemaValidation } from "../middlewares/schemaValidacion"
@@ -14,6 +14,7 @@ router.post("/new", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]),
 router.get("/", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]), getEventsByUser)
 router.get("/search", getEventByName)
 router.get("/explore", getEvents)
+router.get("/count", getEventsNumber)
 
 // 2. Rutas Específicas (ESTADÍSTICAS) - ¡Deben ir ANTES de /:id!
 router.get("/stats", checkAuthToken, checkRoleAuth(["user", "admin", "scanner"]), getCreatorStats)
