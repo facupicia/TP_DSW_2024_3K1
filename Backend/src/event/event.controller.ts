@@ -3,7 +3,7 @@ import { Event } from "./event.entity";
 import { Category } from "../category/category.entity";
 import { User } from "../user/user.entity";
 import { CustomRequest } from "../middlewares/authToken";
-import { TicketType } from "../ticketType/ticketType.entity";
+import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { log } from "console";
@@ -187,8 +187,8 @@ export const updateEvent = async (req: Request, res: Response) => {
             const existingTypes = event.ticketTypes || [];
             for (const existingTT of existingTypes) {
                 if (!incomingIds.includes(existingTT.id)) {
-                    // Soft delete: active = false
-                    existingTT.active = false;
+                    // Soft delete: status = DISABLED
+                    existingTT.status = TicketTypeStatus.DISABLED;
                     await queryRunner.manager.save(TicketType, existingTT);
                 }
             }
@@ -201,7 +201,6 @@ export const updateEvent = async (req: Request, res: Response) => {
                     if (existingTT) {
                         // Business Rule: Cannot reduce capacity below sold count
                         if (ttData.capacity !== undefined && ttData.capacity < existingTT.soldCount) {
-                            // Rollback manually or throw to trigger catch
                             throw new Error(`No se puede reducir la capacidad por debajo de lo vendido (${existingTT.soldCount}) para ${existingTT.name}`);
                         }
 
@@ -209,7 +208,7 @@ export const updateEvent = async (req: Request, res: Response) => {
                         existingTT.price = ttData.price ?? existingTT.price;
                         existingTT.capacity = ttData.capacity ?? existingTT.capacity;
                         existingTT.description = ttData.description ?? existingTT.description;
-                        existingTT.active = ttData.active ?? true; // Reactivar si estaba inactivo
+                        existingTT.status = ttData.status ?? TicketTypeStatus.ACTIVE;
                         await queryRunner.manager.save(TicketType, existingTT);
                     }
                 } else {
@@ -220,7 +219,7 @@ export const updateEvent = async (req: Request, res: Response) => {
                     newTT.capacity = ttData.capacity;
                     newTT.description = ttData.description;
                     newTT.event = event;
-                    newTT.active = true;
+                    newTT.status = TicketTypeStatus.ACTIVE;
                     await queryRunner.manager.save(TicketType, newTT);
                 }
             }

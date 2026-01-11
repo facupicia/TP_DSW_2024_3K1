@@ -1,6 +1,6 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import AppDataSource from "../db";
-import { PaymentLog, PaymentStatus } from "./payment.entity"; 
+import { PaymentLog, PaymentStatus } from "./payment.entity";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -60,17 +60,17 @@ export const processPaymentTransaction = async (paymentId: string) => {
 
         try {
             // Buscamos primero el ticketType para saber el eventId y validar
-             const ticketType = await queryRunner.manager.findOne(TicketType, { 
+            const ticketType = await queryRunner.manager.findOne(TicketType, {
                 where: { id: ticketTypeId },
                 relations: ["event"]
             });
 
             if (!ticketType) {
-                 logger.error("TICKET_TYPE_NOT_FOUND", { ticketTypeId });
-                 // No podemos registrar log asociado a evento si no tenemos el ticketType... 
-                 // Pero intentamos registrar con eventId 0 o algo para auditoria?
-                 // Mejor abortar o registrar log de error.
-                 throw new Error(`TicketType not found: ${ticketTypeId}`);
+                logger.error("TICKET_TYPE_NOT_FOUND", { ticketTypeId });
+                // No podemos registrar log asociado a evento si no tenemos el ticketType... 
+                // Pero intentamos registrar con eventId 0 o algo para auditoria?
+                // Mejor abortar o registrar log de error.
+                throw new Error(`TicketType not found: ${ticketTypeId}`);
             }
 
             const eventId = ticketType.event.id;
@@ -80,12 +80,13 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 mpPaymentId: String(paymentId),
                 externalReference: String(payment.external_reference || ''),
                 userId,
-                eventId,
                 ticketTypeId,
-                amount,
+                unitPrice: Number(ticketType.price),
+                quantity: amount,
+                totalAmount: Number(ticketType.price) * amount,
                 status: PaymentStatus.PROCESSING
             });
-            
+
             try {
                 await queryRunner.manager.save(log);
             } catch (e: any) {

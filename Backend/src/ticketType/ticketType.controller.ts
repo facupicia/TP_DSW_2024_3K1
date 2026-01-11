@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { TicketType } from "./ticketType.entity";
+import { TicketType, TicketTypeStatus } from "./ticketType.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../middlewares/authToken";
 
@@ -84,12 +84,12 @@ export const getTicketTypesByEvent = async (req: Request, res: Response) => {
         const ticketTypes = await TicketType.find({
             where: {
                 eventId,
-                active: true
+                status: TicketTypeStatus.ACTIVE
             },
             order: {
                 price: "ASC"
             },
-            select: ["id", "name", "description", "price", "capacity", "soldCount", "active"]
+            select: ["id", "name", "description", "price", "capacity", "soldCount", "status"]
         });
 
         return res.json(ticketTypes);
@@ -137,7 +137,7 @@ export const updateTicketType = async (req: CustomRequest, res: Response) => {
             description,
             price,
             capacity,
-            active
+            status
         } = req.body;
 
         // Regla clave: nunca permitir modificar soldCount
@@ -170,7 +170,9 @@ export const updateTicketType = async (req: CustomRequest, res: Response) => {
         if (description !== undefined) ticketType.description = description?.trim() || null;
         if (price !== undefined) ticketType.price = Number(price);
         if (capacity !== undefined) ticketType.capacity = Number(capacity);
-        if (active !== undefined) ticketType.active = Boolean(active);
+        if (status !== undefined && Object.values(TicketTypeStatus).includes(status)) {
+            ticketType.status = status;
+        }
 
         await ticketType.save();
 
@@ -222,7 +224,7 @@ export const deactivateTicketType = async (req: CustomRequest, res: Response) =>
             console.warn(`Deactivating ticket type ${id} with ${ticketType.soldCount} sold tickets`);
         }
 
-        ticketType.active = false;
+        ticketType.status = TicketTypeStatus.DISABLED;
         await ticketType.save();
 
         return res.sendStatus(204);

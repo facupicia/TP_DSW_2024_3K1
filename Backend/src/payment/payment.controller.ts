@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import AppDataSource from "../db";
-import { TicketType } from "../ticketType/ticketType.entity";
+import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
@@ -37,7 +37,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
         if (!user || !ticketType) return res.status(404).json({ message: "Usuario o Tipo de Ticket no encontrado." });
 
-        if (!ticketType.active) return res.status(400).json({ message: "Este tipo de ticket no está disponible." });
+        if (ticketType.status !== TicketTypeStatus.ACTIVE) return res.status(400).json({ message: "Este tipo de ticket no está disponible." });
 
         const availableStock = ticketType.capacity - ticketType.soldCount;
 

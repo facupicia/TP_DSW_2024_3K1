@@ -1,8 +1,17 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, Index, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany, Check } from 'typeorm';
 import { Event } from '../event/event.entity';
 import { Ticket } from '../ticket/ticket.entity';
 
+export enum TicketTypeStatus {
+    ACTIVE = 'active',
+    SOLD_OUT = 'sold_out',
+    PAUSED = 'paused',
+    DISABLED = 'disabled'
+}
+
 @Entity('ticket_type')
+@Check('"soldCount" >= 0')
+@Check('"soldCount" <= "capacity"')
 export class TicketType extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -34,12 +43,19 @@ export class TicketType extends BaseEntity {
     @Column({ default: 0 })
     soldCount: number;
 
-    @Column({ default: true })
-    active: boolean;
+    @Column({
+        type: 'enum',
+        enum: TicketTypeStatus,
+        default: TicketTypeStatus.ACTIVE
+    })
+    status: TicketTypeStatus;
 
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
+
+    @DeleteDateColumn({ type: 'timestamp', nullable: true })
+    deletedAt: Date | null;
 }

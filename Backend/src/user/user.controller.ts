@@ -80,7 +80,7 @@ export const getUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { firstname, lastname, email, password, rol, phone, birth, pais, provincia, ciudad, imgPerfil } = req.body
+    const { firstname, lastname, email, password, rol, phone, birth, pais, provincia, ciudad, imgPerfil, address } = req.body
     const user = await User.findOneBy({ id: parseInt(req.params.id) })
 
     if (!user) return res.status(404).json({ message: "User does not exist" })
@@ -90,6 +90,7 @@ export const updateUser = async (req: Request, res: Response) => {
     user.pais = pais
     user.provincia = provincia
     user.ciudad = ciudad
+    user.address = address
     user.imgPerfil = imgPerfil
     user.lastname = lastname
     user.email = email

@@ -3,7 +3,7 @@ import AppDataSource from "./db";
 import { User } from "./user/user.entity";
 import { Category } from "./category/category.entity";
 import { Event } from "./event/event.entity";
-import { TicketType } from "./ticketType/ticketType.entity";
+import { TicketType, TicketTypeStatus } from "./ticketType/ticketType.entity";
 import { Ticket, TicketStatus } from "./ticket/ticket.entity";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from 'uuid';
@@ -149,6 +149,7 @@ async function seed() {
         tt.price = ttData.price;
         tt.capacity = ttData.capacity;
         tt.soldCount = ttData.soldCount;
+        tt.status = TicketTypeStatus.ACTIVE;
         await AppDataSource.getRepository(TicketType).save(tt);
         ticketTypesCreados.push(tt);
     }

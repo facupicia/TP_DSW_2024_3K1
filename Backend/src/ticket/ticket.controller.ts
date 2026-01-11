@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Ticket, TicketStatus } from "./ticket.entity";
-import { TicketType } from "../ticketType/ticketType.entity";
+import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
@@ -51,8 +51,8 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Tipo de ticket no encontrado" });
         }
 
-        if (!ticketType.active) {
-            return res.status(400).json({ message: "Este tipo de ticket no está activo." });
+        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
+            return res.status(400).json({ message: "Este tipo de ticket no está disponible." });
         }
 
         const event = ticketType.event;
@@ -192,13 +192,11 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
             return res.status(200).json({ tickets: [], status: 'processing' });
         }
 
-        // Tickets asociados al evento del último pago
+        // Tickets asociados al tipo de ticket del último pago
         const tickets = await ticketRepo.find({
             where: {
                 userId,
-                ticketType: {
-                    eventId: lastLog.eventId
-                }
+                ticketTypeId: lastLog.ticketTypeId!
             },
             order: { createdAt: 'DESC' },
             relations: { ticketType: { event: true } },
