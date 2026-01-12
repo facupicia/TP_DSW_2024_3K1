@@ -8,8 +8,6 @@ const router = Router();
 router.post("/create-preference", checkAuthToken, createPreference);
 
 // Webhook de Mercado Pago
-// IMPORTANTE: Ya no usamos express.raw ni validateSignature.
-// Asumimos que en tu app.ts principal tienes app.use(express.json());
 router.post("/webhook", paymentWebhook);
 router.get("/webhook", paymentWebhook);
 

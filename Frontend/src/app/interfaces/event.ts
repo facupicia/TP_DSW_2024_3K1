@@ -9,7 +9,7 @@ export interface TicketType {
     price: number;
     capacity: number;
     soldCount?: number;
-    active?: boolean;
+    status?: 'active' | 'sold_out' | 'paused' | 'disabled';
 }
 
 export interface Evento {

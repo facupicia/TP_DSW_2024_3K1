@@ -11,10 +11,11 @@ import { processPaymentTransaction } from "./payment.service";
 dotenv.config();
 
 export const createPreference = async (req: CustomRequest, res: Response) => {
-    const accessToken = process.env.MP_ACCESS_TOKEN || '';
+    const accessToken = process.env.MP_ACCESS_TOKEN;
     if (!accessToken) {
         return res.status(500).json({ code: 'CONFIG_MISSING_MP_TOKEN', message: 'Payment gateway not configured' });
     }
+
     const client = new MercadoPagoConfig({ accessToken });
     const queryRunner = AppDataSource.createQueryRunner();
 

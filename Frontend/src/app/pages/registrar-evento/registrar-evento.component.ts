@@ -122,7 +122,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       price: [data?.price || 0, [Validators.required, Validators.min(0)]],
       capacity: [data?.capacity || 100, [Validators.required, Validators.min(1)]],
       description: [data?.description || ''],
-      active: [data?.active ?? true]
+      status: [data?.status ?? 'active']
     });
     this.ticketTypes.push(group);
   }

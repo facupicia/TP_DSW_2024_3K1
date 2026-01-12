@@ -1,6 +1,4 @@
-<div class="relative h-screen w-full bg-black overflow-hidden flex flex-col">
-
-
+<div class="relative h-screen w-full bg-black overflow-hidden flex flex-col font-sans">
 
     <div class="absolute inset-0 z-0">
         <zxing-scanner [enable]="enableScanner" [torch]="torchEnabled" [device]="currentDevice"
@@ -8,8 +6,9 @@
             (permissionResponse)="onHasPermission($event)" class="w-full h-full object-cover">
         </zxing-scanner>
 
-        <div class="absolute inset-0 bg-black/40 z-10">
-            <div class="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72">
+        <div class="absolute inset-0 bg-black/50 z-10 backdrop-blur-[1px]">
+            <div class="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72">
+                
                 <div class="scan-laser" *ngIf="isProcessing || enableScanner"></div>
 
                 <div class="corner-border corner-tl"></div>
@@ -17,151 +16,139 @@
                 <div class="corner-border corner-bl"></div>
                 <div class="corner-border corner-br"></div>
 
-                <p class="absolute -bottom-12 w-full text-center text-white/80 text-sm font-medium tracking-wide">
-                    Apunta al código QR
-                </p>
+                <div class="absolute -bottom-16 w-full text-center space-y-2">
+                     <p class="text-white font-bold text-lg tracking-tight drop-shadow-md">
+                        Escanear Ticket
+                    </p>
+                    <p class="text-white/70 text-sm font-medium">
+                        Alinea el código QR dentro del marco
+                    </p>
+                </div>
             </div>
         </div>
     </div>
 
-    <div
-        class="absolute top-0 left-0 right-0 z-20 p-6 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent">
-<a [routerLink]="['/profile']" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m15 18-6-6 6-6" />
-        </svg>
-      </a>
-        <span class="text-white font-semibold tracking-wide text-lg">Escanear</span>
-        <div class="w-10"></div>
-    </div>
-
-    <div class="absolute top-24 right-6 z-20 flex flex-col gap-4">
-        <button (click)="toggleTorch()" [ngClass]="{
-                'bg-yellow-400 text-black': torchEnabled,
-                'bg-white/10 text-white': !torchEnabled
-            }" class="backdrop-blur-md p-3 rounded-full shadow-lg transition-all duration-300">
+    <div class="absolute top-0 left-0 right-0 z-20 pt-12 pb-4 px-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
+        <a [routerLink]="['/profile']" 
+           class="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 active:scale-95 transition-all">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path
-                    d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
-                <path d="M9 18h6" />
-                <path d="M10 22h4" />
+                <path d="m15 18-6-6 6-6" />
             </svg>
-        </button>
+        </a>
+        
+        <div class="flex gap-3">
+            <button (click)="toggleTorch()" 
+                class="w-10 h-10 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition-all active:scale-95"
+                [ngClass]="torchEnabled ? 'bg-yellow-400 text-black border-yellow-400' : 'bg-white/10 text-white'">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+            </button>
 
-        <button *ngIf="availableDevices.length > 1" (click)="switchCamera()"
-            class="bg-white/10 text-white backdrop-blur-md p-3 rounded-full shadow-lg hover:bg-white/20 transition-all">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M7 10h3V7" />
-                <path d="M13.5 6H17v3.5" />
-                <path d="M17 13.5V17h-3.5" />
-                <path d="M7 13.5V17h3.5" />
-                <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" />
-            </svg>
-        </button>
+            <button *ngIf="availableDevices.length > 1" (click)="switchCamera()"
+                class="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/20 flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z" />
+                    <line x1="18" x2="18" y1="9" y2="9" />
+                </svg>
+            </button>
+        </div>
     </div>
 
-    <div
-        class="mt-auto z-20 bg-white dark:bg-gray-900 rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.3)] min-h-[30vh] max-h-[80vh] flex flex-col transition-transform duration-500">
+    <div class="mt-auto z-20 w-full max-h-[45vh] flex flex-col transition-all duration-500 rounded-t-[32px] overflow-hidden border-t border-white/20 shadow-2xl backdrop-blur-xl bg-white/80 dark:bg-slate-900/80">
 
-        <div class="w-full flex justify-center pt-4 pb-2">
-            <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+        <div class="w-full flex justify-center pt-3 pb-1 bg-transparent shrink-0" (click)="resetScan()">
+            <div class="w-12 h-1.5 bg-gray-300/50 dark:bg-gray-600/50 rounded-full cursor-pointer hover:bg-gray-400 transition-colors"></div>
         </div>
 
-        <div class="p-6 flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2">
 
             <div *ngIf="showResultModal" class="modal-enter">
-                <div [ngClass]="scanResult.status === 'success' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'"
-                    class="rounded-3xl p-6 text-center mb-6 border border-gray-100 dark:border-gray-800">
-
-                    <div [ngClass]="scanResult.status === 'success' ? 'bg-green-500' : 'bg-red-500'"
-                        class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white shadow-lg shadow-green-500/30">
-                        <svg *ngIf="scanResult.status === 'success'" xmlns="http://www.w3.org/2000/svg" width="32"
-                            height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 6 9 17l-5-5" />
+                <div class="text-center">
+                    
+                    <div class="mb-4 inline-flex p-4 rounded-full shadow-lg border border-white/20 backdrop-blur-md"
+                        [ngClass]="scanResult.status === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'">
+                        <svg *ngIf="scanResult.status === 'success'" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
-                        <svg *ngIf="scanResult.status === 'error'" xmlns="http://www.w3.org/2000/svg" width="32"
-                            height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
+                        <svg *ngIf="scanResult.status === 'error'" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </div>
 
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">
                         {{ scanResult.status === 'success' ? 'Acceso Permitido' : 'Acceso Denegado' }}
                     </h2>
-                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-4">{{ scanResult.message }}</p>
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-6">{{ scanResult.message }}</p>
 
-                    <div *ngIf="scanResult.ticket"
-                        class="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm text-left text-sm space-y-3">
-                        <div
-                            class="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-                            <span class="text-gray-500">Evento</span>
-                            <span class="font-semibold text-gray-900 dark:text-white">{{ scanResult.ticket.titleEvent
-                                }}</span>
+                    <div *ngIf="scanResult.ticket" 
+                         class="bg-white/50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl p-4 text-left shadow-sm space-y-3 mb-6 backdrop-blur-sm">
+                        
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Evento</span>
+                            <span class="text-sm font-bold text-gray-900 dark:text-white text-right max-w-[60%] leading-tight">
+                                {{ scanResult.ticket.titleEvent }}
+                            </span>
                         </div>
+                        <div class="w-full h-px bg-gray-200 dark:bg-white/10"></div>
                         <div class="flex justify-between items-center">
-                            <span class="text-gray-500">Asistente</span>
-                            <span class="font-semibold text-gray-900 dark:text-white">{{
-                                scanResult.ticket.user?.firstname }} {{ scanResult.ticket.user?.lastname }}</span>
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Asistente</span>
+                            <span class="text-sm font-bold text-gray-900 dark:text-white">
+                                {{ scanResult.ticket.user?.firstname }} {{ scanResult.ticket.user?.lastname }}
+                            </span>
                         </div>
-                        <div *ngIf="scanResult.ticket.type" class="flex justify-between items-center">
-                            <span class="text-gray-500">Tipo</span>
-                            <span
-                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                {{ scanResult.ticket.type }}
+                         <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Ticket</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                {{ scanResult.ticket.type || 'General' }}
                             </span>
                         </div>
                     </div>
 
                     <button (click)="resetScan()"
-                        class="w-full mt-6 bg-black dark:bg-white text-white dark:text-black font-semibold py-4 rounded-full shadow-lg active:scale-95 transition-transform">
+                        class="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-2xl shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                         Escanear Siguiente
                     </button>
                 </div>
             </div>
 
             <div *ngIf="!showResultModal">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 pl-1">Actividad Reciente</h3>
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <h3 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-widest">Actividad Reciente</h3>
+                    <span class="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-white/10 px-2 py-1 rounded-md">{{ scanHistory.length }} escaneos</span>
+                </div>
 
-                <div class="space-y-3">
+                <div class="space-y-3 pb-6">
                     <div *ngFor="let item of scanHistory"
-                        class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700/50 hover:bg-gray-100 transition-colors">
-                        <div class="flex items-center gap-4">
-                            <div
-                                class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                                    fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                                    stroke-linejoin="round">
-                                    <path d="M20 6 9 17l-5-5" />
-                                </svg>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ item.titleEvent }}</p>
-                                <p class="text-xs text-gray-500">{{ item.user?.firstname }} {{ item.user?.lastname }}
-                                </p>
-                            </div>
+                        class="flex items-center gap-4 p-3 bg-white/60 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm">
+                        
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 border"
+                             [ngClass]="item.status === 'success' || !item.status ? 'bg-green-100 text-green-600 border-green-200' : 'bg-red-100 text-red-600 border-red-200'">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
                         </div>
-                        <span class="text-xs font-medium text-gray-400 font-mono">
-                            {{ item.usedAt | date:'HH:mm' }}
-                        </span>
+                        
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-gray-900 dark:text-white text-sm truncate">{{ item.titleEvent }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {{ item.user?.firstname }} {{ item.user?.lastname }}
+                            </p>
+                        </div>
+                        
+                        <div class="text-right shrink-0">
+                             <span class="text-[10px] font-bold text-gray-400 bg-gray-100 dark:bg-white/10 px-1.5 py-0.5 rounded">
+                                {{ item.usedAt | date:'HH:mm' }}
+                            </span>
+                        </div>
                     </div>
 
-                    <div *ngIf="scanHistory.length === 0"
-                        class="flex flex-col items-center justify-center py-10 text-gray-400">
-                        <svg class="mb-3 opacity-50" xmlns="http://www.w3.org/2000/svg" width="40" height="40"
-                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"
-                            stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-                            <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-                            <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-                            <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-                        </svg>
-                        <p class="text-sm">Sin escaneos recientes</p>
+                    <div *ngIf="scanHistory.length === 0" class="py-8 text-center opacity-50">
+                        <p class="text-sm font-medium text-gray-500">Esperando escaneos...</p>
                     </div>
                 </div>
             </div>

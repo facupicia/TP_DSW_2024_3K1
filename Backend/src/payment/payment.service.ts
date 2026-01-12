@@ -14,10 +14,35 @@ const paymentClient = new Payment(client);
 
 export const processPaymentTransaction = async (paymentId: string) => {
     try {
-        const payment = await paymentClient.get({ id: paymentId });
+        // Retry logic para manejar delay de propagación de estado en MP
+        let payment: any = null;
+        let attempts = 0;
+        const maxAttempts = 3;
+        const delayMs = 2000; // 2 segundos entre reintentos
+
+        while (attempts < maxAttempts) {
+            payment = await paymentClient.get({ id: paymentId });
+
+            console.log(`MP_PAYMENT_RESPONSE (attempt ${attempts + 1}):`, JSON.stringify({
+                id: payment.id,
+                status: payment.status,
+                status_detail: payment.status_detail,
+                external_reference: payment.external_reference
+            }, null, 2));
+
+            if (payment.status === 'approved') {
+                break; // Pago aprobado, salir del loop
+            }
+
+            attempts++;
+            if (attempts < maxAttempts) {
+                console.log(`Payment not approved yet, retrying in ${delayMs}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
 
         if (payment.status !== 'approved') {
-            logger.info("PAYMENT_NOT_APPROVED", { id: paymentId, status: payment.status });
+            logger.info("PAYMENT_NOT_APPROVED", { id: paymentId, status: payment.status, attempts });
             return;
         }
 

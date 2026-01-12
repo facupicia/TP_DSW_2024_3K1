@@ -61,7 +61,7 @@ export class CheckoutComponent implements OnInit {
 
       // Auto-select first active ticket type
       if (this.ticketTypes.length > 0) {
-        const firstActive = this.ticketTypes.find(t => t.active !== false);
+        const firstActive = this.ticketTypes.find(t => t.status === 'active');
         if (firstActive) {
           this.formCheckout.patchValue({ ticketTypeId: firstActive.id });
           this.onTicketTypeChange(firstActive.id!);
@@ -73,7 +73,7 @@ export class CheckoutComponent implements OnInit {
           name: 'Entrada General',
           price: evento.price || 0,
           capacity: evento.capacity || 100,
-          active: true
+          status: 'active'
         };
         this.calculateTotal();
       }
