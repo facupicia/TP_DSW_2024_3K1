@@ -19,22 +19,25 @@ export class ScannerComponent implements OnInit {
 
     allowedFormats = [BarcodeFormat.QR_CODE];
 
-    // Hardware State
+    // Hardware
     hasDevices: boolean = false;
     hasPermission: boolean = false;
     torchEnabled: boolean = false;
     availableDevices: MediaDeviceInfo[] = [];
     currentDevice: MediaDeviceInfo | undefined;
 
-    // Logic State
+    // Lógica de Escaneo Continuo
     scanResult: any = null;
     scanHistory: any[] = [];
     isProcessing: boolean = false;
-    enableScanner: boolean = true;
-    showResultModal: boolean = false;
+    enableScanner: boolean = true; // SIEMPRE TRUE para evitar pantalla negra
+
+    // Estados visuales
+    flashState: 'idle' | 'success' | 'error' = 'idle';
+    cooldownTimer: any;
 
     // Audio
-    private audioSuccess = new Audio('assets/sounds/success.mp3'); // Asegúrate de tener estos mp3 o usa base64
+    private audioSuccess = new Audio('assets/sounds/success.mp3');
     private audioError = new Audio('assets/sounds/error.mp3');
 
     constructor() {
@@ -42,9 +45,8 @@ export class ScannerComponent implements OnInit {
     }
 
     ngOnInit() {
-        // Preload sounds if needed
-        this.audioSuccess.volume = 0.5;
-        this.audioError.volume = 0.5;
+        this.audioSuccess.volume = 0.6;
+        this.audioError.volume = 0.6;
     }
 
     loadHistory() {
@@ -61,8 +63,7 @@ export class ScannerComponent implements OnInit {
     onCamerasFound(devices: MediaDeviceInfo[]): void {
         this.availableDevices = devices;
         this.hasDevices = Boolean(devices && devices.length);
-
-        // Prefer rear camera (environment)
+        // Preferir cámara trasera
         const rearCamera = devices.find(device => /back|rear|environment/gi.test(device.label));
         this.currentDevice = rearCamera || devices[0];
     }
@@ -80,60 +81,69 @@ export class ScannerComponent implements OnInit {
     }
 
     onScanSuccess(resultString: string) {
+        // Si estamos en "cooldown" (los 3 segundos de espera), ignoramos nuevos códigos
         if (this.isProcessing) return;
 
         this.isProcessing = true;
-        this.enableScanner = false;
         this.hapticFeedback();
+
+        // NO DESACTIVAMOS LA CAMARA (enableScanner sigue true)
 
         this.scannerService.validateTicket(resultString).subscribe({
             next: (res) => {
-                this.scanResult = { status: 'success', ...res };
-                this.playAudio('success');
-                this.finishScanProcess();
+                this.handleScanResult('success', res);
             },
             error: (err) => {
                 const errorData = err.error || {};
-                this.scanResult = {
+                const res = {
                     status: 'error',
-                    message: errorData.message || "Error desconocido",
-                    ticket: errorData.ticket
+                    message: errorData.message || "Ticket Inválido o Error",
+                    ticket: errorData.ticket // A veces devolvemos info del ticket aunque sea error (ej: ya usado)
                 };
-                this.playAudio('error');
-                this.finishScanProcess();
+                this.handleScanResult('error', res);
             }
         });
     }
 
-    finishScanProcess() {
-        this.showResultModal = true;
+    handleScanResult(status: 'success' | 'error', data: any) {
+        // 1. Feedback Inmediato
+        this.playAudio(status);
+        this.flashState = status; // Dispara el pantallazo verde/rojo
+
+        // 2. Mostrar datos
+        this.scanResult = { status, ...data };
+
+        // 3. Actualizar Historial (sin recargar todo si es posible, o recargando)
         this.loadHistory();
-        // Keep isProcessing true until user dismisses modal to prevent accidental rescans
+
+        // 4. Iniciar Cooldown de 3 segundos
+        if (this.cooldownTimer) clearTimeout(this.cooldownTimer);
+
+        this.cooldownTimer = setTimeout(() => {
+            this.resetScanner();
+        }, 3000); // 3 segundos para leer, luego listo para el siguiente
     }
 
-    resetScan() {
-        this.showResultModal = false;
-        setTimeout(() => {
-            this.scanResult = null;
-            this.isProcessing = false;
-            this.enableScanner = true;
-        }, 300); // Wait for animation
+    resetScanner() {
+        this.flashState = 'idle';
+        this.scanResult = null;
+        this.isProcessing = false;
+        // La cámara nunca se apagó, así que ya está lista
     }
 
     hapticFeedback() {
-        if (navigator.vibrate) {
-            navigator.vibrate(50); // Short vibration
-        }
+        if (navigator.vibrate) navigator.vibrate(50);
     }
 
     playAudio(type: 'success' | 'error') {
-        // Simple fallback beep if no file, or play the loaded audio
-        // Here assuming we use the Audio objects defined above
         try {
-            if (type === 'success') this.audioSuccess.play();
-            else this.audioError.play();
-        } catch (e) {
-            console.log('Audio play failed', e);
-        }
+            if (type === 'success') {
+                this.audioSuccess.currentTime = 0;
+                this.audioSuccess.play();
+            } else {
+                this.audioError.currentTime = 0;
+                this.audioError.play();
+            }
+        } catch (e) { console.log('Audio error', e); }
     }
 }
