@@ -7,6 +7,7 @@ import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { log } from "console";
+import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
 
 /* ======================================================
    CREATE EVENT
@@ -45,10 +46,42 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // ============ SUBSCRIPTION PLAN VALIDATION ============
+        // Check event creation limit
+        const eventCheck = await canCreateEvent(userId);
+        if (!eventCheck.allowed) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                code: 'PLAN_LIMIT_EVENTS',
+                message: eventCheck.reason,
+                upgradeRequired: eventCheck.upgradeRequired,
+                currentCount: eventCheck.currentCount,
+                maxAllowed: eventCheck.maxAllowed
+            });
+        }
+
+        // Check ticket types limit
+        const ticketTypesCount = ticketTypes?.length || 0;
+        if (ticketTypesCount > 0) {
+            const ttCheck = await canCreateTicketTypes(userId, ticketTypesCount);
+            if (!ttCheck.allowed) {
+                await queryRunner.rollbackTransaction();
+                return res.status(403).json({
+                    code: 'PLAN_LIMIT_TICKET_TYPES',
+                    message: ttCheck.reason,
+                    upgradeRequired: ttCheck.upgradeRequired,
+                    maxAllowed: ttCheck.maxAllowed
+                });
+            }
+        }
+        // ======================================================
+
         // Promote user to organizer role if they are a regular user
         if (user.rol === 'user') {
             user.rol = 'organizer';
             await queryRunner.manager.save(User, user);
+            // Ensure user has a subscription (will create FREE if none exists)
+            await assignDefaultPlan(userId);
         }
 
         const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });

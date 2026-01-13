@@ -10,6 +10,7 @@ import ticketTypeRoute from "./routers/ticketType.routes"
 import scannerRoute from "./scanner/scanner.routes"
 import categoryRoute from "./routers/category.routes"
 import paymentRoute from "./payment/payment.routes"
+import subscriptionRoute from "./subscription/subscription.routes"
 import { paymentWebhook } from "./payment/payment.controller"
 import { errorHandler } from "./middlewares/errorHandler"
 import { getMailerStatus } from "./lib/mailer"
@@ -94,6 +95,7 @@ app.use("/api/ticket", userTicket)
 app.use("/api/ticketType", ticketTypeRoute)
 app.use("/api/scanner", scannerRoute)
 app.use("/api/payment", paymentRoute)
+app.use("/api/subscription", subscriptionRoute)
 // Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)
 app.post("/", paymentWebhook)
 app.get("/", paymentWebhook)

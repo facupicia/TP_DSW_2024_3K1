@@ -7,6 +7,7 @@ import { HeaderComponent } from '../../components/header/header.component';
 import { FooterComponent } from '../../components/footer/footer.component';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
+import { SubscriptionLandingComponent } from '../../components/subscription-banner/subscription-landing.component';
 
 @Component({
   selector: 'app-landing',
@@ -16,7 +17,8 @@ import { Evento } from '../../interfaces/event';
     FooterComponent,
     CommonModule, // Para *ngFor, *ngIf
     RouterLink,   // Para routerLink=""
-    DatePipe      // Para el pipe | date
+    DatePipe,     // Para el pipe | date
+    SubscriptionLandingComponent
   ],
   templateUrl: './landing.component.html',
   styleUrls: ['./landing.component.css']

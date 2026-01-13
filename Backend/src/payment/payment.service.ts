@@ -8,6 +8,7 @@ import { TicketType } from "../ticketType/ticketType.entity";
 import { createTicketsForPurchase } from "../services/ticket.service";
 import enviarCorreoConQR from "../lib/mailer";
 import { logger } from "../lib/logger";
+import { getActiveSubscription } from "../subscription/subscription.service";
 
 const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || '' });
 const paymentClient = new Payment(client);
@@ -99,6 +100,24 @@ export const processPaymentTransaction = async (paymentId: string) => {
             }
 
             const eventId = ticketType.event.id;
+            const organizerId = ticketType.event.user_id;
+
+            // ============ GET ORGANIZER'S SUBSCRIPTION FOR COMMISSION ============
+            let commissionPercent = 8.00; // Default to FREE plan commission
+            let organizerPlanName = 'FREE';
+
+            try {
+                const organizerSubscription = await getActiveSubscription(organizerId);
+                commissionPercent = Number(organizerSubscription.plan.commissionPercent);
+                organizerPlanName = organizerSubscription.plan.name;
+            } catch (subError) {
+                logger.warn("SUBSCRIPTION_FETCH_ERROR", { organizerId, error: (subError as any)?.message });
+                // Continue with default FREE commission
+            }
+
+            const totalAmount = Number(ticketType.price) * amount;
+            const commissionAmount = (totalAmount * commissionPercent) / 100;
+            // =====================================================================
 
             // Log de idempotencia (Evita procesar el mismo pago dos veces)
             const log = queryRunner.manager.create(PaymentLog, {
@@ -108,7 +127,10 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 ticketTypeId,
                 unitPrice: Number(ticketType.price),
                 quantity: amount,
-                totalAmount: Number(ticketType.price) * amount,
+                totalAmount,
+                commissionPercent,
+                commissionAmount,
+                organizerPlanName,
                 status: PaymentStatus.PROCESSING
             });
 

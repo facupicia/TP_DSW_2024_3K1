@@ -37,6 +37,21 @@ export class PaymentLog {
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   totalAmount: number;
 
+  /* ===================== COMMISSION SNAPSHOT ===================== */
+  // Snapshot of organizer's plan commission at time of payment (for auditing)
+
+  /** Commission percentage from organizer's plan at time of payment */
+  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0 })
+  commissionPercent: number;
+
+  /** Calculated commission amount (totalAmount * commissionPercent / 100) */
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  commissionAmount: number;
+
+  /** Organizer's plan name at time of payment (FREE, PRO, etc.) */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  organizerPlanName: string;
+
   @Column({
     type: 'enum',
     enum: PaymentStatus,

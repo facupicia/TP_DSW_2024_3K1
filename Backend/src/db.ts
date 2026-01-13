@@ -6,6 +6,8 @@ import { TicketType } from "./ticketType/ticketType.entity"
 import { Category } from "./category/category.entity"
 import { PaymentLog } from "./payment/payment.entity"
 import { RoleAudit } from "./user/roleAudit.entity"
+import { SubscriptionPlan } from "./subscription/subscription_plan.entity"
+import { UserSubscription } from "./subscription/user_subscription.entity"
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -30,7 +32,7 @@ const AppDataSource = new DataSource({
 
   synchronize: true, // Auto-schema update (cuidado en prod)
   logging: false,
-  entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit],
+  entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription],
 });
 
 export default AppDataSource;
