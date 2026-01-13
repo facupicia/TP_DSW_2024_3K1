@@ -1,4 +1,4 @@
-import { Component, inject, Input, OnInit } from '@angular/core';
+import { Component, inject, Input, OnInit, OnDestroy } from '@angular/core';
 import { EventService } from '../../services/event.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
 import { Evento } from '../../interfaces/event';
 import { HeaderComponent } from '../../components/header/header.component';
 import { ToastService } from '../../services/toast.service';
+import { interval, Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-detalle-evento',
@@ -14,7 +15,7 @@ import { ToastService } from '../../services/toast.service';
   templateUrl: './detalle-evento.component.html',
   styleUrl: './detalle-evento.component.css'
 })
-export class DetalleEventoComponent implements OnInit {
+export class DetalleEventoComponent implements OnInit, OnDestroy {
 
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -29,24 +30,31 @@ export class DetalleEventoComponent implements OnInit {
   imgPerfil: string | null = null;
   loading = true;
 
+  // Countdown Logic
+  countdownSubscription!: Subscription;
+  timeRemaining = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  isEventStarted = false;
+
   ngOnInit(): void {
-    // 1. Verificar Login
     if (typeof localStorage !== 'undefined') {
-      this.isLoggedIn = !!localStorage.getItem('token'); // '!!' convierte a boolean
+      this.isLoggedIn = !!localStorage.getItem('token');
     }
 
-    // 2. Obtener ID
     const idParam = this.route.snapshot.paramMap.get('id');
     this.eventId = idParam;
 
-    // 3. Validar ID
     if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
-      this.router.navigate(['/events']); // Mejor redirigir a /events que a home
+      this.router.navigate(['/events']);
       return;
     }
 
-    // 4. Cargar datos
     this.cargarEvento(Number(this.eventId));
+  }
+
+  ngOnDestroy(): void {
+    if (this.countdownSubscription) {
+      this.countdownSubscription.unsubscribe();
+    }
   }
 
   cargarEvento(id: number) {
@@ -54,52 +62,64 @@ export class DetalleEventoComponent implements OnInit {
     this.eventoService.obtenerEvento(id).subscribe({
       next: (data) => {
         this.evento = data;
-        // Cargar organizador si existe
         if (data.user_id) {
           this.obtenerImagenUsuario(data.user_id);
         }
+        this.startCountdown(); // Iniciar cuenta regresiva
         this.loading = false;
       },
       error: () => {
-        // Error message handled by interceptor
         this.loading = false;
         this.router.navigate(['/events']);
       }
     });
   }
 
-  // En tu clase DetalleEventoComponent
+  startCountdown() {
+    if (!this.evento?.date || !this.evento?.time) return;
+
+    const eventDate = new Date(`${this.evento.date}T${this.evento.time}`);
+
+    this.countdownSubscription = interval(1000).subscribe(() => {
+      const now = new Date().getTime();
+      const distance = eventDate.getTime() - now;
+
+      if (distance < 0) {
+        this.isEventStarted = true;
+        this.timeRemaining = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+        return;
+      }
+
+      this.timeRemaining = {
+        days: Math.floor(distance / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((distance % (1000 * 60)) / 1000)
+      };
+    });
+  }
+
   getGoogleMapsUrl(location: string): string {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
   }
 
   addToCalendar() {
     const { title, description, location, date, time } = this.evento;
-
-    // Formato de fechas para Google (YYYYMMDDTHHmmSS)
-    // Nota: Esto es una aproximación básica. Idealmente usa librerías como 'date-fns'
     const startDate = new Date(date + 'T' + time);
-    const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Asumimos 2 horas de duración
-
+    const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000));
     const format = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
-
     const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}&dates=${format(startDate)}/${format(endDate)}`;
-
     window.open(googleUrl, '_blank');
   }
-
-
 
   shareEvent() {
     if (navigator.share) {
       navigator.share({
         title: this.evento.title,
-        text: `¡Mira este evento! ${this.evento.title} en ${this.evento.location}`,
+        text: `¡Mira este evento! ${this.evento.title}`,
         url: window.location.href
-      })
-        .catch((error) => console.log('Error compartiendo', error));
+      }).catch((error) => console.log('Error compartiendo', error));
     } else {
-      // Fallback: Copiar al portapapeles
       navigator.clipboard.writeText(window.location.href);
       this.toastService.info('Enlace copiado al portapapeles');
     }
@@ -122,14 +142,14 @@ export class DetalleEventoComponent implements OnInit {
     if (this.isEventPast()) {
       return {
         disabled: true,
-        text: 'Ventas Cerradas',
-        class: 'bg-gray-400 cursor-not-allowed'
+        text: 'Evento Finalizado',
+        class: 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
       };
     }
     return {
       disabled: false,
-      text: 'Reservar Lugar',
-      class: 'bg-black hover:bg-gray-900'
+      text: 'Comprar Entradas',
+      class: 'bg-black text-white hover:bg-gray-900 shadow-xl shadow-gray-900/20'
     };
   }
 
@@ -139,11 +159,9 @@ export class DetalleEventoComponent implements OnInit {
         this.user = user;
         this.imgPerfil = user.imgPerfil;
       }
-      // Error handled by interceptor (silent for profile image)
     });
   }
 
-  // Calcular edad del usuario
   private calculateAge(birthDate: Date): number {
     const birth = new Date(birthDate);
     const today = new Date();
@@ -157,35 +175,24 @@ export class DetalleEventoComponent implements OnInit {
 
   reservarEntrada(eventId: number): void {
     const token = localStorage.getItem('token');
-
     if (!token) {
       this.router.navigate(['/login']);
       return;
     }
-
-    // Obtener perfil del usuario para verificar edad
     this.accesService.getProfile().subscribe({
       next: (profile) => {
-        // Verificar restricción de edad
         if (this.evento?.minAge && this.evento.minAge > 0 && profile?.birth) {
           const userAge = this.calculateAge(profile.birth);
-
           if (userAge < this.evento.minAge) {
-            this.toastService.warning(`Este evento requiere +${this.evento.minAge} años. Tu edad registrada es ${userAge} años.`);
+            this.toastService.warning(`Evento para +${this.evento.minAge} años. Tienes ${userAge}.`);
             return;
           }
         }
-
-        // Si pasa la validación, navegar al checkout
         this.router.navigate([`/ticket/${eventId}`]);
       },
       error: (err) => {
-        // Error message handled by interceptor, but we handle 401 specially
-        if (err.status === 401) {
-          this.router.navigate(['/login']);
-        }
+        if (err.status === 401) this.router.navigate(['/login']);
       }
     });
   }
-
 }
