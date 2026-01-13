@@ -8,11 +8,12 @@ import { HeaderComponent } from '../../components/header/header.component';
 import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
+import { DemoBannerComponent } from '../../components/demo-banner/demo-banner.component';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, HeaderComponent],
+  imports: [CommonModule, ReactiveFormsModule, HeaderComponent, DemoBannerComponent],
   templateUrl: './checkout.component.html',
   styleUrls: ['./checkout.component.css']
 })

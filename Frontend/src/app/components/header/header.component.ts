@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, HostListener, inject, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef, NgZone, Input } from '@angular/core';
 import { Router, RouterModule } from '@angular/router'; // <--- IMPORTANTE: RouterModule
 import { AuthService } from '../../services/auth.service';
 
@@ -19,6 +19,8 @@ export class HeaderComponent implements OnDestroy {
   // Usaremos 'user' para el estado reactivo
   user$ = this.accesService.currentUser$;
   isMenuOpen = false;
+
+  @Input() topOffset: string = '0';
 
   ngOnInit(): void {
     // Cerrar menú al cambiar de ruta

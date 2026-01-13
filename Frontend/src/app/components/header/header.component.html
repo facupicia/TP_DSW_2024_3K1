@@ -1,5 +1,6 @@
 <nav
-  class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-gray-100 transition-all duration-300 supports-[backdrop-filter]:bg-white/50">
+  class="fixed w-full z-50 bg-white/70 backdrop-blur-md border-b border-gray-100 transition-all duration-300 supports-[backdrop-filter]:bg-white/50"
+  [style.top]="topOffset">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between items-center h-16">
 
@@ -50,7 +51,7 @@
   </div>
 </nav>
 
-<div class="md:hidden fixed inset-0 z-[1000]" [class.pointer-events-none]="!isMenuOpen">
+<div class="md:hidden fixed inset-0 z-[1000]" [class.pointer-events-none]="!isMenuOpen" [style.top]="topOffset">
 
   <div class="absolute inset-0 bg-black/20 backdrop-blur-[2px] transition-opacity duration-300"
     [class.opacity-0]="!isMenuOpen" (click)="toggleMenu()"></div>
