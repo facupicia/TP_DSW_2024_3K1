@@ -33,12 +33,20 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         router.navigate(['/login']);
                         break;
                     case 403:
-                        errorMessage = 'No tienes permisos para realizar esta acción.';
-                        if (typeof window !== 'undefined') {
-                            localStorage.removeItem('token');
+                        // Check if this is a plan limit error (should NOT logout)
+                        const errorCode = error.error?.code;
+                        if (errorCode?.startsWith('PLAN_LIMIT_')) {
+                            // Plan limit error - show message but don't logout
+                            errorMessage = error.error?.message || 'Has alcanzado el límite de tu plan. Considera actualizar a un plan superior.';
+                        } else {
+                            // Actual permission error - logout
+                            errorMessage = 'No tienes permisos para realizar esta acción.';
+                            if (typeof window !== 'undefined') {
+                                localStorage.removeItem('token');
+                            }
+                            authService.logout();
+                            router.navigate(['/login']);
                         }
-                        authService.logout();
-                        router.navigate(['/login']);
                         break;
                     case 429:
                         errorMessage = 'Demasiadas solicitudes. Intenta nuevamente en unos segundos.';

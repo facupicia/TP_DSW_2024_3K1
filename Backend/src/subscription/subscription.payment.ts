@@ -7,7 +7,7 @@ import { logger } from "../lib/logger";
 
 // Separate MP client for subscriptions (uses different access token)
 const getSubscriptionClient = () => {
-    const accessToken = process.env.MP_ACCESS_TOKEN_SUSCRIPCION || process.env.MP_ACCESS_TOKEN || '';
+    const accessToken = process.env.MP_ACCESS_TOKEN_SUSCRIPCION;
     return new MercadoPagoConfig({ accessToken });
 };
 
@@ -51,8 +51,8 @@ export const createSubscriptionCheckout = async (
     const notificationUrl = process.env.MP_NOTIFICATION_URL_SUSCRIPCION ||
         `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/subscription/webhook`;
 
-    // Back URLs
-    const backUrl = process.env.CLIENT_URL || 'http://localhost:4200';
+    // Back URLs - MP subscriptions require public URLs, not localhost
+    const backUrl = process.env.MP_SUBSCRIPTION_BACK_URL || process.env.CLIENT_URL || 'http://localhost:4200';
 
     try {
         // Using 'as any' because MP SDK types may not include all valid API fields

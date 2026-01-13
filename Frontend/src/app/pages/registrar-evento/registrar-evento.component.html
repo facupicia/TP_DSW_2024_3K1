@@ -164,14 +164,31 @@
 
         <!-- Ticket Types Section -->
         <div class="bg-white/60 backdrop-blur-xl rounded-[32px] p-8 border border-white/60 shadow-sm">
-          <div class="flex justify-between items-center mb-6">
+          <div class="flex justify-between items-center mb-4">
             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-green-500"></span> Tipos de Entrada
             </h3>
-            <button type="button" (click)="addTicketType()"
-              class="text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider">
+            <button type="button" (click)="addTicketType()" [disabled]="!canAddTicketType()" [class]="canAddTicketType() 
+                ? 'text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider cursor-pointer' 
+                : 'text-xs font-bold text-gray-400 uppercase tracking-wider cursor-not-allowed'">
               + Agregar Tipo
             </button>
+          </div>
+
+          <!-- Plan Limits Banner -->
+          <div *ngIf="isFreePlan && subscriptionLimits"
+            class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-3">
+            <span class="text-amber-500 text-lg">⚡</span>
+            <div class="flex-1">
+              <p class="text-xs font-medium text-amber-800">
+                Tu plan <strong>{{ subscriptionLimits.plan.displayName }}</strong> permite
+                <strong>{{ maxTicketTypes === -1 ? 'ilimitados' : maxTicketTypes }}</strong>
+                tipo(s) de entrada por evento.
+                <a routerLink="/subscription" class="text-amber-700 underline hover:text-amber-900 ml-1">
+                  Mejora tu plan →
+                </a>
+              </p>
+            </div>
           </div>
 
           <div formArrayName="ticketTypes" class="space-y-4">

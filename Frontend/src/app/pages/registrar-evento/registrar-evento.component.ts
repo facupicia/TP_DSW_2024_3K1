@@ -12,6 +12,7 @@ import { HttpClient } from '@angular/common/http';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of, Subject } from 'rxjs';
 import { ToastService } from '../../services/toast.service';
+import { SubscriptionService, SubscriptionLimits } from '../../services/subscription.service';
 
 @Component({
   selector: 'app-registrar-evento',
@@ -29,6 +30,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   private http = inject(HttpClient);
   public formBuild = inject(FormBuilder);
   private toastService = inject(ToastService);
+  private subscriptionService = inject(SubscriptionService);
 
   // Estados de la vista
   public isEditMode: boolean = false;
@@ -40,6 +42,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   public isSubmitting: boolean = false;
   public categories: Categoria[] = [];
   public userId: number | null = null;
+
+  // Subscription limits
+  public subscriptionLimits: SubscriptionLimits | null = null;
+  public maxTicketTypes: number = 1;
+  public isFreePlan: boolean = true;
 
   // Variables para mapa y autocompletado
   public locationSuggestions: any[] = [];
@@ -73,6 +80,15 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     this.categoryService.getCategories().subscribe({
       next: (data) => this.categories = data
       // Error handled by interceptor
+    });
+
+    // 1.5. Cargar límites de suscripción
+    this.subscriptionService.getMyLimits().subscribe({
+      next: (limits) => {
+        this.subscriptionLimits = limits;
+        this.maxTicketTypes = limits.limits.maxTicketTypesPerEvent;
+        this.isFreePlan = this.subscriptionService.isFreePlan(limits);
+      }
     });
 
     // 2. Obtener Perfil de Usuario (necesario para el ID)
@@ -116,6 +132,15 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   }
 
   addTicketType(data?: TicketType) {
+    // Validate ticket type limit (skip if loading existing data or unlimited)
+    if (!data && this.maxTicketTypes !== -1 && this.ticketTypes.length >= this.maxTicketTypes) {
+      const planName = this.subscriptionLimits?.plan?.displayName || 'tu plan actual';
+      this.toastService.warning(
+        `${planName} permite máximo ${this.maxTicketTypes} tipo(s) de entrada. Mejora tu plan para agregar más.`
+      );
+      return;
+    }
+
     const group = this.formBuild.group({
       id: [data?.id || null],
       name: [data?.name || 'General', Validators.required],
@@ -363,5 +388,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     const types = this.ticketTypes.value;
     if (!types || types.length === 0) return 0;
     return Math.min(...types.map((t: any) => t.price));
+  }
+
+  // Helper para verificar si puede agregar más tipos de entrada
+  canAddTicketType(): boolean {
+    if (this.maxTicketTypes === -1) return true; // unlimited
+    return this.ticketTypes.length < this.maxTicketTypes;
   }
 }
