@@ -58,10 +58,8 @@
             <p class="text-slate-500 font-medium text-sm mb-6">{{ userProfile?.email }}</p>
 
             <div class="flex gap-2 mb-8">
-              <span *ngIf="esAdmin"
-                class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wide border border-indigo-200">Admin</span>
               <span
-                class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">Usuario</span>
+                class="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">{{ userProfile?.rol }}</span>
             </div>
 
             <div class="w-full space-y-3 mt-auto">

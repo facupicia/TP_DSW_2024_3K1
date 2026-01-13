@@ -19,7 +19,8 @@ import { EventStatsComponent } from './pages/event-stats/event-stats.component';
 import { ScannerComponent } from './pages/scanner/scanner.component';
 
 
-import { authGuard } from './guards/auth.guard'; // Importar el guard
+import { authGuard } from './guards/auth.guard';
+import { organizerGuard } from './guards/organizer.guard';
 
 export const routes: Routes = [
     { path: "", component: LandingComponent, title: 'Home' },
@@ -28,8 +29,8 @@ export const routes: Routes = [
     { path: "profile", component: PerfilComponent, title: 'Perfil', canActivate: [authGuard] },
     { path: "profile/:id", component: PrefilEditComponent, title: 'Editar Perfil', canActivate: [authGuard] },
     { path: "create-event", component: RegistrarEventoComponent, title: 'Crear Evento', canActivate: [authGuard] },
-    { path: "my-events", component: MisEventosComponent, title: 'Mis Eventos', canActivate: [authGuard] },
-    { path: "edit-event/:id", component: RegistrarEventoComponent, title: 'Editar Evento', canActivate: [authGuard] },
+    { path: "my-events", component: MisEventosComponent, title: 'Mis Eventos', canActivate: [authGuard, organizerGuard] },
+    { path: "edit-event/:id", component: RegistrarEventoComponent, title: 'Editar Evento', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id", component: DetalleEventoComponent, title: 'Ver Evento' },
     { path: "events", component: ExploradorEventosComponent, title: 'Explorar Eventos' },
     { path: "ticket/:id", component: CheckoutComponent, title: 'Ticket', canActivate: [authGuard] },
@@ -38,8 +39,8 @@ export const routes: Routes = [
     { path: "checkout/pending", component: CheckoutPendingComponent, title: 'Pago Pendiente' },
     { path: "admin", component: AdminPanelComponent, title: 'Panel de Administración' },
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
-    { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard] },
-    { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard] },
+    { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard, organizerGuard] },
+    { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "scanner", component: ScannerComponent, title: 'Escáner', canActivate: [authGuard] },
 
     { path: "**", redirectTo: "", pathMatch: "full" }

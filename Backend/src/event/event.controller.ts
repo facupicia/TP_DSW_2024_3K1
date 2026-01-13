@@ -45,6 +45,12 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // Promote user to organizer role if they are a regular user
+        if (user.rol === 'user') {
+            user.rol = 'organizer';
+            await queryRunner.manager.save(User, user);
+        }
+
         const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });
         if (!category) {
             return res.status(404).json({ message: "Category not found" });

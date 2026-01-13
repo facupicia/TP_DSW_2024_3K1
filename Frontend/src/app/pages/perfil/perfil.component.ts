@@ -34,14 +34,6 @@ export class PerfilComponent implements OnInit {
         this.profileService.getProfile().subscribe({
           next: (data) => {
             this.userProfile = data;
-            // Verificamos si es admin de forma segura
-            if (data.rol === "admin") {
-              this.esAdmin = true;
-            }
-            if (data.rol === "scanner" || data.rol === "admin") {
-              this.esScanner = true;
-            }
-            // Una vez tenemos el perfil, verificamos los eventos
             this.verificarEventos();
           },
           error: (err) => {
