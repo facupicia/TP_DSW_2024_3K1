@@ -28,10 +28,16 @@
         </ng-container>
 
         <ng-container *ngIf="user$ | async as user">
-          <img
-            [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
-            class="h-9 w-9 rounded-full object-cover cursor-pointer border-2 border-transparent hover:border-gray-200 transition-all"
-            (click)="redirectToProfile()">
+          <div class="flex items-center gap-2">
+            <img
+              [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
+              class="h-9 w-9 rounded-full object-cover cursor-pointer border-2 border-transparent hover:border-gray-200 transition-all"
+              (click)="redirectToProfile()">
+            <span *ngIf="isPro"
+              class="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm animate-pulse-slow">
+              PRO
+            </span>
+          </div>
         </ng-container>
       </div>
 
@@ -66,7 +72,13 @@
       <img
         [src]="user.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
         class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md mb-3">
-      <h3 class="font-bold text-lg text-gray-900">{{ user.firstname }} {{ user.lastname }}</h3>
+      <h3 class="font-bold text-lg text-gray-900 flex items-center gap-2">
+        {{ user.firstname }} {{ user.lastname }}
+        <span *ngIf="isPro"
+          class="px-2 py-0.5 text-xs font-bold rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-sm">
+          PRO
+        </span>
+      </h3>
       <p class="text-sm text-gray-500">{{ user.email }}</p>
     </div>
 
