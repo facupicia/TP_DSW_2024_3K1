@@ -44,15 +44,14 @@ export const createSubscriptionCheckout = async (
         ? Number(plan.yearlyPrice)
         : Number(plan.monthlyPrice);
 
-    const frequency = billingType === 'yearly' ? 12 : 1;
-    const frequencyType = 'months';
 
     // Notification URL for webhook
     const notificationUrl = process.env.MP_NOTIFICATION_URL_SUSCRIPCION ||
         `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/subscription/webhook`;
 
-    // Back URLs - MP subscriptions require public URLs, not localhost
-    const backUrl = process.env.MP_SUBSCRIPTION_BACK_URL || process.env.CLIENT_URL || 'http://localhost:4200';
+    // Back URL - should point to the BACKEND callback endpoint
+    // The backend will then redirect to the frontend after processing
+    const backendUrl = process.env.MP_SUBSCRIPTION_BACK_URL || process.env.BACKEND_URL || 'http://localhost:3000';
 
     try {
         // Using 'as any' because MP SDK types may not include all valid API fields
@@ -60,13 +59,14 @@ export const createSubscriptionCheckout = async (
             body: {
                 reason: `EventLife ${plan.displayName || plan.name} - ${billingType === 'yearly' ? 'Anual' : 'Mensual'}`,
                 auto_recurring: {
-                    frequency,
-                    frequency_type: frequencyType,
+                    frequency: 1,
+                    frequency_type: 'months',
                     transaction_amount: price,
                     currency_id: 'ARS'
                 },
-                back_url: `${backUrl}/subscription/callback`,
+                back_url: `${backendUrl}/api/subscription/callback`,
                 payer_email: user.email,
+                status: 'pending',
                 external_reference: `SUB|${userId}|${planId}|${billingType}`
             } as any
         });
@@ -103,7 +103,9 @@ export const processSubscriptionWebhook = async (
     dataId: string
 ): Promise<void> => {
     // Only process preapproval (subscription) events
-    if (type !== 'preapproval') {
+    // MP can send type as 'preapproval' or 'subscription_preapproval'
+    const validTypes = ['preapproval', 'subscription_preapproval'];
+    if (!validTypes.includes(type)) {
         logger.info('SUBSCRIPTION_WEBHOOK_IGNORED', { type, dataId });
         return;
     }

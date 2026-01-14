@@ -150,6 +150,33 @@ export const subscriptionWebhook = async (req: Request, res: Response) => {
 };
 
 /**
+ * Handle callback redirect from Mercado Pago after subscription checkout
+ * Redirects to frontend with the preapproval_id
+ */
+export const subscriptionCallback = async (req: Request, res: Response) => {
+    try {
+        const preapprovalId = req.query.preapproval_id || '';
+        const status = req.query.status || '';
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:4200';
+
+        // Build redirect URL with query params
+        const params = new URLSearchParams();
+        if (preapprovalId) params.set('preapproval_id', String(preapprovalId));
+        if (status) params.set('status', String(status));
+
+        const redirectUrl = `${clientUrl}/subscription/callback${params.toString() ? '?' + params.toString() : ''}`;
+
+        console.log('SUBSCRIPTION_CALLBACK_REDIRECT:', { preapprovalId, status, redirectUrl });
+
+        return res.redirect(redirectUrl);
+    } catch (error) {
+        console.error('Subscription callback error:', error);
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:4200';
+        return res.redirect(`${clientUrl}/subscription/callback?error=redirect_failed`);
+    }
+};
+
+/**
  * Cancel current subscription
  */
 export const cancelMySubscription = async (req: CustomRequest, res: Response) => {

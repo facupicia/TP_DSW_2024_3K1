@@ -10,7 +10,7 @@ import { checkRoleAuth } from "../middlewares/checkRole"
 const router = Router()
 
 // 1. Rutas Generales (Sin parámetros dinámicos)
-router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), schemaValidation(createEventSchema), createEvent)
+router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), schemaValidation(createEventSchema), createEvent)
 router.get("/", checkAuthToken, checkRoleAuth(["organizer", "admin", "user"]), getEventsByUser)
 router.get("/search", getEventByName)
 router.get("/explore", getEvents)

@@ -5,6 +5,7 @@ import {
     getMyLimits,
     createCheckout,
     subscriptionWebhook,
+    subscriptionCallback,
     cancelMySubscription,
     adminAssignPlan,
     adminGetStats
@@ -20,6 +21,9 @@ router.get("/plans", getPlans);
 // Webhook (no auth - called by Mercado Pago)
 router.post("/webhook", subscriptionWebhook);
 router.get("/webhook", subscriptionWebhook); // MP sometimes uses GET
+
+// Callback redirect (no auth - redirects to frontend after MP checkout)
+router.get("/callback", subscriptionCallback);
 
 // Authenticated user routes
 router.get("/my-subscription", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), getMySubscription);
