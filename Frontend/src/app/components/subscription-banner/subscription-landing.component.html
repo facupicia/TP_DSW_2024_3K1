@@ -1,5 +1,11 @@
 <section class="relative py-24 overflow-hidden select-none">
 
+    <div class="xmb-light-container">
+        <div class="smoke-wave wave-blue"></div>
+        <div class="smoke-wave wave-purple"></div>
+        <div class="smoke-wave wave-cyan"></div>
+    </div>
+
     <div class="absolute inset-0 z-0 pointer-events-none">
         <div
             class="absolute top-1/2 left-1/4 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[120px] -translate-y-1/2">
@@ -55,7 +61,13 @@
 
                         <div class="mt-2 text-sm font-medium"
                             [ngClass]="isPro(plan) ? 'text-purple-600' : 'text-gray-400'">
-                            Comisión: {{ plan.commissionPercent }}% por entrada
+                            <span *ngIf="isCurrentPlan(plan.id)" class="inline-flex items-center gap-1">
+                                <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                Tu comisión: {{ plan.commissionPercent }}%
+                            </span>
+                            <span *ngIf="!isCurrentPlan(plan.id)">
+                                Comisión: {{ plan.commissionPercent }}% por entrada
+                            </span>
                         </div>
                     </div>
 

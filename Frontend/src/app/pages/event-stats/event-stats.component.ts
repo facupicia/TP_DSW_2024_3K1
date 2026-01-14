@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { StatsService } from '../../services/stats.service';
+import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { catchError, of, Subscription, interval } from 'rxjs';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -16,6 +17,10 @@ import { HeaderComponent } from '../../components/header/header.component';
 })
 export class EventStatsComponent implements OnInit, OnDestroy {
   @ViewChild('chart') chart!: ChartComponent;
+
+  // Subscription state
+  isPro = false;
+  subscription: UserSubscription | null = null;
 
   eventId!: number;
   eventTitle = '';
@@ -92,7 +97,12 @@ export class EventStatsComponent implements OnInit, OnDestroy {
 
   refresh$: Subscription | null = null;
 
-  constructor(private route: ActivatedRoute, private router: Router, private stats: StatsService) { }
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private stats: StatsService,
+    private subscriptionService: SubscriptionService
+  ) { }
 
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
@@ -102,9 +112,26 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     }
     this.eventId = Number(idParam);
 
+    this.loadSubscription();
     this.load();
     // Refrescar cada 15s para ver check-ins en "casi" tiempo real
     this.refresh$ = interval(15000).subscribe(() => this.load());
+  }
+
+  private loadSubscription(): void {
+    this.subscriptionService.getMySubscription().subscribe({
+      next: (sub) => {
+        this.subscription = sub;
+        this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
+      },
+      error: () => {
+        this.isPro = false;
+      }
+    });
+  }
+
+  goToUpgrade(): void {
+    this.router.navigate(['/profile']);
   }
 
   ngOnDestroy(): void {

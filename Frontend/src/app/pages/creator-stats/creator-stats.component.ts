@@ -1,34 +1,39 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
 import { StatsService } from '../../services/stats.service';
+import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { HeaderComponent } from '../../components/header/header.component';
 import { interval, Subscription, switchMap, of, catchError } from 'rxjs';
-import { RouterModule } from '@angular/router';
 
 @Component({
     selector: 'app-creator-stats',
     standalone: true,
-    imports: [CommonModule, FormsModule, NgApexchartsModule, HeaderComponent,RouterModule],
+    imports: [CommonModule, FormsModule, NgApexchartsModule, HeaderComponent, RouterModule],
     templateUrl: './creator-stats.component.html',
     styleUrls: ['./creator-stats.component.css']
 })
 export class CreatorStatsComponent implements OnInit, OnDestroy {
     @ViewChild('chart') chart!: ChartComponent;
-    
+
+    // Subscription state
+    isPro = false;
+    subscription: UserSubscription | null = null;
+
     period = 'mensual';
     metrics: any = {};
     comparative: any[] = [];
     refresh$: Subscription | null = null;
-    
+
     // KPIs calculados
     totalRevenue = 0;
     totalTicketsSold = 0;
     avgTicketPrice = 0;
-    
+
     // Configuración de Gráficos (Estilo Reference Image)
-    
+
     // 1. Gráfico Principal (Revenue Trend) - Estilo Azul Suave
     revenueChartOptions: any = {
         series: [],
@@ -74,10 +79,31 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
         colors: ['#8b5cf6'], // Violeta
     };
 
-    constructor(private stats: StatsService) { }
+    constructor(
+        private stats: StatsService,
+        private subscriptionService: SubscriptionService,
+        private router: Router
+    ) { }
 
     ngOnInit(): void {
+        this.loadSubscription();
         this.loadAll();
+    }
+
+    private loadSubscription(): void {
+        this.subscriptionService.getMySubscription().subscribe({
+            next: (sub) => {
+                this.subscription = sub;
+                this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
+            },
+            error: () => {
+                this.isPro = false;
+            }
+        });
+    }
+
+    goToUpgrade(): void {
+        this.router.navigate(['/profile']);
     }
 
     ngOnDestroy(): void {
@@ -107,7 +133,7 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
         // 1. Chart Revenue (Area)
         const categories = this.comparative.map(c => c.title.substring(0, 10) + '...'); // Nombres cortos
         const revenueData = this.comparative.map(c => c.revenue);
-        
+
         this.revenueChartOptions = {
             ...this.revenueChartOptions,
             series: [{ name: 'Ingresos', data: revenueData }],
@@ -129,7 +155,7 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
             xaxis: { categories: sorted.map(s => s.title) }
         };
     }
-    
+
     // ... Tus funciones de exportar PDF/CSV se mantienen igual
     exportPdf() { /* ... */ }
     exportCsv() { /* ... */ }
