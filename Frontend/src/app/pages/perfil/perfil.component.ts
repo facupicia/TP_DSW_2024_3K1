@@ -8,6 +8,7 @@ import { EventService } from '../../services/event.service';
 import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../services/subscription.service';
 import { Evento } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service'; // Inyectamos Toast
+import { log } from 'console';
 
 @Component({
   selector: 'app-perfil',
@@ -52,6 +53,10 @@ export class PerfilComponent implements OnInit {
             this.verificarEventos();
             this.loadSubscription();
             this.loadPlans(); // Cargamos planes en segundo plano
+            
+            if (this.userProfile.rol === 'admin') {
+              this.esAdmin = true;
+            }
           },
           error: (err) => {
             console.error('Error al obtener perfil:', err);
