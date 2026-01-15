@@ -55,6 +55,26 @@ export class User extends BaseEntity {
     })
     rol: string;
 
+    /* ==================== MERCADO PAGO MARKETPLACE ==================== */
+
+    /** MP User ID (collector_id) para recibir pagos de tickets */
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    mpUserId: string | null;
+
+    /** MP Access Token del organizador (válido 180 días) */
+    @Column({ type: 'varchar', length: 500, nullable: true, select: false })
+    mpAccessToken: string | null;
+
+    /** MP Refresh Token para renovar access token */
+    @Column({ type: 'varchar', length: 500, nullable: true, select: false })
+    mpRefreshToken: string | null;
+
+    /** Fecha de expiración del access token */
+    @Column({ type: 'timestamp', nullable: true })
+    mpTokenExpiresAt: Date | null;
+
+    /* ================================================================== */
+
     @Column({
         default: true
     })

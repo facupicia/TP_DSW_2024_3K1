@@ -7,16 +7,25 @@ import { CustomRequest } from "../middlewares/authToken";
 import { User } from "../user/user.entity";
 import dotenv from "dotenv";
 import { processPaymentTransaction } from "./payment.service";
+import { refreshOrganizerToken } from "./mp-oauth.controller";
+import { getActiveSubscription } from "../subscription/subscription.service";
+import { logger } from "../lib/logger";
 
 dotenv.config();
 
-export const createPreference = async (req: CustomRequest, res: Response) => {
-    const accessToken = process.env.MP_ACCESS_TOKEN;
-    if (!accessToken) {
-        return res.status(500).json({ code: 'CONFIG_MISSING_MP_TOKEN', message: 'Payment gateway not configured' });
-    }
+/* ==============================================================================
+   MARKETPLACE PAYMENT CONTROLLER
+   
+   Modelo de negocio:
+   - El pago se crea con el TOKEN DEL ORGANIZADOR (obtenido via OAuth)
+   - Se usa marketplace_fee para la comisión de la plataforma
+   - El % de comisión depende del plan del organizador (FREE=8%, PRO=3%)
+   
+   IMPORTANTE: Para que marketplace_fee funcione, el organizador DEBE haber
+   autorizado la aplicación via OAuth (mpUserId y mpAccessToken guardados).
+============================================================================== */
 
-    const client = new MercadoPagoConfig({ accessToken });
+export const createPreference = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
 
     try {
@@ -33,7 +42,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
         const ticketType = await queryRunner.manager.findOne(TicketType, {
             where: { id: parseInt(ticketTypeId) },
-            relations: ["event"]
+            relations: ["event", "event.user"]
         });
 
         if (!user || !ticketType) return res.status(404).json({ message: "Usuario o Tipo de Ticket no encontrado." });
@@ -74,8 +83,58 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             }
         }
 
+        /* ==================== MARKETPLACE LOGIC ==================== */
+
+        // 1. Obtener datos del organizador
+        const organizerId = event.user_id;
+
+        // 2. Obtener access token del organizador (refrescar si es necesario)
+        const organizerAccessToken = await refreshOrganizerToken(organizerId);
+
+        if (!organizerAccessToken) {
+            logger.error('MARKETPLACE_NO_ORGANIZER_TOKEN', { organizerId, eventId: event.id });
+            return res.status(400).json({
+                code: 'ORGANIZER_MP_NOT_LINKED',
+                message: 'El organizador de este evento no tiene asociada su cuenta de Mercado Pago. No es posible procesar el pago.'
+            });
+        }
+
+        // 3. Obtener plan del organizador para calcular comisión
+        let commissionPercent = 8.00; // Default FREE plan
+        let organizerPlanName = 'FREE';
+        try {
+            const subscription = await getActiveSubscription(organizerId);
+            commissionPercent = Number(subscription.plan.commissionPercent);
+            organizerPlanName = subscription.plan.name;
+        } catch (e) {
+            logger.warn('MARKETPLACE_SUBSCRIPTION_ERROR', { organizerId, error: (e as any)?.message });
+            // Continuar con comisión default
+        }
+
+        // 4. Calcular montos
         const unitPrice = Number(ticketType.price);
-        const preference = new Preference(client);
+        const totalAmount = unitPrice * quantity;
+
+        // Calcular marketplace_fee (comisión de la plataforma)
+        // Usar Math.ceil y mínimo 1 peso si hay comisión
+        let marketplaceFee = Math.ceil((totalAmount * commissionPercent) / 100);
+        if (totalAmount > 0 && commissionPercent > 0 && marketplaceFee < 1) {
+            marketplaceFee = 1; // Mínimo 1 peso de comisión
+        }
+
+        logger.info('MARKETPLACE_PREFERENCE', {
+            organizerId,
+            plan: organizerPlanName,
+            commissionPercent,
+            totalAmount,
+            marketplaceFee
+        });
+
+        // 5. Crear cliente MP con token del ORGANIZADOR
+        const organizerClient = new MercadoPagoConfig({ accessToken: organizerAccessToken });
+        const preference = new Preference(organizerClient);
+
+        /* ============================================================= */
 
         // Sanitización de URLs
         const sanitizeUrl = (u: string) => String(u || '').trim().replace(/\/+$/, '');
@@ -84,8 +143,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         const notificationUrl = sanitizeUrl(process.env.MP_NOTIFICATION_URL || '');
 
         // --- CONCILIACIÓN FINANCIERA ---
-        // Creamos la etiqueta única. Formato: USER_ID | TICKET_TYPE_ID | QUANTITY
-        const externalRef = `${userId}|${ticketType.id}|${quantity}`;
+        // Formato: USER_ID | TICKET_TYPE_ID | QUANTITY | ORGANIZER_ID
+        const externalRef = `${userId}|${ticketType.id}|${quantity}|${organizerId}`;
 
         const body: any = {
             items: [{
@@ -105,17 +164,27 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 failure: `${clientUrl}/checkout/failure`,
                 pending: `${clientUrl}/checkout/pending`,
             },
+            // auto_return requiere que back_urls sean HTTPS
             auto_return: clientUrl.startsWith('https') ? 'approved' : undefined,
-            notification_url: notificationUrl,
+            notification_url: notificationUrl || undefined,
 
-            // ESTO ES LO QUE TE PIDE MERCADO PAGO PARA EL 100/100
             external_reference: externalRef,
+
+            // === MARKETPLACE CONFIG ===
+            // marketplace_fee: comisión que recibe la plataforma
+            // NOTA: Esto solo funciona si el organizador autorizó la app via OAuth
+            marketplace_fee: marketplaceFee,
 
             metadata: {
                 user_id: Number(userId),
                 ticket_type_id: Number(ticketType.id),
-                event_id: Number(ticketType.event.id), // Log event id for reference
-                amount_tickets: Number(quantity)
+                event_id: Number(ticketType.event.id),
+                amount_tickets: Number(quantity),
+                // Audit marketplace
+                organizer_id: organizerId,
+                organizer_plan: organizerPlanName,
+                commission_percent: commissionPercent,
+                marketplace_fee: marketplaceFee
             }
         };
 
@@ -123,10 +192,11 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
 
         return res.status(200).json({
             id: result.id,
-            init_point: result.init_point, // Enlace inteligente (Sandbox o Prod según credenciales) sandbox_init_point
+            init_point: result.init_point,
         });
 
     } catch (error: any) {
+        logger.error("ERROR_CREATING_PREFERENCE", { error: error?.message });
         console.error("ERROR CREATING PREFERENCE:", error);
         return res.status(500).json({ message: "Error al generar pago" });
     } finally {
@@ -140,7 +210,13 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     const bodyId = req.body?.data?.id || req.body?.id;
     const paymentId = id || bodyId;
 
-    console.log(`WEBHOOK: Topic=${topic}, ID=${paymentId}`);
+    // Log completo para debugging
+    console.log(`WEBHOOK RECEIVED:`, JSON.stringify({
+        topic,
+        paymentId,
+        query: req.query,
+        body: req.body
+    }, null, 2));
 
     // Respondemos SIEMPRE 200 OK para que MP no reintente infinitamente
     res.status(200).send("OK");

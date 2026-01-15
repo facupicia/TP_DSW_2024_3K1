@@ -46,6 +46,19 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        // ============ MERCADO PAGO VALIDATION ============
+        // Organizadores DEBEN tener su cuenta MP vinculada para crear eventos
+        // Esto garantiza que puedan recibir pagos de tickets
+        if (!user.mpUserId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({
+                code: 'MP_NOT_LINKED',
+                message: 'Debes vincular tu cuenta de Mercado Pago para crear eventos y recibir pagos.',
+                connectUrl: '/api/payment/mp/connect'
+            });
+        }
+        // ================================================
+
         // ============ SUBSCRIPTION PLAN VALIDATION ============
         // Check event creation limit
         const eventCheck = await canCreateEvent(userId);

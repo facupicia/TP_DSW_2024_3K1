@@ -1,6 +1,6 @@
 import { Component, inject, AfterViewInit, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
-import { Router, RouterLink, ActivatedRoute } from '@angular/router'; // Importamos ActivatedRoute
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento, TicketType } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
@@ -13,6 +13,7 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 import { of, Subject } from 'rxjs';
 import { ToastService } from '../../services/toast.service';
 import { SubscriptionService, SubscriptionLimits } from '../../services/subscription.service';
+import { PaymentService, MpStatus } from '../../services/payment.service';
 
 @Component({
   selector: 'app-registrar-evento',
@@ -31,6 +32,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   public formBuild = inject(FormBuilder);
   private toastService = inject(ToastService);
   private subscriptionService = inject(SubscriptionService);
+  private paymentService = inject(PaymentService);
 
   // Estados de la vista
   public isEditMode: boolean = false;
@@ -46,6 +48,11 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   // Subscription limits
   public subscriptionLimits: SubscriptionLimits | null = null;
   public maxTicketTypes: number = 1;
+
+  // Mercado Pago status
+  public mpStatus: MpStatus | null = null;
+  public showMpModal: boolean = false;
+  public mpLoading: boolean = false;
   public isFreePlan: boolean = true;
 
   // Variables para mapa y autocompletado
@@ -90,6 +97,9 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
         this.isFreePlan = this.subscriptionService.isFreePlan(limits);
       }
     });
+
+    // 1.6. Verificar estado de Mercado Pago (necesario para crear eventos)
+    this.checkMpStatus();
 
     // 2. Obtener Perfil de Usuario (necesario para el ID)
     this.authService.getProfile().subscribe({
@@ -367,9 +377,15 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           this.toastService.success('Evento creado con éxito!');
           setTimeout(() => this.router.navigate(['/my-events']), 1500);
         },
-        error: () => {
-          // Error message handled by interceptor
+        error: (err) => {
           this.isSubmitting = false;
+
+          // Handle MP_NOT_LINKED error specifically
+          if (err.error?.code === 'MP_NOT_LINKED') {
+            this.showMpModal = true;
+            this.toastService.warning('Debes conectar Mercado Pago para crear eventos');
+          }
+          // Other errors handled by interceptor
         }
       });
     }
@@ -394,5 +410,52 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   canAddTicketType(): boolean {
     if (this.maxTicketTypes === -1) return true; // unlimited
     return this.ticketTypes.length < this.maxTicketTypes;
+  }
+
+  // ==================== MERCADO PAGO METHODS ====================
+
+  /** Verifica si el usuario tiene MP conectado */
+  get isMpConnected(): boolean {
+    return this.mpStatus?.connected === true;
+  }
+
+  /** Consulta el estado de conexión de MP */
+  checkMpStatus(): void {
+    this.paymentService.getMpStatus().subscribe({
+      next: (status) => {
+        this.mpStatus = status;
+        // Si no está conectado y no estamos en modo edición, mostrar modal
+        if (!status.connected && !this.isEditMode) {
+          this.showMpModal = true;
+        }
+      },
+      error: (err) => {
+        // Si hay error 401, el usuario no está logueado (no mostrar error)
+        if (err.status !== 401) {
+          console.error('Error checking MP status:', err);
+        }
+      }
+    });
+  }
+
+  /** Inicia el flujo OAuth para conectar MP */
+  connectMercadoPago(): void {
+    this.mpLoading = true;
+    this.paymentService.connectMercadoPago().subscribe({
+      next: (response) => {
+        // Redirigir al usuario a la URL de autorización de MP
+        window.location.href = response.authUrl;
+      },
+      error: (err) => {
+        this.mpLoading = false;
+        this.toastService.error('Error al conectar con Mercado Pago');
+        console.error('MP connect error:', err);
+      }
+    });
+  }
+
+  /** Cierra el modal de MP (si el usuario quiere cancelar) */
+  closeMpModal(): void {
+    this.showMpModal = false;
   }
 }

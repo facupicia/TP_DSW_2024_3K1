@@ -10,40 +10,64 @@ import enviarCorreoConQR from "../lib/mailer";
 import { logger } from "../lib/logger";
 import { getActiveSubscription } from "../subscription/subscription.service";
 
-const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || '' });
-const paymentClient = new Payment(client);
+/* ==============================================================================
+   MARKETPLACE PAYMENT PROCESSING
+   
+   En el modelo marketplace, los pagos se crean con el token del ORGANIZADOR.
+   Por lo tanto, para consultar los detalles del pago en el webhook,
+   debemos usar el mismo token del organizador.
+   
+   Flujo:
+   1. Webhook llega con paymentId
+   2. Extraemos organizerId del external_reference (formato: userId|ticketTypeId|qty|organizerId)
+   3. Obtenemos el access_token del organizador de la BD
+   4. Consultamos el pago con ese token
+   5. Procesamos normalmente (crear tickets, etc)
+============================================================================== */
 
 export const processPaymentTransaction = async (paymentId: string) => {
     try {
-        // Retry logic para manejar delay de propagación de estado en MP
+        logger.info("WEBHOOK_RECEIVED", { paymentId });
+
+        // Ahora que usamos el token de la PLATAFORMA para crear preferencias,
+        // podemos consultar el pago directamente con ese mismo token
+        const platformClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || '' });
+        const platformPaymentClient = new Payment(platformClient);
+
         let payment: any = null;
-        let attempts = 0;
-        const maxAttempts = 3;
-        const delayMs = 2000; // 2 segundos entre reintentos
 
-        while (attempts < maxAttempts) {
-            payment = await paymentClient.get({ id: paymentId });
+        try {
+            payment = await platformPaymentClient.get({ id: paymentId });
+            logger.info("PAYMENT_FETCHED", { paymentId, status: payment.status });
+        } catch (error: any) {
+            logger.error("PAYMENT_NOT_FOUND", { paymentId, error: error?.message });
+            return;
+        }
 
-            console.log(`MP_PAYMENT_RESPONSE (attempt ${attempts + 1}):`, JSON.stringify({
-                id: payment.id,
-                status: payment.status,
-                status_detail: payment.status_detail,
-                external_reference: payment.external_reference
-            }, null, 2));
+        if (!payment) {
+            logger.error("PAYMENT_NULL", { paymentId });
+            return;
+        }
 
-            if (payment.status === 'approved') {
-                break; // Pago aprobado, salir del loop
-            }
+        // Retry logic si el pago aún no está aprobado
+        if (payment.status !== 'approved') {
+            let attempts = 0;
+            const maxAttempts = 3;
+            const delayMs = 2000;
 
-            attempts++;
-            if (attempts < maxAttempts) {
-                console.log(`Payment not approved yet, retrying in ${delayMs}ms...`);
+            while (attempts < maxAttempts && payment.status !== 'approved') {
                 await new Promise(resolve => setTimeout(resolve, delayMs));
+                attempts++;
+
+                // Re-fetch con el token de la plataforma
+                payment = await platformPaymentClient.get({ id: paymentId });
+
+                logger.info("PAYMENT_RETRY", { paymentId, attempt: attempts, status: payment.status });
             }
         }
 
         if (payment.status !== 'approved') {
-            logger.info("PAYMENT_NOT_APPROVED", { id: paymentId, status: payment.status, attempts });
+            logger.info("PAYMENT_NOT_APPROVED", { id: paymentId, status: payment.status });
             return;
         }
 
@@ -51,15 +75,20 @@ export const processPaymentTransaction = async (paymentId: string) => {
         let userId = 0;
         let ticketTypeId = 0;
         let amount = 0;
-        // eventId lo sacaremos del TicketType
+        let organizerId = 0;
 
         // 1. Prioridad: External Reference (Conciliación Financiera)
+        // Formato nuevo: userId|ticketTypeId|quantity|organizerId (4 partes)
+        // Formato viejo: userId|ticketTypeId|quantity (3 partes)
         if (payment.external_reference) {
             const parts = String(payment.external_reference).split('|');
-            if (parts.length === 3) {
+            if (parts.length >= 3) {
                 userId = Number(parts[0]);
-                ticketTypeId = Number(parts[1]); // AHORA ES TICKET_TYPE_ID
+                ticketTypeId = Number(parts[1]);
                 amount = Number(parts[2]);
+            }
+            if (parts.length >= 4) {
+                organizerId = Number(parts[3]);
             }
         }
 
@@ -72,6 +101,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
             userId = Number(meta.user_id);
             ticketTypeId = Number(meta.ticket_type_id || item?.id);
             amount = Number(meta.amount_tickets || item?.quantity || 1);
+            organizerId = Number(meta.organizer_id) || 0;
         }
 
         if (!userId || !ticketTypeId || !amount || amount <= 0) {
@@ -93,9 +123,6 @@ export const processPaymentTransaction = async (paymentId: string) => {
 
             if (!ticketType) {
                 logger.error("TICKET_TYPE_NOT_FOUND", { ticketTypeId });
-                // No podemos registrar log asociado a evento si no tenemos el ticketType... 
-                // Pero intentamos registrar con eventId 0 o algo para auditoria?
-                // Mejor abortar o registrar log de error.
                 throw new Error(`TicketType not found: ${ticketTypeId}`);
             }
 
@@ -125,6 +152,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 externalReference: String(payment.external_reference || ''),
                 userId,
                 ticketTypeId,
+                organizerId, // Marketplace audit: who receives the payment
                 unitPrice: Number(ticketType.price),
                 quantity: amount,
                 totalAmount,

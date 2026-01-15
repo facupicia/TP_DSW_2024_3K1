@@ -52,6 +52,10 @@ export class PaymentLog {
   @Column({ type: 'varchar', length: 50, nullable: true })
   organizerPlanName: string;
 
+  /** Organizer ID who receives the payment (marketplace audit) */
+  @Column({ nullable: true })
+  organizerId: number;
+
   @Column({
     type: 'enum',
     enum: PaymentStatus,
