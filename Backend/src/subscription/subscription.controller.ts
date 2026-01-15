@@ -16,6 +16,40 @@ import {
 } from "./subscription.payment";
 
 /**
+ * Manually verify a subscription using the preapproval_id
+ * This is useful when the webhook is delayed
+ */
+export const verifySubscription = async (req: CustomRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        const preapprovalId = req.params.id;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!preapprovalId) {
+            return res.status(400).json({ message: "ID de preaprobación requerido" });
+        }
+
+        // Force process the webhook logic
+        await processSubscriptionWebhook("preapproval", preapprovalId);
+
+        // Get updated subscription to return status
+        const subscription = await getActiveSubscription(userId);
+
+        return res.json({
+            status: subscription.status,
+            active: subscription.status === 'active',
+            plan: subscription.plan.name
+        });
+    } catch (error: any) {
+        console.error("Error verifying subscription:", error);
+        return res.status(500).json({ message: error.message || "Error al verificar suscripción" });
+    }
+};
+
+/**
  * Get all available subscription plans
  */
 export const getPlans = async (req: Request, res: Response) => {

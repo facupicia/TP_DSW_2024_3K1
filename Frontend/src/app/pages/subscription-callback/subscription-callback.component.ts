@@ -114,10 +114,37 @@ export class SubscriptionCallbackComponent implements OnInit {
     errorMessage = 'No pudimos confirmar tu suscripción. Por favor contacta a soporte.';
 
     ngOnInit() {
-        // Give MP webhook time to process
-        setTimeout(() => {
-            this.checkSubscription();
-        }, 2000);
+        // Check for manual verification via URL params
+        this.route.queryParams.subscribe(params => {
+            const preapprovalId = params['preapproval_id'];
+            if (preapprovalId) {
+                this.verifyWithId(preapprovalId);
+            } else {
+                // Give MP webhook time to process if no ID (fallback)
+                setTimeout(() => {
+                    this.checkSubscription();
+                }, 2000);
+            }
+        });
+    }
+
+    verifyWithId(id: string) {
+        this.subscriptionService.verifySubscription(id).subscribe({
+            next: (response) => {
+                this.loading = false;
+                if (response.active) {
+                    this.success = true;
+                    this.toast.success('¡Plan PRO activado!');
+                } else {
+                    this.errorMessage = 'El pago fue procesado pero la suscripción no está activa. Contacta a soporte.';
+                }
+            },
+            error: (err) => {
+                console.error('Verification error:', err);
+                // Fallback to normal check if manual verification fails
+                this.checkSubscription();
+            }
+        });
     }
 
     checkSubscription() {

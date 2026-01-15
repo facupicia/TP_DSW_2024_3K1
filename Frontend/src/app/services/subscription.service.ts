@@ -96,6 +96,10 @@ export class SubscriptionService {
         return this.http.post<{ message: string; success: boolean }>(`${this.baseUrl}/cancel`, {});
     }
 
+    verifySubscription(preapprovalId: string): Observable<any> {
+        return this.http.post(`${this.baseUrl}/verify/${preapprovalId}`, {});
+    }
+
     refreshLimits(): void {
         this.getMyLimits().subscribe();
     }

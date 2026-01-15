@@ -7,6 +7,7 @@ import {
     subscriptionWebhook,
     subscriptionCallback,
     cancelMySubscription,
+    verifySubscription,
     adminAssignPlan,
     adminGetStats
 } from "./subscription.controller";
@@ -29,6 +30,7 @@ router.get("/callback", subscriptionCallback);
 router.get("/my-subscription", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), getMySubscription);
 router.get("/my-limits", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), getMyLimits);
 router.post("/checkout/:planId", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), createCheckout);
+router.post("/verify/:id", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), verifySubscription);
 router.post("/cancel", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), cancelMySubscription);
 
 // Admin routes
