@@ -4,11 +4,10 @@ import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { AuthService } from '../../services/auth.service';
 import { EventService } from '../../services/event.service';
-// Importamos SubscriptionPlan
 import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../services/subscription.service';
+import { PaymentService, MpStatus } from '../../services/payment.service';
 import { Evento } from '../../interfaces/event';
-import { ToastService } from '../../services/toast.service'; // Inyectamos Toast
-import { log } from 'console';
+import { ToastService } from '../../services/toast.service';
 
 @Component({
   selector: 'app-perfil',
@@ -22,7 +21,8 @@ export class PerfilComponent implements OnInit {
   private profileService = inject(AuthService);
   private router = inject(Router);
   private eventoService = inject(EventService);
-  public subscriptionService = inject(SubscriptionService); // Public para usar en HTML si hace falta
+  public subscriptionService = inject(SubscriptionService);
+  private paymentService = inject(PaymentService);
   private toast = inject(ToastService);
 
   userProfile: any = {};
@@ -43,6 +43,10 @@ export class PerfilComponent implements OnInit {
   loading = false;
   cancellingSubscription = false;
 
+  // --- MERCADO PAGO MARKETPLACE ---
+  mpStatus: MpStatus | null = null;
+  mpLoading = false;
+
   ngOnInit(): void {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
@@ -52,8 +56,9 @@ export class PerfilComponent implements OnInit {
             this.userProfile = data;
             this.verificarEventos();
             this.loadSubscription();
-            this.loadPlans(); // Cargamos planes en segundo plano
-            
+            this.loadPlans();
+            this.loadMpStatus();
+
             if (this.userProfile.rol === 'admin') {
               this.esAdmin = true;
             }
@@ -87,6 +92,52 @@ export class PerfilComponent implements OnInit {
     this.subscriptionService.getPlans().subscribe({
       next: (plans) => this.plans = plans,
       error: (err) => console.error('Error cargando planes', err)
+    });
+  }
+
+  // --- MERCADO PAGO MARKETPLACE ---
+  private loadMpStatus(): void {
+    if (!this.tieneEventos && this.userProfile?.rol !== 'organizer') return;
+
+    this.paymentService.getMpStatus().subscribe({
+      next: (status) => this.mpStatus = status,
+      error: (err) => console.error('Error cargando estado MP:', err)
+    });
+  }
+
+  connectMercadoPago(): void {
+    this.mpLoading = true;
+    this.paymentService.connectMercadoPago().subscribe({
+      next: (response) => {
+        this.mpLoading = false;
+        window.location.href = response.authUrl;
+      },
+      error: (err) => {
+        this.mpLoading = false;
+        this.toast.error(err?.error?.message || 'Error al conectar Mercado Pago');
+      }
+    });
+  }
+
+  disconnectMercadoPago(): void {
+    const confirmed = confirm(
+      '¿Estás seguro de que querés desconectar tu cuenta de Mercado Pago?\n\n' +
+      'Ya no podrás recibir pagos por tus eventos hasta que vuelvas a conectarla.'
+    );
+
+    if (!confirmed) return;
+
+    this.mpLoading = true;
+    this.paymentService.disconnectMercadoPago().subscribe({
+      next: (response) => {
+        this.mpLoading = false;
+        this.mpStatus = { connected: false, mpUserId: null, expiresAt: null, needsReconnect: false };
+        this.toast.success(response.message || 'Mercado Pago desconectado');
+      },
+      error: (err) => {
+        this.mpLoading = false;
+        this.toast.error(err?.error?.message || 'Error al desconectar Mercado Pago');
+      }
     });
   }
 

@@ -3,19 +3,23 @@ import morgan from "morgan";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import userRoute from "./routers/user.routes"
-import userEvent from "./routers/event.routes"
-import userTicket from "./routers/ticket.routes"
-import ticketTypeRoute from "./routers/ticketType.routes"
-import scannerRoute from "./scanner/scanner.routes"
-import categoryRoute from "./routers/category.routes"
-import paymentRoute from "./payment/payment.routes"
-import subscriptionRoute from "./subscription/subscription.routes"
+
+// Routes from modules
+import userRoutes from "./user/user.routes"
+import eventRoutes from "./event/event.routes"
+import ticketRoutes from "./ticket/ticket.routes"
+import ticketTypeRoutes from "./ticketType/ticketType.routes"
+import categoryRoutes from "./category/category.routes"
+import scannerRoutes from "./scanner/scanner.routes"
+import paymentRoutes from "./payment/payment.routes"
+import subscriptionRoutes from "./subscription/subscription.routes"
+
+// Utilities
 import { paymentWebhook } from "./payment/payment.controller"
-import { errorHandler } from "./middlewares/errorHandler"
-import { getMailerStatus } from "./lib/mailer"
-import { requestId } from "./lib/requestId"
-import { metricsMiddleware, metricsHandler } from "./lib/metrics"
+import { errorHandler } from "./common/middleware/errorHandler"
+import { getMailerStatus } from "./common/services/mailer"
+import { requestId } from "./common/services/requestId"
+import { metricsMiddleware, metricsHandler } from "./common/services/metrics"
 
 const app = express();
 
@@ -88,14 +92,16 @@ app.get('/health', async (_req, res) => {
 // Métricas Prometheus
 app.get('/metrics', metricsHandler)
 
-app.use("/api/category", categoryRoute)
-app.use("/api/user", userRoute)
-app.use("/api/event", userEvent)
-app.use("/api/ticket", userTicket)
-app.use("/api/ticketType", ticketTypeRoute)
-app.use("/api/scanner", scannerRoute)
-app.use("/api/payment", paymentRoute)
-app.use("/api/subscription", subscriptionRoute)
+/* ==================== API ROUTES ==================== */
+app.use("/api/category", categoryRoutes)
+app.use("/api/user", userRoutes)
+app.use("/api/event", eventRoutes)
+app.use("/api/ticket", ticketRoutes)
+app.use("/api/ticketType", ticketTypeRoutes)
+app.use("/api/scanner", scannerRoutes)
+app.use("/api/payment", paymentRoutes)
+app.use("/api/subscription", subscriptionRoutes)
+
 // Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)
 app.post("/", paymentWebhook)
 app.get("/", paymentWebhook)

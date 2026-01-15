@@ -3,7 +3,7 @@ import 'reflect-metadata'
 import app from "./app";
 import AppDataSource from "./db";
 import dotenv from "dotenv";
-import { verifyMailer } from "./lib/mailer";
+import { verifyMailer } from "./common/services/mailer";
 
 
 

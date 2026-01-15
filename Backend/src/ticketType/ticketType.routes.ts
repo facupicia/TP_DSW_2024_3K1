@@ -1,12 +1,11 @@
+/**
+ * Ticket Type Routes
+ * Endpoints for managing ticket types within events
+ */
 import { Router } from "express";
-import {
-    createTicketType,
-    getTicketTypesByEvent,
-    updateTicketType,
-    deactivateTicketType
-} from "../ticketType/ticketType.controller";
-import { checkAuthToken } from "../middlewares/authToken";
-import { checkRoleAuth } from "../middlewares/checkRole";
+import { createTicketType, getTicketTypesByEvent, updateTicketType, deactivateTicketType } from "./ticketType.controller";
+import { checkAuthToken } from "../common/middleware/authToken";
+import { checkRoleAuth } from "../common/middleware/checkRole";
 
 const router = Router();
 

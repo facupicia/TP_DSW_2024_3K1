@@ -146,6 +146,80 @@
           </div>
         </div>
 
+        <!-- Mercado Pago Section (only for organizers) -->
+        <div *ngIf="tieneEventos || userProfile?.rol === 'organizer'"
+          class="bg-white/80 backdrop-blur-md rounded-[32px] p-8 shadow-xl border border-gray-300">
+          <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+            <span class="bg-sky-50 text-sky-600 p-2.5 rounded-xl border border-sky-100">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </span>
+            Mercado Pago - Cobros
+          </h3>
+
+          <div class="space-y-4">
+            <!-- Status Connected -->
+            <div *ngIf="mpStatus?.connected"
+              class="flex items-center justify-between p-4 bg-green-50 rounded-2xl border border-green-100">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-semibold text-green-800">Cuenta conectada</p>
+                  <p class="text-sm text-green-600">ID: {{ mpStatus?.mpUserId }}</p>
+                </div>
+              </div>
+              <button (click)="disconnectMercadoPago()" [disabled]="mpLoading"
+                class="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all">
+                {{ mpLoading ? 'Procesando...' : 'Desconectar' }}
+              </button>
+            </div>
+
+            <!-- Status: Needs Reconnect -->
+            <div *ngIf="mpStatus?.needsReconnect"
+              class="flex items-center justify-between p-4 bg-yellow-50 rounded-2xl border border-yellow-100">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <svg class="w-5 h-5 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-semibold text-yellow-800">Token expirado</p>
+                  <p class="text-sm text-yellow-600">Reconectá tu cuenta para seguir recibiendo pagos</p>
+                </div>
+              </div>
+              <button (click)="connectMercadoPago()" [disabled]="mpLoading"
+                class="px-4 py-2 text-sm font-bold text-white bg-sky-500 hover:bg-sky-600 rounded-xl transition-all">
+                {{ mpLoading ? 'Conectando...' : 'Reconectar' }}
+              </button>
+            </div>
+
+            <!-- Status: Not Connected -->
+            <div *ngIf="!mpStatus?.connected && !mpStatus?.needsReconnect" class="text-center py-6">
+              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+              </div>
+              <h4 class="text-lg font-bold text-slate-800 mb-2">Conectá Mercado Pago</h4>
+              <p class="text-sm text-slate-500 mb-4 max-w-sm mx-auto">
+                Para recibir pagos por tus eventos, conectá tu cuenta de Mercado Pago.
+              </p>
+              <button (click)="connectMercadoPago()" [disabled]="mpLoading"
+                class="px-6 py-3 bg-gradient-to-r from-sky-500 to-cyan-400 text-white font-bold rounded-xl hover:from-sky-600 hover:to-cyan-500 transition-all shadow-lg shadow-sky-500/25 active:scale-95 disabled:opacity-50">
+                {{ mpLoading ? 'Conectando...' : '🔗 Conectar Mercado Pago' }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 sm:grid-cols-3 gap-6">
 
 

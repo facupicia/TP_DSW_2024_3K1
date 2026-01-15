@@ -1,4 +1,4 @@
-import { verifyToken } from "../lib/generateToken";
+import { verifyToken } from "../services/generateToken";
 import { Request, Response, NextFunction } from "express";
 
 export interface IPayload {

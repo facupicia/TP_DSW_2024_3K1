@@ -1,7 +1,7 @@
 import express, { Router } from "express";
 import { createPreference, paymentWebhook } from "./payment.controller";
 import { initiateOAuth, oauthCallback, getMpStatus, disconnectMp } from "./mp-oauth.controller";
-import { checkAuthToken } from "../middlewares/authToken";
+import { checkAuthToken } from "../common/middleware/authToken";
 
 const router = Router();
 

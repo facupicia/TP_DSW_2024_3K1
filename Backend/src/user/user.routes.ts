@@ -1,13 +1,15 @@
+/**
+ * User Routes
+ * All endpoints related to user management and authentication
+ */
 import { Router } from "express"
-import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin } from "../user/user.controller"
-import { schemaValidation } from "../middlewares/schemaValidacion"
+import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin } from "./user.controller"
+import { schemaValidation } from "../common/middleware/schemaValidacion"
 import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema } from "../schemas/schema.user"
-import { checkAuthToken } from "../middlewares/authToken"
-import { checkRoleAuth } from "../middlewares/checkRole"
+import { checkAuthToken } from "../common/middleware/authToken"
+import { checkRoleAuth } from "../common/middleware/checkRole"
 
 const router = Router()
-
-//ruta protegida 
 
 router.put("/profile/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), schemaValidation(updateUserSchema), updateUser)
 
@@ -33,7 +35,4 @@ router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteUser)
 
 // Admin: actualizar rol de usuario
 router.put("/:id/role", checkAuthToken, checkRoleAuth(["admin"]), schemaValidation(updateUserRoleSchema), updateUserRole)
-
-
-
 export default router

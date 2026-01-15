@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 import AppDataSource from "../db";
 import { SubscriptionPlan } from "./subscription_plan.entity";
 import { UserSubscription } from "./user_subscription.entity";

@@ -5,10 +5,10 @@
  */
 
 import "reflect-metadata";
-import AppDataSource from "../db";
-import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
-import { UserSubscription, SubscriptionStatus } from "../subscription/user_subscription.entity";
-import { User } from "../user/user.entity";
+import AppDataSource from "../../config/database";
+import { SubscriptionPlan } from "../../subscription/subscription_plan.entity";
+import { UserSubscription, SubscriptionStatus } from "../../subscription/user_subscription.entity";
+import { User } from "../../user/user.entity";
 
 async function seedSubscriptionPlans() {
     try {

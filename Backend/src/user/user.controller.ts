@@ -2,8 +2,8 @@ import { User } from "./user.entity"
 import { Request, Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken';
-import { tokenSing } from "../lib/generateToken"
-import { CustomRequest } from "../middlewares/authToken";
+import { tokenSing } from "../common/services/generateToken"
+import { CustomRequest } from "../common/middleware/authToken";
 import { Roles } from "../schemas/schema.user";
 import { OAuth2Client } from "google-auth-library";
 
@@ -287,7 +287,15 @@ export const googleSignin = async (req: Request, res: Response) => {
     }
     const repo = dataSource.getRepository(User);
     let user = await repo.findOne({ where: { email } });
+
     if (!user) {
+      // New user - try to get location from IP
+      const { getClientIP, getReadableLocationFromIP } = await import("../common/services/geolocation");
+      const clientIP = getClientIP(req);
+      const location = getReadableLocationFromIP(clientIP);
+
+      console.log(`[Google Signin] New user from IP: ${clientIP}`, location);
+
       user = new User();
       user.firstname = firstname;
       user.lastname = lastname;
@@ -297,6 +305,12 @@ export const googleSignin = async (req: Request, res: Response) => {
       user.address = "";
       user.birth = new Date("1970-01-01");
       user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 10);
+
+      // Auto-fill location from IP if available
+      user.pais = location.pais || "";
+      user.provincia = location.provincia || "";
+      user.ciudad = location.ciudad || "";
+
       await repo.save(user);
     } else {
       if (picture && picture !== user.imgPerfil) {

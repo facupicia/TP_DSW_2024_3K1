@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { TicketType, TicketTypeStatus } from "./ticketType.entity";
 import { Event } from "../event/event.entity";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 
 /* ======================================================
    CREATE TICKET TYPE

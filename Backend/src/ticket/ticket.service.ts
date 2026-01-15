@@ -1,7 +1,7 @@
 import { TicketType } from "../ticketType/ticketType.entity";
-import { Ticket, TicketStatus } from "../ticket/ticket.entity";
+import { Ticket, TicketStatus } from "./ticket.entity";
 import { User } from "../user/user.entity";
-import { generarQRUrl } from "../utils/qr";
+import { generarQRUrl } from "../common/utils/qr";
 
 export async function createTicketsForPurchase(ticketType: TicketType, user: User, amount: number) {
     const tickets = await Promise.all(

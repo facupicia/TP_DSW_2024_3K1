@@ -8,9 +8,9 @@
  */
 
 import "reflect-metadata";
-import AppDataSource from "../db";
-import { User } from "../user/user.entity";
-import { Event } from "../event/event.entity";
+import AppDataSource from "../../config/database";
+import { User } from "../../user/user.entity";
+import { Event } from "../../event/event.entity";
 
 async function migrateOrganizers() {
     try {

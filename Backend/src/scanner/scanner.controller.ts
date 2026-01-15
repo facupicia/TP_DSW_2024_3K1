@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 import { LessThan, MoreThan } from "typeorm"; // Asumiendo TypeORM
 
 export class ScannerController {

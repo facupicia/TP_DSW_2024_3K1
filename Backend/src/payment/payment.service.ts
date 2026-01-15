@@ -5,9 +5,9 @@ import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import { TicketType } from "../ticketType/ticketType.entity";
-import { createTicketsForPurchase } from "../services/ticket.service";
-import enviarCorreoConQR from "../lib/mailer";
-import { logger } from "../lib/logger";
+import { createTicketsForPurchase } from "../ticket/ticket.service";
+import enviarCorreoConQR from "../common/services/mailer";
+import { logger } from "../common/services/logger";
 import { getActiveSubscription } from "../subscription/subscription.service";
 
 /* ==============================================================================

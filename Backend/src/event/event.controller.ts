@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Event } from "./event.entity";
 import { Category } from "../category/category.entity";
 import { User } from "../user/user.entity";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";

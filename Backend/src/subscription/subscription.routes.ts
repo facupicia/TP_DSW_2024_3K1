@@ -10,8 +10,8 @@ import {
     adminAssignPlan,
     adminGetStats
 } from "./subscription.controller";
-import { checkAuthToken } from "../middlewares/authToken";
-import { checkRoleAuth } from "../middlewares/checkRole";
+import { checkAuthToken } from "../common/middleware/authToken";
+import { checkRoleAuth } from "../common/middleware/checkRole";
 
 const router = Router();
 

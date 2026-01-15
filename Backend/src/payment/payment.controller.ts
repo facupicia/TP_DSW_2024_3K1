@@ -3,13 +3,13 @@ import { MercadoPagoConfig, Preference } from 'mercadopago';
 import AppDataSource from "../db";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 import { User } from "../user/user.entity";
 import dotenv from "dotenv";
 import { processPaymentTransaction } from "./payment.service";
 import { refreshOrganizerToken } from "./mp-oauth.controller";
 import { getActiveSubscription } from "../subscription/subscription.service";
-import { logger } from "../lib/logger";
+import { logger } from "../common/services/logger";
 
 dotenv.config();
 

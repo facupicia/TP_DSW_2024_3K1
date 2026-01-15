@@ -3,7 +3,7 @@ import AppDataSource from "../db";
 import { SubscriptionPlan } from "./subscription_plan.entity";
 import { UserSubscription, SubscriptionStatus } from "./user_subscription.entity";
 import { User } from "../user/user.entity";
-import { logger } from "../lib/logger";
+import { logger } from "../common/services/logger";
 
 // Separate MP client for subscriptions (uses different access token)
 const getSubscriptionClient = () => {

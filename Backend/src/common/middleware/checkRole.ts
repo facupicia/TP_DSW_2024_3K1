@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { User } from "../user/user.entity";
+import { User } from "../../user/user.entity";
 import { CustomRequest as AuthRequest } from "./authToken";
 
 export interface IPayload {
@@ -7,7 +7,7 @@ export interface IPayload {
     iat: number;
 }
 
-export interface CustomRequest extends AuthRequest {}
+export interface CustomRequest extends AuthRequest { }
 
 export const checkRoleAuth = (roles: string | string[]) => async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {

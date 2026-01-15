@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { CustomRequest } from '../middlewares/authToken';
+import { CustomRequest } from '../common/middleware/authToken';
 import AppDataSource from '../db';
 import { User } from '../user/user.entity';
-import { logger } from '../lib/logger';
+import { logger } from '../common/services/logger';
 
 /* ==============================================================================
    MERCADO PAGO OAUTH CONTROLLER

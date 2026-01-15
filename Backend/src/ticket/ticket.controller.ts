@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import { Ticket, TicketStatus } from "./ticket.entity";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
-import { CustomRequest } from "../middlewares/authToken";
+import { CustomRequest } from "../common/middleware/authToken";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { PaymentStatus } from "../payment/payment.entity";
-import { generarQRUrl } from "../utils/qr";
-import enviarCorreoConQR from "../lib/mailer";
-import { createTicketsForPurchase } from "../services/ticket.service";
+import { generarQRUrl } from "../common/utils/qr";
+import enviarCorreoConQR from "../common/services/mailer";
+import { createTicketsForPurchase } from "./ticket.service";
 import { PaymentLog } from "../payment/payment.entity";
 import AppDataSource from "../db";
 
