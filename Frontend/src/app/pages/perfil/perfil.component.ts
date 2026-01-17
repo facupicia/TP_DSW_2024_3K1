@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
+import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 import { AuthService } from '../../services/auth.service';
 import { EventService } from '../../services/event.service';
 import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../services/subscription.service';
@@ -12,7 +13,7 @@ import { ToastService } from '../../services/toast.service';
 @Component({
   selector: 'app-perfil',
   standalone: true,
-  imports: [HeaderComponent, CommonModule],
+  imports: [HeaderComponent, CommonModule, UpgradeButtonComponent],
   templateUrl: './perfil.component.html',
   styleUrl: './perfil.component.css'
 })
@@ -207,6 +208,7 @@ export class PerfilComponent implements OnInit {
 
   // --- Resto de métodos de navegación ---
   verEstadisticas() { this.router.navigate(['creator/stats']); }
+  goToSettings() { this.router.navigate(['/settings']); }
 
   verificarEventos() {
     this.eventoService.obtenerEventosUsuario().subscribe({

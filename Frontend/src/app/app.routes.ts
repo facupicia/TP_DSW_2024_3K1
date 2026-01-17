@@ -18,6 +18,7 @@ import { CreatorStatsComponent } from './pages/creator-stats/creator-stats.compo
 import { EventStatsComponent } from './pages/event-stats/event-stats.component';
 import { ScannerComponent } from './pages/scanner/scanner.component';
 import { SubscriptionCallbackComponent } from './pages/subscription-callback/subscription-callback.component';
+import { SettingsComponent } from './pages/settings/settings.component';
 
 
 import { authGuard } from './guards/auth.guard';
@@ -29,6 +30,7 @@ export const routes: Routes = [
     { path: "register", component: RegisterComponent, title: 'Register' },
     { path: "profile", component: PerfilComponent, title: 'Perfil', canActivate: [authGuard] },
     { path: "profile/:id", component: PrefilEditComponent, title: 'Editar Perfil', canActivate: [authGuard] },
+    { path: "settings", component: SettingsComponent, title: 'Configuración', canActivate: [authGuard] },
     { path: "create-event", component: RegistrarEventoComponent, title: 'Crear Evento', canActivate: [authGuard] },
     { path: "my-events", component: MisEventosComponent, title: 'Mis Eventos', canActivate: [authGuard, organizerGuard] },
     { path: "edit-event/:id", component: RegistrarEventoComponent, title: 'Editar Evento', canActivate: [authGuard, organizerGuard] },
@@ -50,3 +52,4 @@ export const routes: Routes = [
 
     { path: "**", redirectTo: "", pathMatch: "full" }
 ];
+

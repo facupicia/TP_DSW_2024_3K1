@@ -1,8 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, BehaviorSubject, of } from 'rxjs';
+import { tap, shareReplay, catchError } from 'rxjs/operators';
 
 export interface SubscriptionPlan {
     id: number;
@@ -71,17 +71,61 @@ export class SubscriptionService {
     private http = inject(HttpClient);
     private baseUrl = environment.apiUrl + '/subscription';
 
+    // === CACHED OBSERVABLES ===
     private limitsSubject = new BehaviorSubject<SubscriptionLimits | null>(null);
     public limits$ = this.limitsSubject.asObservable();
 
+    private subscriptionSubject = new BehaviorSubject<UserSubscription | null>(null);
+    public subscription$ = this.subscriptionSubject.asObservable();
+
+    private plansCache$: Observable<SubscriptionPlan[]> | null = null;
+    private subscriptionCache$: Observable<UserSubscription> | null = null;
+    private cacheTimestamp = 0;
+    private readonly CACHE_DURATION = 60000; // 1 minuto de caché
+
+    // === PLANS (cached, rarely changes) ===
     getPlans(): Observable<SubscriptionPlan[]> {
-        return this.http.get<SubscriptionPlan[]>(`${this.baseUrl}/plans`);
+        if (!this.plansCache$) {
+            this.plansCache$ = this.http.get<SubscriptionPlan[]>(`${this.baseUrl}/plans`).pipe(
+                shareReplay(1)
+            );
+        }
+        return this.plansCache$;
     }
 
-    getMySubscription(): Observable<UserSubscription> {
-        return this.http.get<UserSubscription>(`${this.baseUrl}/my-subscription`);
+    // === SUBSCRIPTION (cached with TTL) ===
+    getMySubscription(forceRefresh = false): Observable<UserSubscription> {
+        const now = Date.now();
+        const cacheExpired = (now - this.cacheTimestamp) > this.CACHE_DURATION;
+
+        if (!forceRefresh && !cacheExpired && this.subscriptionCache$) {
+            return this.subscriptionCache$;
+        }
+
+        this.cacheTimestamp = now;
+        this.subscriptionCache$ = this.http.get<UserSubscription>(`${this.baseUrl}/my-subscription`).pipe(
+            tap(sub => this.subscriptionSubject.next(sub)),
+            shareReplay(1),
+            catchError(err => {
+                this.subscriptionCache$ = null; // Clear cache on error
+                throw err;
+            })
+        );
+        return this.subscriptionCache$;
     }
 
+    // Force refresh the subscription cache
+    refreshSubscription(): Observable<UserSubscription> {
+        return this.getMySubscription(true);
+    }
+
+    // Quick check if user is PRO (from cached data)
+    isPro(): boolean {
+        const sub = this.subscriptionSubject.getValue();
+        return sub?.plan?.name === 'PRO' && sub?.status === 'active';
+    }
+
+    // === LIMITS ===
     getMyLimits(): Observable<SubscriptionLimits> {
         return this.http.get<SubscriptionLimits>(`${this.baseUrl}/my-limits`).pipe(
             tap(limits => this.limitsSubject.next(limits))

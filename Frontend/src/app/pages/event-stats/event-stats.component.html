@@ -105,10 +105,9 @@
                     <span class="text-3xl mb-2">📈</span>
                     <p class="font-bold text-slate-700 text-center">Análisis de Ventas PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Visualiza el ritmo de tus ventas</p>
-                    <button (click)="goToUpgrade()"
-                        class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                        Mejorar Plan
-                    </button>
+                    <app-upgrade-button [isPro]="isPro"
+                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
+                    </app-upgrade-button>
                 </div>
                 <apx-chart [series]="salesCurveOptions.series" [chart]="salesCurveOptions.chart"
                     [stroke]="salesCurveOptions.stroke" [fill]="salesCurveOptions.fill"
@@ -136,10 +135,9 @@
                     <span class="text-3xl mb-2">👥</span>
                     <p class="font-bold text-slate-700 text-center">Demografía PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Conoce a tu audiencia</p>
-                    <button (click)="goToUpgrade()"
-                        class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                        Mejorar Plan
-                    </button>
+                    <app-upgrade-button [isPro]="isPro"
+                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
+                    </app-upgrade-button>
                 </div>
                 <apx-chart [series]="ageChartOptions.series" [chart]="ageChartOptions.chart"
                     [plotOptions]="ageChartOptions.plotOptions" [xaxis]="ageChartOptions.xaxis"
@@ -155,10 +153,9 @@
                     <span class="text-3xl mb-2">📍</span>
                     <p class="font-bold text-slate-700 text-center">Ubicaciones PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">De dónde vienen tus asistentes</p>
-                    <button (click)="goToUpgrade()"
-                        class="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                        Mejorar Plan
-                    </button>
+                    <app-upgrade-button [isPro]="isPro"
+                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
+                    </app-upgrade-button>
                 </div>
                 <apx-chart [series]="locationChartOptions.series" [chart]="locationChartOptions.chart"
                     [plotOptions]="locationChartOptions.plotOptions" [xaxis]="locationChartOptions.xaxis"

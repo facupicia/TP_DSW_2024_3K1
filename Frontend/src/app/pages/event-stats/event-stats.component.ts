@@ -7,11 +7,12 @@ import { SubscriptionService, UserSubscription } from '../../services/subscripti
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { catchError, of, Subscription, interval } from 'rxjs';
 import { HeaderComponent } from '../../components/header/header.component';
+import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 
 @Component({
   selector: 'app-event-stats',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgApexchartsModule, RouterModule, HeaderComponent],
+  imports: [CommonModule, FormsModule, NgApexchartsModule, RouterModule, HeaderComponent, UpgradeButtonComponent],
   templateUrl: './event-stats.component.html',
   styleUrls: ['./event-stats.component.css']
 })
