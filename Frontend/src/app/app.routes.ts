@@ -44,8 +44,9 @@ export const routes: Routes = [
     { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "scanner", component: ScannerComponent, title: 'Escáner', canActivate: [authGuard] },
 
-    // Subscription routes
-    { path: "subscription/callback", component: SubscriptionCallbackComponent, title: 'Verificando Suscripción', canActivate: [authGuard] },
+    // Subscription routes - no authGuard because webhook handles activation
+    // Users might land here from a different browser where they're not logged in
+    { path: "subscription/callback", component: SubscriptionCallbackComponent, title: 'Verificando Suscripción' },
 
     { path: "**", redirectTo: "", pathMatch: "full" }
 ];

@@ -25,6 +25,7 @@ export class RegisterComponent {
   public formBuild = inject(FormBuilder);
 
   public isLoading: boolean = false;
+  public showPassword: boolean = false; // Toggle para mostrar/ocultar contraseña
 
   // Nominatim search
   public locationSuggestions: any[] = [];

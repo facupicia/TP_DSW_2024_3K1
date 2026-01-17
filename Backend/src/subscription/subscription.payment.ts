@@ -45,12 +45,8 @@ export const createSubscriptionCheckout = async (
         : Number(plan.monthlyPrice);
 
 
-    // Notification URL for webhook
-    const notificationUrl = process.env.MP_NOTIFICATION_URL_SUSCRIPCION ||
-        `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/subscription/webhook`;
 
-    // Back URL - should point to the BACKEND callback endpoint
-    // The backend will then redirect to the frontend after processing
+    // Back URL for redirect after payment
     const backendUrl = process.env.MP_SUBSCRIPTION_BACK_URL || process.env.BACKEND_URL || 'http://localhost:3000';
 
     try {
@@ -102,8 +98,7 @@ export const processSubscriptionWebhook = async (
     type: string,
     dataId: string
 ): Promise<void> => {
-    // Only process preapproval (subscription) events
-    // MP can send type as 'preapproval' or 'subscription_preapproval'
+    // 1. Validar que el evento sea de suscripción (Preapproval)
     const validTypes = ['preapproval', 'subscription_preapproval'];
     if (!validTypes.includes(type)) {
         logger.info('SUBSCRIPTION_WEBHOOK_IGNORED', { type, dataId });
@@ -114,7 +109,7 @@ export const processSubscriptionWebhook = async (
     const preApproval = new PreApproval(client);
 
     try {
-        // Get subscription details from MP
+        // 2. Obtener los detalles actualizados directamente desde la API de Mercado Pago
         const subscription = await preApproval.get({ id: dataId });
 
         if (!subscription) {
@@ -130,7 +125,7 @@ export const processSubscriptionWebhook = async (
             return;
         }
 
-        // Parse external reference: SUB|userId|planId|billingType
+        // 3. Parsear la referencia externa: SUB|userId|planId|billingType
         const parts = externalRef.split('|');
         if (parts.length < 4 || parts[0] !== 'SUB') {
             logger.error('SUBSCRIPTION_INVALID_EXTERNAL_REF', { externalRef });
@@ -149,29 +144,36 @@ export const processSubscriptionWebhook = async (
         const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
         const planRepo = AppDataSource.getRepository(SubscriptionPlan);
 
-        // Handle different MP statuses
+        // 4. Manejo de estados de Mercado Pago
         switch (status) {
             case 'authorized':
             case 'active':
-                // Subscription approved - activate the plan
+                // --- PROCESO DE ACTIVACIÓN ---
                 const plan = await planRepo.findOne({ where: { id: planId } });
                 if (!plan) {
                     logger.error('SUBSCRIPTION_PLAN_NOT_FOUND', { planId });
                     return;
                 }
 
-                // Deactivate any existing subscription
+                // Desactivar cualquier suscripción previa que tenga el usuario
                 await subscriptionRepo.update(
                     { userId, status: SubscriptionStatus.ACTIVE },
                     { status: SubscriptionStatus.EXPIRED }
                 );
 
-                // Calculate period end based on billing type
+                // Cálculo de fechas
                 const now = new Date();
-                const periodEnd = new Date(now);
-                periodEnd.setMonth(periodEnd.getMonth() + (billingType === 'yearly' ? 12 : 1));
 
-                // Create or update subscription
+                // Fallback manual en caso de que MP no envíe next_payment_date
+                const fallbackDate = new Date(now);
+                fallbackDate.setMonth(fallbackDate.getMonth() + (billingType === 'yearly' ? 12 : 1));
+
+                // Prioridad: 1. next_payment_date de MP | 2. Cálculo manual
+                const periodEnd = subscription.next_payment_date
+                    ? new Date(subscription.next_payment_date)
+                    : fallbackDate;
+
+                // Buscar si ya existe el registro de esta suscripción externa
                 let userSub = await subscriptionRepo.findOne({
                     where: { externalSubscriptionId: dataId }
                 });
@@ -179,6 +181,7 @@ export const processSubscriptionWebhook = async (
                 if (userSub) {
                     userSub.status = SubscriptionStatus.ACTIVE;
                     userSub.currentPeriodEnd = periodEnd;
+                    userSub.planId = planId; // Por si cambió de plan
                 } else {
                     userSub = subscriptionRepo.create({
                         userId,
@@ -191,12 +194,16 @@ export const processSubscriptionWebhook = async (
                 }
 
                 await subscriptionRepo.save(userSub);
-                logger.info('SUBSCRIPTION_ACTIVATED', { userId, planId, dataId });
+                logger.info('SUBSCRIPTION_ACTIVATED', {
+                    userId,
+                    dataId,
+                    expiresAt: periodEnd.toISOString()
+                });
                 break;
 
             case 'paused':
             case 'cancelled':
-                // Subscription cancelled - mark as cancelled but don't downgrade immediately
+                // Marcar como cancelada (el usuario mantiene acceso hasta currentPeriodEnd normalmente)
                 await subscriptionRepo.update(
                     { externalSubscriptionId: dataId },
                     {
@@ -204,11 +211,10 @@ export const processSubscriptionWebhook = async (
                         cancelledAt: new Date()
                     }
                 );
-                logger.info('SUBSCRIPTION_CANCELLED', { userId, dataId });
+                logger.info('SUBSCRIPTION_CANCELLED_OR_PAUSED', { userId, dataId, status });
                 break;
 
             case 'pending':
-                // Still pending - do nothing
                 logger.info('SUBSCRIPTION_PENDING', { dataId });
                 break;
 
@@ -219,8 +225,11 @@ export const processSubscriptionWebhook = async (
     } catch (error: any) {
         logger.error('SUBSCRIPTION_WEBHOOK_ERROR', {
             dataId,
-            error: error?.message
+            error: error?.message,
+            stack: error?.stack
         });
+        // IMPORTANTE: Aquí podrías lanzar el error si quieres que MP reintente el webhook,
+        // pero ten cuidado de no crear bucles infinitos si es un error de código.
     }
 };
 

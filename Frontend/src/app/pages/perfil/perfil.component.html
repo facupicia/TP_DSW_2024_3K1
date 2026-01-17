@@ -148,17 +148,12 @@
 
         <!-- Mercado Pago Section (only for organizers) -->
         <div *ngIf="tieneEventos || userProfile?.rol === 'organizer'"
-          class="bg-white/80 backdrop-blur-md rounded-[32px] p-8 shadow-xl border border-gray-300">
-          <h3 class="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-            <span class="bg-sky-50 text-sky-600 p-2.5 rounded-xl border border-sky-100">
-              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-            </span>
+          class="bg-white/80 backdrop-blur-md rounded-[32px] p-6 shadow-xl border border-gray-300">
+          <h3 class="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2">
             Mercado Pago - Cobros
           </h3>
 
-          <div class="space-y-4">
+          <div class="space-y-2">
             <!-- Status Connected -->
             <div *ngIf="mpStatus?.connected"
               class="flex items-center justify-between p-4 bg-green-50 rounded-2xl border border-green-100">

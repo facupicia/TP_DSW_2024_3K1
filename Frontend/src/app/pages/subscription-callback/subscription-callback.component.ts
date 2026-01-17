@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute } from '@angular/router';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ToastService } from '../../services/toast.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-subscription-callback',
@@ -11,22 +12,38 @@ import { ToastService } from '../../services/toast.service';
     template: `
         <div class="callback-page">
             <div class="card">
+                <!-- Loading state -->
                 <div *ngIf="loading" class="loading">
                     <div class="spinner"></div>
                     <h2>Verificando tu suscripción...</h2>
                     <p>Por favor espera mientras confirmamos tu pago</p>
                 </div>
-                <div *ngIf="!loading && success" class="success">
+
+                <!-- Not logged in - show generic success -->
+                <div *ngIf="!loading && !isLoggedIn" class="not-logged-in">
+                    <div class="icon">✅</div>
+                    <h2>¡Pago Procesado!</h2>
+                    <p>Tu suscripción se está activando. Inicia sesión para verificar tu plan PRO.</p>
+                    <button class="btn-primary" (click)="goToLogin()">Iniciar Sesión</button>
+                </div>
+
+                <!-- Logged in and success -->
+                <div *ngIf="!loading && isLoggedIn && success" class="success">
                     <div class="icon">✅</div>
                     <h2>¡Suscripción Activada!</h2>
                     <p>Tu plan PRO está listo. Disfruta de eventos ilimitados.</p>
                     <button class="btn-primary" (click)="goToEvents()">Ir a Mis Eventos</button>
                 </div>
-                <div *ngIf="!loading && !success" class="error">
-                    <div class="icon">❌</div>
-                    <h2>Algo salió mal</h2>
+
+                <!-- Logged in but verification failed/pending -->
+                <div *ngIf="!loading && isLoggedIn && !success" class="pending">
+                    <div class="icon">⏳</div>
+                    <h2>Procesando Pago</h2>
                     <p>{{ errorMessage }}</p>
-                    <button class="btn-secondary" (click)="retry()">Intentar de nuevo</button>
+                    <div class="button-group">
+                        <button class="btn-secondary" (click)="retry()">Reintentar Verificación</button>
+                        <button class="btn-primary" (click)="goToProfile()">Ir a Mi Perfil</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -82,6 +99,12 @@ import { ToastService } from '../../services/toast.service';
             margin-bottom: 24px;
         }
 
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
         .btn-primary, .btn-secondary {
             padding: 14px 32px;
             border-radius: 10px;
@@ -101,20 +124,37 @@ import { ToastService } from '../../services/toast.service';
             background: #e9ecef;
             color: #495057;
         }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
     `]
 })
 export class SubscriptionCallbackComponent implements OnInit {
     private router = inject(Router);
     private route = inject(ActivatedRoute);
     private subscriptionService = inject(SubscriptionService);
+    private authService = inject(AuthService);
     private toast = inject(ToastService);
 
     loading = true;
     success = false;
-    errorMessage = 'No pudimos confirmar tu suscripción. Por favor contacta a soporte.';
+    isLoggedIn = false;
+    errorMessage = 'Tu pago está siendo procesado. Puede tomar unos minutos en activarse.';
 
     ngOnInit() {
-        // Check for manual verification via URL params
+        // Check if user is logged in
+        this.isLoggedIn = typeof window !== 'undefined' && !!localStorage.getItem('token');
+
+        if (!this.isLoggedIn) {
+            // Not logged in - just show success message
+            // The webhook has already activated the subscription
+            this.loading = false;
+            return;
+        }
+
+        // User is logged in - try to verify the subscription
         this.route.queryParams.subscribe(params => {
             const preapprovalId = params['preapproval_id'];
             if (preapprovalId) {
@@ -136,7 +176,7 @@ export class SubscriptionCallbackComponent implements OnInit {
                     this.success = true;
                     this.toast.success('¡Plan PRO activado!');
                 } else {
-                    this.errorMessage = 'El pago fue procesado pero la suscripción no está activa. Contacta a soporte.';
+                    this.errorMessage = 'El pago fue procesado pero la suscripción aún no está activa. Espera unos segundos y refresca.';
                 }
             },
             error: (err) => {
@@ -173,8 +213,8 @@ export class SubscriptionCallbackComponent implements OnInit {
             next: (sub) => {
                 this.loading = false;
                 this.success = sub.plan.name === 'PRO' && sub.status === 'active';
-                if (!this.success) {
-                    this.errorMessage = 'Tu pago está siendo procesado. Puede tomar unos minutos.';
+                if (this.success) {
+                    this.toast.success('¡Plan PRO activado!');
                 }
             },
             error: () => {
@@ -188,7 +228,16 @@ export class SubscriptionCallbackComponent implements OnInit {
         this.router.navigate(['/my-events']);
     }
 
+    goToProfile() {
+        this.router.navigate(['/profile']);
+    }
+
+    goToLogin() {
+        this.router.navigate(['/login']);
+    }
+
     retry() {
-        this.router.navigate(['/subscription/upgrade']);
+        this.loading = true;
+        this.checkSubscription();
     }
 }
