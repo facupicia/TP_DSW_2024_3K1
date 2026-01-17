@@ -13,12 +13,12 @@ const router = Router();
 router.get("/event/:eventId", getTicketTypesByEvent);
 
 // POST /api/ticketType - Crear nuevo tipo de ticket
-router.post("/", checkAuthToken, checkRoleAuth(["user", "admin"]), createTicketType);
+router.post("/", checkAuthToken, checkRoleAuth(["user", "admin", "organizer", "scanner"]), createTicketType);
 
 // PUT /api/ticketType/:id - Actualizar tipo de ticket
-router.put("/:id", checkAuthToken, checkRoleAuth(["user", "admin"]), updateTicketType);
+router.put("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "organizer", "scanner"]), updateTicketType);
 
 // DELETE /api/ticketType/:id - Desactivar tipo de ticket (soft delete)
-router.delete("/:id", checkAuthToken, checkRoleAuth(["user", "admin"]), deactivateTicketType);
+router.delete("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "organizer", "scanner"]), deactivateTicketType);
 
 export default router;

@@ -27,11 +27,11 @@ router.get("/webhook", subscriptionWebhook); // MP sometimes uses GET
 router.get("/callback", subscriptionCallback);
 
 // Authenticated user routes
-router.get("/my-subscription", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), getMySubscription);
-router.get("/my-limits", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), getMyLimits);
-router.post("/checkout/:planId", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), createCheckout);
-router.post("/verify/:id", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), verifySubscription);
-router.post("/cancel", checkAuthToken, checkRoleAuth(["user", "organizer", "admin"]), cancelMySubscription);
+router.get("/my-subscription", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), getMySubscription);
+router.get("/my-limits", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), getMyLimits);
+router.post("/checkout/:planId", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), createCheckout);
+router.post("/verify/:id", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), verifySubscription);
+router.post("/cancel", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), cancelMySubscription);
 
 // Admin routes
 router.post("/admin/assign", checkAuthToken, checkRoleAuth(["admin"]), adminAssignPlan);
