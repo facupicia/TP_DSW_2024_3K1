@@ -46,8 +46,9 @@ export class EventConfigComponent implements OnInit {
     // Invitations
     inviteEmails = '';
     selectedTicketTypeId: number | null = null;
+    inviteQuantity = 1;
     sendingInvites = false;
-    inviteResults: { success: number; errors: string[] } | null = null;
+    inviteResults: { success: number; totalTickets: number; errors: string[] } | null = null;
 
     ngOnInit(): void {
         const idParam = this.route.snapshot.paramMap.get('id');
@@ -180,17 +181,20 @@ export class EventConfigComponent implements OnInit {
         this.sendingInvites = true;
         this.inviteResults = null;
 
-        this.ticketService.inviteGuests(this.selectedTicketTypeId, emails).subscribe({
+        this.ticketService.inviteGuests(this.selectedTicketTypeId, emails, this.inviteQuantity).subscribe({
             next: (result: any) => {
                 this.inviteResults = {
                     success: result.tickets?.length || 0,
+                    totalTickets: result.totalTickets || 0,
                     errors: result.errors || []
                 };
                 this.toastService.success(result.message);
                 this.inviteEmails = '';
                 this.sendingInvites = false;
+                // Reload event to update stock display
+                this.loadEvent();
             },
-            error: (err) => {
+            error: (err: any) => {
                 this.toastService.error(err.error?.message || 'Error al enviar invitaciones');
                 this.sendingInvites = false;
             }

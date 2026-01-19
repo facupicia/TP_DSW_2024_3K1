@@ -62,8 +62,8 @@ export class TicketService {
   /**
    * Invite guests by sending free tickets to their emails
    */
-  inviteGuests(ticketTypeId: number, emails: string[]): Observable<any> {
-    return this.http.post<any>(`${this.urlBase}invite`, { ticketTypeId, emails });
+  inviteGuests(ticketTypeId: number, emails: string[], quantity: number = 1): Observable<any> {
+    return this.http.post<any>(`${this.urlBase}invite`, { ticketTypeId, emails, quantity });
   }
 }
 

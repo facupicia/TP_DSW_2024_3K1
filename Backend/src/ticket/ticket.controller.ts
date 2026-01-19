@@ -341,7 +341,13 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             return res.status(401).json({ message: "No autorizado" });
         }
 
-        const { ticketTypeId, emails } = req.body;
+        const { ticketTypeId, emails, quantity = 1 } = req.body;
+
+        // Validate quantity
+        const ticketQty = parseInt(quantity) || 1;
+        if (ticketQty < 1 || ticketQty > 10) {
+            return res.status(400).json({ message: "La cantidad debe ser entre 1 y 10 por invitado" });
+        }
 
         // Validate emails
         if (!emails || !Array.isArray(emails) || emails.length === 0) {
@@ -349,8 +355,9 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         }
 
         // Limit to prevent abuse (max 50 invites per request)
-        if (emails.length > 50) {
-            return res.status(400).json({ message: "Máximo 50 invitaciones por solicitud" });
+        const totalTickets = emails.length * ticketQty;
+        if (emails.length > 50 || totalTickets > 100) {
+            return res.status(400).json({ message: "Máximo 50 emails o 100 tickets por solicitud" });
         }
 
         // Get ticket type with event
@@ -368,9 +375,18 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             return res.status(403).json({ message: "No tienes permiso para invitar a este evento" });
         }
 
+        // Check stock
+        const availableStock = ticketType.capacity - ticketType.soldCount;
+        if (availableStock < totalTickets) {
+            return res.status(400).json({
+                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${totalTickets}`
+            });
+        }
+
         const event = ticketType.event;
         const createdTickets: any[] = [];
         const errors: string[] = [];
+        let ticketsCreatedCount = 0;
 
         for (const email of emails) {
             try {
@@ -381,48 +397,50 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
                     continue;
                 }
 
-                // Generate unique code and QR
-                const { randomUUID } = await import("crypto");
-                const codigo_unico = randomUUID();
-                const qrCode = await generarQRUrl(codigo_unico);
+                const ticketsForThisEmail: any[] = [];
 
-                // Create ticket with price 0 (free)
-                const ticket = new Ticket();
-                ticket.ticketType = ticketType;
-                ticket.ticketTypeId = ticketType.id;
-                ticket.userId = userId; // Temporarily assigned to organizer
-                ticket.codigo_unico = codigo_unico;
-                ticket.qrCode = qrCode;
-                ticket.purchasePrice = 0; // FREE
-                ticket.status = TicketStatus.ACTIVE;
+                // Create multiple tickets for this email
+                for (let i = 0; i < ticketQty; i++) {
+                    // Generate unique code and QR
+                    const { randomUUID } = await import("crypto");
+                    const codigo_unico = randomUUID();
+                    const qrCode = await generarQRUrl(codigo_unico);
 
-                await queryRunner.manager.save(Ticket, ticket);
+                    // Create ticket with price 0 (free)
+                    const ticket = new Ticket();
+                    ticket.ticketType = ticketType;
+                    ticket.ticketTypeId = ticketType.id;
+                    ticket.userId = userId; // Assigned to organizer
+                    ticket.codigo_unico = codigo_unico;
+                    ticket.qrCode = qrCode;
+                    ticket.purchasePrice = 0; // FREE
+                    ticket.status = TicketStatus.ACTIVE;
 
-                // Send email with QR
-                const dateObj = new Date(event.date);
-                const formattedDate = !isNaN(dateObj.getTime())
-                    ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                    : String(event.date);
+                    await queryRunner.manager.save(Ticket, ticket);
+                    ticketsCreatedCount++;
 
-                try {
-                    await enviarCorreoConQR(email, [{
+                    ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
                         ticketId: ticket.id,
                         eventTitle: event.title,
-                        eventDate: `${formattedDate} ${event.time}`,
+                        eventDate: `${new Date(event.date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${event.time}`,
                         eventLocation: event.direccion || event.ciudad || '',
                         buyerName: 'Invitado',
                         ticketType: ticketType.name
-                    }]);
+                    });
+                }
+
+                // Send email with all QRs for this person
+                try {
+                    await enviarCorreoConQR(email, ticketsForThisEmail);
                 } catch (emailErr) {
                     console.error(`Error enviando email a ${email}:`, emailErr);
                     errors.push(`Error enviando a: ${email}`);
                 }
 
                 createdTickets.push({
-                    id: ticket.id,
                     email,
-                    codigo_unico: ticket.codigo_unico
+                    quantity: ticketsForThisEmail.length
                 });
 
             } catch (ticketErr: any) {
@@ -430,11 +448,22 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             }
         }
 
+        // INCREMENT SOLDCOUNT for all created tickets
+        if (ticketsCreatedCount > 0) {
+            await queryRunner.manager.increment(
+                TicketType,
+                { id: ticketType.id },
+                "soldCount",
+                ticketsCreatedCount
+            );
+        }
+
         await queryRunner.commitTransaction();
 
         return res.status(201).json({
-            message: `${createdTickets.length} invitación(es) enviada(s)`,
+            message: `${ticketsCreatedCount} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,
             tickets: createdTickets,
+            totalTickets: ticketsCreatedCount,
             errors: errors.length > 0 ? errors : undefined
         });
 
