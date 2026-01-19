@@ -136,13 +136,7 @@ npm start
 Accede a `http://localhost:4200`.
 
 
-## 👥 Autores
 
-| Nombre | Legajo | Rol |
-|--------|--------|-----|
-| **Facundo Picia** | 48072 | Full Stack Developer |
-
----
 
 <div align="center">
   <p>Desarrollado para la cátedra de Desarrollo de Software - 2024</p>
