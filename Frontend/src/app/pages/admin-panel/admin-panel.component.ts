@@ -9,8 +9,9 @@ import { ToastService } from '../../services/toast.service';
 import { StatsService } from '../../services/stats.service';
 import { Usuario } from '../../interfaces/Usuario';
 import { EventService } from '../../services/event.service';
+import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
 
-type TabView = 'dashboard' | 'users' | 'categories';
+type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
 
 @Component({
   selector: 'app-admin-panel',
@@ -23,6 +24,7 @@ export class AdminPanelComponent implements OnInit {
 
   private userService = inject(AuthService);
   private categoryService = inject(CategoryService);
+  private adminService = inject(AdminService);
   public formBuild = inject(FormBuilder);
   private toast = inject(ToastService);
   private statsService = inject(StatsService);
@@ -32,6 +34,7 @@ export class AdminPanelComponent implements OnInit {
   public isMobileNavOpen = false;
   public loadingCategories = false;
   public loadingUsers = false;
+  public loadingMetrics = false;
   public updatingRole: Record<number, boolean> = {};
   public selectedRole: Record<number, 'user' | 'admin' | 'scanner'> = {};
   public roles: Array<'user' | 'admin' | 'scanner'> = ['user', 'admin', 'scanner'];
@@ -44,32 +47,60 @@ export class AdminPanelComponent implements OnInit {
   categorias: Categoria[] = [];
   usuarios: Usuario[] = [];
 
+  // Legacy stats (for backward compatibility)
   stats = {
     totalUsers: 0,
     totalCategories: 0,
     activeEvents: 0
   };
 
+  // New comprehensive metrics
+  overview: OverviewResponse | null = null;
+  dateRange: DateRange | undefined = undefined;
+
   ngOnInit(): void {
     this.cargarCategorias();
     this.userService.currentUser$.subscribe(u => {
       this.currentUser = u;
     });
-   
 
     this.cargarUsuarios();
     this.getEvents();
+    this.loadOverview();
   }
 
-getEvents() {
-  this.eventService.getEventsNumber().subscribe({
-    next: (data) => {
-      this.stats.activeEvents = data;
-      console.log(this.stats.activeEvents);
-    },
-    error: (err) => console.error(err)
-  });
-}
+  /**
+   * Load comprehensive overview metrics
+   */
+  loadOverview() {
+    this.loadingMetrics = true;
+    this.adminService.getOverview(this.dateRange).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.overview = response.data;
+          // Update legacy stats for backward compatibility
+          this.stats.totalUsers = response.data.users.totalUsers;
+          this.stats.activeEvents = response.data.events.activeEvents;
+        }
+        this.loadingMetrics = false;
+      },
+      error: (err) => {
+        console.error('Error loading overview:', err);
+        this.toast.error('Error al cargar métricas del panel');
+        this.loadingMetrics = false;
+      }
+    });
+  }
+
+  getEvents() {
+    this.eventService.getEventsNumber().subscribe({
+      next: (data) => {
+        this.stats.activeEvents = data;
+        console.log(this.stats.activeEvents);
+      },
+      error: (err) => console.error(err)
+    });
+  }
 
 
   cargarCategorias() {
@@ -112,6 +143,31 @@ getEvents() {
     if (tab === 'categories' && this.categorias.length === 0 && !this.loadingCategories) {
       this.cargarCategorias();
     }
+    // Load metrics when switching to metrics tabs
+    if (['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(tab)) {
+      if (!this.overview) {
+        this.loadOverview();
+      }
+    }
+  }
+
+  /**
+   * Format currency
+   */
+  formatCurrency(value: number): string {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+
+  /**
+   * Format percentage
+   */
+  formatPercent(value: number): string {
+    return `${value.toFixed(1)}%`;
   }
 
   crearCategoria() {

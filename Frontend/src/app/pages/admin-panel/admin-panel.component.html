@@ -22,6 +22,38 @@
         <span>Dashboard</span>
       </div>
 
+      <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue')">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Ingresos</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'subscriptions'" (click)="cambiarTab('subscriptions')">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+        <span>Suscripciones</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'marketplace'" (click)="cambiarTab('marketplace')">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+        </svg>
+        <span>Marketplace</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'commissions'" (click)="cambiarTab('commissions')">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        <span>Comisiones</span>
+      </div>
+
       <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users')">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -55,10 +87,14 @@
     <header class="flex justify-between items-center mb-8">
       <div>
         <h2 class="text-2xl font-bold text-gray-900">
-          {{ activeTab === 'dashboard' ? 'Resumen General' : (activeTab === 'users' ? 'Gestión de Usuarios' :
-          'Categorías') }}
+          {{ activeTab === 'dashboard' ? 'Resumen Ejecutivo' :
+          (activeTab === 'revenue' ? 'Ingresos y Ganancias' :
+          (activeTab === 'subscriptions' ? 'Suscripciones' :
+          (activeTab === 'marketplace' ? 'Marketplace' :
+          (activeTab === 'commissions' ? 'Comisiones' :
+          (activeTab === 'users' ? 'Gestión de Usuarios' : 'Categorías')))))}}
         </h2>
-        <p class="text-gray-500 text-sm">Bienvenido al centro de control.</p>
+        <p class="text-gray-500 text-sm">Panel de administración del propietario</p>
       </div>
       <div class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
         <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
@@ -68,47 +104,306 @@
     <div [ngSwitch]="activeTab">
 
       <div *ngSwitchCase="'dashboard'" class="animate-fade-in-up">
-        <div class="kpi-grid">
-          <div class="kpi-card">
+
+        <!-- Loading State -->
+        <div *ngIf="loadingMetrics" class="kpi-grid">
+          <div *ngFor="let i of [1,2,3,4,5,6]" class="kpi-card">
+            <div class="h-24 bg-gray-100 animate-pulse rounded-xl"></div>
+          </div>
+        </div>
+
+        <!-- Executive Metrics -->
+        <div *ngIf="!loadingMetrics && overview" class="kpi-grid">
+          <div class="kpi-card bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
             <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-blue-50 text-blue-600">
+              <div class="p-3 rounded-2xl bg-green-500 text-white">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span class="text-green-700 font-medium text-sm uppercase tracking-wider">Ingresos Totales</span>
+            </div>
+            <p class="text-4xl font-bold text-green-900">{{ formatCurrency(overview.revenue.totalRevenue) }}</p>
+            <p class="text-sm text-green-600 mt-2">Comisiones + Suscripciones</p>
+          </div>
+
+          <div class="kpi-card bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-3 rounded-2xl bg-blue-500 text-white">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span class="text-blue-700 font-medium text-sm uppercase tracking-wider">Comisiones</span>
+            </div>
+            <p class="text-4xl font-bold text-blue-900">{{ formatCurrency(overview.commissions.totalCommission) }}</p>
+            <p class="text-sm text-blue-600 mt-2">{{ formatPercent(overview.commissions.averageCommissionPercent) }}
+              promedio</p>
+          </div>
+
+          <div class="kpi-card bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-3 rounded-2xl bg-purple-500 text-white">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+              </div>
+              <span class="text-purple-700 font-medium text-sm uppercase tracking-wider">Suscripciones</span>
+            </div>
+            <p class="text-4xl font-bold text-purple-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
+            <p class="text-sm text-purple-600 mt-2">MRR: {{ formatCurrency(overview.subscriptions.mrr) }}</p>
+          </div>
+
+          <div class="kpi-card bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-3 rounded-2xl bg-amber-500 text-white">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <span class="text-amber-700 font-medium text-sm uppercase tracking-wider">GMV</span>
+            </div>
+            <p class="text-4xl font-bold text-amber-900">{{ formatCurrency(overview.revenue.gmv) }}</p>
+            <p class="text-sm text-amber-600 mt-2">{{ overview.marketplace.ticketsSold }} tickets vendidos</p>
+          </div>
+
+          <div class="kpi-card bg-gradient-to-br from-cyan-50 to-sky-50 border-cyan-100">
+            <div class="flex items-center gap-4 mb-4">
+              <div class="p-3 rounded-2xl bg-cyan-500 text-white">
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <span class="text-gray-500 font-medium text-sm uppercase tracking-wider">Usuarios Totales</span>
+              <span class="text-cyan-700 font-medium text-sm uppercase tracking-wider">Usuarios PRO</span>
             </div>
-            <p class="text-4xl font-bold text-gray-900">{{ stats.totalUsers }}</p>
+            <p class="text-4xl font-bold text-cyan-900">{{ overview.subscriptions.proUsers }}</p>
+            <p class="text-sm text-cyan-600 mt-2">{{ overview.subscriptions.freeUsers }} FREE</p>
           </div>
 
-          <div class="kpi-card">
+          <div class="kpi-card bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100">
             <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-purple-50 text-purple-600">
+              <div class="p-3 rounded-2xl bg-pink-500 text-white">
                 <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
               </div>
-              <span class="text-gray-500 font-medium text-sm uppercase tracking-wider">Categorías</span>
+              <span class="text-pink-700 font-medium text-sm uppercase tracking-wider">Eventos Activos</span>
             </div>
-            <p class="text-4xl font-bold text-gray-900">{{ stats.totalCategories }}</p>
+            <p class="text-4xl font-bold text-pink-900">{{ overview.events.activeEvents }}</p>
+            <p class="text-sm text-pink-600 mt-2">{{ overview.events.featuredEvents }} destacados</p>
+          </div>
+        </div>
+
+        <!-- Quick Stats Grid -->
+        <div *ngIf="!loadingMetrics && overview" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Top Organizers -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🏆 Top Organizadores (Comisiones)</h3>
+            <div class="space-y-3">
+              <div *ngFor="let org of overview.commissions.topOrganizers.slice(0, 5)"
+                class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div class="flex-1">
+                  <p class="font-bold text-gray-900 text-sm">{{ org.organizerName }}</p>
+                  <p class="text-xs text-gray-500">{{ org.salesCount }} ventas</p>
+                </div>
+                <div class="text-right">
+                  <p class="font-bold text-green-600">{{ formatCurrency(org.totalCommission) }}</p>
+                  <p class="text-xs text-gray-500">GMV: {{ formatCurrency(org.totalGmv) }}</p>
+                </div>
+              </div>
+              <p *ngIf="overview.commissions.topOrganizers.length === 0" class="text-gray-400 text-sm text-center py-4">
+                No hay datos disponibles
+              </p>
+            </div>
           </div>
 
-          <div class="kpi-card">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-green-50 text-green-600">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+          <!-- Subscription Breakdown -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📊 Distribuci\u00f3n de Suscripciones</h3>
+            <div class="space-y-3">
+              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan"
+                class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                    [class.bg-purple-100]="plan.planName === 'PRO'" [class.text-purple-600]="plan.planName === 'PRO'"
+                    [class.bg-gray-100]="plan.planName === 'FREE'" [class.text-gray-600]="plan.planName === 'FREE'">
+                    <span class="font-bold text-sm">{{ plan.planName.charAt(0) }}</span>
+                  </div>
+                  <div>
+                    <p class="font-bold text-gray-900 text-sm">{{ plan.displayName || plan.planName }}</p>
+                    <p class="text-xs text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total)
+                      * 100).toFixed(1) }}%</p>
+                  </div>
+                </div>
+                <p class="text-2xl font-bold text-gray-900">{{ plan.count }}</p>
               </div>
-              <span class="text-gray-500 font-medium text-sm uppercase tracking-wider">Eventos Activos</span>
             </div>
-            <p class="text-4xl font-bold text-gray-900">{{ stats.activeEvents }}</p>
           </div>
         </div>
       </div>
+
+      <!-- Revenue Tab -->
+      <div *ngSwitchCase="'revenue'" class="animate-fade-in-up">
+        <div *ngIf="loadingMetrics" class="p-8 text-center">
+          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+        </div>
+        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Ingresos Totales</p>
+              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.revenue.totalRevenue) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisiones</p>
+              <p class="text-3xl font-bold text-blue-600">{{ formatCurrency(overview.revenue.commissionRevenue) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">MRR (Suscripciones)</p>
+              <p class="text-3xl font-bold text-purple-600">{{ formatCurrency(overview.revenue.subscriptionRevenue) }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subscriptions Tab -->
+      <div *ngSwitchCase="'subscriptions'" class="animate-fade-in-up">
+        <div *ngIf="loadingMetrics" class="p-8 text-center">
+          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+        </div>
+        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Activas</p>
+              <p class="text-3xl font-bold text-gray-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Usuarios PRO</p>
+              <p class="text-3xl font-bold text-purple-600">{{ overview.subscriptions.proUsers }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">MRR</p>
+              <p class="text-3xl font-bold text-green-600">{{ formatCurrency(overview.subscriptions.mrr) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Churn Rate</p>
+              <p class="text-3xl font-bold text-orange-600">{{ formatPercent(overview.subscriptions.churnRate) }}</p>
+            </div>
+          </div>
+
+          <!-- Plan Breakdown -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Distribución por Plan</h3>
+            <div class="space-y-3">
+              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan" class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <p class="font-bold text-gray-900">{{ plan.displayName || plan.planName }}</p>
+                  <p class="text-sm text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total) * 100).toFixed(1) }}% del total</p>
+                </div>
+                <p class="text-2xl font-bold text-gray-900">{{ plan.count }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Marketplace Tab -->
+      <div *ngSwitchCase="'marketplace'" class="animate-fade-in-up">
+        <div *ngIf="loadingMetrics" class="p-8 text-center">
+          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+        </div>
+        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
+              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.marketplace.grossRevenue) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
+              <p class="text-3xl font-bold text-blue-600">{{ overview.marketplace.ticketsSold }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
+              <p class="text-3xl font-bold text-purple-600">{{ formatCurrency(overview.marketplace.averageTicketPrice) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
+              <p class="text-3xl font-bold text-green-600">{{ overview.marketplace.totalTransactions }}</p>
+            </div>
+          </div>
+
+          <!-- Payment Status -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">Estado de Pagos</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-4 bg-green-50 rounded-xl">
+                <p class="text-sm text-green-600 font-bold mb-1">Exitosos</p>
+                <p class="text-2xl font-bold text-green-700">{{ overview.marketplace.successfulPayments }}</p>
+              </div>
+              <div class="p-4 bg-red-50 rounded-xl">
+                <p class="text-sm text-red-600 font-bold mb-1">Fallidos</p>
+                <p class="text-2xl font-bold text-red-700">{{ overview.marketplace.failedPayments }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commissions Tab -->
+      <div *ngSwitchCase="'commissions'" class="animate-fade-in-up">
+        <div *ngIf="loadingMetrics" class="p-8 text-center">
+          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+        </div>
+        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Total</p>
+              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.commissions.totalCommission) }}</p>
+            </div>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Promedio</p>
+              <p class="text-3xl font-bold text-blue-600">{{ formatPercent(overview.commissions.averageCommissionPercent) }}</p>
+            </div>
+          </div>
+
+          <!-- Top Organizers Table -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+              <h3 class="text-lg font-bold text-gray-900">Top Organizadores por Comisiones</h3>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-gray-50">
+                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Organizador</th>
+                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ventas</th>
+                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">GMV</th>
+                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Comisión</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let org of overview.commissions.topOrganizers" class="border-b border-gray-50 hover:bg-gray-50">
+                    <td class="p-4 font-bold text-gray-900">{{ org.organizerName }}</td>
+                    <td class="p-4 text-right text-gray-600">{{ org.salesCount }}</td>
+                    <td class="p-4 text-right font-bold text-gray-900">{{ formatCurrency(org.totalGmv) }}</td>
+                    <td class="p-4 text-right font-bold text-green-600">{{ formatCurrency(org.totalCommission) }}</td>
+                  </tr>
+                  <tr *ngIf="overview.commissions.topOrganizers.length === 0">
+                    <td colspan="4" class="p-8 text-center text-gray-400">No hay datos disponibles</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Tab (existing) -->
 
       <div *ngSwitchCase="'users'" class="animate-fade-in-up">
         <div
