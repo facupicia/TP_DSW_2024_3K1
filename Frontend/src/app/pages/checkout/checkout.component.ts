@@ -9,11 +9,13 @@ import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
 import { DemoBannerComponent } from '../../components/demo-banner/demo-banner.component';
+import { CouponService } from '../../services/coupon.service';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, HeaderComponent, DemoBannerComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent],
   templateUrl: './checkout.component.html',
   styleUrls: ['./checkout.component.css']
 })
@@ -24,6 +26,7 @@ export class CheckoutComponent implements OnInit {
   private eventoService = inject(EventService);
   private ticketService = inject(TicketService);
   private toastService = inject(ToastService);
+  private couponService = inject(CouponService);
 
   timeLeft: number = 600; // 10 minutos en segundos
   timerDisplay: string = '10:00';
@@ -43,6 +46,14 @@ export class CheckoutComponent implements OnInit {
   showErrorMessage = false;
   errorMessageText = '';
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
+
+  // Coupon state
+  couponCode = '';
+  couponLoading = false;
+  appliedCoupon: { discountPercent: number; couponId: number } | null = null;
+  couponError = '';
+  discountAmount = 0;
+  finalTotal = 0;
 
   public formCheckout: FormGroup = this.formBuild.group({
     ticketTypeId: ['', Validators.required],
@@ -160,6 +171,52 @@ export class CheckoutComponent implements OnInit {
       // Legacy fallback
       this.total = this.ticketQuantity * (this.evento.price || 0);
     }
+
+    // Apply coupon discount
+    if (this.appliedCoupon) {
+      this.discountAmount = Math.round((this.total * this.appliedCoupon.discountPercent) / 100);
+      this.finalTotal = this.total - this.discountAmount;
+    } else {
+      this.discountAmount = 0;
+      this.finalTotal = this.total;
+    }
+  }
+
+  applyCoupon() {
+    if (!this.couponCode.trim()) {
+      this.couponError = 'Ingresa un código de cupón';
+      return;
+    }
+
+    this.couponLoading = true;
+    this.couponError = '';
+
+    this.couponService.validateCoupon(this.couponCode.trim(), Number(this.eventId)).subscribe({
+      next: (result) => {
+        if (result.valid) {
+          this.appliedCoupon = {
+            discountPercent: result.discountPercent!,
+            couponId: result.couponId!
+          };
+          this.toastService.success(result.message);
+          this.calculateTotal();
+        } else {
+          this.couponError = result.message;
+        }
+        this.couponLoading = false;
+      },
+      error: (err) => {
+        this.couponError = err.error?.message || 'Cupón no válido';
+        this.couponLoading = false;
+      }
+    });
+  }
+
+  removeCoupon() {
+    this.appliedCoupon = null;
+    this.couponCode = '';
+    this.couponError = '';
+    this.calculateTotal();
   }
 
   comprarTickets() {

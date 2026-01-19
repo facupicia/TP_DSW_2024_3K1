@@ -324,3 +324,127 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
         await queryRunner.release();
     }
 }
+
+/**
+ * INVITE GUESTS (Free Tickets)
+ * POST /ticket/invite
+ * Allows organizers to create free tickets and send them via email
+ */
+export const inviteGuests = async (req: CustomRequest, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: "No autorizado" });
+        }
+
+        const { ticketTypeId, emails } = req.body;
+
+        // Validate emails
+        if (!emails || !Array.isArray(emails) || emails.length === 0) {
+            return res.status(400).json({ message: "Debes proporcionar al menos un email" });
+        }
+
+        // Limit to prevent abuse (max 50 invites per request)
+        if (emails.length > 50) {
+            return res.status(400).json({ message: "Máximo 50 invitaciones por solicitud" });
+        }
+
+        // Get ticket type with event
+        const ticketType = await queryRunner.manager.findOne(TicketType, {
+            where: { id: ticketTypeId },
+            relations: ["event"]
+        });
+
+        if (!ticketType) {
+            return res.status(404).json({ message: "Tipo de ticket no encontrado" });
+        }
+
+        // Verify organizer owns the event
+        if (ticketType.event.user_id !== userId) {
+            return res.status(403).json({ message: "No tienes permiso para invitar a este evento" });
+        }
+
+        const event = ticketType.event;
+        const createdTickets: any[] = [];
+        const errors: string[] = [];
+
+        for (const email of emails) {
+            try {
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    errors.push(`Email inválido: ${email}`);
+                    continue;
+                }
+
+                // Generate unique code and QR
+                const { randomUUID } = await import("crypto");
+                const codigo_unico = randomUUID();
+                const qrCode = await generarQRUrl(codigo_unico);
+
+                // Create ticket with price 0 (free)
+                const ticket = new Ticket();
+                ticket.ticketType = ticketType;
+                ticket.ticketTypeId = ticketType.id;
+                ticket.userId = userId; // Temporarily assigned to organizer
+                ticket.codigo_unico = codigo_unico;
+                ticket.qrCode = qrCode;
+                ticket.purchasePrice = 0; // FREE
+                ticket.status = TicketStatus.ACTIVE;
+
+                await queryRunner.manager.save(Ticket, ticket);
+
+                // Send email with QR
+                const dateObj = new Date(event.date);
+                const formattedDate = !isNaN(dateObj.getTime())
+                    ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                    : String(event.date);
+
+                try {
+                    await enviarCorreoConQR(email, [{
+                        qrCode: ticket.qrCode,
+                        ticketId: ticket.id,
+                        eventTitle: event.title,
+                        eventDate: `${formattedDate} ${event.time}`,
+                        eventLocation: event.direccion || event.ciudad || '',
+                        buyerName: 'Invitado',
+                        ticketType: ticketType.name
+                    }]);
+                } catch (emailErr) {
+                    console.error(`Error enviando email a ${email}:`, emailErr);
+                    errors.push(`Error enviando a: ${email}`);
+                }
+
+                createdTickets.push({
+                    id: ticket.id,
+                    email,
+                    codigo_unico: ticket.codigo_unico
+                });
+
+            } catch (ticketErr: any) {
+                errors.push(`Error creando ticket para ${email}: ${ticketErr.message}`);
+            }
+        }
+
+        await queryRunner.commitTransaction();
+
+        return res.status(201).json({
+            message: `${createdTickets.length} invitación(es) enviada(s)`,
+            tickets: createdTickets,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error: any) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        console.error("Error inviting guests:", error);
+        return res.status(500).json({ message: 'Error al enviar invitaciones', error: error.message });
+    } finally {
+        await queryRunner.release();
+    }
+};

@@ -52,6 +52,10 @@ export class MisEventosComponent implements OnInit {
     }
   }
 
+  isPublic(isPublic: boolean): string {
+    return isPublic ? 'Público' : 'Privado';
+  }
+
   // Verifica si el evento ya pasó
   isEventoPasado(fecha: Date | string): boolean {
     return new Date(fecha) < new Date();
@@ -79,6 +83,9 @@ export class MisEventosComponent implements OnInit {
   }
   verEstadisticasEvento(id: number): void {
     this.router.navigate([`event/${id}/stats`]);
+  }
+  verConfiguracion(id: number): void {
+    this.router.navigate([`event/${id}/config`]);
   }
 
   crearEvento(): void {

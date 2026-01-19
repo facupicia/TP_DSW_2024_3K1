@@ -16,6 +16,7 @@ import { CheckoutFailureComponent } from './pages/checkout/failure.component';
 import { CheckoutPendingComponent } from './pages/checkout/pending.component';
 import { CreatorStatsComponent } from './pages/creator-stats/creator-stats.component';
 import { EventStatsComponent } from './pages/event-stats/event-stats.component';
+import { EventConfigComponent } from './pages/event-config/event-config.component';
 import { ScannerComponent } from './pages/scanner/scanner.component';
 import { SubscriptionCallbackComponent } from './pages/subscription-callback/subscription-callback.component';
 import { SettingsComponent } from './pages/settings/settings.component';
@@ -44,6 +45,7 @@ export const routes: Routes = [
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
     { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
+    { path: "event/:id/config", component: EventConfigComponent, title: 'Configuración de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "scanner", component: ScannerComponent, title: 'Escáner', canActivate: [authGuard] },
 
     // Subscription routes - no authGuard because webhook handles activation

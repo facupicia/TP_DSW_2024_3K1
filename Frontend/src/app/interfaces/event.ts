@@ -31,6 +31,7 @@ export interface Evento {
     category?: Categoria | any;
     ticketTypes?: TicketType[];
     minAge?: number; // 0 = sin restricción, 18 = +18, etc.
+    isPublic?: boolean; // true = visible en explorador, false = solo por link
     // Legacy fields (optional/deprecated for display)
     capacity?: number;
     price?: number;

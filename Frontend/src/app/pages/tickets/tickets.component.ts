@@ -11,7 +11,7 @@ import { ToastService } from '../../services/toast.service';
 interface EventGroup {
   eventTitle: string;
   eventDate: string;
-  eventLocation: string;
+  ciudad: string;
   eventImage: string;
   eventId: number;
   tickets: any[];
@@ -20,7 +20,7 @@ interface EventGroup {
 @Component({
   selector: 'app-tickets',
   standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink] ,
+  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink],
   templateUrl: './tickets.component.html',
   styleUrl: './tickets.component.css'
 })
@@ -44,6 +44,7 @@ export class TicketsComponent implements OnInit {
   sharingEventLocation = '';
   sharingQrCode = '';
   sharingTicketCode = '';
+  sharingEventStatus = '';
 
   private cdr = inject(ChangeDetectorRef);
 
@@ -69,7 +70,7 @@ export class TicketsComponent implements OnInit {
     this.sharingEventTitle = group.eventTitle;
     this.sharingEventImage = group.eventImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30';
     this.sharingEventDate = group.eventDate;
-    this.sharingEventLocation = group.eventLocation;
+    this.sharingEventLocation = group.ciudad;
     this.sharingQrCode = ticket.qrCode;
     this.sharingTicketCode = ticket.codigo_unico;
 
@@ -121,6 +122,7 @@ export class TicketsComponent implements OnInit {
     this.tickService.getTicketsByUser(Number(this.userID)).subscribe({
       next: (data) => {
         this.agruparTicketsPorEvento(data);
+        console.log(this.groupedTickets);
         this.loading = false;
       },
       error: () => {
@@ -146,7 +148,7 @@ export class TicketsComponent implements OnInit {
         groups[evtId] = {
           eventTitle: ticket.event?.title ?? ticket.titleEvent ?? 'Evento',
           eventDate: ticket.event?.date ?? '',
-          eventLocation: ticket.event?.location ?? '',
+          ciudad: ticket.event?.ciudad ?? '',
           eventImage: ticket.event?.image ?? '',
           eventId: evtId,
           tickets: []
@@ -165,7 +167,7 @@ export class TicketsComponent implements OnInit {
     if (term) {
       groups = groups.filter(g =>
         (g.eventTitle || '').toLowerCase().includes(term) ||
-        (g.eventLocation || '').toLowerCase().includes(term)
+        (g.ciudad || '').toLowerCase().includes(term)
       );
     }
     // Ordenar por fecha más reciente primero

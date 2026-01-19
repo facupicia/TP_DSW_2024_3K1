@@ -75,6 +75,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
     organizer: ['Organizer', Validators.required],
     minAge: [0], // 0 = sin restricción, 18 = +18, etc.
+    isPublic: [true], // true = visible en explorador, false = solo por link
     ticketTypes: this.formBuild.array([])
   });
 
@@ -355,6 +356,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       categoryId: Number(formValue.category),
       categoria_name: selectedCategory ? selectedCategory.name : '',
       minAge: Number(formValue.minAge) || 0,
+      isPublic: formValue.isPublic,
       ticketTypes: formValue.ticketTypes
     };
 

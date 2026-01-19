@@ -58,6 +58,13 @@ export class TicketService {
     );
     return this.http.put<any>(`${this.urlBase}cancel/${id}`, {}, { headers });
   }
+
+  /**
+   * Invite guests by sending free tickets to their emails
+   */
+  inviteGuests(ticketTypeId: number, emails: string[]): Observable<any> {
+    return this.http.post<any>(`${this.urlBase}invite`, { ticketTypeId, emails });
+  }
 }
 
 

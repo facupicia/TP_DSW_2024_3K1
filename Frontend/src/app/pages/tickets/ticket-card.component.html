@@ -23,9 +23,8 @@
             style="transform: translateZ(40px)">
 
             <div class="flex justify-between items-start">
-                <div
-                    class="bg-white/10 backdrop-blur-md border border-white/10 px-1 py-1 rounded-full text-[8px] font-bold  tracking-widest shadow-lg">
-                    EventLife
+                <div class="px-1 py-1 rounded-full text-[8px] font-bold  tracking-widest shadow-lg">
+                    {{status}}
                 </div>
             </div>
 
@@ -55,7 +54,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span class="text-xs font-medium truncate max-w-[140px]">{{ group.eventLocation }}</span>
+                        <span class="text-xs font-medium truncate max-w-[140px]">{{ group.ciudad }}</span>
                     </div>
 
                 </div>
@@ -92,6 +91,12 @@
                         class="px-6 py-1 rounded-full text-[10px] bg-white/10 hover:bg-white/20 border border-white/10 backdrop-blur-md text-xs font-bold transition-all">
                         Compartir
                     </button>
+                </div>
+
+                <div class="justify-end flex ">
+                    <div class="px-1 py-1 rounded-full text-[8px] font-bold  tracking-widest shadow-lg">
+                        EventLife
+                    </div>
                 </div>
             </div>
 

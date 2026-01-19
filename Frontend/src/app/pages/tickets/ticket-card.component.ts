@@ -14,6 +14,17 @@ export class TicketCardComponent {
   @Output() onShare = new EventEmitter<any>(); // <--- Nuevo Output
 
   @ViewChild('card') card!: ElementRef;
+
+  status: string = '';
+
+  ngOnInit(): void {
+    this.status = this.ticket.status;
+    if(this.status == 'used'){
+      this.status = 'Usado';
+    }else if(this.status == 'active'){
+      this.status = 'No usado';
+    }
+  }
   
   // Variables para la transformación 3D
   rotateX = 0;

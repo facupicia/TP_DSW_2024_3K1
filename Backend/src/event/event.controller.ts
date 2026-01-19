@@ -32,6 +32,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             categoryId,
             destacado,
             minAge,
+            isPublic,
             ticketTypes // Array of { name, price, capacity, description? }
         } = req.body;
 
@@ -115,6 +116,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         event.description = description;
         event.destacado = destacado ?? false;
         event.minAge = minAge ?? 0;
+        event.isPublic = isPublic ?? true;
         event.user = user;
         event.user_id = user.id;
         event.category = category;
@@ -199,6 +201,7 @@ export const updateEvent = async (req: Request, res: Response) => {
             active,
             destacado,
             minAge,
+            isPublic,
             ticketTypes // Array of ticket types to update/create
         } = req.body;
 
@@ -224,6 +227,7 @@ export const updateEvent = async (req: Request, res: Response) => {
         event.active = active ?? event.active;
         event.destacado = destacado ?? event.destacado;
         event.minAge = minAge ?? event.minAge;
+        event.isPublic = isPublic ?? event.isPublic;
 
         await queryRunner.manager.save(Event, event);
 
@@ -362,7 +366,7 @@ export const getEvent = async (req: Request, res: Response) => {
 export const getEvents = async (req: Request, res: Response) => {
     try {
         const events = await Event.find({
-            where: { active: true },
+            where: { active: true, isPublic: true },
             relations: ["category", "ticketTypes"],
             order: { date: "ASC" }
         });

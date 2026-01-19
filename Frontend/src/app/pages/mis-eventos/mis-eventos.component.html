@@ -79,12 +79,14 @@
             <div *ngFor="let evento of eventosFiltrados"
                 class="event-manage-card group bg-white rounded-[24px] overflow-hidden border border-gray-100 shadow-sm relative flex flex-col h-full">
 
-                <div class="h-48 relative overflow-hidden cursor-pointer" (click)="verEvento(evento.id!)">
+                <div class="h-48 relative overflow-hidden cursor-pointer group" (click)="verEvento(evento.id!)">
+
                     <img [src]="evento.image"
                         class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
                     <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
 
-                    <div class="absolute top-4 right-4">
+                    <div class="absolute top-4 right-4 flex flex-col items-end gap-2">
                         <span *ngIf="isEventoPasado(evento.date)"
                             class="px-3 py-1 bg-gray-900/80 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-full border border-white/10">
                             Finalizado
@@ -94,6 +96,13 @@
                             <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span> Activo
                         </span>
                     </div>
+
+                    <span
+                        class="absolute top-4 left-4 px-3 py-1 bg-yellow-500/90 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-full flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+                        {{ evento.isPublic ? 'Público' : 'Privado' }}
+                    </span>
+
                 </div>
 
                 <div class="p-6 flex-1 flex flex-col">
@@ -134,6 +143,16 @@
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 002 2h2a2 2 0 002-2z" />
+                                </svg>
+                            </button>
+                            <button (click)="verConfiguracion(evento.id!)"
+                                class="action-btn w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center hover:bg-purple-100"
+                                title="Cupones e Invitaciones">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </button>
                             <button (click)="editEvent(evento.id!)"

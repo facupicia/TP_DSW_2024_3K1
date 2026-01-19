@@ -62,6 +62,9 @@ export class Event extends BaseEntity {
     @Column({ default: 0 })
     minAge: number;
 
+    @Column({ default: true })
+    isPublic: boolean;
+
     /* ===================== RELATIONS ===================== */
 
     @ManyToOne(() => User, user => user.eventos, { nullable: false })
