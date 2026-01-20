@@ -52,46 +52,97 @@
     z-index: 10;
 }
 
-/* Mobile Nav */
-.mobile-nav {
+/* Mobile Header */
+.mobile-header {
     display: none;
-    margin-bottom: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(20px);
+    padding: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.mobile-toggle {
-    width: 100%;
-    min-height: 48px;
-    border-radius: 16px;
+.mobile-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.hamburger-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
     border: 1px solid #e5e7eb;
     background: white;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.mobile-menu {
+.hamburger-btn:hover {
+    background: #f9fafb;
+}
+
+.hamburger-btn:active {
+    transform: scale(0.95);
+}
+
+/* Mobile Sidebar Overlay */
+.sidebar-backdrop {
     display: none;
-    margin-top: 8px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 16px;
-    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 40;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-.mobile-menu.open {
+.sidebar-backdrop.open {
     display: block;
+    opacity: 1;
 }
 
-.mobile-item {
-    width: 100%;
-    min-height: 48px;
-    text-align: left;
-    padding: 12px 16px;
-    border-bottom: 1px solid #f3f4f6;
-    background: white;
-    font-weight: 600;
+/* Mobile Sidebar */
+.sidebar-mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 50;
 }
 
-.mobile-item:last-child {
-    border-bottom: none;
+.sidebar-mobile.open {
+    transform: translateX(0);
+}
+
+/* Close button for mobile sidebar */
+.close-sidebar-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.close-sidebar-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* KPI Cards */
@@ -257,28 +308,103 @@
     }
 }
 
+/* Date Preset Selector */
+.date-preset-selector {
+    display: flex;
+    gap: 0.25rem;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    padding: 0.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+}
+
+.preset-btn {
+    padding: 0.5rem 0.875rem;
+    border: none;
+    background: transparent;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.preset-btn:hover {
+    color: #111827;
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.preset-btn.active {
+    background: #000000;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Animation */
+.animate-fade-in-up {
+    animation: fadeInUp 0.3s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .admin-layout {
         flex-direction: column;
     }
 
-    .sidebar {
-        width: 100%;
-        padding: 1rem;
-        order: -1;
+    /* Hide desktop sidebar on mobile */
+    .sidebar.desktop-only {
+        display: none;
+    }
+
+    /* Show mobile header */
+    .mobile-header {
+        display: block;
     }
 
     .main-content {
         padding: 1rem;
-    }
-
-    .mobile-nav {
-        display: block;
+        padding-top: 0;
     }
 
     .glass-table-container {
         width: 100%;
         margin: 0;
+    }
+
+    .date-preset-selector {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .preset-btn {
+        padding: 0.375rem 0.625rem;
+        font-size: 0.625rem;
+    }
+
+    /* Page header adjustments */
+    header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+
+    header>div:last-child {
+        width: 100%;
+        justify-content: flex-start;
     }
 }

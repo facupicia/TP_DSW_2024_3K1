@@ -5,7 +5,117 @@
     <div class="blob blob-2"></div>
   </div>
 
-  <aside class="sidebar">
+  <!-- Mobile Header with Hamburger -->
+  <div class="mobile-header">
+    <div class="mobile-header-content">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+          <span class="text-white font-bold text-lg">E</span>
+        </div>
+        <h1 class="font-bold text-lg tracking-tight">Admin Panel</h1>
+      </div>
+      <button class="hamburger-btn" (click)="toggleMobileNav()" aria-label="Abrir menú">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Sidebar Backdrop -->
+  <div class="sidebar-backdrop" [class.open]="isMobileNavOpen" (click)="toggleMobileNav()"></div>
+
+  <!-- Mobile Sidebar Drawer -->
+  <aside class="sidebar sidebar-mobile" [class.open]="isMobileNavOpen">
+    <button class="close-sidebar-btn" (click)="toggleMobileNav()" aria-label="Cerrar menú">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+
+    <div class="mb-10 flex items-center gap-3 px-2 pt-2">
+      <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+        <span class="text-white font-bold text-lg">E</span>
+      </div>
+      <h1 class="font-bold text-xl tracking-tight">Admin Panel</h1>
+    </div>
+
+    <nav class="flex-1">
+      <div class="nav-item" [class.active]="activeTab === 'dashboard'"
+        (click)="cambiarTab('dashboard'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+        <span>Dashboard</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Ingresos</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'subscriptions'"
+        (click)="cambiarTab('subscriptions'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+        </svg>
+        <span>Suscripciones</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'marketplace'"
+        (click)="cambiarTab('marketplace'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+        </svg>
+        <span>Marketplace</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'commissions'"
+        (click)="cambiarTab('commissions'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        <span>Comisiones</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        <span>Usuarios</span>
+      </div>
+
+      <div class="nav-item" [class.active]="activeTab === 'categories'"
+        (click)="cambiarTab('categories'); toggleMobileNav()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+        </svg>
+        <span>Categorías</span>
+      </div>
+    </nav>
+
+    <div class="mt-auto pt-6 border-t border-gray-200">
+      <a href="/" class="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition-colors px-2">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        <span>Salir al Sitio</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Desktop Sidebar (hidden on mobile) -->
+  <aside class="sidebar desktop-only">
     <div class="mb-10 flex items-center gap-3 px-2">
       <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
         <span class="text-white font-bold text-lg">E</span>
@@ -84,7 +194,7 @@
 
   <main class="main-content">
 
-    <header class="flex justify-between items-center mb-8">
+    <header class="flex justify-between items-center mb-8 flex-wrap gap-4">
       <div>
         <h2 class="text-2xl font-bold text-gray-900">
           {{ activeTab === 'dashboard' ? 'Resumen Ejecutivo' :
@@ -96,7 +206,23 @@
         </h2>
         <p class="text-gray-500 text-sm">Panel de administración del propietario</p>
       </div>
-      <div class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
+
+      <!-- Date Range Filter -->
+      <div class="flex items-center gap-3"
+        *ngIf="['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)">
+        <div class="date-preset-selector">
+          <button *ngFor="let preset of datePresets" [class.active]="selectedDatePreset === preset.value"
+            (click)="setDatePreset(preset.value)" class="preset-btn">
+            {{ preset.label }}
+          </button>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
+          <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
+        </div>
+      </div>
+
+      <div *ngIf="!['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)"
+        class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
         <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
       </div>
     </header>
@@ -120,40 +246,47 @@
           <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
         </div>
         <div *ngIf="!loadingMetrics && overview" class="space-y-6">
+          <!-- Summary Cards Row -->
           <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Activas</p>
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">👥</span>
+                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Activas</p>
+              </div>
               <p class="text-3xl font-bold text-gray-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
             </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Usuarios PRO</p>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-purple-500">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">⭐</span>
+                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Usuarios PRO</p>
+              </div>
               <p class="text-3xl font-bold text-purple-600">{{ overview.subscriptions.proUsers }}</p>
             </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">MRR</p>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-green-500">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">💰</span>
+                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">MRR</p>
+              </div>
               <p class="text-3xl font-bold text-green-600">{{ overview.subscriptions.mrr | currency }}</p>
             </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Churn Rate</p>
-              <p class="text-3xl font-bold text-orange-600">{{ overview.subscriptions.churnRate | percent }}</p>
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6" [class.border-l-4]="true"
+              [class.border-l-green-500]="overview.subscriptions.churnRate < 5"
+              [class.border-l-yellow-500]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+              [class.border-l-red-500]="overview.subscriptions.churnRate >= 10">
+              <div class="flex items-center gap-3 mb-2">
+                <span class="text-2xl">📉</span>
+                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Churn Rate</p>
+              </div>
+              <p class="text-3xl font-bold" [class.text-green-600]="overview.subscriptions.churnRate < 5"
+                [class.text-yellow-600]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                [class.text-red-600]="overview.subscriptions.churnRate >= 10">
+                {{ overview.subscriptions.churnRate.toFixed(1) }}%
+              </p>
             </div>
           </div>
 
-          <!-- Plan Breakdown -->
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Distribución por Plan</h3>
-            <div class="space-y-3">
-              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan"
-                class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div>
-                  <p class="font-bold text-gray-900">{{ plan.displayName || plan.planName }}</p>
-                  <p class="text-sm text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total) *
-                    100).toFixed(1) }}% del total</p>
-                </div>
-                <p class="text-2xl font-bold text-gray-900">{{ plan.count }}</p>
-              </div>
-            </div>
-          </div>
+          <!-- Charts Section using new component -->
+          <app-subscription-chart [metrics]="overview.subscriptions"></app-subscription-chart>
         </div>
       </div>
 

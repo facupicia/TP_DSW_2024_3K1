@@ -12,9 +12,11 @@ import { EventService } from '../../services/event.service';
 import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
 import { DashboardOverviewComponent } from '../../components/dashboard-overview/dashboard-overview.component';
 import { RevenueViewComponent } from '../../components/revenue-view/revenue-view.component';
+import { SubscriptionChartComponent } from '../../components/subscription-chart/subscription-chart.component';
 import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
+type DatePreset = 'today' | '7days' | '30days' | '90days' | 'all';
 
 @Component({
   selector: 'app-admin-panel',
@@ -25,6 +27,7 @@ type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'comm
     CommonModule,
     DashboardOverviewComponent,
     RevenueViewComponent,
+    SubscriptionChartComponent,
     CurrencyFormatterPipe,
     PercentFormatterPipe
   ],
@@ -50,6 +53,16 @@ export class AdminPanelComponent implements OnInit {
   public selectedRole: Record<number, 'user' | 'admin' | 'scanner'> = {};
   public roles: Array<'user' | 'admin' | 'scanner'> = ['user', 'admin', 'scanner'];
   public currentUser: any = null;
+
+  // Date Range Filter
+  public selectedDatePreset: DatePreset = 'all';
+  public datePresets: { value: DatePreset; label: string }[] = [
+    { value: 'today', label: 'Hoy' },
+    { value: '7days', label: '7 días' },
+    { value: '30days', label: '30 días' },
+    { value: '90days', label: '90 días' },
+    { value: 'all', label: 'Todo' }
+  ];
 
   public formCategory: FormGroup = this.formBuild.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
@@ -160,6 +173,49 @@ export class AdminPanelComponent implements OnInit {
         this.loadOverview();
       }
     }
+  }
+
+  /**
+   * Set date preset and reload metrics
+   */
+  setDatePreset(preset: DatePreset) {
+    this.selectedDatePreset = preset;
+
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+
+    let startDate: Date | undefined;
+
+    switch (preset) {
+      case 'today':
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case '7days':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case '30days':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case '90days':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 90);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'all':
+      default:
+        this.dateRange = undefined;
+        this.loadOverview();
+        return;
+    }
+
+    this.dateRange = { startDate, endDate };
+    this.loadOverview();
   }
 
 
