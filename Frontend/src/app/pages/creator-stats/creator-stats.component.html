@@ -5,6 +5,12 @@
         class="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50 to-transparent pointer-events-none">
     </div>
 
+    <div class="fixed bottom-4 right-4 z-50">
+        <app-upgrade-button [isPro]="isPro"
+            buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
+        </app-upgrade-button>
+    </div>
+
     <div class="relative z-10 max-w-[1400px] mx-auto px-6 space-y-8 animate-fade-in-up">
 
         <div class="flex flex-col md:flex-row justify-between items-end gap-4">
@@ -39,9 +45,9 @@
                     </svg>
                 </button>
 
-                <!-- Botón bloqueado - FREE -->
-                <app-upgrade-button *ngIf="!isPro" [isPro]="isPro"
-                    buttonClass="p-2 text-slate-300 hover:text-purple-500 transition-colors relative group">
+
+
+                <button class="p-2 text-slate-300 hover:text-purple-500 transition-colors relative group">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -54,7 +60,7 @@
                                 clip-rule="evenodd" />
                         </svg>
                     </span>
-                </app-upgrade-button>
+                </button>
             </div>
         </div>
 
@@ -98,9 +104,6 @@
                     <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Función PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Desbloquea análisis avanzados</p>
-                    <app-upgrade-button [isPro]="isPro"
-                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                    </app-upgrade-button>
                 </div>
                 <h3 class="text-slate-900 font-bold mb-4 w-full text-left">Eficiencia de Venta</h3>
                 <apx-chart [series]="retentionChartOptions.series" [chart]="retentionChartOptions.chart"
@@ -117,12 +120,9 @@
                 <!-- Overlay FREE -->
                 <div *ngIf="!isPro"
                     class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
-                    <span class="text-3xl mb-2">📊</span>
+                    <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Análisis de Ingresos PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Visualiza tendencias de tu negocio</p>
-                    <app-upgrade-button [isPro]="isPro"
-                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                    </app-upgrade-button>
                 </div>
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-slate-900 font-bold">Evolución de Ingresos</h3>
@@ -144,12 +144,9 @@
                 <!-- Overlay FREE -->
                 <div *ngIf="!isPro"
                     class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
-                    <span class="text-3xl mb-2">🏆</span>
+                    <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Ranking PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Ve tu top de eventos</p>
-                    <app-upgrade-button [isPro]="isPro"
-                        buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-                    </app-upgrade-button>
                 </div>
                 <h3 class="text-slate-900 font-bold mb-4">Top Eventos (Tickets)</h3>
                 <apx-chart [series]="topEventsChartOptions.series" [chart]="topEventsChartOptions.chart"
