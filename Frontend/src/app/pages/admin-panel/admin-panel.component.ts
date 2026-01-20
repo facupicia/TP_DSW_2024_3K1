@@ -10,13 +10,24 @@ import { StatsService } from '../../services/stats.service';
 import { Usuario } from '../../interfaces/Usuario';
 import { EventService } from '../../services/event.service';
 import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
+import { DashboardOverviewComponent } from '../../components/dashboard-overview/dashboard-overview.component';
+import { RevenueViewComponent } from '../../components/revenue-view/revenue-view.component';
+import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
 
 @Component({
   selector: 'app-admin-panel',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, CommonModule],
+  imports: [
+    ReactiveFormsModule,
+    FormsModule,
+    CommonModule,
+    DashboardOverviewComponent,
+    RevenueViewComponent,
+    CurrencyFormatterPipe,
+    PercentFormatterPipe
+  ],
   templateUrl: './admin-panel.component.html',
   styleUrls: ['./admin-panel.component.css']
 })
@@ -151,24 +162,7 @@ export class AdminPanelComponent implements OnInit {
     }
   }
 
-  /**
-   * Format currency
-   */
-  formatCurrency(value: number): string {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(value);
-  }
 
-  /**
-   * Format percentage
-   */
-  formatPercent(value: number): string {
-    return `${value.toFixed(1)}%`;
-  }
 
   crearCategoria() {
     if (this.formCategory.invalid) return;

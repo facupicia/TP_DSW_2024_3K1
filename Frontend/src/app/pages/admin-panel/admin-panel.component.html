@@ -103,175 +103,18 @@
 
     <div [ngSwitch]="activeTab">
 
+      <!-- Dashboard Tab - Now using modular component -->
       <div *ngSwitchCase="'dashboard'" class="animate-fade-in-up">
+        <app-dashboard-overview [overview]="overview" [loading]="loadingMetrics"></app-dashboard-overview>
+      </div>
 
-        <!-- Loading State -->
-        <div *ngIf="loadingMetrics" class="kpi-grid">
-          <div *ngFor="let i of [1,2,3,4,5,6]" class="kpi-card">
-            <div class="h-24 bg-gray-100 animate-pulse rounded-xl"></div>
-          </div>
-        </div>
-
-        <!-- Executive Metrics -->
-        <div *ngIf="!loadingMetrics && overview" class="kpi-grid">
-          <div class="kpi-card bg-gradient-to-br from-green-50 to-emerald-50 border-green-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-green-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <span class="text-green-700 font-medium text-sm uppercase tracking-wider">Ingresos Totales</span>
-            </div>
-            <p class="text-4xl font-bold text-green-900">{{ formatCurrency(overview.revenue.totalRevenue) }}</p>
-            <p class="text-sm text-green-600 mt-2">Comisiones + Suscripciones</p>
-          </div>
-
-          <div class="kpi-card bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-blue-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span class="text-blue-700 font-medium text-sm uppercase tracking-wider">Comisiones</span>
-            </div>
-            <p class="text-4xl font-bold text-blue-900">{{ formatCurrency(overview.commissions.totalCommission) }}</p>
-            <p class="text-sm text-blue-600 mt-2">{{ formatPercent(overview.commissions.averageCommissionPercent) }}
-              promedio</p>
-          </div>
-
-          <div class="kpi-card bg-gradient-to-br from-purple-50 to-violet-50 border-purple-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-purple-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                </svg>
-              </div>
-              <span class="text-purple-700 font-medium text-sm uppercase tracking-wider">Suscripciones</span>
-            </div>
-            <p class="text-4xl font-bold text-purple-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
-            <p class="text-sm text-purple-600 mt-2">MRR: {{ formatCurrency(overview.subscriptions.mrr) }}</p>
-          </div>
-
-          <div class="kpi-card bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-amber-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <span class="text-amber-700 font-medium text-sm uppercase tracking-wider">GMV</span>
-            </div>
-            <p class="text-4xl font-bold text-amber-900">{{ formatCurrency(overview.revenue.gmv) }}</p>
-            <p class="text-sm text-amber-600 mt-2">{{ overview.marketplace.ticketsSold }} tickets vendidos</p>
-          </div>
-
-          <div class="kpi-card bg-gradient-to-br from-cyan-50 to-sky-50 border-cyan-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-cyan-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <span class="text-cyan-700 font-medium text-sm uppercase tracking-wider">Usuarios PRO</span>
-            </div>
-            <p class="text-4xl font-bold text-cyan-900">{{ overview.subscriptions.proUsers }}</p>
-            <p class="text-sm text-cyan-600 mt-2">{{ overview.subscriptions.freeUsers }} FREE</p>
-          </div>
-
-          <div class="kpi-card bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100">
-            <div class="flex items-center gap-4 mb-4">
-              <div class="p-3 rounded-2xl bg-pink-500 text-white">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <span class="text-pink-700 font-medium text-sm uppercase tracking-wider">Eventos Activos</span>
-            </div>
-            <p class="text-4xl font-bold text-pink-900">{{ overview.events.activeEvents }}</p>
-            <p class="text-sm text-pink-600 mt-2">{{ overview.events.featuredEvents }} destacados</p>
-          </div>
-        </div>
-
-        <!-- Quick Stats Grid -->
-        <div *ngIf="!loadingMetrics && overview" class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- Top Organizers -->
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">🏆 Top Organizadores (Comisiones)</h3>
-            <div class="space-y-3">
-              <div *ngFor="let org of overview.commissions.topOrganizers.slice(0, 5)"
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <div class="flex-1">
-                  <p class="font-bold text-gray-900 text-sm">{{ org.organizerName }}</p>
-                  <p class="text-xs text-gray-500">{{ org.salesCount }} ventas</p>
-                </div>
-                <div class="text-right">
-                  <p class="font-bold text-green-600">{{ formatCurrency(org.totalCommission) }}</p>
-                  <p class="text-xs text-gray-500">GMV: {{ formatCurrency(org.totalGmv) }}</p>
-                </div>
-              </div>
-              <p *ngIf="overview.commissions.topOrganizers.length === 0" class="text-gray-400 text-sm text-center py-4">
-                No hay datos disponibles
-              </p>
-            </div>
-          </div>
-
-          <!-- Subscription Breakdown -->
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">📊 Distribuci\u00f3n de Suscripciones</h3>
-            <div class="space-y-3">
-              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan"
-                class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center"
-                    [class.bg-purple-100]="plan.planName === 'PRO'" [class.text-purple-600]="plan.planName === 'PRO'"
-                    [class.bg-gray-100]="plan.planName === 'FREE'" [class.text-gray-600]="plan.planName === 'FREE'">
-                    <span class="font-bold text-sm">{{ plan.planName.charAt(0) }}</span>
-                  </div>
-                  <div>
-                    <p class="font-bold text-gray-900 text-sm">{{ plan.displayName || plan.planName }}</p>
-                    <p class="text-xs text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total)
-                      * 100).toFixed(1) }}%</p>
-                  </div>
-                </div>
-                <p class="text-2xl font-bold text-gray-900">{{ plan.count }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <!-- Revenue Tab - Using modular component -->
+      <div *ngSwitchCase="'revenue'" class="animate-fade-in-up">
+        <app-revenue-view [overview]="overview" [loading]="loadingMetrics"></app-revenue-view>
       </div>
 
       <!-- Revenue Tab -->
-      <div *ngSwitchCase="'revenue'" class="animate-fade-in-up">
-        <div *ngIf="loadingMetrics" class="p-8 text-center">
-          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
-        </div>
-        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Ingresos Totales</p>
-              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.revenue.totalRevenue) }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisiones</p>
-              <p class="text-3xl font-bold text-blue-600">{{ formatCurrency(overview.revenue.commissionRevenue) }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">MRR (Suscripciones)</p>
-              <p class="text-3xl font-bold text-purple-600">{{ formatCurrency(overview.revenue.subscriptionRevenue) }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- Subscriptions Tab -->
       <div *ngSwitchCase="'subscriptions'" class="animate-fade-in-up">
         <div *ngIf="loadingMetrics" class="p-8 text-center">
           <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
@@ -288,11 +131,11 @@
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">MRR</p>
-              <p class="text-3xl font-bold text-green-600">{{ formatCurrency(overview.subscriptions.mrr) }}</p>
+              <p class="text-3xl font-bold text-green-600">{{ overview.subscriptions.mrr | currency }}</p>
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Churn Rate</p>
-              <p class="text-3xl font-bold text-orange-600">{{ formatPercent(overview.subscriptions.churnRate) }}</p>
+              <p class="text-3xl font-bold text-orange-600">{{ overview.subscriptions.churnRate | percent }}</p>
             </div>
           </div>
 
@@ -300,10 +143,12 @@
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h3 class="text-lg font-bold text-gray-900 mb-4">Distribución por Plan</h3>
             <div class="space-y-3">
-              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan" class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan"
+                class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div>
                   <p class="font-bold text-gray-900">{{ plan.displayName || plan.planName }}</p>
-                  <p class="text-sm text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total) * 100).toFixed(1) }}% del total</p>
+                  <p class="text-sm text-gray-500">{{ ((plan.count / overview.subscriptions.activeSubscriptions.total) *
+                    100).toFixed(1) }}% del total</p>
                 </div>
                 <p class="text-2xl font-bold text-gray-900">{{ plan.count }}</p>
               </div>
@@ -321,7 +166,7 @@
           <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
-              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.marketplace.grossRevenue) }}</p>
+              <p class="text-3xl font-bold text-gray-900">{{ overview.marketplace.grossRevenue | currency }}</p>
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
@@ -329,7 +174,7 @@
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
-              <p class="text-3xl font-bold text-purple-600">{{ formatCurrency(overview.marketplace.averageTicketPrice) }}</p>
+              <p class="text-3xl font-bold text-purple-600">{{ overview.marketplace.averageTicketPrice | currency }}</p>
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
@@ -363,11 +208,12 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Total</p>
-              <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(overview.commissions.totalCommission) }}</p>
+              <p class="text-3xl font-bold text-gray-900">{{ overview.commissions.totalCommission | currency }}</p>
             </div>
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Promedio</p>
-              <p class="text-3xl font-bold text-blue-600">{{ formatPercent(overview.commissions.averageCommissionPercent) }}</p>
+              <p class="text-3xl font-bold text-blue-600">{{ overview.commissions.averageCommissionPercent | percent }}
+              </p>
             </div>
           </div>
 
@@ -387,11 +233,12 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let org of overview.commissions.topOrganizers" class="border-b border-gray-50 hover:bg-gray-50">
+                  <tr *ngFor="let org of overview.commissions.topOrganizers"
+                    class="border-b border-gray-50 hover:bg-gray-50">
                     <td class="p-4 font-bold text-gray-900">{{ org.organizerName }}</td>
                     <td class="p-4 text-right text-gray-600">{{ org.salesCount }}</td>
-                    <td class="p-4 text-right font-bold text-gray-900">{{ formatCurrency(org.totalGmv) }}</td>
-                    <td class="p-4 text-right font-bold text-green-600">{{ formatCurrency(org.totalCommission) }}</td>
+                    <td class="p-4 text-right font-bold text-gray-900">{{ org.totalGmv | currency }}</td>
+                    <td class="p-4 text-right font-bold text-green-600">{{ org.totalCommission | currency }}</td>
                   </tr>
                   <tr *ngIf="overview.commissions.topOrganizers.length === 0">
                     <td colspan="4" class="p-8 text-center text-gray-400">No hay datos disponibles</td>
