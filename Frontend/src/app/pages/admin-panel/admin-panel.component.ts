@@ -50,8 +50,8 @@ export class AdminPanelComponent implements OnInit {
   public loadingUsers = false;
   public loadingMetrics = false;
   public updatingRole: Record<number, boolean> = {};
-  public selectedRole: Record<number, 'user' | 'admin' | 'scanner'> = {};
-  public roles: Array<'user' | 'admin' | 'scanner'> = ['user', 'admin', 'scanner'];
+  public selectedRole: Record<number, 'user' | 'admin' | 'scanner' | 'organizer'> = {};
+  public roles: Array<'user' | 'admin' | 'scanner' | 'organizer'> = ['user', 'admin', 'scanner', 'organizer'];
   public currentUser: any = null;
 
   // Date Range Filter
