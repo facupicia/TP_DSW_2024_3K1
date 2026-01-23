@@ -120,3 +120,35 @@
     50% { transform: translateX(10%) rotate(-8deg) scaleY(1.1); }
     100% { transform: translateX(-20%) rotate(-10deg); }
 }
+
+
+/* Contenedor del punto */
+.nav-dot {
+  @apply w-3 h-3 rounded-full border-2 border-gray-300 bg-white transition-all duration-500 shadow-sm;
+}
+
+/* Etiqueta de texto */
+.nav-label {
+  @apply absolute right-8 text-[10px] font-black uppercase tracking-[0.2em] 
+         text-gray-400 opacity-0 transition-all duration-300 translate-x-2 
+         pointer-events-none whitespace-nowrap bg-white/80 backdrop-blur-md 
+         px-3 py-1 rounded-full border border-gray-100 shadow-sm;
+}
+
+/* Hover effects */
+a:hover .nav-label {
+  @apply opacity-100 translate-x-0;
+}
+
+a:hover .nav-dot {
+  @apply border-blue-600 scale-125 shadow-[0_0_15px_rgba(37,99,235,0.3)];
+}
+
+/* Estados Activos (ScrollSpy) */
+.active-dot {
+  @apply border-blue-600 bg-blue-600 scale-150 shadow-[0_0_20px_rgba(37,99,235,0.4)];
+}
+
+.active-text {
+  @apply opacity-100 translate-x-0 text-blue-600 font-black border-blue-100;
+}
