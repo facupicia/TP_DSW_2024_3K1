@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { Observable, BehaviorSubject, of } from 'rxjs';
-import { tap, shareReplay, catchError } from 'rxjs/operators';
+import { tap, shareReplay, catchError, map } from 'rxjs/operators';
 
 export interface SubscriptionPlan {
     id: number;
@@ -59,6 +59,7 @@ export interface SubscriptionLimits {
 }
 
 export interface CheckoutResponse {
+    success: boolean;
     checkoutUrl: string;
     preapprovalId: string;
     message: string;
@@ -84,13 +85,29 @@ export class SubscriptionService {
     private readonly CACHE_DURATION = 60000; // 1 minuto de caché
 
     // === PLANS (cached, rarely changes) ===
-    getPlans(): Observable<SubscriptionPlan[]> {
-        if (!this.plansCache$) {
-            this.plansCache$ = this.http.get<SubscriptionPlan[]>(`${this.baseUrl}/plans`).pipe(
+    getPlans(forceRefresh = false): Observable<SubscriptionPlan[]> {
+        if (forceRefresh || !this.plansCache$) {
+            this.plansCache$ = this.http.get<{ success: boolean; plans: SubscriptionPlan[] }>(`${this.baseUrl}/plans`).pipe(
+                map(response => {
+                    console.log('Respuesta de planes:', response);
+                    // Convertir precios de string a número
+                    const plans = (response.plans || []).map(plan => ({
+                        ...plan,
+                        monthlyPrice: Number(plan.monthlyPrice) || 0,
+                        yearlyPrice: plan.yearlyPrice ? Number(plan.yearlyPrice) : null,
+                        commissionPercent: Number(plan.commissionPercent) || 0
+                    }));
+                    return plans;
+                }),
                 shareReplay(1)
             );
         }
         return this.plansCache$;
+    }
+
+    // Limpiar caché de planes (útil para debugging)
+    clearPlansCache(): void {
+        this.plansCache$ = null;
     }
 
     // === SUBSCRIPTION (cached with TTL) ===
@@ -103,7 +120,8 @@ export class SubscriptionService {
         }
 
         this.cacheTimestamp = now;
-        this.subscriptionCache$ = this.http.get<UserSubscription>(`${this.baseUrl}/my-subscription`).pipe(
+        this.subscriptionCache$ = this.http.get<{ success: boolean; subscription: UserSubscription }>(`${this.baseUrl}/my-subscription`).pipe(
+            map(response => response.subscription),
             tap(sub => this.subscriptionSubject.next(sub)),
             shareReplay(1),
             catchError(err => {
@@ -127,7 +145,13 @@ export class SubscriptionService {
 
     // === LIMITS ===
     getMyLimits(): Observable<SubscriptionLimits> {
-        return this.http.get<SubscriptionLimits>(`${this.baseUrl}/my-limits`).pipe(
+        return this.http.get<{ success: boolean } & SubscriptionLimits>(`${this.baseUrl}/my-limits`).pipe(
+            map(response => ({
+                plan: response.plan,
+                limits: response.limits,
+                status: response.status,
+                expiresAt: response.expiresAt
+            })),
             tap(limits => this.limitsSubject.next(limits))
         );
     }

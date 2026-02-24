@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "mercadopago-integration": {
+      "source": "martinacostadev/mercadopago-integration",
+      "sourceType": "github",
+      "computedHash": "925cce5567ad4370c594d2aba8ee5226e94e41505c54e4e07d6ded84dfc91d06"
+    }
+  }
+}

@@ -6,51 +6,31 @@ import { UserSubscription } from "./user_subscription.entity";
 import {
     getActiveSubscription,
     getSubscriptionLimits,
-    upgradeToPlan,
-    assignDefaultPlan
+    upgradeToPlan
 } from "./subscription.service";
 import {
     createSubscriptionCheckout,
     processSubscriptionWebhook,
-    cancelSubscription
-} from "./subscription.payment";
+    cancelUserSubscription
+} from "./subscription.core";
+import { logger } from "../common/services/logger";
+import { getMPConfig } from "../payment/mp.config";
 
 /**
- * Manually verify a subscription using the preapproval_id
- * This is useful when the webhook is delayed
+ * Subscription Controller (Refactored)
+ * 
+ * Controlador refactorizado que usa el SubscriptionCore para la lógica de negocio.
+ * Mantiene solo la responsabilidad de HTTP requests/responses.
  */
-export const verifySubscription = async (req: CustomRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        const preapprovalId = req.params.id;
 
-        if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-
-        if (!preapprovalId) {
-            return res.status(400).json({ message: "ID de preaprobación requerido" });
-        }
-
-        // Force process the webhook logic
-        await processSubscriptionWebhook("preapproval", preapprovalId);
-
-        // Get updated subscription to return status
-        const subscription = await getActiveSubscription(userId);
-
-        return res.json({
-            status: subscription.status,
-            active: subscription.status === 'active',
-            plan: subscription.plan.name
-        });
-    } catch (error: any) {
-        console.error("Error verifying subscription:", error);
-        return res.status(500).json({ message: error.message || "Error al verificar suscripción" });
-    }
-};
+// ============================================================================
+// PUBLIC ENDPOINTS
+// ============================================================================
 
 /**
- * Get all available subscription plans
+ * GET /api/subscription/plans
+ * 
+ * Obtiene todos los planes de suscripción activos.
  */
 export const getPlans = async (req: Request, res: Response) => {
     try {
@@ -59,195 +39,338 @@ export const getPlans = async (req: Request, res: Response) => {
             where: { active: true },
             order: { sortOrder: 'ASC' }
         });
-
-        return res.json(plans);
-    } catch (error) {
-        console.error("Error fetching plans:", error);
-        return res.status(500).json({ message: "Error al obtener planes" });
+        
+        return res.json({
+            success: true,
+            plans
+        });
+        
+    } catch (error: any) {
+        logger.error("Error fetching plans:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: "Error al obtener planes" 
+        });
     }
 };
 
+// ============================================================================
+// AUTHENTICATED USER ENDPOINTS
+// ============================================================================
+
 /**
- * Get current user's subscription
+ * GET /api/subscription/my-subscription
+ * 
+ * Obtiene la suscripción activa del usuario actual.
  */
 export const getMySubscription = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            });
         }
-
+        
         const subscription = await getActiveSubscription(userId);
-
+        
         return res.json({
-            id: subscription.id,
-            plan: {
-                id: subscription.plan.id,
-                name: subscription.plan.name,
-                displayName: subscription.plan.displayName,
-                commissionPercent: Number(subscription.plan.commissionPercent),
-                features: subscription.plan.features,
-                monthlyPrice: Number(subscription.plan.monthlyPrice),
-                yearlyPrice: subscription.plan.yearlyPrice ? Number(subscription.plan.yearlyPrice) : null
-            },
-            status: subscription.status,
-            currentPeriodStart: subscription.currentPeriodStart,
-            currentPeriodEnd: subscription.currentPeriodEnd,
-            externalSubscriptionId: subscription.externalSubscriptionId
+            success: true,
+            subscription: {
+                id: subscription.id,
+                plan: {
+                    id: subscription.plan.id,
+                    name: subscription.plan.name,
+                    displayName: subscription.plan.displayName,
+                    commissionPercent: Number(subscription.plan.commissionPercent),
+                    features: subscription.plan.features,
+                    monthlyPrice: Number(subscription.plan.monthlyPrice),
+                    yearlyPrice: subscription.plan.yearlyPrice 
+                        ? Number(subscription.plan.yearlyPrice) 
+                        : null
+                },
+                status: subscription.status,
+                currentPeriodStart: subscription.currentPeriodStart,
+                currentPeriodEnd: subscription.currentPeriodEnd,
+                externalSubscriptionId: subscription.externalSubscriptionId
+            }
         });
-    } catch (error) {
-        console.error("Error fetching subscription:", error);
-        return res.status(500).json({ message: "Error al obtener suscripción" });
+        
+    } catch (error: any) {
+        logger.error("Error fetching subscription:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: "Error al obtener suscripción" 
+        });
     }
 };
 
 /**
- * Get current user's subscription limits and usage
+ * GET /api/subscription/my-limits
+ * 
+ * Obtiene los límites y uso actual del usuario.
  */
 export const getMyLimits = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            });
         }
-
+        
         const limits = await getSubscriptionLimits(userId);
-        return res.json(limits);
-    } catch (error) {
-        console.error("Error fetching limits:", error);
-        return res.status(500).json({ message: "Error al obtener límites" });
+        
+        return res.json({
+            success: true,
+            ...limits
+        });
+        
+    } catch (error: any) {
+        logger.error("Error fetching limits:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: "Error al obtener límites" 
+        });
     }
 };
 
 /**
- * Create MP checkout for subscription upgrade
+ * POST /api/subscription/checkout/:planId
+ * 
+ * Crea un checkout de MercadoPago para suscripción.
  */
 export const createCheckout = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         const planId = parseInt(req.params.planId);
         const { billingType = 'monthly' } = req.body;
-
+        
         if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            });
         }
-
+        
         if (!planId || isNaN(planId)) {
-            return res.status(400).json({ message: "Plan ID inválido" });
+            return res.status(400).json({ 
+                success: false,
+                message: "Plan ID inválido" 
+            });
         }
-
+        
         if (billingType !== 'monthly' && billingType !== 'yearly') {
-            return res.status(400).json({ message: "billingType debe ser 'monthly' o 'yearly'" });
+            return res.status(400).json({ 
+                success: false,
+                message: "billingType debe ser 'monthly' o 'yearly'" 
+            });
         }
-
-        const { initPoint, preapprovalId } = await createSubscriptionCheckout(userId, planId, billingType);
-
+        
+        const { initPoint, preapprovalId } = await createSubscriptionCheckout({
+            userId,
+            planId,
+            billingType
+        });
+        
         return res.json({
+            success: true,
             checkoutUrl: initPoint,
             preapprovalId,
             message: "Redirige al usuario a checkoutUrl para completar el pago"
         });
+        
     } catch (error: any) {
-        console.error("Error creating checkout:", error);
-        return res.status(500).json({ message: error.message || "Error al crear checkout" });
-    }
-};
-
-/**
- * Handle Mercado Pago subscription webhook
- */
-export const subscriptionWebhook = async (req: Request, res: Response) => {
-    try {
-        // MP sends data in query params or body depending on the notification type
-        const type = req.query.type || req.body.type;
-        const dataId = req.query['data.id'] || req.body.data?.id;
-
-        console.log('SUBSCRIPTION_WEBHOOK_RECEIVED:', { type, dataId, body: req.body, query: req.query });
-
-        if (!type || !dataId) {
-            // Just acknowledge - might be a test ping
-            return res.sendStatus(200);
-        }
-
-        // Process asynchronously to respond quickly to MP
-        setImmediate(() => {
-            processSubscriptionWebhook(String(type), String(dataId)).catch(err => {
-                console.error('Subscription webhook processing error:', err);
-            });
+        logger.error("Error creating checkout:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: error.message || "Error al crear checkout" 
         });
-
-        return res.sendStatus(200);
-    } catch (error) {
-        console.error("Subscription webhook error:", error);
-        return res.sendStatus(200); // Always return 200 to MP
     }
 };
 
 /**
- * Handle callback redirect from Mercado Pago after subscription checkout
- * Redirects to frontend with the preapproval_id
+ * POST /api/subscription/verify/:id
+ * 
+ * Verifica manualmente una suscripción por su preapproval_id.
+ * Útil cuando el webhook se demora.
  */
-export const subscriptionCallback = async (req: Request, res: Response) => {
+export const verifySubscription = async (req: CustomRequest, res: Response) => {
     try {
-        const preapprovalId = req.query.preapproval_id || '';
-        const status = req.query.status || '';
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:4200';
-
-        // Build redirect URL with query params
-        const params = new URLSearchParams();
-        if (preapprovalId) params.set('preapproval_id', String(preapprovalId));
-        if (status) params.set('status', String(status));
-
-        const redirectUrl = `${clientUrl}/subscription/callback${params.toString() ? '?' + params.toString() : ''}`;
-
-        console.log('SUBSCRIPTION_CALLBACK_REDIRECT:', { preapprovalId, status, redirectUrl });
-
-        return res.redirect(redirectUrl);
-    } catch (error) {
-        console.error('Subscription callback error:', error);
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:4200';
-        return res.redirect(`${clientUrl}/subscription/callback?error=redirect_failed`);
+        const userId = req.user?.id;
+        const preapprovalId = req.params.id;
+        
+        if (!userId) {
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            });
+        }
+        
+        if (!preapprovalId) {
+            return res.status(400).json({ 
+                success: false,
+                message: "ID de preaprobación requerido" 
+            });
+        }
+        
+        // Procesar webhook manualmente
+        await processSubscriptionWebhook("preapproval", preapprovalId);
+        
+        // Obtener suscripción actualizada
+        const subscription = await getActiveSubscription(userId);
+        
+        return res.json({
+            success: true,
+            status: subscription.status,
+            active: subscription.status === 'active',
+            plan: subscription.plan.name
+        });
+        
+    } catch (error: any) {
+        logger.error("Error verifying subscription:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: error.message || "Error al verificar suscripción" 
+        });
     }
 };
 
 /**
- * Cancel current subscription
+ * POST /api/subscription/cancel
+ * 
+ * Cancela la suscripción activa del usuario.
  */
 export const cancelMySubscription = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
+            return res.status(401).json({ 
+                success: false,
+                message: "Unauthorized" 
+            });
         }
-
-        await cancelSubscription(userId);
-
+        
+        await cancelUserSubscription(userId);
+        
         return res.json({
-            message: "Suscripción cancelada. Tu plan se mantendrá activo hasta el fin del período actual.",
-            success: true
+            success: true,
+            message: "Suscripción cancelada. Tu plan se mantendrá activo hasta el fin del período actual."
         });
+        
     } catch (error: any) {
-        console.error("Error cancelling subscription:", error);
-        return res.status(500).json({ message: error.message || "Error al cancelar suscripción" });
+        logger.error("Error cancelling subscription:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: error.message || "Error al cancelar suscripción" 
+        });
     }
 };
 
-// ============== ADMIN ENDPOINTS ==============
+// ============================================================================
+// WEBHOOK & CALLBACK
+// ============================================================================
 
 /**
- * Admin: Assign a plan to a user
+ * POST/GET /api/subscription/webhook
+ * 
+ * Recibe notificaciones de MercadoPago sobre suscripciones.
+ */
+export const subscriptionWebhook = async (req: Request, res: Response) => {
+    try {
+        const type = req.query.type || req.body?.type;
+        const dataId = req.query['data.id'] || req.body?.data?.id;
+        
+        logger.info('SUBSCRIPTION_WEBHOOK_RECEIVED', { 
+            type, 
+            dataId, 
+            body: req.body,
+            query: req.query 
+        });
+        
+        if (!type || !dataId) {
+            // Solo acknowledge - podría ser un test ping
+            return res.sendStatus(200);
+        }
+        
+        // Procesar asíncronamente
+        setImmediate(() => {
+            processSubscriptionWebhook(String(type), String(dataId))
+                .catch(err => {
+                    logger.error('Subscription webhook processing error:', err);
+                });
+        });
+        
+        return res.sendStatus(200);
+        
+    } catch (error: any) {
+        logger.error("Subscription webhook error:", error);
+        return res.sendStatus(200); // Siempre 200 a MP
+    }
+};
+
+/**
+ * GET /api/subscription/callback
+ * 
+ * Redirige al frontend después del checkout de MP.
+ */
+export const subscriptionCallback = async (req: Request, res: Response) => {
+    try {
+        const preapprovalId = req.query.preapproval_id || '';
+        const status = req.query.status || '';
+        const config = getMPConfig();
+        
+        const params = new URLSearchParams();
+        if (preapprovalId) params.set('preapproval_id', String(preapprovalId));
+        if (status) params.set('status', String(status));
+        
+        const redirectUrl = `${config.clientUrl}/subscription/callback${
+            params.toString() ? '?' + params.toString() : ''
+        }`;
+        
+        logger.info('SUBSCRIPTION_CALLBACK_REDIRECT', { 
+            preapprovalId, 
+            status, 
+            redirectUrl 
+        });
+        
+        return res.redirect(redirectUrl);
+        
+    } catch (error: any) {
+        logger.error('Subscription callback error:', error);
+        const config = getMPConfig();
+        return res.redirect(
+            `${config.clientUrl}/subscription/callback?error=redirect_failed`
+        );
+    }
+};
+
+// ============================================================================
+// ADMIN ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/subscription/admin/assign
+ * 
+ * Admin: Asigna un plan a un usuario manualmente.
  */
 export const adminAssignPlan = async (req: CustomRequest, res: Response) => {
     try {
         const { userId, planId, durationMonths = 1 } = req.body;
-
+        
         if (!userId || !planId) {
-            return res.status(400).json({ message: "userId y planId son requeridos" });
+            return res.status(400).json({ 
+                success: false,
+                message: "userId y planId son requeridos" 
+            });
         }
-
+        
         const subscription = await upgradeToPlan(userId, planId, durationMonths);
-
+        
         return res.json({
+            success: true,
             message: "Plan asignado exitosamente",
             subscription: {
                 id: subscription.id,
@@ -258,24 +381,28 @@ export const adminAssignPlan = async (req: CustomRequest, res: Response) => {
                 expiresAt: subscription.currentPeriodEnd
             }
         });
+        
     } catch (error: any) {
-        console.error("Error assigning plan:", error);
-        return res.status(500).json({ message: error.message || "Error al asignar plan" });
+        logger.error("Error assigning plan:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: error.message || "Error al asignar plan" 
+        });
     }
 };
 
 /**
- * Admin: Get subscription statistics
+ * GET /api/subscription/admin/stats
+ * 
+ * Admin: Estadísticas de suscripciones.
  */
 export const adminGetStats = async (req: CustomRequest, res: Response) => {
     try {
         const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
         const planRepo = AppDataSource.getRepository(SubscriptionPlan);
-
-        // Get all plans
+        
         const plans = await planRepo.find();
-
-        // Count subscriptions per plan
+        
         const stats = await Promise.all(plans.map(async (plan) => {
             const activeCount = await subscriptionRepo.count({
                 where: { planId: plan.id, status: 'active' as any }
@@ -286,16 +413,18 @@ export const adminGetStats = async (req: CustomRequest, res: Response) => {
                 activeSubscriptions: activeCount
             };
         }));
-
-        // Get total commissions from PaymentLog (if we had historical data)
-        // This is a placeholder - in real app would query PaymentLog
-
+        
         return res.json({
+            success: true,
             subscriptionsByPlan: stats,
             totalActiveSubscriptions: stats.reduce((sum, s) => sum + s.activeSubscriptions, 0)
         });
-    } catch (error) {
-        console.error("Error fetching admin stats:", error);
-        return res.status(500).json({ message: "Error al obtener estadísticas" });
+        
+    } catch (error: any) {
+        logger.error("Error fetching admin stats:", error);
+        return res.status(500).json({ 
+            success: false,
+            message: "Error al obtener estadísticas" 
+        });
     }
 };

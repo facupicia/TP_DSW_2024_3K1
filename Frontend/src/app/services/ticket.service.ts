@@ -43,7 +43,7 @@ export class TicketService {
   }
 
   getLastPurchase(): Observable<{ tickets: Ticket[]; status: string }> {
-    return this.http.get<{ tickets: Ticket[]; status: string }>(
+    return this.http.get<{ tickets: Ticket[]; status: string; success?: boolean }>(
       `${environment.apiUrl}/ticket/last-purchase`
     ).pipe(
       timeout(10000),

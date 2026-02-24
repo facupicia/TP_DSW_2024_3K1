@@ -18,6 +18,20 @@ export interface MpConnectResponse {
 export interface PreferenceResponse {
     id: string;
     init_point: string;
+    marketplace?: boolean;
+}
+
+export interface QRPreferenceResponse {
+    success: boolean;
+    id: string;
+    init_point: string;
+    qr_code_url?: string;
+    payment_type: 'qr';
+    commission_info: {
+        mp_commission_percent: number;
+        mp_commission_amount: number;
+        platform_net_amount: number;
+    };
 }
 
 @Injectable({
@@ -54,6 +68,21 @@ export class PaymentService {
      */
     createPreference(ticketTypeId: number, ticketQuantity: number): Observable<PreferenceResponse> {
         return this.http.post<PreferenceResponse>(`${this.baseUrl}/create-preference`, {
+            ticketTypeId,
+            ticketQuantity
+        });
+    }
+
+    /**
+     * Crea una preferencia de pago por QR (Checkout Pro)
+     * 
+     * Ventajas:
+     * - Comisión MP: 2.59% (vs 8%+ del marketplace)
+     * - Pago instantáneo escaneando QR
+     * - Ideal para venta rápida de tickets
+     */
+    createQRPreference(ticketTypeId: number, ticketQuantity: number): Observable<QRPreferenceResponse> {
+        return this.http.post<QRPreferenceResponse>(`${this.baseUrl}/create-qr-preference`, {
             ticketTypeId,
             ticketQuantity
         });

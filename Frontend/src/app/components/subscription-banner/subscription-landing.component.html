@@ -125,6 +125,16 @@
 
         </div>
 
+        <!-- Mensaje cuando no hay planes -->
+        <div *ngIf="plans.length === 0" class="text-center py-12">
+            <p class="text-gray-500 text-lg">Cargando planes...</p>
+        </div>
+
+        <!-- Error si no se pudieron cargar planes -->
+        <div *ngIf="plans.length === 0" class="text-center py-8">
+            <p class="text-red-500">No se pudieron cargar los planes. Intenta recargar la página.</p>
+        </div>
+
         <div class="mt-8 text-center animate-fade-in-up delay-200 opacity-60">
             <p class="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-4">Pagos procesados de forma
                 segura por</p>

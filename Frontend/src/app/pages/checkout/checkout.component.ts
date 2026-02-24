@@ -4,7 +4,9 @@ import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TicketService } from '../../services/ticket.service';
+import { PaymentService } from '../../services/payment.service';
 import { HeaderComponent } from '../../components/header/header.component';
+import { QrPaymentComponent } from '../../components/qr-payment/qr-payment.component';
 import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
@@ -15,7 +17,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, QrPaymentComponent],
   templateUrl: './checkout.component.html',
   styleUrls: ['./checkout.component.css']
 })
@@ -46,6 +48,10 @@ export class CheckoutComponent implements OnInit {
   showErrorMessage = false;
   errorMessageText = '';
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
+
+  // Payment method selection
+  selectedPaymentMethod: 'marketplace' | 'qr' = 'marketplace';
+  showQRModal = false;
 
   // Coupon state
   couponCode = '';
@@ -224,6 +230,11 @@ export class CheckoutComponent implements OnInit {
   }
 
   comprarTickets() {
+    if (this.selectedPaymentMethod === 'qr') {
+      this.showQRModal = true;
+      return;
+    }
+
     this.showSuccessMessage = false;
     this.showErrorMessage = false;
     this.errorMessageText = '';
@@ -243,8 +254,8 @@ export class CheckoutComponent implements OnInit {
     }
 
     if (this.eventId) {
-      // 3. LOGICA MERCADO PAGO REAL
-      const ticketTypeId = this.selectedTicketType?.id || 0; // 0 for legacy fallback? Backend requires ID now.
+      // 3. LOGICA MERCADO PAGO REAL (Marketplace)
+      const ticketTypeId = this.selectedTicketType?.id || 0;
 
       this.ticketService.comprarTicket({ cantidad: this.ticketQuantity, ticketTypeId }).subscribe({
         next: (response: any) => {
@@ -278,5 +289,15 @@ export class CheckoutComponent implements OnInit {
         }
       });
     }
+  }
+
+  // Método de pago por QR
+  selectPaymentMethod(method: 'marketplace' | 'qr') {
+    this.selectedPaymentMethod = method;
+  }
+
+  // Cerrar modal de QR
+  closeQRModal() {
+    this.showQRModal = false;
   }
 }

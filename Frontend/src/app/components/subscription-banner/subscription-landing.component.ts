@@ -48,12 +48,26 @@ export class SubscriptionLandingComponent implements OnInit {
     }
 
     loadPlans() {
-        this.subscriptionService.getPlans().subscribe({
+        // Limpiar caché para asegurar datos frescos
+        this.subscriptionService.clearPlansCache();
+        
+        this.subscriptionService.getPlans(true).subscribe({
             next: (plans) => {
+                console.log('Planes recibidos:', plans);
                 // Ordenamos para que el PRO (o el más caro) quede segundo o destacado
                 this.plans = plans.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+                console.log('Planes ordenados:', this.plans);
+                
+                if (plans.length === 0) {
+                    console.warn('No se recibieron planes del servidor');
+                    this.toast.warning('No hay planes de suscripción disponibles');
+                }
             },
-            error: (err) => console.error('Error cargando planes:', err)
+            error: (err) => {
+                console.error('Error cargando planes:', err);
+                this.plans = []; // Asegurar que planes esté vacío en error
+                this.toast.error('Error al cargar los planes de suscripción');
+            }
         });
     }
 
@@ -100,7 +114,12 @@ export class SubscriptionLandingComponent implements OnInit {
         this.subscriptionService.createCheckout(this.selectedPlan.id, billingType).subscribe({
             next: (response) => {
                 this.loading = false;
-                window.location.href = response.checkoutUrl; // Redirección a MercadoPago
+                if (response.success && response.checkoutUrl) {
+                    window.location.href = response.checkoutUrl; // Redirección a MercadoPago
+                } else {
+                    this.closeBillingModal();
+                    this.toast.error(response.message || 'Error al crear checkout');
+                }
             },
             error: (err) => {
                 this.loading = false;
