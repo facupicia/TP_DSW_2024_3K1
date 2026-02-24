@@ -61,6 +61,11 @@ export class CheckoutComponent implements OnInit {
   discountAmount = 0;
   finalTotal = 0;
 
+  // Promoter code
+  promoterCode = '';
+  promoterCodeError = '';
+  promoterCodeFromUrl = false; // Track if code came from URL
+
   public formCheckout: FormGroup = this.formBuild.group({
     ticketTypeId: ['', Validators.required],
     quantity: [1, [Validators.required, Validators.min(1)]]
@@ -73,6 +78,14 @@ export class CheckoutComponent implements OnInit {
       this.router.navigate(['/']);
       return;
     }
+
+    // Check for promoter code in URL query params
+    const promoCodeFromUrl = this.route.snapshot.queryParamMap.get('promo');
+    if (promoCodeFromUrl) {
+      this.promoterCode = promoCodeFromUrl;
+      this.promoterCodeFromUrl = true;
+    }
+
     this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
@@ -257,7 +270,11 @@ export class CheckoutComponent implements OnInit {
       // 3. LOGICA MERCADO PAGO REAL (Marketplace)
       const ticketTypeId = this.selectedTicketType?.id || 0;
 
-      this.ticketService.comprarTicket({ cantidad: this.ticketQuantity, ticketTypeId }).subscribe({
+      this.ticketService.comprarTicket({ 
+        cantidad: this.ticketQuantity, 
+        ticketTypeId,
+        promoterCode: this.promoterCode || undefined
+      }).subscribe({
         next: (response: any) => {
           if (response.init_point) {
             try {

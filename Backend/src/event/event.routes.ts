@@ -27,11 +27,11 @@ router.get("/stats/platform", checkAuthToken, checkRoleAuth(["admin"]), getPlatf
 router.get("/stats/event/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), getEventStats)
 
 /* ==================== PROTECTED ROUTES ==================== */
-router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), schemaValidation(createEventSchema), createEvent)
-router.get("/", checkAuthToken, checkRoleAuth(["organizer", "admin", "user"]), getEventsByUser)
+router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), schemaValidation(createEventSchema), createEvent)
+router.get("/", checkAuthToken, checkRoleAuth(["organizer", "admin", "user", "rrpp"]), getEventsByUser)
 
 /* ==================== DYNAMIC ROUTES (must be last) ==================== */
-router.post("/:id/buy", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner"]), createTicket)
+router.post("/:id/buy", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), createTicket)
 router.get("/:id", getEvent)
 router.delete("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), deleteEvent)
 router.put("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(updateEventSchema), updateEvent)

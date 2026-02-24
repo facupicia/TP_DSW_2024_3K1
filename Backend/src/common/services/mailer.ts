@@ -91,13 +91,124 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("Error API Brevo:", errorText);
+            let errorJson;
+            try {
+                errorJson = JSON.parse(errorText || '{}');
+            } catch {
+                errorJson = { message: errorText };
+            }
+            
+            // Detectar error de IP no autorizada
+            if (errorJson.code === 'unauthorized' && errorJson.message?.includes('unrecognised IP')) {
+                console.error("❌ ERROR BREVO: IP no autorizada");
+                console.error("👉 Para solucionarlo:");
+                console.error("   1. Ve a https://app.brevo.com/security/authorised_ips");
+                console.error("   2. Agrega la IP del servidor a la lista blanca");
+                console.error("   O desactiva la restricción de IP si no la necesitas");
+                const ipMatch = errorJson.message.match(/\d+\.\d+\.\d+\.\d+/);
+                console.error("📍 IP detectada:", ipMatch?.[0] || 'desconocida');
+            } else {
+                console.error("Error API Brevo:", errorText);
+            }
             return null;
         }
         
         const data = await response.json();
         console.log("✅ Correo con PDF enviado. ID:", (data as any)?.messageId);
         return data;
+
+    } catch (error) {
+        console.error("Error enviando correo:", error);
+        return null;
+    }
+};
+
+/**
+ * Envía email de notificación cuando un usuario es agregado como promotor
+ */
+export const sendPromoterInvitationEmail = async (
+    email: string, 
+    promoterName: string,
+    organizerName: string,
+    promoterCode: string,
+    commissionPercentage: number
+) => {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+        console.error("FALTA BREVO_API_KEY");
+        return null;
+    }
+
+    try {
+        const htmlContent = `
+            <html>
+                <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h1 style="color: #4f46e5;">¡Has sido invitado como Promotor!</h1>
+                        <p>Hola ${promoterName},</p>
+                        <p><strong>${organizerName}</strong> te ha agregado como promotor (RRPP) en EventLife.</p>
+                        
+                        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                            <p style="margin: 0; font-size: 14px; color: #666;">Tu código de promotor:</p>
+                            <p style="margin: 10px 0; font-size: 24px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">${promoterCode}</p>
+                            <p style="margin: 0; font-size: 14px; color: #666;">Comisión: <strong>${commissionPercentage}%</strong> por cada venta</p>
+                        </div>
+                        
+                        <p>Comparte tu código con tus contactos y empieza a ganar comisiones por cada ticket vendido.</p>
+                        
+                        <a href="${process.env.CLIENT_URL || 'https://event-life.netlify.app'}/promoter/dashboard" 
+                           style="display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
+                            Ver Mi Panel
+                        </a>
+                        
+                        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+                        <p style="font-size: 12px; color: #999; margin-top: 40px;">EventLife - Sistema de Gestión de Eventos</p>
+                    </div>
+                </body>
+            </html>
+        `;
+
+        const body = {
+            sender: {
+                name: "Event Life",
+                email: process.env.MAIL_FROM || "no-reply@eventlife.com"
+            },
+            to: [{ email }],
+            subject: `¡Has sido invitado como Promotor por ${organizerName}! 🎉`,
+            htmlContent: htmlContent
+        };
+        
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: {
+                "accept": "application/json",
+                "api-key": apiKey,
+                "content-type": "application/json"
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            const errorJson = JSON.parse(errorText || '{}');
+            
+            // Detectar error de IP no autorizada
+            if (errorJson.code === 'unauthorized' && errorJson.message?.includes('unrecognised IP')) {
+                console.error("❌ ERROR BREVO: IP no autorizada");
+                console.error("👉 Para solucionarlo:");
+                console.error("   1. Ve a https://app.brevo.com/security/authorised_ips");
+                console.error("   2. Agrega la IP del servidor a la lista blanca");
+                console.error("   O desactiva la restricción de IP si no la necesitas");
+                console.error("📍 IP detectada:", errorJson.message.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || 'desconocida');
+            } else {
+                console.error("Error API Brevo:", errorText);
+            }
+            return { error: errorJson, success: false };
+        }
+        
+        const data = await response.json();
+        console.log("✅ Correo de invitación enviado. ID:", (data as any)?.messageId);
+        return { data, success: true };
 
     } catch (error) {
         console.error("ERROR al enviar email:", error);

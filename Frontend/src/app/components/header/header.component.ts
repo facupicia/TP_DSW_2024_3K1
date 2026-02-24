@@ -3,6 +3,9 @@ import { Component, HostListener, inject, OnDestroy, OnInit, ChangeDetectorRef, 
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
+import { PromoterService } from '../../services/promoter.service';
+import { EventService } from '../../services/event.service';
+import { hasRoleLevel, hasExactRole } from '../../interfaces/Usuario';
 
 @Component({
   selector: 'app-header',
@@ -17,6 +20,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private cd = inject(ChangeDetectorRef);
   private ngZone = inject(NgZone);
   private subscriptionService = inject(SubscriptionService);
+  private promoterService = inject(PromoterService);
+  private eventService = inject(EventService);
 
   // Estado reactivo del usuario
   user$ = this.accesService.currentUser$;
@@ -29,6 +34,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   subscription: UserSubscription | null = null;
   isPro = false;
 
+  // Estado de eventos del organizador
+  hasEvents = false;
+
   @Input() topOffset: string = '0';
 
   ngOnInit(): void {
@@ -38,13 +46,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.manageScrollLock();
     });
 
-    // Cargar suscripción si hay usuario
+    // Cargar suscripción y verificar eventos si hay usuario
     this.user$.subscribe(user => {
       if (user) {
         this.loadSubscription();
+        // Solo verificar eventos si es organizador (using role hierarchy)
+        const userRoles = user.roles || [user.rol] || ['user'];
+        if (hasRoleLevel(userRoles, 'organizer')) {
+          this.checkHasEvents();
+        }
       } else {
         this.subscription = null;
         this.isPro = false;
+        this.hasEvents = false;
       }
     });
   }
@@ -65,6 +79,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
       error: () => {
         this.subscription = null;
         this.isPro = false;
+      }
+    });
+  }
+
+  private checkHasEvents(): void {
+    this.promoterService.checkHasEvents().subscribe({
+      next: (result) => {
+        this.hasEvents = result.hasEvents;
+      },
+      error: () => {
+        this.hasEvents = false;
       }
     });
   }
@@ -109,5 +134,22 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (typeof document !== 'undefined') {
       document.body.style.overflow = '';
     }
+  }
+
+  // ===== Role checking helpers =====
+  
+  hasOrganizerLevel(user: any): boolean {
+    const roles = user?.roles || [user?.rol] || ['user'];
+    return hasRoleLevel(roles, 'organizer');
+  }
+  
+  isRrpp(user: any): boolean {
+    const roles = user?.roles || [user?.rol] || ['user'];
+    return hasExactRole(roles, 'rrpp');
+  }
+  
+  isScanner(user: any): boolean {
+    const roles = user?.roles || [user?.rol] || ['user'];
+    return hasExactRole(roles, 'scanner');
   }
 }

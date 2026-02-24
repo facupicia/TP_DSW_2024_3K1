@@ -9,6 +9,7 @@ import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../s
 import { PaymentService, MpStatus } from '../../services/payment.service';
 import { Evento } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
+import { hasExactRole, hasRoleLevel } from '../../interfaces/Usuario';
 
 @Component({
   selector: 'app-perfil',
@@ -31,6 +32,9 @@ export class PerfilComponent implements OnInit {
   tieneEventos: boolean = false;
   esAdmin: boolean = false;
   esScanner: boolean = false;
+  esOrganizer: boolean = false;
+  esRrpp: boolean = false;
+  userRoles: string[] = [];
 
   // Subscription info
   subscription: UserSubscription | null = null;
@@ -55,14 +59,19 @@ export class PerfilComponent implements OnInit {
         this.profileService.getProfile().subscribe({
           next: (data) => {
             this.userProfile = data;
+            // Support both new 'roles' array and legacy 'rol' field
+            this.userRoles = data.roles || [data.rol] || ['user'];
+            
+            // Set role flags using helper functions
+            this.esAdmin = hasExactRole(this.userRoles, 'admin');
+            this.esScanner = hasExactRole(this.userRoles, 'scanner');
+            this.esOrganizer = hasRoleLevel(this.userRoles, 'organizer');
+            this.esRrpp = hasExactRole(this.userRoles, 'rrpp');
+            
             this.verificarEventos();
             this.loadSubscription();
             this.loadPlans();
             this.loadMpStatus();
-
-            if (this.userProfile.rol === 'admin') {
-              this.esAdmin = true;
-            }
           },
           error: (err) => {
             console.error('Error al obtener perfil:', err);
@@ -98,7 +107,7 @@ export class PerfilComponent implements OnInit {
 
   // --- MERCADO PAGO MARKETPLACE ---
   private loadMpStatus(): void {
-    if (!this.tieneEventos && this.userProfile?.rol !== 'organizer') return;
+    if (!this.tieneEventos && !this.esOrganizer) return;
 
     this.paymentService.getMpStatus().subscribe({
       next: (status) => this.mpStatus = status,

@@ -14,6 +14,7 @@ import { SubscriptionPlan } from "../subscription/subscription_plan.entity"
 import { UserSubscription } from "../subscription/user_subscription.entity"
 import dotenv from "dotenv";
 import { Coupon } from "../coupon/coupon.entity"
+import { PromoterGroup, PromoterEventAssignment } from "../promoter/promoter.entity"
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ const AppDataSource = new DataSource({
     extra: connectionUrl ? { ssl: { rejectUnauthorized: false } } : undefined,
     synchronize: true,
     logging: false,
-    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon],
+    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment],
 });
 
 export default AppDataSource;

@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn } from "typeorm"
 import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
+import { PromoterGroup } from "../promoter/promoter.entity";
 @Entity()
 @Unique(['email'])
 export class User extends BaseEntity {
@@ -44,16 +45,21 @@ export class User extends BaseEntity {
     password: string;
 
     /**
-     * User role. Valid values: 'user', 'organizer', 'scanner', 'admin'
+     * User roles. Valid values: 'user', 'organizer', 'scanner', 'admin', 'rrpp'
+     * A user can have multiple roles simultaneously.
+     * Hierarchy: admin > organizer > scanner > rrpp > user
+     * 
      * - user: Regular user, can buy tickets
      * - organizer: User who has created events, can manage their events
      * - scanner: Can scan/validate tickets
      * - admin: Full system access
+     * - rrpp: Promoter/Relaciones Públicas - promotes events for an organizer
      */
     @Column({
+        type: "simple-array",
         default: "user"
     })
-    rol: string;
+    roles: string[];
 
     /* ==================== MERCADO PAGO MARKETPLACE ==================== */
 
@@ -91,5 +97,15 @@ export class User extends BaseEntity {
 
     @OneToMany(() => Ticket, ticket => ticket.user)
     tickets: Ticket[];
+
+    /* ===================== PROMOTER (RRPP) RELATIONS ===================== */
+
+    /** Promoter groups owned by this user (if organizer) */
+    @OneToMany(() => PromoterGroup, group => group.organizer)
+    promoterGroupsOwned: PromoterGroup[];
+
+    /** Promoter assignments for this user (if rrpp) */
+    @OneToMany(() => PromoterGroup, group => group.promoter)
+    promoterAssignments: PromoterGroup[];
 
 }

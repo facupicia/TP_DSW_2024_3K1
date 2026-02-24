@@ -18,7 +18,7 @@ export const tokenSing = async (user: User) => {
     return jwt.sign(
         {
             id: user.id,
-            rol: user.rol
+            roles: user.roles || ['user']
         },
         process.env.SECRET_KEY,
         {

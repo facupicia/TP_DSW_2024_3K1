@@ -4,7 +4,7 @@ import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken';
 import { tokenSing } from "../common/services/generateToken"
 import { CustomRequest } from "../common/middleware/authToken";
-import { Roles } from "../schemas/schema.user";
+import { Roles, getHighestRole } from "../schemas/schema.user";
 import { OAuth2Client } from "google-auth-library";
 
 
@@ -26,6 +26,7 @@ export const signupUser = async (req: Request, res: Response) => {
     user.lastname = lastname;
     user.email = email;
     user.password = hashedPassword;
+    user.roles = ['user']; // Default role
 
     await user.save();
     res.status(201).json({ mensaje: 'Registro guardado correctamente' });
@@ -42,7 +43,7 @@ export const getUsers = async (req: Request, res: Response) => {
         firstname: true,
         lastname: true,
         email: true,
-        rol: true,
+        roles: true,
         imgPerfil: true,
         active: true
       }
@@ -63,7 +64,7 @@ export const getUser = async (req: Request, res: Response) => {
         firstname: true,
         lastname: true,
         imgPerfil: true,
-        rol: true,
+        roles: true,
         active: true
       }
     });
@@ -80,7 +81,7 @@ export const getUser = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   try {
-    const { firstname, lastname, email, password, rol, phone, birth, pais, provincia, ciudad, imgPerfil, address } = req.body
+    const { firstname, lastname, email, password, roles, phone, birth, pais, provincia, ciudad, imgPerfil, address } = req.body
     const user = await User.findOneBy({ id: parseInt(req.params.id) })
 
     if (!user) return res.status(404).json({ message: "User does not exist" })
@@ -97,11 +98,13 @@ export const updateUser = async (req: Request, res: Response) => {
     if (password) {
       user.password = await bcrypt.hash(password, 10);
     }
-    if (rol) {
-      if (!Roles.options.includes(rol as any)) {
-        return res.status(400).json({ code: "INVALID_ROLE", message: "Rol no válido" });
+    if (roles && Array.isArray(roles)) {
+      // Validate all roles
+      const invalidRoles = roles.filter((r: string) => !Roles.options.includes(r as any));
+      if (invalidRoles.length > 0) {
+        return res.status(400).json({ code: "INVALID_ROLE", message: `Roles no válidos: ${invalidRoles.join(', ')}` });
       }
-      user.rol = rol
+      user.roles = roles
     }
 
     await user.save()
@@ -135,7 +138,7 @@ export const signinUser = async (req: Request, res: Response) => {
     // Validar email
     const user = await User.findOne({
       where: { email },
-      select: ["id", "password", "email", "rol", "firstname", "lastname"]
+      select: ["id", "password", "email", "roles", "firstname", "lastname"]
     });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
@@ -170,6 +173,22 @@ export const profile = async (req: CustomRequest, res: Response) => {
     const user = await User.findOneBy({ id: id });
     if (!user) return res.status(404).json('No User found');
 
+    // Merge roles: if roles array is incomplete compared to legacy rol, add it
+    let userRoles = user.roles || ['user'];
+    const legacyRol = (user as any).rol; // Still might exist in DB
+    
+    // If legacy rol exists and is higher than current roles, include it
+    if (legacyRol && !userRoles.includes(legacyRol)) {
+      const ROLE_HIERARCHY: Record<string, number> = {
+        'user': 1, 'rrpp': 2, 'scanner': 3, 'organizer': 4, 'admin': 5
+      };
+      const currentHighestLevel = Math.max(...userRoles.map(r => ROLE_HIERARCHY[r] || 0));
+      const legacyLevel = ROLE_HIERARCHY[legacyRol] || 0;
+      
+      if (legacyLevel > currentHighestLevel) {
+        userRoles = [...userRoles, legacyRol];
+      }
+    }
 
     return res.json({
       id: user.id,
@@ -183,8 +202,8 @@ export const profile = async (req: CustomRequest, res: Response) => {
       ciudad: user.ciudad,
       birth: user.birth,
       imgPerfil: user.imgPerfil,
-      rol: user.rol
-
+      roles: userRoles,
+      rol: getHighestRole(userRoles) // Backward compatibility
     });
   } catch (error) {
     return res.status(500).json({ message: 'Internal server error' });
@@ -195,44 +214,69 @@ export const profile = async (req: CustomRequest, res: Response) => {
 export const updateUserRole = async (req: CustomRequest, res: Response) => {
   try {
     const targetId = parseInt(req.params.id);
-    const { rol } = req.body as { rol: string };
+    const { roles, action = 'set' } = req.body as { roles: string[], action: 'set' | 'add' | 'remove' };
+    
     if (!req.user || !req.user.id) {
       return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
     }
+    
     // Admin cannot demote or change own role via this endpoint to avoid lockout risk
     if (req.user.id === targetId) {
       return res.status(400).json({ code: "SELF_ROLE_CHANGE_FORBIDDEN", message: "No puedes cambiar tu propio rol aquí" });
     }
-    if (!Roles.options.includes(rol as any)) {
-      return res.status(400).json({ code: "INVALID_ROLE", message: "Rol no válido" });
+    
+    // Validate all roles
+    const invalidRoles = roles.filter(r => !Roles.options.includes(r as any));
+    if (invalidRoles.length > 0) {
+      return res.status(400).json({ code: "INVALID_ROLE", message: `Roles no válidos: ${invalidRoles.join(', ')}` });
     }
+    
     const dataSource = (await import("../db")).default;
     if (!dataSource.isInitialized) {
       await dataSource.initialize();
     }
     const userRepo = dataSource.getRepository(User);
     const target = await userRepo.findOneBy({ id: targetId });
+    
     if (!target) {
       return res.status(404).json({ code: "USER_NOT_FOUND", message: "User not found" });
     }
-    const prevRole = target.rol;
-    if (prevRole === rol) {
-      return res.status(200).json({ message: "Sin cambios", rol });
+    
+    const prevRoles = target.roles || ['user'];
+    let newRoles: string[];
+    
+    switch (action) {
+      case 'add':
+        newRoles = [...new Set([...prevRoles, ...roles])];
+        break;
+      case 'remove':
+        newRoles = prevRoles.filter(r => !roles.includes(r));
+        if (newRoles.length === 0) newRoles = ['user']; // Always keep at least 'user'
+        break;
+      case 'set':
+      default:
+        newRoles = roles;
+        break;
     }
-    // Concurrency-safe update using compare-and-set
-    const result = await userRepo.createQueryBuilder()
-      .update(User)
-      .set({ rol })
-      .where("id = :id AND rol = :prevRole", { id: targetId, prevRole })
-      .execute();
-    if (result.affected && result.affected > 0) {
-      // Audit log
-      await logRoleChange(req.user.id, targetId, prevRole, rol, req.ip);
-      return res.status(200).json({ message: "Rol actualizado", prevRole, rol });
+    
+    if (JSON.stringify(prevRoles.sort()) === JSON.stringify(newRoles.sort())) {
+      return res.status(200).json({ message: "Sin cambios", roles: newRoles });
     }
-    // If concurrent change occurred, re-fetch and report
-    const refreshed = await userRepo.findOneBy({ id: targetId });
-    return res.status(409).json({ code: "ROLE_CONFLICT", message: "Rol cambiado por otro proceso", currentRole: refreshed?.rol });
+    
+    // Update roles
+    target.roles = newRoles;
+    await userRepo.save(target);
+    
+    // Audit log
+    await logRoleChange(req.user.id, targetId, prevRoles.join(','), newRoles.join(','), req.ip);
+    
+    return res.status(200).json({ 
+      message: "Roles actualizados", 
+      prevRoles, 
+      roles: newRoles,
+      action 
+    });
+    
   } catch (error: any) {
     return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Internal server error" });
   }

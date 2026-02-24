@@ -406,7 +406,7 @@
                     </div>
                     <div class="flex flex-col">
                       <span class="font-bold text-gray-900 leading-tight">{{ u.firstname }} {{ u.lastname }}</span>
-                      <span class="text-xs font-bold text-blue-500 uppercase">{{ (u.rol || 'user') }}</span>
+                      <span class="text-xs font-bold text-blue-500 uppercase">{{ getUserRolesDisplay(u) }}</span>
                     </div>
                   </div>
 
@@ -420,23 +420,23 @@
                 </div>
 
                 <div class="space-y-3">
-                  <div class="relative">
-                    <select
-                      class="w-full p-3 bg-gray-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-black appearance-none"
-                      [disabled]="updatingRole[u.id!]" [(ngModel)]="selectedRole[u.id!]" name="role-{{u.id}}">
-                      <option *ngFor="let r of roles" [value]="r">{{ r | uppercase }}</option>
-                    </select>
-                    <div class="absolute inset-y-0 right-3 flex items-center pointer-events-none text-gray-400">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                    </div>
+                  <div class="text-sm font-medium text-gray-700 mb-2">Roles:</div>
+                  <div class="flex flex-wrap gap-2">
+                    <label *ngFor="let r of availableRoles" 
+                           class="inline-flex items-center px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <input type="checkbox" 
+                             [checked]="hasRoleSelected(u.id!, r)"
+                             (change)="toggleRole(u.id!, r)"
+                             [disabled]="updatingRole[u.id!]"
+                             class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                      <span class="ml-2 text-xs font-medium uppercase">{{ r }}</span>
+                    </label>
                   </div>
 
                   <button (click)="cambiarRolConfirm(u)"
-                    [disabled]="updatingRole[u.id!] || (selectedRole[u.id!] === (u.rol || 'user'))"
+                    [disabled]="updatingRole[u.id!]"
                     class="w-full py-3 bg-black text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-30">
-                    {{ updatingRole[u.id!] ? 'Actualizando...' : 'Confirmar Cambio de Rol' }}
+                    {{ updatingRole[u.id!] ? 'Actualizando...' : 'Guardar Roles' }}
                   </button>
                 </div>
               </div>
@@ -465,25 +465,28 @@
                     </td>
 
                     <td class="p-6">
-                      <div class="flex items-center gap-3">
-                        <span
-                          class="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-[10px] font-bold uppercase shrink-0">
-                          {{ (u.rol || 'user') }}
-                        </span>
-                        <select
-                          class="p-2 bg-transparent border border-gray-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-black"
-                          [disabled]="updatingRole[u.id!]" [(ngModel)]="selectedRole[u.id!]" name="role-{{u.id}}">
-                          <option *ngFor="let r of roles" [value]="r">{{ r | uppercase }}</option>
-                        </select>
+                      <div class="flex flex-col gap-2">
+                        <span class="text-xs text-gray-500">Actual: {{ getUserRolesDisplay(u) }}</span>
+                        <div class="flex flex-wrap gap-2">
+                          <label *ngFor="let r of availableRoles" 
+                                 class="inline-flex items-center px-2 py-1 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
+                            <input type="checkbox" 
+                                   [checked]="hasRoleSelected(u.id!, r)"
+                                   (change)="toggleRole(u.id!, r)"
+                                   [disabled]="updatingRole[u.id!]"
+                                   class="w-3 h-3 text-blue-600 rounded border-gray-300">
+                            <span class="ml-1 text-[10px] font-medium uppercase">{{ r }}</span>
+                          </label>
+                        </div>
                       </div>
                     </td>
 
                     <td class="p-6">
                       <div class="flex items-center justify-end gap-2">
                         <button (click)="cambiarRolConfirm(u)"
-                          [disabled]="updatingRole[u.id!] || (selectedRole[u.id!] === (u.rol || 'user'))"
+                          [disabled]="updatingRole[u.id!]"
                           class="px-4 py-2 bg-black text-white rounded-xl text-xs font-bold transition-all hover:bg-gray-800 disabled:opacity-50">
-                          {{ updatingRole[u.id!] ? '...' : 'Confirmar' }}
+                          {{ updatingRole[u.id!] ? '...' : 'Guardar' }}
                         </button>
                         <button (click)="eliminarUsuario(u.id)"
                           class="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors">

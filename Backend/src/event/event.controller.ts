@@ -90,9 +90,10 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         }
         // ======================================================
 
-        // Promote user to organizer role if they are a regular user
-        if (user.rol === 'user') {
-            user.rol = 'organizer';
+        // Promote user to organizer role if they don't have it yet
+        const userRoles = user.roles || ['user'];
+        if (!userRoles.includes('organizer')) {
+            user.roles = [...userRoles, 'organizer'];
             await queryRunner.manager.save(User, user);
             // Ensure user has a subscription (will create FREE if none exists)
             await assignDefaultPlan(userId);

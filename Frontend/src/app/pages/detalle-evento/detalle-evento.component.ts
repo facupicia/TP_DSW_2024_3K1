@@ -23,6 +23,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   private accesService = inject(AuthService);
   private toastService = inject(ToastService);
   private eventId: string | null = null;
+  private promoterCode: string | null = null;
 
   isLoggedIn = false;
   user: any;
@@ -42,6 +43,9 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
 
     const idParam = this.route.snapshot.paramMap.get('id');
     this.eventId = idParam;
+
+    // Check for promoter code in URL query params
+    this.promoterCode = this.route.snapshot.queryParamMap.get('promo');
 
     if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
       this.router.navigate(['/events']);
@@ -188,7 +192,9 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
             return;
           }
         }
-        this.router.navigate([`/ticket/${eventId}`]);
+        // Navigate to checkout with promoter code if present
+        const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
+        this.router.navigate([`/ticket/${eventId}`], { queryParams });
       },
       error: (err) => {
         if (err.status === 401) this.router.navigate(['/login']);

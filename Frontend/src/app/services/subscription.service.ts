@@ -89,7 +89,7 @@ export class SubscriptionService {
         if (forceRefresh || !this.plansCache$) {
             this.plansCache$ = this.http.get<{ success: boolean; plans: SubscriptionPlan[] }>(`${this.baseUrl}/plans`).pipe(
                 map(response => {
-                    console.log('Respuesta de planes:', response);
+
                     // Convertir precios de string a número
                     const plans = (response.plans || []).map(plan => ({
                         ...plan,

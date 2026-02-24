@@ -21,6 +21,13 @@ export interface TicketEmailData {
     ticketType: string;
 }
 
+export interface PromoterInfo {
+    soldByPromoterId: number;
+    promoterCommissionPercentage: number;
+    promoterCommissionAmount: number;
+    promoterCode?: string;
+}
+
 /**
  * Crea tickets para una compra.
  * Genera códigos QR únicos para cada ticket.
@@ -28,11 +35,17 @@ export interface TicketEmailData {
 export async function createTicketsForPurchase(
     ticketType: TicketType, 
     user: User, 
-    amount: number
+    amount: number,
+    promoterInfo?: PromoterInfo
 ): Promise<Ticket[]> {
     const { randomUUID } = await import("crypto");
     
     const tickets: Ticket[] = [];
+    
+    // Calculate per-ticket commission if promoter info provided
+    const perTicketCommission = promoterInfo 
+        ? promoterInfo.promoterCommissionAmount / amount 
+        : null;
     
     for (let i = 0; i < amount; i++) {
         const codigo_unico = randomUUID();
@@ -47,6 +60,14 @@ export async function createTicketsForPurchase(
         ticket.qrCode = qrCode;
         ticket.purchasePrice = ticketType.price;
         ticket.status = TicketStatus.ACTIVE;
+        
+        // Add promoter information if provided
+        if (promoterInfo) {
+            ticket.soldByPromoterId = promoterInfo.soldByPromoterId;
+            ticket.promoterCommissionPercentage = promoterInfo.promoterCommissionPercentage;
+            ticket.promoterCommissionAmount = perTicketCommission;
+            ticket.promoterCode = promoterInfo.promoterCode || null;
+        }
         
         tickets.push(ticket);
     }

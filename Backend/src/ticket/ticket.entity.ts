@@ -68,6 +68,28 @@ export class Ticket extends BaseEntity {
     @Column({ type: "numeric", precision: 12, scale: 2 })
     purchasePrice: number;
 
+    /* ===================== PROMOTER (RRPP) DATA ===================== */
+
+    /** Promoter who sold this ticket (if applicable) */
+    @ManyToOne(() => User, { nullable: true })
+    @JoinColumn({ name: "soldByPromoterId" })
+    soldByPromoter: User | null;
+
+    @Column({ nullable: true })
+    soldByPromoterId: number | null;
+
+    /** Commission percentage applied at the time of sale */
+    @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
+    promoterCommissionPercentage: number | null;
+
+    /** Commission amount earned by the promoter */
+    @Column({ type: "decimal", precision: 12, scale: 2, nullable: true })
+    promoterCommissionAmount: number | null;
+
+    /** Promoter code used for this sale */
+    @Column({ type: "varchar", length: 50, nullable: true })
+    promoterCode: string | null;
+
     /* ===================== ACCESS CONTROL ===================== */
 
     @Column({ type: "timestamp", nullable: true })

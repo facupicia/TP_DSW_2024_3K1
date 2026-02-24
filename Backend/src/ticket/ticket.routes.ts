@@ -10,10 +10,10 @@ import { checkRoleAuth } from "../common/middleware/checkRole"
 const router = Router()
 
 router.put("/validate", checkAuthToken, checkRoleAuth(["scanner", "admin"]), validateTicket)
-router.get("/last-purchase", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), getLastPurchaseTickets)
+router.get("/last-purchase", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), getLastPurchaseTickets)
 router.post("/invite", checkAuthToken, checkRoleAuth(["organizer", "admin"]), inviteGuests)
-router.post("/buy/:id", checkAuthToken, checkRoleAuth(["admin", "user", "scanner", "organizer"]), createTicket)
-router.get("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), getTickets)
-router.put("/cancel/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), cancelTicket)
+router.post("/buy/:id", checkAuthToken, checkRoleAuth(["admin", "user", "scanner", "organizer", "rrpp"]), createTicket)
+router.get("/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), getTickets)
+router.put("/cancel/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), cancelTicket)
 
 export default router

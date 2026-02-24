@@ -38,7 +38,7 @@ import {
 export const createPreference = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
-        const { ticketQuantity, ticketTypeId } = req.body;
+        const { ticketQuantity, ticketTypeId, promoterCode } = req.body;
         
         // Validaciones básicas
         if (!userId) {
@@ -73,7 +73,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             const result = await createMercadoPagoPreference({
                 userId,
                 ticketTypeId: parseInt(ticketTypeId),
-                quantity
+                quantity,
+                promoterCode
             });
             
             return res.status(200).json({

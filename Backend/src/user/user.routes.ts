@@ -11,10 +11,10 @@ import { checkRoleAuth } from "../common/middleware/checkRole"
 
 const router = Router()
 
-router.put("/profile/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), schemaValidation(updateUserSchema), updateUser)
+router.put("/profile/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), schemaValidation(updateUserSchema), updateUser)
 
 
-router.get("/profile", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer"]), profile)
+router.get("/profile", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), profile)
 
 
 router.post("/login", schemaValidation(signinUserSchema), signinUser)

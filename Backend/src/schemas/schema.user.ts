@@ -1,6 +1,29 @@
 import { z } from "zod";
 
-export const Roles = z.enum(["user", "admin", "scanner"]);
+export const Roles = z.enum(["user", "admin", "scanner", "organizer", "rrpp"]);
+
+// Schema for multiple roles
+export const RolesArray = z.array(Roles).default(["user"]);
+
+// Helper to check role hierarchy
+const ROLE_HIERARCHY: Record<string, number> = {
+    'user': 1,
+    'rrpp': 2,
+    'scanner': 3,
+    'organizer': 4,
+    'admin': 5
+};
+
+export const hasRoleLevel = (userRoles: string[], requiredLevel: number): boolean => {
+    const userLevel = Math.max(...userRoles.map(r => ROLE_HIERARCHY[r] || 0));
+    return userLevel >= requiredLevel;
+};
+
+export const getHighestRole = (roles: string[]): string => {
+    return roles.reduce((highest, role) => {
+        return (ROLE_HIERARCHY[role] || 0) > (ROLE_HIERARCHY[highest] || 0) ? role : highest;
+    }, 'user');
+};
 
 export const signupUserSchema = z.object({
     body: z.object({
@@ -28,7 +51,7 @@ export const updateUserSchema = z.object({
         lastname: z.string().min(1, "Lastname is required").optional(),
         email: z.string().email("Invalid email format").optional(),
         password: z.string().min(6, "Password must be at least 6 characters long").optional(),
-        rol: Roles.optional(),
+        roles: RolesArray.optional(),
         phone: z
             .string()
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
@@ -59,7 +82,8 @@ export const updateUserRoleSchema = z.object({
         id: z.string().min(1),
     }),
     body: z.object({
-        rol: Roles
+        roles: RolesArray,
+        action: z.enum(['set', 'add', 'remove']).default('set')
     })
 })
 

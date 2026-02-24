@@ -7,7 +7,7 @@ import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { StatsService } from '../../services/stats.service';
-import { Usuario } from '../../interfaces/Usuario';
+import { Usuario, getHighestRole, hasExactRole } from '../../interfaces/Usuario';
 import { EventService } from '../../services/event.service';
 import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
 import { DashboardOverviewComponent } from '../../components/dashboard-overview/dashboard-overview.component';
@@ -50,8 +50,8 @@ export class AdminPanelComponent implements OnInit {
   public loadingUsers = false;
   public loadingMetrics = false;
   public updatingRole: Record<number, boolean> = {};
-  public selectedRole: Record<number, 'user' | 'admin' | 'scanner' | 'organizer'> = {};
-  public roles: Array<'user' | 'admin' | 'scanner' | 'organizer'> = ['user', 'admin', 'scanner', 'organizer'];
+  public selectedRoles: Record<number, string[]> = {};  // Support multiple roles
+  public availableRoles: Array<'user' | 'admin' | 'scanner' | 'organizer' | 'rrpp'> = ['user', 'admin', 'scanner', 'organizer', 'rrpp'];
   public currentUser: any = null;
 
   // Date Range Filter
@@ -148,8 +148,10 @@ export class AdminPanelComponent implements OnInit {
       next: (res) => {
         this.usuarios = res;
         for (const u of this.usuarios) {
-          if (u.id !== undefined && (u.rol as any)) {
-            this.selectedRole[u.id] = (u.rol as any);
+          if (u.id !== undefined) {
+            // Initialize with user's roles (support both old 'rol' and new 'roles')
+            const userRoles = (u.roles || [u.rol || 'user']).filter((r): r is string => !!r);
+            this.selectedRoles[u.id] = userRoles;
           }
         }
         this.stats.totalUsers = res.length;
@@ -252,32 +254,72 @@ export class AdminPanelComponent implements OnInit {
   }
 
   cambiarRolConfirm(u: Usuario) {
-    if (!this.currentUser || this.currentUser.rol !== 'admin') {
+    if (!this.currentUser) {
       this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
       return;
     }
+    
+    // Check admin using roles array
+    const currentUserRoles = this.currentUser.roles || [this.currentUser.rol] || [];
+    if (!hasExactRole(currentUserRoles, 'admin')) {
+      this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
+      return;
+    }
+    
     if (!u.id) return;
-    const nuevoRol = this.selectedRole[u.id];
-    const rolActual = (u.rol as any);
-    if (!nuevoRol) {
-      this.toast.warning('Selecciona un rol válido');
+    const nuevosRoles = this.selectedRoles[u.id];
+    const rolesActuales = u.roles || [u.rol] || ['user'];
+    
+    if (!nuevosRoles || nuevosRoles.length === 0) {
+      this.toast.warning('Selecciona al menos un rol');
       return;
     }
-    if (rolActual === nuevoRol) {
-      this.toast.info('El nuevo rol es igual al actual');
+    
+    // Check if roles are actually different
+    const sortedNuevos = [...nuevosRoles].sort();
+    const sortedActuales = [...rolesActuales].sort();
+    if (JSON.stringify(sortedNuevos) === JSON.stringify(sortedActuales)) {
+      this.toast.info('Los roles seleccionados son iguales a los actuales');
       return;
     }
+    
     this.updatingRole[u.id!] = true;
-    this.userService.updateRole(u.id!, nuevoRol).subscribe({
+    this.userService.updateRole(u.id!, nuevosRoles, 'set').subscribe({
       next: (resp: any) => {
-        (u.rol as any) = nuevoRol;
-        this.toast.success('Rol actualizado correctamente');
+        u.roles = nuevosRoles;
+        u.rol = getHighestRole(nuevosRoles); // Update legacy field
+        this.toast.success('Roles actualizados correctamente');
         this.updatingRole[u.id!] = false;
       },
-      error: () => {
+      error: (err) => {
+        this.toast.error('Error al actualizar roles');
         this.updatingRole[u.id!] = false;
       }
     });
+  }
+  
+  // Toggle role selection (add/remove from array)
+  toggleRole(userId: number, role: string) {
+    const currentRoles = this.selectedRoles[userId] || [];
+    if (currentRoles.includes(role)) {
+      // Don't remove if it's the only role
+      if (currentRoles.length > 1) {
+        this.selectedRoles[userId] = currentRoles.filter(r => r !== role);
+      }
+    } else {
+      this.selectedRoles[userId] = [...currentRoles, role];
+    }
+  }
+  
+  // Check if user has role selected
+  hasRoleSelected(userId: number, role: string): boolean {
+    return (this.selectedRoles[userId] || []).includes(role);
+  }
+  
+  // Get display roles for a user
+  getUserRolesDisplay(u: Usuario): string {
+    const roles = u.roles || [u.rol] || ['user'];
+    return roles.join(', ');
   }
 
   toggleMobileNav() {

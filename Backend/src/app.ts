@@ -14,6 +14,7 @@ import scannerRoutes from "./scanner/scanner.routes"
 import paymentRoutes from "./payment/payment.routes"
 import subscriptionRoutes from "./subscription/subscription.routes"
 import couponRoutes from "./coupon/coupon.routes"
+import promoterRoutes from "./promoter/promoter.routes"
 import { adminRouter } from "./admin/admin.controller"
 
 // Utilities
@@ -104,6 +105,7 @@ app.use("/api/scanner", scannerRoutes)
 app.use("/api/payment", paymentRoutes)
 app.use("/api/subscription", subscriptionRoutes)
 app.use("/api/coupon", couponRoutes)
+app.use("/api/promoter", promoterRoutes)
 app.use("/api/admin", adminRouter)
 
 // Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)

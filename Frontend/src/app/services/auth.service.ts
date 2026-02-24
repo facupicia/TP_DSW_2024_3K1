@@ -97,8 +97,8 @@ export class AuthService {
     return this.http.delete(`${this.urlBase}${id}`)
   }
 
-  updateRole(id: number, rol: 'user' | 'admin' | 'scanner' | 'organizer') {
-    return this.http.put(`${this.urlBase}${id}/role`, { rol });
+  updateRole(id: number, roles: string[], action: 'set' | 'add' | 'remove' = 'set') {
+    return this.http.put(`${this.urlBase}${id}/role`, { roles, action });
   }
 
   logout() {

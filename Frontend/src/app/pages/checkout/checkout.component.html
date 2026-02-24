@@ -134,6 +134,39 @@
                                         class="text-red-400 hover:text-red-600 text-xs">✕</button>
                                 </div>
                             </div>
+
+                            <!-- Promoter Code Section -->
+                            <div class="pt-4 border-t border-gray-200">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                    <span *ngIf="!promoterCodeFromUrl">¿Tienes un código de promotor?</span>
+                                    <span *ngIf="promoterCodeFromUrl" class="text-green-600">✓ Código de promotor aplicado</span>
+                                </label>
+                                <div class="flex gap-2">
+                                    <input type="text" [(ngModel)]="promoterCode" [ngModelOptions]="{standalone: true}"
+                                        placeholder="PROMO-XXXX"
+                                        class="flex-1 bg-white border border-gray-200 rounded-xl py-2 px-3 text-gray-900 font-medium uppercase text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                                        [class.border-green-300]="promoterCodeFromUrl"
+                                        [class.bg-green-50]="promoterCodeFromUrl"
+                                        [class.border-red-300]="promoterCodeError && !promoterCodeFromUrl"
+                                        [disabled]="promoterCode">
+                                    <button type="button" *ngIf="!promoterCode" 
+                                        class="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold cursor-default">
+                                        Opcional
+                                    </button>
+                                    <button type="button" *ngIf="promoterCode && !promoterCodeFromUrl" (click)="promoterCode = ''; promoterCodeError = ''"
+                                        class="px-4 py-2 bg-red-100 text-red-600 rounded-xl text-sm font-bold hover:bg-red-200 transition-all">
+                                        ✕
+                                    </button>
+                                    <button type="button" *ngIf="promoterCodeFromUrl" (click)="promoterCodeFromUrl = false; promoterCode = ''"
+                                        class="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-xl text-sm font-bold hover:bg-yellow-200 transition-all"
+                                        title="Quitar código">
+                                        ✕
+                                    </button>
+                                </div>
+                                <p *ngIf="promoterCodeError && !promoterCodeFromUrl" class="text-xs text-red-500 mt-1">{{ promoterCodeError }}</p>
+                                <p *ngIf="promoterCodeFromUrl" class="text-xs text-green-600 mt-1">Este código fue aplicado automáticamente desde el link de tu promotor</p>
+                                <p *ngIf="!promoterCodeFromUrl" class="text-xs text-gray-400 mt-1">Ingresa el código de tu promotor para apoyar sus ventas</p>
+                            </div>
                         </div>
 
                         <div class="flex justify-between items-end">

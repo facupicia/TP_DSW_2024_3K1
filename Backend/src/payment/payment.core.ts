@@ -4,6 +4,7 @@ import { PaymentLog, PaymentStatus } from './payment.entity';
 import { User } from '../user/user.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
 import { Ticket } from '../ticket/ticket.entity';
+import { PromoterGroup } from '../promoter/promoter.entity';
 import { getActiveSubscription } from '../subscription/subscription.service';
 import { createTicketsForPurchase, sendTicketEmail } from '../ticket/ticket.service';
 import { logger } from '../common/services/logger';
@@ -38,6 +39,7 @@ export interface ExtractedPaymentInfo {
     quantity: number;
     organizerId: number;
     isQR?: boolean; // Indica si es pago por QR
+    promoterCode?: string; // Código del promotor que vendió
 }
 
 export interface CommissionInfo {
@@ -51,6 +53,8 @@ export interface PaymentResult {
     tickets?: Ticket[];
     error?: string;
     logId?: number;
+    promoterId?: number;
+    promoterCommission?: number;
 }
 
 // ============================================================================
@@ -204,8 +208,10 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     
     // Prioridad 1: external_reference
     // Formatos:
-    // - Marketplace: userId|ticketTypeId|quantity|organizerId
+    // - Marketplace: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
     // - QR: QR|userId|ticketTypeId|quantity
+    let promoterCode: string | undefined;
+    
     if (payment.external_reference) {
         const ref = String(payment.external_reference);
         const parts = ref.split('|');
@@ -220,7 +226,7 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
                 quantity = Number(parts[3]) || 0;
             }
         } else {
-            // Formato Marketplace: userId|ticketTypeId|quantity|organizerId
+            // Formato Marketplace: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
             if (parts.length >= 3) {
                 userId = Number(parts[0]) || 0;
                 ticketTypeId = Number(parts[1]) || 0;
@@ -228,6 +234,9 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
             }
             if (parts.length >= 4) {
                 organizerId = Number(parts[3]) || 0;
+            }
+            if (parts.length >= 5) {
+                promoterCode = parts[4];
             }
         }
     }
@@ -249,12 +258,12 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         logger.error('PAYMENT_EXTRACTION_FAILED', {
             externalRef: payment.external_reference,
             metadata: payment.metadata,
-            extracted: { userId, ticketTypeId, quantity, organizerId, isQR }
+            extracted: { userId, ticketTypeId, quantity, organizerId, isQR, promoterCode }
         });
         return null;
     }
     
-    return { userId, ticketTypeId, quantity, organizerId, isQR };
+    return { userId, ticketTypeId, quantity, organizerId, isQR, promoterCode };
 }
 
 /**
@@ -435,10 +444,11 @@ export async function processApprovedPayment(
             userId: info.userId,
             ticketTypeId: info.ticketTypeId,
             quantity: info.quantity,
-            organizerId: info.organizerId
+            organizerId: info.organizerId,
+            promoterCode: info.promoterCode
         });
         
-        const { userId, ticketTypeId, quantity, organizerId } = info;
+        const { userId, ticketTypeId, quantity, organizerId, promoterCode } = info;
         
         // 2. Verificar que el usuario existe
         const userRepo = queryRunner.manager.getRepository(User);
@@ -479,6 +489,36 @@ export async function processApprovedPayment(
         const commission = await getCommissionInfo(actualOrganizerId);
         commission.amount = (expectedTotal * commission.percent) / 100;
         
+        // 5.1 Buscar información del promotor si hay código
+        let promoterInfo: { promoterId: number; commissionPercentage: number; commissionAmount: number } | null = null;
+        if (promoterCode) {
+            const promoterGroupRepo = queryRunner.manager.getRepository(PromoterGroup);
+            const promoterGroup = await promoterGroupRepo.findOne({
+                where: { promoterCode, organizerId: actualOrganizerId, isActive: true },
+                relations: ['promoter']
+            });
+            
+            if (promoterGroup && promoterGroup.promoter) {
+                const commissionPercentage = parseFloat(promoterGroup.commissionPercentage.toString());
+                const commissionAmount = (expectedTotal * commissionPercentage) / 100;
+                promoterInfo = {
+                    promoterId: promoterGroup.promoterId,
+                    commissionPercentage,
+                    commissionAmount
+                };
+                
+                logger.info('PAYMENT_PROMOTER_FOUND', {
+                    paymentId,
+                    promoterId: promoterGroup.promoterId,
+                    promoterCode,
+                    commissionPercentage,
+                    commissionAmount
+                });
+            } else {
+                logger.warn('PAYMENT_PROMOTER_NOT_FOUND', { paymentId, promoterCode });
+            }
+        }
+        
         // 6. Crear log de pago (idempotencia)
         const log = await createPaymentLog(queryRunner, {
             mpPaymentId: paymentId,
@@ -509,8 +549,18 @@ export async function processApprovedPayment(
             return { success: false, error: 'No stock available', logId: log.id };
         }
         
-        // 8. Crear tickets
-        const tickets = await createTicketsForPurchase(ticketType, user, quantity);
+        // 8. Crear tickets con información del promotor
+        const tickets = await createTicketsForPurchase(
+            ticketType, 
+            user, 
+            quantity,
+            promoterInfo ? {
+                soldByPromoterId: promoterInfo.promoterId,
+                promoterCommissionPercentage: promoterInfo.commissionPercentage,
+                promoterCommissionAmount: promoterInfo.commissionAmount,
+                promoterCode
+            } : undefined
+        );
         await queryRunner.manager.save(Ticket, tickets);
         
         // 9. Marcar como completado
@@ -523,7 +573,9 @@ export async function processApprovedPayment(
             logId: log.id,
             ticketsCreated: tickets.length,
             userId,
-            organizerId: actualOrganizerId
+            organizerId: actualOrganizerId,
+            promoterId: promoterInfo?.promoterId,
+            promoterCommission: promoterInfo?.commissionAmount
         });
         
         // Enviar email asíncronamente (fuera de la transacción)
@@ -539,7 +591,13 @@ export async function processApprovedPayment(
             });
         }
         
-        return { success: true, tickets, logId: log.id };
+        return { 
+            success: true, 
+            tickets, 
+            logId: log.id,
+            promoterId: promoterInfo?.promoterId,
+            promoterCommission: promoterInfo?.commissionAmount
+        };
         
     } catch (error: any) {
         await queryRunner.rollbackTransaction();

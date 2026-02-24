@@ -15,6 +15,7 @@ import {
 import { TicketType } from "../ticketType/ticketType.entity";
 import { User } from "../user/user.entity";
 import { Category } from "../category/category.entity";
+import { PromoterEventAssignment } from "../promoter/promoter.entity";
 
 @Entity("event")
 export class Event extends BaseEntity {
@@ -85,6 +86,9 @@ export class Event extends BaseEntity {
         cascade: true
     })
     ticketTypes: TicketType[];
+
+    @OneToMany(() => PromoterEventAssignment, assignment => assignment.event)
+    promoterAssignments: PromoterEventAssignment[];
 
     /* ===================== TIMESTAMPS ===================== */
 

@@ -20,10 +20,14 @@ import { EventConfigComponent } from './pages/event-config/event-config.componen
 import { ScannerComponent } from './pages/scanner/scanner.component';
 import { SubscriptionCallbackComponent } from './pages/subscription-callback/subscription-callback.component';
 import { SettingsComponent } from './pages/settings/settings.component';
+import { PromoterManagementComponent } from './pages/promoter-management/promoter-management.component';
+import { PromoterStatsComponent } from './pages/promoter-stats/promoter-stats.component';
+import { PromoterDashboardComponent } from './pages/promoter-dashboard/promoter-dashboard.component';
 
 
 import { authGuard } from './guards/auth.guard';
 import { organizerGuard } from './guards/organizer.guard';
+import { promoterGuard } from './guards/promoter.guard';
 
 export const routes: Routes = [
     { path: "", component: LandingComponent, title: 'Home' },
@@ -47,6 +51,12 @@ export const routes: Routes = [
     { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/config", component: EventConfigComponent, title: 'Configuración de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "scanner", component: ScannerComponent, title: 'Escáner', canActivate: [authGuard] },
+
+    // Promoter (RRPP) routes
+    { path: "promoter/management", component: PromoterManagementComponent, title: 'Gestión de Promotores', canActivate: [authGuard, organizerGuard] },
+    { path: "promoter/stats", component: PromoterStatsComponent, title: 'Estadísticas de Promotores', canActivate: [authGuard, organizerGuard] },
+    { path: "promoter/:id/stats", component: PromoterStatsComponent, title: 'Detalle de Promotor', canActivate: [authGuard, organizerGuard] },
+    { path: "promoter/dashboard", component: PromoterDashboardComponent, title: 'Panel de Promotor', canActivate: [authGuard, promoterGuard] },
 
     // Subscription routes - no authGuard because webhook handles activation
     // Users might land here from a different browser where they're not logged in

@@ -58,8 +58,9 @@
             <p class="text-slate-500 font-medium text-sm mb-5">{{ userProfile?.email }}</p>
 
             <div class="flex flex-wrap gap-2 mb-6 justify-center">
-              <span class="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide border border-slate-200">
-                {{ userProfile?.rol }}
+              <span *ngFor="let role of userRoles" 
+                    class="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold uppercase tracking-wide border border-slate-200">
+                {{ role }}
               </span>
               <span *ngIf="isPro" class="px-3 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg text-xs font-bold uppercase tracking-wide shadow-sm shadow-purple-500/30">
                 PRO Member

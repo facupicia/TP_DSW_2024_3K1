@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 export interface IPayload {
     id: number;
-    rol?: string;
+    roles?: string[];
     iat: number;
 }
 
@@ -34,6 +34,10 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
             return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid token data' });
         }
 
+        // Ensure roles is always an array
+        if (tokenData.roles && typeof tokenData.roles === 'string') {
+            tokenData.roles = (tokenData.roles as any).split(',');
+        }
         req.user = tokenData;
         next();
 

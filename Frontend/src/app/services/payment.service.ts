@@ -66,10 +66,11 @@ export class PaymentService {
     /**
      * Crea una preferencia de pago para comprar tickets
      */
-    createPreference(ticketTypeId: number, ticketQuantity: number): Observable<PreferenceResponse> {
+    createPreference(ticketTypeId: number, ticketQuantity: number, promoterCode?: string): Observable<PreferenceResponse> {
         return this.http.post<PreferenceResponse>(`${this.baseUrl}/create-preference`, {
             ticketTypeId,
-            ticketQuantity
+            ticketQuantity,
+            promoterCode
         });
     }
 

@@ -23,6 +23,7 @@ export interface PreferenceInput {
     userId: number;
     ticketTypeId: number;
     quantity: number;
+    promoterCode?: string;
 }
 
 export interface PreferenceResult {
@@ -222,7 +223,8 @@ export function buildPreferenceBody(
     user: User,
     ticketType: TicketType,
     quantity: number,
-    marketplaceInfo: MarketPlaceInfo
+    marketplaceInfo: MarketPlaceInfo,
+    promoterCode?: string
 ): any {
     const config = getMPConfig();
     
@@ -237,8 +239,9 @@ export function buildPreferenceBody(
     const notificationUrl = sanitizeUrl(config.notificationUrl);
     
     // Referencia externa para conciliación
-    // Formato: userId|ticketTypeId|quantity|organizerId
-    const externalRef = `${user.id}|${ticketType.id}|${quantity}|${ticketType.event.user_id}`;
+    // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode
+    const promoterCodeStr = promoterCode ? `|${promoterCode}` : '';
+    const externalRef = `${user.id}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCodeStr}`;
     
     const body: any = {
         items: [{
@@ -275,7 +278,8 @@ export function buildPreferenceBody(
             organizer_id: ticketType.event.user_id,
             organizer_plan: marketplaceInfo.planName,
             commission_percent: marketplaceInfo.commissionPercent,
-            marketplace_fee: marketplaceFee
+            marketplace_fee: marketplaceFee,
+            promoter_code: promoterCode || null
         }
     };
     
@@ -339,7 +343,7 @@ export async function createMercadoPagoPreference(
         const preference = new Preference(mpClient);
         
         // Construir body
-        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo);
+        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode);
         
         // Log de creación
         logger.info('PREFERENCE_CREATING', {
@@ -347,7 +351,8 @@ export async function createMercadoPagoPreference(
             ticketTypeId,
             quantity,
             organizerId: ticketType.event.user_id,
-            marketplaceFee: body.marketplace_fee
+            marketplaceFee: body.marketplace_fee,
+            promoterCode: input.promoterCode
         });
         
         // Crear preferencia
@@ -417,7 +422,7 @@ export async function createPlatformPreference(
         
         // Obtener info de comisión para metadata
         const marketplaceInfo = await getMarketPlaceInfo(ticketType.event.user_id);
-        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo);
+        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode);
         
         // Sin marketplace_fee al usar token de plataforma
         delete body.marketplace_fee;

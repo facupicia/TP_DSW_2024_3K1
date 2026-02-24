@@ -13,16 +13,25 @@ export class TicketService {
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/ticket/";
 
-  comprarTicket(objeto: { cantidad: number, ticketTypeId: number }): Observable<any> {
+  comprarTicket(objeto: { cantidad: number, ticketTypeId: number, promoterCode?: string }): Observable<any> {
     // Redirige al endpoint de pago
     const token = localStorage.getItem('token');
     const headers: HttpHeaders = new HttpHeaders(
       token ? { Authorization: `Bearer ${token}` } : {}
     );
 
+    const body: any = { 
+      ticketQuantity: objeto.cantidad, 
+      ticketTypeId: objeto.ticketTypeId 
+    };
+    
+    if (objeto.promoterCode) {
+      body.promoterCode = objeto.promoterCode;
+    }
+
     return this.http.post<any>(
       `${environment.apiUrl}/payment/create-preference`,
-      { ticketQuantity: objeto.cantidad, ticketTypeId: objeto.ticketTypeId },
+      body,
       { headers }
     ).pipe(
       timeout(15000),

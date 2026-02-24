@@ -150,7 +150,7 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
 
         const tickets = await Ticket.find({
             where: { userId: parseInt(userID) },
-            relations: { ticketType: { event: true } },
+            relations: ['ticketType', 'ticketType.event'],
             order: { createdAt: 'DESC' }
         });
 
@@ -199,7 +199,7 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
                 ticketTypeId: lastLog.ticketTypeId!
             },
             order: { createdAt: 'DESC' },
-            relations: { ticketType: { event: true } },
+            relations: ['ticketType', 'ticketType.event'],
             take: 10
         });
 
@@ -226,7 +226,7 @@ export const validateTicket = async (req: Request, res: Response) => {
 
         const ticket = await Ticket.findOne({
             where: [{ codigo_unico: code }, { id: parseInt(code) || -1 }],
-            relations: { ticketType: { event: true }, user: true }
+            relations: ['ticketType', 'ticketType.event', 'user']
         });
 
         if (!ticket) {

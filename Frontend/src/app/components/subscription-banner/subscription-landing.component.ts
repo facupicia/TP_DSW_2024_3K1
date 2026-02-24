@@ -53,13 +53,12 @@ export class SubscriptionLandingComponent implements OnInit {
         
         this.subscriptionService.getPlans(true).subscribe({
             next: (plans) => {
-                console.log('Planes recibidos:', plans);
+
                 // Ordenamos para que el PRO (o el más caro) quede segundo o destacado
                 this.plans = plans.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
-                console.log('Planes ordenados:', this.plans);
+
                 
                 if (plans.length === 0) {
-                    console.warn('No se recibieron planes del servidor');
                     this.toast.warning('No hay planes de suscripción disponibles');
                 }
             },

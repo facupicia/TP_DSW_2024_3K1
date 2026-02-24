@@ -62,7 +62,7 @@ router.get("/callback", subscriptionCallback);
 router.get(
     "/my-subscription",
     checkAuthToken,
-    checkRoleAuth(["user", "organizer", "admin", "scanner"]),
+    checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
     getMySubscription
 );
 
@@ -74,7 +74,7 @@ router.get(
 router.get(
     "/my-limits",
     checkAuthToken,
-    checkRoleAuth(["user", "organizer", "admin", "scanner"]),
+    checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
     getMyLimits
 );
 
@@ -86,7 +86,7 @@ router.get(
 router.post(
     "/checkout/:planId",
     checkAuthToken,
-    checkRoleAuth(["user", "organizer", "admin", "scanner"]),
+    checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
     createCheckout
 );
 
@@ -98,7 +98,7 @@ router.post(
 router.post(
     "/verify/:id",
     checkAuthToken,
-    checkRoleAuth(["user", "organizer", "admin", "scanner"]),
+    checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
     verifySubscription
 );
 
@@ -110,7 +110,7 @@ router.post(
 router.post(
     "/cancel",
     checkAuthToken,
-    checkRoleAuth(["user", "organizer", "admin", "scanner"]),
+    checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
     cancelMySubscription
 );
 
