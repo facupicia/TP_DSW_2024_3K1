@@ -117,21 +117,12 @@ SELECT setval('ticket_type_id_seq', (SELECT MAX(id) FROM ticket_type));
 -- =====================================================
 -- 5. SUBSCRIPTION PLANS
 -- =====================================================
-INSERT INTO subscription_plan (id, name, description, "monthlyPrice", "yearlyPrice", features, limits, active, "createdAt", "updatedAt") VALUES
-(1, 'FREE', 'Plan gratuito para empezar', 0, 0, 
-'["1 evento activo", "50 tickets por evento", "Soporte básico"]',
-'{"maxActiveEvents": 1, "maxTicketsPerEvent": 50, "maxPromoters": 0, "commissionPercentage": 15}',
-true, NOW(), NOW()),
+INSERT INTO subscription_plan (id, name, "displayName", "monthlyPrice", "yearlyPrice", "maxEventsPerMonth", "maxTicketTypesPerEvent", "commissionPercent", features, active, "sortOrder", "createdAt", "updatedAt") VALUES
+(1, 'FREE', 'Gratis', 0, 0, 1, 1, 15.00, '{"advancedDashboard": false, "exportSales": false, "featuredEvents": false, "prioritySupport": false, "removeBranding": false, "customBranding": false}', true, 1, NOW(), NOW()),
 
-(2, 'STARTER', 'Para organizadores emergentes', 9999, 99999,
-'["5 eventos activos", "200 tickets por evento", "3 promotores", "Comisión 10%", "Soporte email"]',
-'{"maxActiveEvents": 5, "maxTicketsPerEvent": 200, "maxPromoters": 3, "commissionPercentage": 10}',
-true, NOW(), NOW()),
+(2, 'STARTER', 'Starter', 9999.00, 99999.00, 5, 3, 10.00, '{"advancedDashboard": true, "exportSales": false, "featuredEvents": false, "prioritySupport": false, "removeBranding": false, "customBranding": false}', true, 2, NOW(), NOW()),
 
-(3, 'PRO', 'Para profesionales del evento', 29999, 299999,
-'["Eventos ilimitados", "Tickets ilimitados", "Promotores ilimitados", "Comisión 5%", "Soporte prioritario", "Estadísticas avanzadas", "API access"]',
-'{"maxActiveEvents": -1, "maxTicketsPerEvent": -1, "maxPromoters": -1, "commissionPercentage": 5}',
-true, NOW(), NOW())
+(3, 'PRO', 'Pro', 29999.00, 299999.00, -1, -1, 5.00, '{"advancedDashboard": true, "exportSales": true, "featuredEvents": true, "prioritySupport": true, "removeBranding": true, "customBranding": true}', true, 3, NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('subscription_plan_id_seq', (SELECT MAX(id) FROM subscription_plan));
