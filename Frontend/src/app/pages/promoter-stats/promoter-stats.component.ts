@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { PromoterService } from '../../services/promoter.service';
+import { EventService } from '../../services/event.service';
 import { ToastService } from '../../services/toast.service';
 import { PromoterStats, PromoterStatsDetail, EventPromoterStats } from '../../interfaces/promoter';
+import { Evento } from '../../interfaces/event';
 
 @Component({
   selector: 'app-promoter-stats',
@@ -16,6 +18,7 @@ import { PromoterStats, PromoterStatsDetail, EventPromoterStats } from '../../in
 })
 export class PromoterStatsComponent implements OnInit {
   private promoterService = inject(PromoterService);
+  private eventService = inject(EventService);
   private toastService = inject(ToastService);
   private route = inject(ActivatedRoute);
 
@@ -35,6 +38,12 @@ export class PromoterStatsComponent implements OnInit {
   startDate: string = '';
   endDate: string = '';
   
+  // PDF Export
+  organizerEvents: Evento[] = [];
+  selectedEventId: number | null = null;
+  loadingEvents = false;
+  exportingPdf = false;
+  
   loading = false;
 
   ngOnInit(): void {
@@ -47,7 +56,52 @@ export class PromoterStatsComponent implements OnInit {
     } else {
       this.loadOverviewStats();
       this.loadEventsStats();
+      this.loadOrganizerEvents();
     }
+  }
+
+  loadOrganizerEvents(): void {
+    this.loadingEvents = true;
+    this.eventService.obtenerEventosUsuario().subscribe({
+      next: (events) => {
+        this.organizerEvents = events;
+        this.loadingEvents = false;
+      },
+      error: (err) => {
+        console.error('Error loading events:', err);
+        this.loadingEvents = false;
+      }
+    });
+  }
+
+  exportPromotersPdf(): void {
+    if (!this.selectedEventId) {
+      this.toastService.error('Selecciona un evento para exportar');
+      return;
+    }
+
+    this.exportingPdf = true;
+    this.promoterService.exportPromotersStatsPdf(this.selectedEventId).subscribe({
+      next: (blob) => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `estadisticas-rrpp-evento-${this.selectedEventId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        this.toastService.success('PDF descargado exitosamente');
+        this.exportingPdf = false;
+      },
+      error: (err) => {
+        console.error('Error exporting PDF:', err);
+        this.toastService.error('Error al generar el PDF');
+        this.exportingPdf = false;
+      }
+    });
   }
 
   loadOverviewStats(): void {

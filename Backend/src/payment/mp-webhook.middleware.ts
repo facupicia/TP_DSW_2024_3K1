@@ -17,7 +17,7 @@ import { isSandboxMode, getSandboxConfig } from './mp.sandbox';
 const webhookAttempts = new Map<string, { count: number; resetTime: number }>();
 
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
-const RATE_LIMIT_MAX = 30; // max 30 requests por minuto por IP
+const RATE_LIMIT_MAX = 10; // max 10 requests por minuto por IP (más estricto)
 
 /**
  * Limpia entradas expiradas del rate limiter

@@ -1,0 +1,170 @@
+name: 🎭 Playwright Production Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    # Run every day at 2 AM
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Entorno de test'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  TEST_BASE_URL: ${{ github.event.inputs.environment == 'staging' && 'https://staging.event-life.netlify.app' || 'https://event-life.netlify.app' }}
+  TEST_API_URL: ${{ github.event.inputs.environment == 'staging' && 'https://staging-backend-eventlife.onrender.com' || 'https://backend-eventlife.onrender.com' }}
+
+jobs:
+  test:
+    name: 🧪 E2E Tests - ${{ matrix.project }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit, Mobile Chrome, Mobile Safari]
+        include:
+          - project: chromium
+            browser: Chrome
+          - project: firefox
+            browser: Firefox
+          - project: webkit
+            browser: Safari
+          - project: Mobile Chrome
+            browser: Chrome Mobile
+          - project: Mobile Safari
+            browser: Safari Mobile
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: 📦 Install Dependencies
+        working-directory: ./Backend
+        run: npm ci
+
+      - name: 🎭 Install Playwright Browsers
+        working-directory: ./Backend
+        run: npx playwright install --with-deps ${{ matrix.browser == 'Chrome' && 'chromium' || matrix.browser == 'Firefox' && 'firefox' || matrix.browser == 'Safari' && 'webkit' || matrix.browser == 'Chrome Mobile' && 'chromium' || matrix.browser == 'Safari Mobile' && 'webkit' }}
+
+      - name: 🧪 Run Playwright Tests
+        working-directory: ./Backend
+        run: npx playwright test --project="${{ matrix.project }}"
+        continue-on-error: true
+
+      - name: 📊 Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.project }}
+          path: |
+            Backend/playwright-report/
+            Backend/test-results/
+          retention-days: 30
+
+      - name: 📊 Upload Screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.project }}
+          path: Backend/test-results/screenshots/
+          retention-days: 7
+
+  report:
+    name: 📊 Generate Report
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: 📥 Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports
+          pattern: playwright-report-*
+          merge-multiple: true
+
+      - name: 📊 Publish to GitHub Pages
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./all-reports
+          destination_dir: playwright-reports
+
+  notify:
+    name: 🔔 Notify Results
+    needs: [test, report]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'schedule'
+
+    steps:
+      - name: 📧 Send Email Notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: '❌ Playwright Tests Failed - EventLife'
+          body: |
+            Los tests de Playwright han fallado.
+            
+            Ver reporte: https://cufardixx.github.io/TP_DSW_2024_3K1/playwright-reports
+            
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref }}
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: EventLife CI
+
+  smoke-test:
+    name: 💨 Smoke Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: 📦 Install Dependencies
+        working-directory: ./Backend
+        run: npm ci
+
+      - name: 🎭 Install Playwright
+        working-directory: ./Backend
+        run: npx playwright install chromium
+
+      - name: 💨 Run Smoke Tests
+        working-directory: ./Backend
+        run: npx playwright test --grep "@smoke" --project=chromium
+
+      - name: 📊 Upload Smoke Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report
+          path: Backend/playwright-report/
+          retention-days: 7

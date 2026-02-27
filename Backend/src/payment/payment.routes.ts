@@ -6,7 +6,7 @@ import {
     getMpStatus, 
     disconnectMp 
 } from "./mp-oauth.controller";
-import { checkAuthToken } from "../common/middleware/authToken";
+import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { 
     validateMPWebhookIP,
     createValidateMPWebhookSignature 
@@ -98,5 +98,34 @@ router.post("/test-webhook", checkAuthToken, simulatePaymentWebhook);
  * Desconecta la cuenta de MP del usuario.
  */
 router.post("/mp/disconnect", checkAuthToken, disconnectMp);
+
+/**
+ * POST /api/payment/refund/:paymentId
+ * 
+ * Procesa un reembolso de pago.
+ * Puede ser reembolso total o parcial.
+ * 
+ * Body: { amount?: number, reason?: string }
+ */
+router.post("/refund/:paymentId", checkAuthToken, async (req: CustomRequest, res) => {
+    const { processRefund } = await import('./refund.service');
+    const result = await processRefund(req.params.paymentId, {
+        amount: req.body?.amount,
+        reason: req.body?.reason,
+        requestedBy: req.user?.id
+    });
+    res.status(result.success ? 200 : 400).json(result);
+});
+
+/**
+ * GET /api/payment/refund-status/:paymentId
+ * 
+ * Verifica si un pago puede ser reembolsado.
+ */
+router.get("/refund-status/:paymentId", checkAuthToken, async (req: CustomRequest, res) => {
+    const { getRefundStatus } = await import('./refund.service');
+    const result = await getRefundStatus(req.params.paymentId);
+    res.status(200).json(result);
+});
 
 export default router;

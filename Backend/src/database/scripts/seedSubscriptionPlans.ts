@@ -82,7 +82,7 @@ async function seedSubscriptionPlans() {
 
         // Find all organizers without a subscription
         const organizers = await userRepo.find({
-            where: { rol: 'organizer' }
+            where: { roles: 'organizer' }
         });
 
         let assignedCount = 0;

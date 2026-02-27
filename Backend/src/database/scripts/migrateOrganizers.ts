@@ -38,9 +38,9 @@ async function migrateOrganizers() {
             .getRepository(User)
             .createQueryBuilder()
             .update(User)
-            .set({ rol: 'organizer' })
+            .set({ roles: ['organizer'] })
             .where("id IN (:...ids)", { ids: userIds })
-            .andWhere("rol = :rol", { rol: 'user' })
+            .andWhere("roles = :rol", { rol: 'user' })
             .execute();
 
         console.log(`✅ Promoted ${result.affected} users to 'organizer' role`);

@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Evento } from '../interfaces/event';
-import { Observable, tap, map } from 'rxjs';
+import { Observable, tap, map, timeout } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -21,7 +21,7 @@ export class EventService {
 
   obtenerEventosUsuario(): Observable<Evento[]> {
     if (typeof window !== 'undefined' && window.localStorage) {
-      return this.http.get<Evento[]>(`${this.urlBase}`).pipe(
+      return this.http.get<Evento[]>(`${this.urlBase}/my-events`).pipe(
         tap(events => events.forEach(e => {
           if (e.category && !e.categoria_name) {
             e.categoria_name = (e.category as any).name;
@@ -35,6 +35,7 @@ export class EventService {
 
   obtenerEvento(id: number): Observable<Evento> {
     return this.http.get<Evento>(`${this.urlBase}/${id}`).pipe(
+      timeout(10000), // 10 segundos timeout
       tap(e => {
         if (e.category && !e.categoria_name) {
           e.categoria_name = (e.category as any).name;

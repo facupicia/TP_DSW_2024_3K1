@@ -51,14 +51,14 @@ async function seed() {
     const hashedPassword = await bcrypt.hash("123456", 10);
 
     const usuariosData = [
-        { firstname: "Admin", lastname: "Sistema", email: "admin@eventlife.com", phone: "3513456789", pais: "Argentina", provincia: "Córdoba", ciudad: "Córdoba", address: "Av. San Martín 500", birth: new Date("1990-01-15"), rol: "admin" },
-        { firstname: "María", lastname: "González", email: "maria@gmail.com", phone: "3514567890", pais: "Argentina", provincia: "Buenos Aires", ciudad: "Buenos Aires", address: "Av. Corrientes 1234", birth: new Date("1995-06-20"), rol: "user" },
-        { firstname: "Juan", lastname: "Pérez", email: "juan@gmail.com", phone: "3515678901", pais: "Argentina", provincia: "Córdoba", ciudad: "Villa María", address: "Calle San Martín 456", birth: new Date("2000-03-10"), rol: "user" },
-        { firstname: "Ana", lastname: "Rodríguez", email: "ana@gmail.com", phone: "3516789012", pais: "Argentina", provincia: "Santa Fe", ciudad: "Rosario", address: "Bv. Oroño 789", birth: new Date("1988-11-25"), rol: "user" },
-        { firstname: "Carlos", lastname: "López", email: "carlos@gmail.com", phone: "3517890123", pais: "Argentina", provincia: "Mendoza", ciudad: "Mendoza", address: "Calle Las Heras 321", birth: new Date("2005-08-05"), rol: "user" },
-        { firstname: "Laura", lastname: "Martínez", email: "laura@gmail.com", phone: "3518901234", pais: "Argentina", provincia: "Córdoba", ciudad: "Río Cuarto", address: "Av. Italia 654", birth: new Date("1998-02-14"), rol: "scanner" },
-        { firstname: "Diego", lastname: "Fernández", email: "diego@gmail.com", phone: "3519012345", pais: "Argentina", provincia: "Buenos Aires", ciudad: "La Plata", address: "Calle 7 N° 890", birth: new Date("1992-07-30"), rol: "user" },
-        { firstname: "Sofía", lastname: "Ramírez", email: "sofia@gmail.com", phone: "3510123456", pais: "Argentina", provincia: "Córdoba", ciudad: "Carlos Paz", address: "Av. San Martín 123", birth: new Date("2003-12-01"), rol: "user" }
+        { firstname: "Admin", lastname: "Sistema", email: "admin@eventlife.com", phone: "3513456789", pais: "Argentina", provincia: "Córdoba", ciudad: "Córdoba", address: "Av. San Martín 500", birth: new Date("1990-01-15"), roles: "admin" },
+        { firstname: "María", lastname: "González", email: "maria@gmail.com", phone: "3514567890", pais: "Argentina", provincia: "Buenos Aires", ciudad: "Buenos Aires", address: "Av. Corrientes 1234", birth: new Date("1995-06-20"), roles: "user" },
+        { firstname: "Juan", lastname: "Pérez", email: "juan@gmail.com", phone: "3515678901", pais: "Argentina", provincia: "Córdoba", ciudad: "Villa María", address: "Calle San Martín 456", birth: new Date("2000-03-10"), roles: "user" },
+        { firstname: "Ana", lastname: "Rodríguez", email: "ana@gmail.com", phone: "3516789012", pais: "Argentina", provincia: "Santa Fe", ciudad: "Rosario", address: "Bv. Oroño 789", birth: new Date("1988-11-25"), roles: "user" },
+        { firstname: "Carlos", lastname: "López", email: "carlos@gmail.com", phone: "3517890123", pais: "Argentina", provincia: "Mendoza", ciudad: "Mendoza", address: "Calle Las Heras 321", birth: new Date("2005-08-05"), roles: "user" },
+        { firstname: "Laura", lastname: "Martínez", email: "laura@gmail.com", phone: "3518901234", pais: "Argentina", provincia: "Córdoba", ciudad: "Río Cuarto", address: "Av. Italia 654", birth: new Date("1998-02-14"), roles: "scanner" },
+        { firstname: "Diego", lastname: "Fernández", email: "diego@gmail.com", phone: "3519012345", pais: "Argentina", provincia: "Buenos Aires", ciudad: "La Plata", address: "Calle 7 N° 890", birth: new Date("1992-07-30"), roles: "user" },
+        { firstname: "Sofía", lastname: "Ramírez", email: "sofia@gmail.com", phone: "3510123456", pais: "Argentina", provincia: "Córdoba", ciudad: "Carlos Paz", address: "Av. San Martín 123", birth: new Date("2003-12-01"), roles: "user" }
     ];
 
     const usuariosCreados: User[] = [];
@@ -74,7 +74,7 @@ async function seed() {
         user.ciudad = userData.ciudad;
         user.address = userData.address;
         user.birth = userData.birth;
-        user.rol = userData.rol;
+        user.roles = [userData.roles];
         await AppDataSource.getRepository(User).save(user);
         usuariosCreados.push(user);
     }

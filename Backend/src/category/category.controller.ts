@@ -24,7 +24,7 @@ export const getCategories = async (req: Request, res: Response) => {
             }
         });
 
-        return res.status(200).json({ categories });
+        return res.status(200).json(categories);
     } catch (error: any) {
         return res.status(500).json({ message: error.message || "Internal server error" });
     }

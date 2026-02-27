@@ -63,17 +63,22 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
 
   cargarEvento(id: number) {
     this.loading = true;
+    console.log(`[DEBUG] Cargando evento ${id}...`);
+    
     this.eventoService.obtenerEvento(id).subscribe({
       next: (data) => {
+        console.log(`[DEBUG] Evento cargado:`, data);
         this.evento = data;
         if (data.user_id) {
           this.obtenerImagenUsuario(data.user_id);
         }
-        this.startCountdown(); // Iniciar cuenta regresiva
+        this.startCountdown();
         this.loading = false;
       },
-      error: () => {
+      error: (err) => {
+        console.error(`[DEBUG] Error cargando evento ${id}:`, err);
         this.loading = false;
+        this.toastService.error('No se pudo cargar el evento');
         this.router.navigate(['/events']);
       }
     });

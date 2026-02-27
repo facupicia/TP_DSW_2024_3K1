@@ -40,7 +40,12 @@ export class PromoterDashboardComponent implements OnInit {
         this.profile = profile;
       },
       error: (err) => {
-        this.toastService.error('Error al cargar perfil');
+        if (err.error?.code === 'NOT_FOUND') {
+          // User is not assigned to any organizer yet
+          this.toastService.error('No estás asignado como promotor. Contacta a un organizador para que te agregue a su equipo.');
+        } else {
+          this.toastService.error('Error al cargar perfil');
+        }
       }
     });
   }

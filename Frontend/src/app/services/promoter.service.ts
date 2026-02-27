@@ -108,6 +108,15 @@ export class PromoterService {
     return this.http.get<{ events: EventPromoterStats[]; summary: any }>(`${this.baseUrl}/stats/events`);
   }
 
+  /**
+   * Export promoter stats to PDF for a specific event
+   */
+  exportPromotersStatsPdf(eventId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/stats/export/${eventId}`, {
+      responseType: 'blob'
+    });
+  }
+
   // ==================== PROMOTER (RRPP) ENDPOINTS ====================
 
   /**

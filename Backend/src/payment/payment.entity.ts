@@ -3,7 +3,8 @@ import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn } from
 export enum PaymentStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
+  REFUNDED = 'refunded'
 }
 
 // Registro de pagos procesados para garantizar idempotencia del webhook
@@ -65,5 +66,19 @@ export class PaymentLog {
 
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
+
+  /* ===================== REFUND FIELDS ===================== */
+
+  @Column({ type: 'timestamp', nullable: true })
+  refundedAt?: Date;
+
+  @Column({ nullable: true })
+  refundedBy?: number;
+
+  @Column({ type: 'text', nullable: true })
+  refundReason?: string;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  refundAmount?: number;
 }
 

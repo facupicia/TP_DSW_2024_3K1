@@ -13,6 +13,7 @@ import { checkRoleAuth } from "../common/middleware/checkRole"
 const router = Router()
 
 /* ==================== PUBLIC ROUTES ==================== */
+router.get("/", getEvents)  // Ruta pública para listar eventos
 router.get("/explore", getEvents)
 router.get("/search", getEventByName)
 router.get("/count", getEventsNumber)
@@ -28,7 +29,7 @@ router.get("/stats/event/:id", checkAuthToken, checkRoleAuth(["organizer", "admi
 
 /* ==================== PROTECTED ROUTES ==================== */
 router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), schemaValidation(createEventSchema), createEvent)
-router.get("/", checkAuthToken, checkRoleAuth(["organizer", "admin", "user", "rrpp"]), getEventsByUser)
+router.get("/my-events", checkAuthToken, checkRoleAuth(["organizer", "admin", "user", "rrpp"]), getEventsByUser)
 
 /* ==================== DYNAMIC ROUTES (must be last) ==================== */
 router.post("/:id/buy", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), createTicket)

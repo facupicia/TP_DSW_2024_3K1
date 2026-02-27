@@ -16,7 +16,8 @@ import {
     getPromotersStats,
     getPromoterStatsById,
     getMyPromoterStats,
-    getEventsPromoterStats
+    getEventsPromoterStats,
+    exportPromotersStatsPdf
 } from "./promoter.stats.controller";
 
 const router = Router();
@@ -43,6 +44,7 @@ router.get("/has-events", checkAuthToken, checkOrganizerHasEvents);
 router.get("/stats/overview", checkAuthToken, getPromotersStats);
 router.get("/stats/events", checkAuthToken, getEventsPromoterStats);
 router.get("/stats/me", checkAuthToken, getMyPromoterStats);
+router.get("/stats/export/:eventId", checkAuthToken, exportPromotersStatsPdf);
 
 // Promoter management routes
 router.post("/", checkAuthToken, addPromoter);
