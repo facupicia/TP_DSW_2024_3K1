@@ -27,9 +27,16 @@ export interface QRPreferenceResponse {
     init_point: string;
     qr_code_url?: string;
     payment_type: 'qr';
+    pricing: {
+        base_amount: number;
+        service_fee_percent: number;
+        service_fee_amount: number;
+        total_amount: number;
+    };
     commission_info: {
         mp_commission_percent: number;
         mp_commission_amount: number;
+        organizer_net_amount: number;
         platform_net_amount: number;
     };
 }

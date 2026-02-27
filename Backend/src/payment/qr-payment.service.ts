@@ -56,22 +56,36 @@ export async function createQRPaymentPreference(
 
         // 3. Calcular montos
         const unitPrice = Number(ticketType.price);
-        const totalAmount = unitPrice * quantity;
+        const baseAmount = unitPrice * quantity;
         
-        // Comisión de MP para QR (2.59%)
+        // Cargo de servicio de EventLife (configurable, default 10%)
+        const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+        const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
+        
+        // Total a cobrar al asistente (incluye cargo de servicio)
+        const totalAmount = baseAmount + serviceFeeAmount;
+        
+        // Comisión de MP para QR (2.59% sobre el total)
         const mpCommissionPercent = 2.59;
         const mpCommissionAmount = (totalAmount * mpCommissionPercent) / 100;
         
-        // Lo que recibe la plataforma después de la comisión de MP
-        const platformNetAmount = totalAmount - mpCommissionAmount;
+        // Lo que recibe el organizador (el precio base sin cargo de servicio)
+        const organizerNetAmount = baseAmount;
+        
+        // Lo que recibe la plataforma después de todas las comisiones
+        const platformNetAmount = serviceFeeAmount - mpCommissionAmount;
 
         logger.info('QR_PAYMENT_PREFERENCE', {
             userId,
             ticketTypeId,
             quantity,
+            baseAmount,
+            serviceFeePercent,
+            serviceFeeAmount,
             totalAmount,
             mpCommissionPercent,
             mpCommissionAmount,
+            organizerNetAmount,
             platformNetAmount
         });
 
@@ -131,8 +145,13 @@ export async function createQRPaymentPreference(
                 ticket_type_id: ticketTypeId,
                 quantity: quantity,
                 event_id: ticketType.event.id,
+                base_amount: baseAmount,
+                service_fee_percent: serviceFeePercent,
+                service_fee_amount: serviceFeeAmount,
+                total_amount: totalAmount,
                 mp_commission_percent: mpCommissionPercent,
                 mp_commission_amount: mpCommissionAmount,
+                organizer_net_amount: organizerNetAmount,
                 platform_net_amount: platformNetAmount
             },
             // Configuración específica para QR
@@ -209,20 +228,40 @@ export async function createQRPaymentPreference(
 
 /**
  * Calcular comisión y neto para QR
+ * 
+ * Nuevo modelo con cargo de servicio:
+ * - baseAmount: precio del ticket (lo que el organizador quiere recibir)
+ * - serviceFee: cargo de servicio de EventLife (configurable, default 10%)
+ * - totalAmount: baseAmount + serviceFee (lo que paga el asistente)
+ * - mpCommission: 2.59% sobre totalAmount (comisión de MP)
+ * - organizerNet: baseAmount (el organizador recibe exacto)
+ * - platformNet: serviceFee - mpCommission (lo que gana EventLife)
  */
-export function calculateQRCommission(amount: number): {
-    grossAmount: number;
+export function calculateQRCommission(baseAmount: number): {
+    baseAmount: number;
+    serviceFeePercent: number;
+    serviceFeeAmount: number;
+    totalAmount: number;
     mpCommissionPercent: number;
     mpCommissionAmount: number;
+    organizerNetAmount: number;
     platformNetAmount: number;
 } {
+    const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+    const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
+    const totalAmount = baseAmount + serviceFeeAmount;
+    
     const mpCommissionPercent = 2.59;
-    const mpCommissionAmount = (amount * mpCommissionPercent) / 100;
+    const mpCommissionAmount = (totalAmount * mpCommissionPercent) / 100;
     
     return {
-        grossAmount: amount,
+        baseAmount,
+        serviceFeePercent,
+        serviceFeeAmount,
+        totalAmount,
         mpCommissionPercent,
         mpCommissionAmount,
-        platformNetAmount: amount - mpCommissionAmount
+        organizerNetAmount: baseAmount,
+        platformNetAmount: serviceFeeAmount - mpCommissionAmount
     };
 }

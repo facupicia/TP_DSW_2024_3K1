@@ -168,8 +168,8 @@ export const createQRPreference = async (req: CustomRequest, res: Response) => {
             where: { id: parseInt(ticketTypeId) }
         });
         
-        const totalAmount = ticketType ? Number(ticketType.price) * quantity : 0;
-        const commission = calculateQRCommission(totalAmount);
+        const baseAmount = ticketType ? Number(ticketType.price) * quantity : 0;
+        const commission = calculateQRCommission(baseAmount);
         
         return res.status(200).json({
             success: true,
@@ -177,9 +177,16 @@ export const createQRPreference = async (req: CustomRequest, res: Response) => {
             init_point: result.initPoint,
             qr_code_url: result.qrCodeUrl,
             payment_type: 'qr',
+            pricing: {
+                base_amount: commission.baseAmount,
+                service_fee_percent: commission.serviceFeePercent,
+                service_fee_amount: commission.serviceFeeAmount,
+                total_amount: commission.totalAmount
+            },
             commission_info: {
                 mp_commission_percent: commission.mpCommissionPercent,
                 mp_commission_amount: commission.mpCommissionAmount,
+                organizer_net_amount: commission.organizerNetAmount,
                 platform_net_amount: commission.platformNetAmount
             }
         });

@@ -24,7 +24,7 @@ function generateQRDataUrl(text: string, size: number = 200): string {
           </svg>
         </div>
         <h3 class="text-xl font-bold text-gray-900">Pagar con QR</h3>
-        <p class="text-sm text-gray-500 mt-1">Escanea el codigo QR con la app de MercadoPago</p>
+        <p class="text-sm text-gray-500 mt-1">El organizador recibe el 100% del precio de la entrada</p>
       </div>
 
       <div *ngIf="loading" class="text-center py-8">
@@ -34,12 +34,34 @@ function generateQRDataUrl(text: string, size: number = 200): string {
 
       <div *ngIf="qrData && !loading" class="text-center">
         
+        <!-- Desglose de precios -->
+        <div class="bg-gray-50 rounded-lg p-4 mb-4 text-left">
+          <p class="text-xs font-bold text-gray-400 uppercase mb-2">Desglose del pago</p>
+          
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600">Entrada{{ quantity > 1 ? 's' : '' }} ({{ quantity }}x)</span>
+            <span class="font-medium">{{ qrData.pricing.base_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
+          </div>
+          
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-gray-600">Cargo de servicio ({{ qrData.pricing.service_fee_percent }}%)</span>
+            <span class="font-medium text-gray-500">{{ qrData.pricing.service_fee_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
+          </div>
+          
+          <div class="border-t border-gray-200 my-2 pt-2">
+            <div class="flex justify-between text-base font-bold">
+              <span class="text-gray-900">Total a pagar</span>
+              <span class="text-blue-600">{{ qrData.pricing.total_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-green-50 rounded-lg p-3 mb-4">
           <p class="text-green-700 text-sm font-medium">
-            Comision reducida: {{ qrData.commission_info.mp_commission_percent }}%
+            El organizador recibe: {{ qrData.commission_info.organizer_net_amount | currency:'ARS':'symbol':'1.2-2' }}
           </p>
           <p class="text-green-600 text-xs mt-1">
-            Ahorras vs el metodo tradicional
+            Sin comisiones para el organizador
           </p>
         </div>
 
@@ -74,14 +96,17 @@ function generateQRDataUrl(text: string, size: number = 200): string {
           </ol>
         </div>
 
-        <div class="mt-4 pt-4 border-t border-gray-200">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Total a pagar:</span>
-            <span class="font-bold text-gray-900">{{ getTotal() | currency:'ARS':'symbol':'1.2-2' }}</span>
+        <div class="mt-4 pt-4 border-t border-gray-200 text-left">
+          <p class="text-xs font-bold text-gray-400 uppercase mb-2">Detalle de comisiones</p>
+          
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-gray-500">Comisión MP ({{ qrData.commission_info.mp_commission_percent }}%)</span>
+            <span class="text-gray-500">{{ qrData.commission_info.mp_commission_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
           </div>
-          <div class="flex justify-between text-xs mt-1">
-            <span class="text-gray-400">Comision MP ({{ qrData.commission_info.mp_commission_percent }}%):</span>
-            <span class="text-gray-500">-{{ qrData.commission_info.mp_commission_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
+          
+          <div class="flex justify-between text-sm mt-2 pt-2 border-t border-gray-100">
+            <span class="text-gray-700 font-medium">Ingreso para el organizador</span>
+            <span class="font-bold text-green-600">{{ qrData.commission_info.organizer_net_amount | currency:'ARS':'symbol':'1.2-2' }}</span>
           </div>
         </div>
       </div>
