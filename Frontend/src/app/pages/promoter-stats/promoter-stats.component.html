@@ -1,57 +1,63 @@
 <app-header />
 
-<div class="min-h-screen bg-gray-50 pt-20 pb-12">
+<div class="min-h-screen bg-gray-50 pt-16 md:pt-20 pb-12">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <!-- Header -->
-    <div class="mb-8">
-      <div class="flex justify-between items-center">
-        <div class="flex items-center space-x-4">
-          <button *ngIf="viewMode === 'detail'" (click)="backToOverview()" class="text-gray-500 hover:text-gray-700">
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="mb-4 md:mb-8">
+      <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-3">
+        <div class="flex items-center space-x-3">
+          <button *ngIf="viewMode === 'detail'" (click)="backToOverview()" class="text-gray-500 hover:text-gray-700 p-1 -ml-1">
+            <svg class="h-5 w-5 md:h-6 md:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">
-              {{viewMode === 'overview' ? 'Estadísticas de Promotores' : 'Detalle de Promotor'}}
+            <h1 class="text-xl md:text-3xl font-bold text-gray-900">
+              {{viewMode === 'overview' ? 'Estadísticas' : 'Detalle'}}
             </h1>
-            <p class="mt-2 text-gray-600">
-              {{viewMode === 'overview' ? 'Rendimiento de tu equipo de RRPP' : promoterDetail?.promoter?.firstname + ' ' + promoterDetail?.promoter?.lastname}}
+            <p class="mt-0.5 md:mt-2 text-sm md:text-base text-gray-600 truncate max-w-[250px] md:max-w-none">
+              {{viewMode === 'overview' ? 'Rendimiento de RRPP' : promoterDetail?.promoter?.firstname + ' ' + promoterDetail?.promoter?.lastname}}
             </p>
           </div>
         </div>
-        <a routerLink="/promoter/management" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-          <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a routerLink="/promoter/management" class="inline-flex items-center justify-center px-3 py-1.5 md:px-4 md:py-2 border border-gray-300 rounded-md shadow-sm text-xs md:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 self-start">
+          <svg class="-ml-0.5 mr-1.5 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver a Gestión
+          <span class="hidden md:inline">Volver a Gestión</span>
+          <span class="md:hidden">Volver</span>
         </a>
       </div>
     </div>
 
     <!-- Date Filters & PDF Export -->
-    <div class="bg-white rounded-lg shadow p-4 mb-6">
-      <div class="flex flex-wrap items-end gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Fecha desde</label>
-          <input type="date" [(ngModel)]="startDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+    <div class="bg-white rounded-lg shadow p-3 md:p-4 mb-4 md:mb-6">
+      <!-- Filtros de fecha -->
+      <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">Desde</label>
+            <input type="date" [(ngModel)]="startDate" class="mt-1 block w-full text-sm border border-gray-300 rounded-md shadow-sm py-1.5 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-xs md:text-sm font-medium text-gray-700">Hasta</label>
+            <input type="date" [(ngModel)]="endDate" class="mt-1 block w-full text-sm border border-gray-300 rounded-md shadow-sm py-1.5 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Fecha hasta</label>
-          <input type="date" [(ngModel)]="endDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        <div class="flex gap-2">
+          <button (click)="applyFilters()" class="flex-1 md:flex-none inline-flex items-center justify-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-xs md:text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
+            Filtrar
+          </button>
+          <button (click)="clearFilters()" class="flex-1 md:flex-none inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-md shadow-sm text-xs md:text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            Limpiar
+          </button>
         </div>
-        <button (click)="applyFilters()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700">
-          Aplicar Filtros
-        </button>
-        <button (click)="clearFilters()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-          Limpiar
-        </button>
         
         <!-- PDF Export Section -->
-        <div class="border-l border-gray-300 pl-4 ml-2 flex items-end gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Exportar estadísticas</label>
-            <select [(ngModel)]="selectedEventId" class="mt-1 block w-64 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+        <div class="border-t md:border-t-0 md:border-l border-gray-300 pt-3 md:pt-0 md:pl-4 flex flex-col md:flex-row gap-2 md:items-end">
+          <div class="flex-1">
+            <label class="block text-xs md:text-sm font-medium text-gray-700">Exportar PDF</label>
+            <select [(ngModel)]="selectedEventId" class="mt-1 block w-full text-sm border border-gray-300 rounded-md shadow-sm py-1.5 px-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
               <option [ngValue]="null">Seleccionar evento...</option>
               <option *ngFor="let event of organizerEvents" [value]="event.id">
                 {{event.title}}
@@ -61,15 +67,15 @@
           <button 
             (click)="exportPromotersPdf()" 
             [disabled]="!selectedEventId || exportingPdf"
-            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
-            <svg *ngIf="!exportingPdf" class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="inline-flex items-center justify-center px-3 py-1.5 border border-transparent rounded-md shadow-sm text-xs md:text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+            <svg *ngIf="!exportingPdf" class="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <svg *ngIf="exportingPdf" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+            <svg *ngIf="exportingPdf" class="animate-spin -ml-0.5 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            {{exportingPdf ? 'Generando...' : 'Descargar PDF'}}
+            {{exportingPdf ? 'Generando...' : 'PDF'}}
           </button>
         </div>
       </div>
@@ -81,296 +87,414 @@
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
       </svg>
+      <p class="mt-2 text-sm text-gray-500">Cargando estadísticas...</p>
     </div>
 
     <!-- OVERVIEW MODE -->
     <div *ngIf="viewMode === 'overview' && !loading">
       <!-- Summary Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-4 md:mb-8">
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
           <div class="flex items-center">
-            <div class="flex-shrink-0 bg-indigo-500 rounded-md p-3">
-              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex-shrink-0 bg-indigo-500 rounded-md p-2 md:p-3">
+              <svg class="h-5 w-5 md:h-6 md:w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500">Total Tickets Vendidos</p>
-              <p class="text-2xl font-semibold text-gray-900">{{summary.totalTickets || 0}}</p>
+            <div class="ml-3 md:ml-4">
+              <p class="text-xs md:text-sm font-medium text-gray-500">Tickets</p>
+              <p class="text-lg md:text-2xl font-semibold text-gray-900">{{summary.totalTickets || 0}}</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
           <div class="flex items-center">
-            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
-              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex-shrink-0 bg-green-500 rounded-md p-2 md:p-3">
+              <svg class="h-5 w-5 md:h-6 md:w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500">Recaudación Total</p>
-              <p class="text-2xl font-semibold text-gray-900">{{formatCurrency(summary.totalRevenue || 0)}}</p>
+            <div class="ml-3 md:ml-4">
+              <p class="text-xs md:text-sm font-medium text-gray-500">Recaudación</p>
+              <p class="text-lg md:text-2xl font-semibold text-gray-900">{{formatCurrency(summary.totalRevenue || 0)}}</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
           <div class="flex items-center">
-            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-2 md:p-3">
+              <svg class="h-5 w-5 md:h-6 md:w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500">Comisiones Pagadas</p>
-              <p class="text-2xl font-semibold text-gray-900">{{formatCurrency(summary.totalCommissions || 0)}}</p>
+            <div class="ml-3 md:ml-4">
+              <p class="text-xs md:text-sm font-medium text-gray-500">Comisiones</p>
+              <p class="text-lg md:text-2xl font-semibold text-gray-900">{{formatCurrency(summary.totalCommissions || 0)}}</p>
             </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
           <div class="flex items-center">
-            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
-              <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex-shrink-0 bg-purple-500 rounded-md p-2 md:p-3">
+              <svg class="h-5 w-5 md:h-6 md:w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500">Promotores Activos</p>
-              <p class="text-2xl font-semibold text-gray-900">{{summary.totalPromoters || 0}}</p>
+            <div class="ml-3 md:ml-4">
+              <p class="text-xs md:text-sm font-medium text-gray-500">RRPP</p>
+              <p class="text-lg md:text-2xl font-semibold text-gray-900">{{summary.totalPromoters || 0}}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Promoters Table -->
-      <div class="bg-white shadow rounded-lg overflow-hidden mb-8">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Rendimiento por Promotor</h3>
+      <!-- Promoters Table / Cards -->
+      <div class="bg-white shadow rounded-lg overflow-hidden mb-4 md:mb-8">
+        <div class="px-4 py-3 md:py-4 border-b border-gray-200">
+          <h3 class="text-base md:text-lg leading-6 font-medium text-gray-900">Rendimiento por Promotor</h3>
         </div>
         
-        <div *ngIf="promotersStats.length === 0" class="p-8 text-center text-gray-500">
-          No hay datos de ventas para mostrar
+        <div *ngIf="promotersStats.length === 0" class="p-6 md:p-8 text-center text-gray-500">
+          <svg class="mx-auto h-10 w-10 md:h-12 md:w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <p class="mt-4 text-base md:text-lg font-medium">No hay datos de ventas</p>
+          <p class="mt-1 text-sm">No se encontraron ventas de promotores en este período</p>
         </div>
 
-        <table *ngIf="promotersStats.length > 0" class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Promotor</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
-              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let stat of promotersStats" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">{{stat.firstname}} {{stat.lastname}}</div>
-                <div class="text-sm text-gray-500">{{stat.email}}</div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <code class="text-sm bg-gray-100 px-2 py-1 rounded">{{stat.promoterCode}}</code>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{stat.totalTickets}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(stat.totalRevenue)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(stat.totalCommission)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                {{stat.avgCommissionRate.toFixed(1)}}%
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button (click)="viewPromoterDetail(stat.promoterId)" class="text-indigo-600 hover:text-indigo-900">
-                  Ver detalle
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto" *ngIf="promotersStats.length > 0">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Promotor</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">%</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let stat of promotersStats" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{stat.firstname}} {{stat.lastname}}</div>
+                  <div class="text-sm text-gray-500">{{stat.email}}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <code class="text-sm bg-gray-100 px-2 py-1 rounded">{{stat.promoterCode}}</code>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{stat.totalTickets}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(stat.totalRevenue)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(stat.totalCommission)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                  {{stat.avgCommissionRate.toFixed(1)}}%
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <button (click)="viewPromoterDetail(stat.promoterId)" class="text-indigo-600 hover:text-indigo-900">
+                    Ver detalle
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden space-y-3 p-3" *ngIf="promotersStats.length > 0">
+          <div *ngFor="let stat of promotersStats" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            <div class="p-3">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <p class="font-medium text-gray-900">{{stat.firstname}} {{stat.lastname}}</p>
+                  <p class="text-xs text-gray-500">{{stat.email}}</p>
+                </div>
+                <button (click)="viewPromoterDetail(stat.promoterId)" class="text-indigo-600 text-xs font-medium">
+                  Ver detalle →
                 </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+              
+              <code class="text-xs bg-gray-100 px-2 py-0.5 rounded">{{stat.promoterCode}}</code>
+              
+              <div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100">
+                <div class="text-center">
+                  <p class="text-xs text-gray-500">Tickets</p>
+                  <p class="font-semibold text-gray-900">{{stat.totalTickets}}</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-xs text-gray-500">Recaudación</p>
+                  <p class="font-semibold text-gray-900">{{formatCurrency(stat.totalRevenue)}}</p>
+                </div>
+                <div class="text-center">
+                  <p class="text-xs text-gray-500">Comisión</p>
+                  <p class="font-semibold text-green-600">{{formatCurrency(stat.totalCommission)}}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Events Stats -->
       <div class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Ventas por Evento</h3>
+        <div class="px-4 py-3 md:py-4 border-b border-gray-200">
+          <h3 class="text-base md:text-lg leading-6 font-medium text-gray-900">Ventas por Evento</h3>
         </div>
         
-        <div *ngIf="eventsStats.length === 0" class="p-8 text-center text-gray-500">
-          No hay datos de eventos para mostrar
+        <div *ngIf="eventsStats.length === 0" class="p-6 md:p-8 text-center text-gray-500">
+          <p class="text-base font-medium">No hay datos de eventos</p>
         </div>
 
-        <table *ngIf="eventsStats.length > 0" class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-              <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Promotores</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisiones</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let stat of eventsStats" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {{stat.eventTitle}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{formatDate(stat.eventDate)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
-                {{stat.activePromoters}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{stat.totalPromoterTickets}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(stat.totalPromoterRevenue)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(stat.totalCommissionsPaid)}}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto" *ngIf="eventsStats.length > 0">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">RRPP</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisiones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let stat of eventsStats" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {{stat.eventTitle}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{formatDate(stat.eventDate)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                  {{stat.activePromoters}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{stat.totalPromoterTickets}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(stat.totalPromoterRevenue)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(stat.totalCommissionsPaid)}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden space-y-2 p-3" *ngIf="eventsStats.length > 0">
+          <div *ngFor="let stat of eventsStats" class="bg-white border border-gray-200 rounded-lg p-3">
+            <div class="flex justify-between items-start mb-2">
+              <p class="font-medium text-gray-900 text-sm">{{stat.eventTitle}}</p>
+              <span class="text-xs text-gray-500">{{formatDate(stat.eventDate)}}</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">{{stat.activePromoters}} RRPP</span>
+              <span class="bg-gray-50 text-gray-700 px-2 py-0.5 rounded">{{stat.totalPromoterTickets}} tickets</span>
+            </div>
+            <div class="flex justify-between mt-2 pt-2 border-t border-gray-100 text-sm">
+              <span class="text-gray-600">Recaudación:</span>
+              <span class="font-medium">{{formatCurrency(stat.totalPromoterRevenue)}}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Comisiones:</span>
+              <span class="font-medium text-green-600">{{formatCurrency(stat.totalCommissionsPaid)}}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- DETAIL MODE -->
     <div *ngIf="viewMode === 'detail' && promoterDetail && !loading">
       <!-- Promoter Info Card -->
-      <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <div class="flex items-center justify-between">
+      <div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div class="flex items-center">
-            <div class="h-16 w-16 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span class="text-2xl font-bold text-indigo-600">
+            <div class="h-12 w-12 md:h-16 md:w-16 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <span class="text-lg md:text-2xl font-bold text-indigo-600">
                 {{promoterDetail.promoter.firstname[0]}}{{promoterDetail.promoter.lastname[0]}}
               </span>
             </div>
-            <div class="ml-4">
-              <h2 class="text-2xl font-bold text-gray-900">
+            <div class="ml-3 md:ml-4">
+              <h2 class="text-lg md:text-2xl font-bold text-gray-900">
                 {{promoterDetail.promoter.firstname}} {{promoterDetail.promoter.lastname}}
               </h2>
-              <p class="text-gray-600">{{promoterDetail.promoter.email}}</p>
-              <div class="flex items-center mt-2 space-x-4">
-                <code class="bg-gray-100 px-2 py-1 rounded text-sm">{{promoterDetail.promoter.promoterCode}}</code>
-                <span class="text-sm text-gray-500">Comisión: {{promoterDetail.promoter.commissionPercentage}}%</span>
+              <p class="text-sm text-gray-600">{{promoterDetail.promoter.email}}</p>
+              <div class="flex items-center mt-1 md:mt-2 space-x-2 md:space-x-4">
+                <code class="bg-gray-100 px-2 py-0.5 rounded text-xs md:text-sm">{{promoterDetail.promoter.promoterCode}}</code>
+                <span class="text-xs md:text-sm text-gray-500">{{promoterDetail.promoter.commissionPercentage}}%</span>
               </div>
             </div>
           </div>
-          <div class="text-right">
-            <p class="text-sm text-gray-500">Total Ganado</p>
-            <p class="text-3xl font-bold text-green-600">{{formatCurrency(promoterDetail.overallStats.totalCommission)}}</p>
+          <div class="text-left md:text-right pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
+            <p class="text-xs md:text-sm text-gray-500">Total Ganado</p>
+            <p class="text-2xl md:text-3xl font-bold text-green-600">{{formatCurrency(promoterDetail.overallStats.totalCommission)}}</p>
           </div>
         </div>
       </div>
 
       <!-- Stats Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-sm font-medium text-gray-500">Total Tickets</p>
-          <p class="text-2xl font-semibold text-gray-900">{{promoterDetail.overallStats.totalTickets}}</p>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-4 md:mb-8">
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
+          <p class="text-xs md:text-sm font-medium text-gray-500">Total Tickets</p>
+          <p class="text-lg md:text-2xl font-semibold text-gray-900">{{promoterDetail.overallStats.totalTickets}}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-sm font-medium text-gray-500">Recaudación</p>
-          <p class="text-2xl font-semibold text-gray-900">{{formatCurrency(promoterDetail.overallStats.totalRevenue)}}</p>
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
+          <p class="text-xs md:text-sm font-medium text-gray-500">Recaudación</p>
+          <p class="text-lg md:text-2xl font-semibold text-gray-900">{{formatCurrency(promoterDetail.overallStats.totalRevenue)}}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-sm font-medium text-gray-500">Comisión Total</p>
-          <p class="text-2xl font-semibold text-green-600">{{formatCurrency(promoterDetail.overallStats.totalCommission)}}</p>
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
+          <p class="text-xs md:text-sm font-medium text-gray-500">Comisión Total</p>
+          <p class="text-lg md:text-2xl font-semibold text-green-600">{{formatCurrency(promoterDetail.overallStats.totalCommission)}}</p>
         </div>
-        <div class="bg-white rounded-lg shadow p-6">
-          <p class="text-sm font-medium text-gray-500">Comisión Promedio</p>
-          <p class="text-2xl font-semibold text-gray-900">{{promoterDetail.overallStats.avgCommissionRate.toFixed(1)}}%</p>
+        <div class="bg-white rounded-lg shadow p-3 md:p-6">
+          <p class="text-xs md:text-sm font-medium text-gray-500">Comisión %</p>
+          <p class="text-lg md:text-2xl font-semibold text-gray-900">{{promoterDetail.overallStats.avgCommissionRate.toFixed(1)}}%</p>
         </div>
       </div>
 
       <!-- Event Stats -->
-      <div class="bg-white shadow rounded-lg overflow-hidden mb-8">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Rendimiento por Evento</h3>
+      <div class="bg-white shadow rounded-lg overflow-hidden mb-4 md:mb-8">
+        <div class="px-4 py-3 md:py-4 border-b border-gray-200">
+          <h3 class="text-base md:text-lg leading-6 font-medium text-gray-900">Rendimiento por Evento</h3>
         </div>
         
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let stat of promoterDetail.eventStats" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {{stat.eventTitle}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{formatDate(stat.eventDate)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{stat.ticketsSold}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(stat.revenue)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-green-600">
-                {{formatCurrency(stat.commission)}}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tickets</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Recaudación</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let stat of promoterDetail.eventStats" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {{stat.eventTitle}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{formatDate(stat.eventDate)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{stat.ticketsSold}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(stat.revenue)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-green-600">
+                  {{formatCurrency(stat.commission)}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden space-y-2 p-3">
+          <div *ngFor="let stat of promoterDetail.eventStats" class="bg-white border border-gray-200 rounded-lg p-3">
+            <div class="flex justify-between items-start mb-1">
+              <p class="font-medium text-gray-900 text-sm">{{stat.eventTitle}}</p>
+              <span class="text-xs text-gray-500">{{formatDate(stat.eventDate)}}</span>
+            </div>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+              <div class="text-center">
+                <p class="text-xs text-gray-500">Tickets</p>
+                <p class="font-semibold text-gray-900">{{stat.ticketsSold}}</p>
+              </div>
+              <div class="text-center">
+                <p class="text-xs text-gray-500">Recaudación</p>
+                <p class="font-semibold text-gray-900">{{formatCurrency(stat.revenue)}}</p>
+              </div>
+              <div class="text-center">
+                <p class="text-xs text-gray-500">Comisión</p>
+                <p class="font-semibold text-green-600">{{formatCurrency(stat.commission)}}</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Recent Sales -->
       <div class="bg-white shadow rounded-lg overflow-hidden">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Ventas Recientes</h3>
+        <div class="px-4 py-3 md:py-4 border-b border-gray-200">
+          <h3 class="text-base md:text-lg leading-6 font-medium text-gray-900">Ventas Recientes</h3>
         </div>
         
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket ID</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <tr *ngFor="let sale of promoterDetail.recentSales" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                #{{sale.ticketId}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {{sale.eventTitle}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{sale.ticketTypeName}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                {{formatCurrency(sale.purchasePrice)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-green-600">
-                {{formatCurrency(sale.commissionAmount)}}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{formatDate(sale.soldAt)}}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticket ID</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr *ngFor="let sale of promoterDetail.recentSales" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  #{{sale.ticketId}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  {{sale.eventTitle}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{sale.ticketTypeName}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                  {{formatCurrency(sale.purchasePrice)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-green-600">
+                  {{formatCurrency(sale.commissionAmount)}}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {{formatDate(sale.soldAt)}}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden space-y-2 p-3">
+          <div *ngFor="let sale of promoterDetail.recentSales" class="bg-white border border-gray-200 rounded-lg p-3">
+            <div class="flex justify-between items-start mb-1">
+              <div>
+                <p class="font-medium text-gray-900 text-sm">{{sale.eventTitle}}</p>
+                <p class="text-xs text-gray-500">{{sale.ticketTypeName}} · #{{sale.ticketId}}</p>
+              </div>
+              <span class="text-xs text-gray-500">{{formatDate(sale.soldAt)}}</span>
+            </div>
+            <div class="flex justify-between mt-2 pt-2 border-t border-gray-100 text-sm">
+              <span class="text-gray-600">Precio:</span>
+              <span class="font-medium">{{formatCurrency(sale.purchasePrice)}}</span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-gray-600">Comisión:</span>
+              <span class="font-medium text-green-600">{{formatCurrency(sale.commissionAmount)}}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
