@@ -52,6 +52,11 @@ export class CheckoutComponent implements OnInit {
   // Payment method selection
   selectedPaymentMethod: 'marketplace' | 'qr' = 'marketplace';
   showQRModal = false;
+  
+  // Cargo de servicio (configurable, default 10%)
+  serviceFeePercent: number = 10;
+  serviceFeeAmount: number = 0;
+  baseAmount: number = 0;
 
   // Coupon state
   couponCode = '';
@@ -185,13 +190,19 @@ export class CheckoutComponent implements OnInit {
 
   calculateTotal() {
     if (this.selectedTicketType) {
-      this.total = this.ticketQuantity * this.selectedTicketType.price;
+      this.baseAmount = this.ticketQuantity * this.selectedTicketType.price;
     } else if (this.evento && !this.ticketTypes.length) {
       // Legacy fallback
-      this.total = this.ticketQuantity * (this.evento.price || 0);
+      this.baseAmount = this.ticketQuantity * (this.evento.price || 0);
     }
 
-    // Apply coupon discount
+    // Calculate service fee (cargo de servicio)
+    this.serviceFeeAmount = (this.baseAmount * this.serviceFeePercent) / 100;
+    
+    // Total antes de descuento (base + service fee)
+    this.total = this.baseAmount + this.serviceFeeAmount;
+
+    // Apply coupon discount (aplicado sobre el total)
     if (this.appliedCoupon) {
       this.discountAmount = Math.round((this.total * this.appliedCoupon.discountPercent) / 100);
       this.finalTotal = this.total - this.discountAmount;

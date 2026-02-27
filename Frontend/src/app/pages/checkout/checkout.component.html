@@ -96,11 +96,11 @@
                         <div class="space-y-4 mb-6 pb-6 border-b border-gray-200">
                             <div class="flex justify-between items-center text-gray-600">
                                 <span>{{ ticketQuantity }}x {{ selectedTicketType?.name || 'Entrada' }}</span>
-                                <span class="font-medium">${{ total }}</span>
+                                <span class="font-medium">${{ baseAmount }}</span>
                             </div>
                             <div class="flex justify-between items-center text-gray-600">
-                                <span>Cargo por servicio</span>
-                                <span class="font-medium text-green-600">Gratis</span>
+                                <span>Cargo de servicio ({{ serviceFeePercent }}%)</span>
+                                <span class="font-medium text-gray-500">${{ serviceFeeAmount }}</span>
                             </div>
 
                             <!-- Coupon Section -->
@@ -207,7 +207,7 @@
                                     <div class="flex-1">
                                         <div class="font-bold text-gray-900">Pago Tradicional</div>
                                         <div class="text-sm text-gray-500 mt-1">Tarjeta, efectivo, etc.</div>
-                                        <div class="text-xs text-orange-600 mt-2">Comisión: 8%+ del organizador</div>
+                                        <div class="text-xs text-blue-600 mt-2">Cargo de servicio: {{ serviceFeePercent }}%</div>
                                     </div>
                                 </div>
                             </button>
@@ -235,19 +235,19 @@
                                             <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">RECOMENDADO</span>
                                         </div>
                                         <div class="text-sm text-gray-500 mt-1">Escaneá con la app de MP</div>
-                                        <div class="text-xs text-green-600 mt-2">Comisión: Solo 2.59%</div>
+                                        <div class="text-xs text-green-600 mt-2">Cargo de servicio: {{ serviceFeePercent }}%</div>
                                     </div>
                                 </div>
                             </button>
                         </div>
 
                         <!-- Info adicional -->
-                        <div class="mt-4 p-3 bg-blue-50 rounded-xl" *ngIf="selectedPaymentMethod === 'qr'">
+                        <div class="mt-4 p-3 bg-blue-50 rounded-xl">
                             <p class="text-sm text-blue-700 flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
-                                Al pagar con QR ahorrás comisión y el pago es instantáneo.
+                                El organizador recibe exactamente el precio de la entrada. El cargo de servicio cubre las comisiones de procesamiento.
                             </p>
                         </div>
                     </div>

@@ -3,6 +3,7 @@ import { CustomRequest } from "../common/middleware/authToken";
 import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
 import { PaymentLog, PaymentStatus } from "./payment.entity";
+import { TicketType } from "../ticketType/ticketType.entity";
 import { 
     validatePurchaseEligibility,
     createMercadoPagoPreference,
@@ -77,10 +78,30 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 promoterCode
             });
             
+            // Calcular desglose de precios para el frontend
+            const ticketTypeRepo = AppDataSource.getRepository(TicketType);
+            const ticketType = await ticketTypeRepo.findOne({
+                where: { id: parseInt(ticketTypeId) }
+            });
+            
+            const baseAmount = ticketType ? Number(ticketType.price) * quantity : 0;
+            const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+            const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
+            const totalAmount = baseAmount + serviceFeeAmount;
+            
             return res.status(200).json({
                 id: result.id,
                 init_point: result.initPoint,
-                marketplace: true
+                marketplace: true,
+                pricing: {
+                    base_amount: baseAmount,
+                    service_fee_percent: serviceFeePercent,
+                    service_fee_amount: serviceFeeAmount,
+                    total_amount: totalAmount
+                },
+                commission_info: {
+                    organizer_net_amount: baseAmount
+                }
             });
             
         } catch (error: any) {

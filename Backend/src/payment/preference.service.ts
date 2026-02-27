@@ -218,6 +218,11 @@ export function calculateMarketplaceFee(
 
 /**
  * Construye el body para crear una preferencia de MP
+ * 
+ * Nuevo modelo con cargo de servicio:
+ * - El asistente paga: precio ticket + cargo de servicio
+ * - El organizador recibe: precio ticket (exacto)
+ * - EventLife se financia del cargo de servicio
  */
 export function buildPreferenceBody(
     user: User,
@@ -229,11 +234,18 @@ export function buildPreferenceBody(
     const config = getMPConfig();
     
     const unitPrice = Number(ticketType.price);
-    const totalAmount = unitPrice * quantity;
-    const marketplaceFee = calculateMarketplaceFee(
-        totalAmount,
-        marketplaceInfo.commissionPercent
-    );
+    const baseAmount = unitPrice * quantity;
+    
+    // Cargo de servicio de EventLife (configurable, default 10%)
+    const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+    const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
+    
+    // Total a cobrar al asistente
+    const totalAmount = baseAmount + serviceFeeAmount;
+    
+    // En marketplace, el marketplace_fee va a la cuenta del integrador (EventLife)
+    // Lo configuramos como el cargo de servicio para que vaya a EventLife
+    const marketplaceFee = Math.ceil(serviceFeeAmount);
     
     const clientUrl = sanitizeUrl(config.clientUrl);
     const notificationUrl = sanitizeUrl(config.notificationUrl);
@@ -244,13 +256,24 @@ export function buildPreferenceBody(
     const externalRef = `${user.id}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCodeStr}`;
     
     const body: any = {
-        items: [{
-            id: ticketType.id.toString(),
-            title: `${ticketType.event.title} - ${ticketType.name}`.substring(0, 255),
-            quantity: quantity,
-            unit_price: unitPrice,
-            currency_id: 'ARS',
-        }],
+        items: [
+            {
+                id: ticketType.id.toString(),
+                title: `${ticketType.event.title} - ${ticketType.name}`.substring(0, 255),
+                description: `Entrada para ${ticketType.event.title}`,
+                quantity: quantity,
+                unit_price: unitPrice,
+                currency_id: 'ARS',
+            },
+            {
+                id: 'service-fee',
+                title: 'Cargo de servicio EventLife',
+                description: `Comisión por uso de la plataforma (${serviceFeePercent}%)`,
+                quantity: 1,
+                unit_price: serviceFeeAmount,
+                currency_id: 'ARS',
+            }
+        ],
         payer: {
             email: user.email,
             name: user.firstname,
@@ -266,8 +289,9 @@ export function buildPreferenceBody(
         notification_url: notificationUrl || undefined,
         external_reference: externalRef,
         
-        // Marketplace fee (comisión de la plataforma)
-        marketplace_fee: marketplaceFee,
+        // Marketplace fee: va al integrador (EventLife) desde la cuenta del organizador
+        // Esto representa el cargo de servicio que EventLife cobra
+        marketplace_fee: 0, // Ya incluimos el cargo como item, no necesitamos marketplace_fee
         
         // Metadata para el webhook
         metadata: {
@@ -277,8 +301,13 @@ export function buildPreferenceBody(
             amount_tickets: Number(quantity),
             organizer_id: ticketType.event.user_id,
             organizer_plan: marketplaceInfo.planName,
+            base_amount: baseAmount,
+            service_fee_percent: serviceFeePercent,
+            service_fee_amount: serviceFeeAmount,
+            total_amount: totalAmount,
             commission_percent: marketplaceInfo.commissionPercent,
             marketplace_fee: marketplaceFee,
+            payment_model: 'marketplace_with_service_fee',
             promoter_code: promoterCode || null
         }
     };
