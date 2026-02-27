@@ -478,11 +478,18 @@ Configuración en `netlify.toml`:
 
 ## Common Issues & Solutions
 
-### Google OAuth en Safari
-Ver documentación en `Frontend/docs/OAUTH_TROUBLESHOOTING.md`:
-- Configurar `itp_support: true` en Google Identity Services
-- COOP headers configurados en backend
-- Usar NgZone para callbacks de Angular
+### Google OAuth en Safari iOS
+**Solución implementada** en `login.component.ts`:
+- **Detección automática**: Detecta Safari en iOS/iPadOS mediante user-agent
+- **FedCM**: Intenta usar Federated Credential Management (API moderna) si está disponible
+- **Fallback a redirect**: Si FedCM no está disponible, usa `ux_mode: 'redirect'` en lugar de popup
+- **Botón personalizado**: Renderiza un botón estilizado para Safari cuando usa modo redirect
+
+**Configuración requerida:**
+- Ver documentación detallada en `Frontend/docs/OAUTH_TROUBLESHOOTING.md`
+- Configurar URI de redirección en Google Cloud Console: `https://tudominio.com/login`
+- COOP headers ya configurados en backend (`same-origin-allow-popups`)
+- `itp_support: true` habilitado para Safari Intelligent Tracking Prevention
 
 ### MercadoPago Webhooks
 - URL de webhook debe ser pública (usar ngrok en desarrollo)
@@ -542,8 +549,10 @@ Ver documentación en `Frontend/docs/OAUTH_TROUBLESHOOTING.md`:
 
 ### Google OAuth 2.0
 - Google Identity Services SDK
-- Flujo popup (no redirect)
-- Soporte especial para Safari (ITP)
+- **Flujo popup** para Chrome/Desktop (mejor UX)
+- **Flujo redirect** para Safari iOS (evita bloqueo de popups)
+- **FedCM API** cuando está disponible (futuro estándar)
+- **ITP Support** habilitado para Safari Intelligent Tracking Prevention
 
 ### Email (Brevo/Sendinblue)
 - SMTP para envío de tickets
