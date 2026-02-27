@@ -273,6 +273,16 @@ async function seed() {
             }
             console.log('✅ Promoter event assignments created\n');
 
+            // Reset sequences to avoid PK conflicts after inserting explicit IDs
+            console.log('🔄 Resetting sequences...');
+            await queryRunner.manager.query(`
+                SELECT setval('promoter_group_id_seq', COALESCE((SELECT MAX(id) FROM promoter_group), 0) + 1, false);
+            `);
+            await queryRunner.manager.query(`
+                SELECT setval('promoter_event_assignment_id_seq', COALESCE((SELECT MAX(id) FROM promoter_event_assignment), 0) + 1, false);
+            `);
+            console.log('✅ Sequences reset\n');
+
             await queryRunner.commitTransaction();
             console.log('🎉 Seed completed successfully!');
             

@@ -135,6 +135,34 @@ export const addPromoter = async (req: CustomRequest, res: Response) => {
 
     } catch (error: any) {
         console.error("Error adding promoter:", error);
+        
+        // Handle specific database errors
+        if (error.code === '23505') { // PostgreSQL unique violation
+            if (error.detail?.includes('promoterCode')) {
+                return res.status(409).json({ 
+                    code: "CODE_EXISTS", 
+                    message: "El código de promotor ya existe. Intenta nuevamente." 
+                });
+            }
+            if (error.detail?.includes('organizerId') && error.detail?.includes('promoterId')) {
+                return res.status(409).json({ 
+                    code: "ALREADY_PROMOTER", 
+                    message: "Este usuario ya es promotor de este organizador" 
+                });
+            }
+            return res.status(409).json({ 
+                code: "DUPLICATE_ENTRY", 
+                message: "Registro duplicado. Es posible que el promotor ya exista." 
+            });
+        }
+        
+        if (error.message?.includes('violates unique constraint') || error.message?.includes('duplicate key')) {
+            return res.status(409).json({ 
+                code: "DUPLICATE_KEY", 
+                message: "Error de clave duplicada. Contacta al administrador." 
+            });
+        }
+        
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
