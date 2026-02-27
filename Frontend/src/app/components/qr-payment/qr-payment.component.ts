@@ -3,6 +3,12 @@ import { CommonModule } from '@angular/common';
 import { PaymentService, QRPreferenceResponse } from '../../services/payment.service';
 import { ToastService } from '../../services/toast.service';
 
+// Para generar QR como data URL usando Google Charts API
+function generateQRDataUrl(text: string, size: number = 200): string {
+  const encodedText = encodeURIComponent(text);
+  return `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodedText}&chld=H|0`;
+}
+
 @Component({
   selector: 'app-qr-payment',
   standalone: true,
@@ -18,7 +24,7 @@ import { ToastService } from '../../services/toast.service';
           </svg>
         </div>
         <h3 class="text-xl font-bold text-gray-900">Pagar con QR</h3>
-        <p class="text-sm text-gray-500 mt-1">Escanea el codigo con la app de MercadoPago</p>
+        <p class="text-sm text-gray-500 mt-1">Escanea el codigo QR con la app de MercadoPago</p>
       </div>
 
       <div *ngIf="loading" class="text-center py-8">
@@ -35,6 +41,15 @@ import { ToastService } from '../../services/toast.service';
           <p class="text-green-600 text-xs mt-1">
             Ahorras vs el metodo tradicional
           </p>
+        </div>
+
+        <!-- CODIGO QR VISUAL -->
+        <div class="bg-white p-4 rounded-xl border-2 border-gray-100 mb-4">
+          <img [src]="qrImageUrl" 
+               alt="Codigo QR para pagar con MercadoPago"
+               class="mx-auto w-48 h-48 object-contain"
+               (error)="onQRError()">
+          <p class="text-xs text-gray-400 mt-2">Escanea con la app de MercadoPago</p>
         </div>
 
         <a [href]="qrData.init_point" 
@@ -54,7 +69,7 @@ import { ToastService } from '../../services/toast.service';
           <ol class="text-sm text-gray-600 space-y-1 list-decimal list-inside">
             <li>Abri la app de MercadoPago</li>
             <li>Toca el boton Escanear QR</li>
-            <li>Escanea el codigo o usa el boton de arriba</li>
+            <li>Apunta la camara al codigo de arriba</li>
             <li>Confirma el pago</li>
           </ol>
         </div>
@@ -105,6 +120,7 @@ export class QrPaymentComponent implements OnInit {
 
   loading = false;
   qrData: QRPreferenceResponse | null = null;
+  qrImageUrl: string = '';
   error: string | null = null;
 
   ngOnInit() {
@@ -114,14 +130,17 @@ export class QrPaymentComponent implements OnInit {
   generateQR() {
     this.loading = true;
     this.error = null;
+    this.qrImageUrl = '';
 
     this.paymentService.createQRPreference(this.ticketTypeId, this.quantity).subscribe({
       next: (response) => {
         this.loading = false;
         if (response.success) {
           this.qrData = response;
+          // Generar la imagen QR usando Google Charts API
+          this.qrImageUrl = generateQRDataUrl(response.init_point, 200);
           this.paymentInitiated.emit(response.id);
-          window.open(response.init_point, '_blank');
+          // No abrir ventana automaticamente, el usuario escanea el QR
         } else {
           this.error = 'Error al generar el pago';
           this.toast.error('No se pudo generar el codigo QR');
@@ -133,6 +152,12 @@ export class QrPaymentComponent implements OnInit {
         this.toast.error(this.error!);
       }
     });
+  }
+
+  onQRError() {
+    // Si falla la carga de la imagen QR, mostrar mensaje alternativo
+    this.qrImageUrl = '';
+    this.toast.error('No se pudo cargar el codigo QR. Intenta con el boton de abajo.');
   }
 
   getTotal(): number {
