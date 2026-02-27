@@ -44,9 +44,9 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
         }
 
         // Get user with roles array
+        // Note: Using findOneBy instead of findOne with select to avoid TypeORM simple-array issues
         const userData = await User.findOne({
-            where: { id: req.user.id },
-            select: ['id', 'roles'] // Only select necessary fields
+            where: { id: req.user.id }
         });
         
         if (!userData) {
@@ -54,7 +54,12 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
         }
 
         // Get user's roles (defaults to ['user'] if not set)
-        const userRoles = userData.roles || ['user'];
+        // Ensure roles is always an array (TypeORM simple-array can sometimes return string)
+        let userRoles: string[] = userData.roles || ['user'];
+        if (typeof userRoles === 'string') {
+            userRoles = (userRoles as any).split(',').map((r: string) => r.trim()).filter(Boolean);
+        }
+        
         const requiredRolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
         
         // Get highest level from user's roles
