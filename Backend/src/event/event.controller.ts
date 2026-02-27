@@ -8,6 +8,7 @@ import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { log } from "console";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
+import PDFDocument from "pdfkit";
 
 /* ======================================================
    CREATE EVENT
@@ -425,13 +426,175 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
     }
 };
 
-// --- STUBS FOR STATS (To avoid compilation errors) ---
-// Estos endpoints requieren implementación real basada en TicketType,
-// pero por ahora devolveremos estructuras vacías o errores controlados
-// para permitir que el servidor arranque.
+// --- IMPLEMENTED STATS ENDPOINTS ---
 
+/**
+ * Get comprehensive creator stats with historical comparison
+ * GET /api/event/stats
+ */
 export const getCreatorStats = async (req: CustomRequest, res: Response) => {
-    return res.json({ message: "Stats endpoint pending refactor for TicketType architecture" });
+    try {
+        const userId = req.user?.id;
+        const period = (req.query.period as string) || 'month';
+        
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Calculate date range based on period
+        const now = new Date();
+        let startDate: Date;
+        let previousStartDate: Date;
+        let previousEndDate: Date;
+        
+        switch (period) {
+            case 'week':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                previousStartDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+                previousEndDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                previousStartDate = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+                previousEndDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                previousStartDate = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
+                previousEndDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                break;
+            default:
+                startDate = new Date(0); // All time
+                previousStartDate = new Date(0);
+                previousEndDate = new Date(0);
+        }
+
+        // Get all events for this creator
+        const events = await Event.find({
+            where: { user_id: userId, active: true },
+            relations: ['ticketTypes'],
+            order: { createdAt: 'DESC' }
+        });
+
+        const allTicketTypeIds = events.flatMap(e => e.ticketTypes.map(tt => tt.id));
+
+        if (allTicketTypeIds.length === 0) {
+            return res.json({
+                totalRevenue: 0,
+                totalTickets: 0,
+                avgPrice: 0,
+                totalEvents: events.length,
+                revenueGrowth: 0,
+                ticketsGrowth: 0,
+                topEvents: [],
+                recentActivity: []
+            });
+        }
+
+        // Current period stats
+        const currentStats = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .select([
+                'COUNT(t.id) as "totalTickets"',
+                'SUM(t.purchasePrice) as "totalRevenue"',
+                'AVG(t.purchasePrice) as "avgPrice"'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+            .andWhere('t.createdAt >= :startDate', { startDate })
+            .getRawOne();
+
+        // Previous period stats for growth calculation
+        let previousStats = { totalTickets: 0, totalRevenue: 0 };
+        if (period !== 'all') {
+            const prev = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder('t')
+                .select([
+                    'COUNT(t.id) as "totalTickets"',
+                    'SUM(t.purchasePrice) as "totalRevenue"'
+                ])
+                .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+                .andWhere('t.createdAt >= :previousStartDate', { previousStartDate })
+                .andWhere('t.createdAt < :previousEndDate', { previousEndDate })
+                .getRawOne();
+            previousStats = {
+                totalTickets: parseInt(prev?.totalTickets || '0'),
+                totalRevenue: parseFloat(prev?.totalRevenue || '0')
+            };
+        }
+
+        // Calculate growth percentages
+        const currentRevenue = parseFloat(currentStats?.totalRevenue || '0');
+        const currentTickets = parseInt(currentStats?.totalTickets || '0');
+        
+        const revenueGrowth = previousStats.totalRevenue > 0 
+            ? ((currentRevenue - previousStats.totalRevenue) / previousStats.totalRevenue) * 100 
+            : 0;
+        const ticketsGrowth = previousStats.totalTickets > 0 
+            ? ((currentTickets - previousStats.totalTickets) / previousStats.totalTickets) * 100 
+            : 0;
+
+        // Top events by revenue
+        const topEvents = await Promise.all(
+            events.slice(0, 5).map(async (event) => {
+                const ttIds = event.ticketTypes.map(tt => tt.id);
+                if (ttIds.length === 0) return { eventId: event.id, title: event.title, revenue: 0, tickets: 0 };
+                
+                const stats = await AppDataSource.getRepository(Ticket)
+                    .createQueryBuilder('t')
+                    .select([
+                        'COUNT(t.id) as tickets',
+                        'SUM(t.purchasePrice) as revenue'
+                    ])
+                    .where('t.ticketTypeId IN (:...ids)', { ids: ttIds })
+                    .getRawOne();
+                    
+                return {
+                    eventId: event.id,
+                    title: event.title,
+                    revenue: parseFloat(stats?.revenue || '0'),
+                    tickets: parseInt(stats?.tickets || '0')
+                };
+            })
+        );
+
+        // Recent activity (last 10 sales)
+        const recentActivity = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .leftJoin('t.ticketType', 'tt')
+            .leftJoin('tt.event', 'e')
+            .select([
+                't.id as ticketId',
+                't.purchasePrice as price',
+                't.createdAt as soldAt',
+                'tt.name as ticketType',
+                'e.title as eventTitle'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+            .orderBy('t.createdAt', 'DESC')
+            .limit(10)
+            .getRawMany();
+
+        return res.json({
+            totalRevenue: currentRevenue,
+            totalTickets: currentTickets,
+            avgPrice: parseFloat(currentStats?.avgPrice || '0'),
+            totalEvents: events.length,
+            revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
+            ticketsGrowth: parseFloat(ticketsGrowth.toFixed(1)),
+            topEvents: topEvents.sort((a, b) => b.revenue - a.revenue),
+            recentActivity: recentActivity.map(r => ({
+                ticketId: r.ticketId,
+                eventTitle: r.eventTitle || 'Unknown',
+                ticketType: r.ticketType || 'General',
+                price: parseFloat(r.price || '0'),
+                soldAt: r.soldAt
+            }))
+        });
+
+    } catch (error) {
+        console.error("Error getting creator stats:", error);
+        return res.status(500).json({ message: "Error al obtener estadísticas del creador" });
+    }
 };
 
 export const getCreatorStatsComparative = async (req: CustomRequest, res: Response) => {
@@ -491,16 +654,385 @@ export const getCreatorStatsComparative = async (req: CustomRequest, res: Respon
     }
 };
 
+/**
+ * Stream creator stats using Server-Sent Events for real-time updates
+ * GET /api/event/stats/stream
+ */
 export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
-    return res.status(501).json({ message: "Not implemented yet" });
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Set headers for SSE
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        // Send initial data
+        const events = await Event.find({
+            where: { user_id: userId, active: true },
+            relations: ['ticketTypes'],
+            order: { createdAt: 'DESC' }
+        });
+
+        const allTicketTypeIds = events.flatMap(e => e.ticketTypes.map(tt => tt.id));
+        
+        let currentData = {
+            totalRevenue: 0,
+            totalTickets: 0,
+            lastSaleAt: null as Date | null
+        };
+
+        if (allTicketTypeIds.length > 0) {
+            const stats = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder('t')
+                .select([
+                    'COUNT(t.id) as "totalTickets"',
+                    'SUM(t.purchasePrice) as "totalRevenue"',
+                    'MAX(t.createdAt) as "lastSaleAt"'
+                ])
+                .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+                .getRawOne();
+
+            currentData = {
+                totalRevenue: parseFloat(stats?.totalRevenue || '0'),
+                totalTickets: parseInt(stats?.totalTickets || '0'),
+                lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null
+            };
+        }
+
+        // Send initial data
+        res.write(`data: ${JSON.stringify({ type: 'initial', data: currentData })}\n\n`);
+
+        // Set up interval to check for updates every 10 seconds
+        const interval = setInterval(async () => {
+            try {
+                if (allTicketTypeIds.length === 0) return;
+
+                const stats = await AppDataSource.getRepository(Ticket)
+                    .createQueryBuilder('t')
+                    .select([
+                        'COUNT(t.id) as "totalTickets"',
+                        'SUM(t.purchasePrice) as "totalRevenue"',
+                        'MAX(t.createdAt) as "lastSaleAt"'
+                    ])
+                    .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+                    .getRawOne();
+
+                const newData = {
+                    totalRevenue: parseFloat(stats?.totalRevenue || '0'),
+                    totalTickets: parseInt(stats?.totalTickets || '0'),
+                    lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null
+                };
+
+                // Only send update if data changed
+                if (newData.lastSaleAt && 
+                    (!currentData.lastSaleAt || newData.lastSaleAt > currentData.lastSaleAt)) {
+                    currentData = newData;
+                    res.write(`data: ${JSON.stringify({ type: 'update', data: newData })}\n\n`);
+                }
+            } catch (err) {
+                console.error('Error in stats stream:', err);
+            }
+        }, 10000);
+
+        // Clean up on client disconnect
+        req.on('close', () => {
+            clearInterval(interval);
+            res.end();
+        });
+
+    } catch (error) {
+        console.error("Error in stream:", error);
+        return res.status(500).json({ message: "Error en streaming de estadísticas" });
+    }
 };
 
+/**
+ * Export creator stats to PDF
+ * GET /api/event/stats/export-pdf
+ */
 export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) => {
-    return res.status(501).json({ message: "Not implemented yet" });
+    try {
+        const userId = req.user?.id;
+        const period = (req.query.period as string) || 'all';
+        
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Get user info
+        const user = await User.findOne({ where: { id: userId } });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Get stats data using the same logic as getCreatorStatsComparative
+        const events = await Event.find({
+            where: { user_id: userId, active: true },
+            relations: ['ticketTypes', 'category'],
+            order: { date: 'DESC' }
+        });
+
+        const comparative = await Promise.all(events.map(async (event) => {
+            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
+
+            if (ticketTypeIds.length === 0) {
+                return {
+                    eventId: event.id,
+                    title: event.title,
+                    date: event.date,
+                    category: event.category?.name || 'Sin categoría',
+                    participants: 0,
+                    revenue: 0,
+                    attendanceRate: 0
+                };
+            }
+
+            const stats = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder('t')
+                .select([
+                    'COUNT(t.id) as "totalTickets"',
+                    'SUM(t.purchasePrice) as "totalRevenue"',
+                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+                ])
+                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+                .getRawOne();
+
+            const totalTickets = parseInt(stats?.totalTickets || '0');
+            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
+            const usedCount = parseInt(stats?.usedCount || '0');
+
+            return {
+                eventId: event.id,
+                title: event.title,
+                date: event.date,
+                category: event.category?.name || 'Sin categoría',
+                participants: totalTickets,
+                revenue: totalRevenue,
+                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
+            };
+        }));
+
+        const totalRevenue = comparative.reduce((sum, e) => sum + e.revenue, 0);
+        const totalTickets = comparative.reduce((sum, e) => sum + e.participants, 0);
+
+        // Generate PDF
+        const doc = new PDFDocument({ margin: 50 });
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="estadisticas-creador-${period}.pdf"`);
+        doc.pipe(res);
+
+        // Header
+        doc.fontSize(24).font('Helvetica-Bold').text('EventLife', 50, 50);
+        doc.fontSize(14).font('Helvetica').text('Reporte de Estadísticas del Creador', 50, 80);
+        doc.moveDown(0.5);
+        doc.fontSize(10).text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 50, doc.y);
+        doc.text(`Creador: ${user.firstname} ${user.lastname}`, 50, doc.y);
+        doc.text(`Período: ${period.toUpperCase()}`, 50, doc.y);
+        doc.moveDown(2);
+
+        // Summary
+        doc.fontSize(16).font('Helvetica-Bold').text('Resumen General', 50, doc.y);
+        doc.moveDown(0.5);
+        doc.fontSize(11).font('Helvetica');
+        
+        const summaryY = doc.y;
+        doc.rect(50, summaryY, 500, 60).stroke('#cccccc');
+        doc.text(`Total de Eventos: ${events.length}`, 60, summaryY + 10);
+        doc.text(`Ingresos Totales: $${totalRevenue.toLocaleString('es-AR')}`, 60, summaryY + 30);
+        doc.text(`Tickets Vendidos: ${totalTickets}`, 300, summaryY + 10);
+        doc.text(`Ticket Promedio: $${totalTickets > 0 ? (totalRevenue / totalTickets).toFixed(2) : '0.00'}`, 300, summaryY + 30);
+        doc.moveDown(4);
+
+        // Events Table
+        if (comparative.length > 0) {
+            doc.fontSize(16).font('Helvetica-Bold').text('Detalle por Evento', 50, doc.y);
+            doc.moveDown(1);
+
+            // Table header
+            const tableTop = doc.y;
+            doc.fontSize(9).font('Helvetica-Bold');
+            doc.fillColor('#333333');
+            
+            doc.rect(50, tableTop, 500, 25).fill('#f0f0f0');
+            doc.fillColor('#333333');
+            
+            doc.text('Evento', 55, tableTop + 7, { width: 150 });
+            doc.text('Fecha', 210, tableTop + 7, { width: 70 });
+            doc.text('Tickets', 285, tableTop + 7, { width: 50, align: 'center' });
+            doc.text('Ingresos', 340, tableTop + 7, { width: 80, align: 'right' });
+            doc.text('Asistencia', 425, tableTop + 7, { width: 60, align: 'right' });
+            
+            doc.moveDown(1.5);
+            
+            // Table rows
+            let rowY = doc.y;
+            doc.fontSize(8).font('Helvetica');
+            
+            comparative.forEach((event, index) => {
+                // Alternate row background
+                if (index % 2 === 0) {
+                    doc.rect(50, rowY - 2, 500, 20).fill('#fafafa');
+                }
+                
+                doc.fillColor('#333333');
+                doc.text(event.title.substring(0, 25), 55, rowY, { width: 150 });
+                doc.text(new Date(event.date).toLocaleDateString('es-AR'), 210, rowY, { width: 70 });
+                doc.text(String(event.participants), 285, rowY, { width: 50, align: 'center' });
+                doc.text(`$${event.revenue.toLocaleString('es-AR')}`, 340, rowY, { width: 80, align: 'right' });
+                doc.text(`${(event.attendanceRate * 100).toFixed(0)}%`, 425, rowY, { width: 60, align: 'right' });
+                
+                rowY += 20;
+                
+                // Add new page if needed
+                if (rowY > 700) {
+                    doc.addPage();
+                    rowY = 50;
+                }
+            });
+
+            // Table border
+            doc.rect(50, tableTop, 500, rowY - tableTop).stroke('#cccccc');
+            
+            // Vertical lines
+            doc.moveTo(205, tableTop).lineTo(205, rowY).stroke('#cccccc');
+            doc.moveTo(280, tableTop).lineTo(280, rowY).stroke('#cccccc');
+            doc.moveTo(335, tableTop).lineTo(335, rowY).stroke('#cccccc');
+            doc.moveTo(420, tableTop).lineTo(420, rowY).stroke('#cccccc');
+        }
+
+        // Footer
+        doc.fontSize(8).font('Helvetica');
+        doc.fillColor('#666666');
+        doc.text(
+            `Reporte generado por EventLife - ${new Date().toLocaleString('es-AR')}`,
+            50,
+            750,
+            { align: 'center', width: 500 }
+        );
+
+        doc.end();
+
+    } catch (error) {
+        console.error("Error exporting PDF:", error);
+        return res.status(500).json({ message: "Error al generar PDF" });
+    }
 };
 
+/**
+ * Get platform-wide statistics (Admin only)
+ * GET /api/event/stats/platform
+ */
 export const getPlatformStats = async (req: CustomRequest, res: Response) => {
-    return res.json({ message: "Stats endpoint pending refactor" });
+    try {
+        const userRoles = req.user?.roles || [];
+        if (!userRoles.includes('admin')) {
+            return res.status(403).json({ message: "Admin access required" });
+        }
+
+        const period = (req.query.period as string) || 'month';
+        
+        // Calculate date range
+        const now = new Date();
+        let startDate: Date;
+        
+        switch (period) {
+            case 'week':
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                break;
+            default:
+                startDate = new Date(0);
+        }
+
+        // Get all events count
+        const totalEvents = await Event.count({ where: { active: true } });
+        const upcomingEvents = await Event.count({ 
+            where: { active: true, date: new Date() } 
+        });
+
+        // Get tickets and revenue stats
+        const ticketStats = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .select([
+                'COUNT(t.id) as "totalTickets"',
+                'SUM(t.purchasePrice) as "totalRevenue"',
+                'AVG(t.purchasePrice) as "avgPrice"'
+            ])
+            .where('t.createdAt >= :startDate', { startDate })
+            .getRawOne();
+
+        // Get top categories
+        const topCategories = await AppDataSource.getRepository(Event)
+            .createQueryBuilder('e')
+            .innerJoin('e.category', 'c')
+            .select(['c.name as category', 'COUNT(e.id) as count'])
+            .where('e.active = true')
+            .groupBy('c.id, c.name')
+            .orderBy('count', 'DESC')
+            .limit(5)
+            .getRawMany();
+
+        // Get top cities
+        const topCities = await AppDataSource.getRepository(Event)
+            .createQueryBuilder('e')
+            .select(['e.ciudad as city', 'COUNT(e.id) as count'])
+            .where('e.active = true')
+            .andWhere('e.ciudad IS NOT NULL')
+            .groupBy('e.ciudad')
+            .orderBy('count', 'DESC')
+            .limit(5)
+            .getRawMany();
+
+        // Get daily sales for the period
+        const dailySales = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .select([
+                'DATE(t.createdAt) as date',
+                'COUNT(t.id) as tickets',
+                'SUM(t.purchasePrice) as revenue'
+            ])
+            .where('t.createdAt >= :startDate', { startDate })
+            .groupBy('DATE(t.createdAt)')
+            .orderBy('date', 'ASC')
+            .getRawMany();
+
+        return res.json({
+            overview: {
+                totalEvents,
+                upcomingEvents,
+                totalTickets: parseInt(ticketStats?.totalTickets || '0'),
+                totalRevenue: parseFloat(ticketStats?.totalRevenue || '0'),
+                avgTicketPrice: parseFloat(ticketStats?.avgPrice || '0')
+            },
+            topCategories: topCategories.map(c => ({
+                category: c.category,
+                count: parseInt(c.count)
+            })),
+            topCities: topCities.map(c => ({
+                city: c.city,
+                count: parseInt(c.count)
+            })),
+            dailySales: dailySales.map(d => ({
+                date: d.date,
+                tickets: parseInt(d.tickets),
+                revenue: parseFloat(d.revenue)
+            }))
+        });
+
+    } catch (error) {
+        console.error("Error getting platform stats:", error);
+        return res.status(500).json({ message: "Error al obtener estadísticas de la plataforma" });
+    }
 };
 
 export const getEventStats = async (req: CustomRequest, res: Response) => {
@@ -621,6 +1153,98 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
     }
 };
 
+/**
+ * Export creator stats to CSV
+ * GET /api/event/stats/export-csv
+ */
 export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) => {
-    return res.status(501).json({ message: "Not implemented yet" });
+    try {
+        const userId = req.user?.id;
+        const period = (req.query.period as string) || 'all';
+        
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Get stats data
+        const events = await Event.find({
+            where: { user_id: userId, active: true },
+            relations: ['ticketTypes', 'category'],
+            order: { date: 'DESC' }
+        });
+
+        const comparative = await Promise.all(events.map(async (event) => {
+            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
+
+            if (ticketTypeIds.length === 0) {
+                return {
+                    eventId: event.id,
+                    title: event.title,
+                    date: event.date,
+                    category: event.category?.name || 'Sin categoría',
+                    participants: 0,
+                    revenue: 0,
+                    attendanceRate: 0
+                };
+            }
+
+            const stats = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder('t')
+                .select([
+                    'COUNT(t.id) as "totalTickets"',
+                    'SUM(t.purchasePrice) as "totalRevenue"',
+                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+                ])
+                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+                .getRawOne();
+
+            const totalTickets = parseInt(stats?.totalTickets || '0');
+            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
+            const usedCount = parseInt(stats?.usedCount || '0');
+
+            return {
+                eventId: event.id,
+                title: event.title,
+                date: event.date,
+                category: event.category?.name || 'Sin categoría',
+                participants: totalTickets,
+                revenue: totalRevenue,
+                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
+            };
+        }));
+
+        // Generate CSV
+        const headers = ['ID', 'Evento', 'Fecha', 'Categoría', 'Tickets Vendidos', 'Ingresos', 'Tasa de Asistencia'];
+        const rows = comparative.map(e => [
+            e.eventId,
+            `"${e.title.replace(/"/g, '""')}"`,
+            new Date(e.date).toISOString().split('T')[0],
+            e.category,
+            e.participants,
+            e.revenue.toFixed(2),
+            (e.attendanceRate * 100).toFixed(1) + '%'
+        ]);
+
+        // Add summary row
+        const totalRevenue = comparative.reduce((sum, e) => sum + e.revenue, 0);
+        const totalTickets = comparative.reduce((sum, e) => sum + e.participants, 0);
+        rows.push(['', '', '', 'TOTAL', totalTickets, totalRevenue.toFixed(2), '']);
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(r => r.join(','))
+        ].join('\n');
+
+        // Set headers and send
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="estadisticas-creador-${period}-${new Date().toISOString().split('T')[0]}.csv"`);
+        
+        // Add BOM for Excel UTF-8 compatibility
+        const BOM = '\uFEFF';
+        res.send(BOM + csvContent);
+
+    } catch (error) {
+        console.error("Error exporting CSV:", error);
+        return res.status(500).json({ message: "Error al generar CSV" });
+    }
 };

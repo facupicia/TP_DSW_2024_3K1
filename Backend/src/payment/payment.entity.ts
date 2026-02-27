@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index } from 'typeorm';
 
 export enum PaymentStatus {
   PROCESSING = 'processing',
@@ -10,6 +10,8 @@ export enum PaymentStatus {
 // Registro de pagos procesados para garantizar idempotencia del webhook
 @Entity()
 @Unique(['mpPaymentId'])
+@Index('idx_payment_status_created', ['status', 'createdAt'])
+@Index('idx_payment_organizer_status', ['organizerId', 'status'])
 export class PaymentLog {
   @PrimaryGeneratedColumn()
   id: number;
@@ -21,9 +23,11 @@ export class PaymentLog {
   externalReference?: string;
 
   @Column()
+  @Index('idx_payment_user')
   userId: number;
 
   @Column()
+  @Index('idx_payment_ticket_type')
   ticketTypeId: number;
 
   /* ===================== PAYMENT AMOUNTS ===================== */
@@ -55,6 +59,7 @@ export class PaymentLog {
 
   /** Organizer ID who receives the payment (marketplace audit) */
   @Column({ nullable: true })
+  @Index('idx_payment_organizer')
   organizerId: number;
 
   @Column({
@@ -62,9 +67,11 @@ export class PaymentLog {
     enum: PaymentStatus,
     default: PaymentStatus.PROCESSING
   })
+  @Index('idx_payment_status')
   status: PaymentStatus;
 
   @CreateDateColumn({ type: 'timestamp' })
+  @Index('idx_payment_created_at')
   createdAt: Date;
 
   /* ===================== REFUND FIELDS ===================== */
@@ -81,4 +88,3 @@ export class PaymentLog {
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
   refundAmount?: number;
 }
-

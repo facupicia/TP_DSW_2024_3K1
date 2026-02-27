@@ -41,9 +41,11 @@ export class Ticket extends BaseEntity {
         onDelete: "RESTRICT"
     })
     @JoinColumn({ name: "ticketTypeId" })
+    @Index("idx_ticket_ticket_type")
     ticketType: TicketType;
 
     @Column()
+    @Index("idx_ticket_ticket_type_id")
     ticketTypeId: number;
 
     @ManyToOne(() => User, user => user.tickets, {
@@ -105,6 +107,7 @@ export class Ticket extends BaseEntity {
     /* ===================== TIMESTAMPS ===================== */
 
     @CreateDateColumn({ type: "timestamp" })
+    @Index("idx_ticket_created_at")
     createdAt: Date;
 
     @UpdateDateColumn({ type: "timestamp" })

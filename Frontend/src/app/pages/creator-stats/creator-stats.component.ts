@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
-import { Subscription, catchError, of } from 'rxjs';
+import { Subscription, catchError, of, forkJoin } from 'rxjs';
 
 import { StatsService, ComparativeData } from '../../services/stats.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
@@ -21,6 +21,7 @@ interface KPIMetrics {
     avgTicketPrice: number;
     revenueGrowth: number;
     ticketsGrowth: number;
+    totalEvents: number;
 }
 
 // Using 'any' for chart options to avoid Angular template index signature issues
@@ -135,8 +136,10 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
         totalTicketsSold: 0,
         avgTicketPrice: 0,
         revenueGrowth: 0,
-        ticketsGrowth: 0
+        ticketsGrowth: 0,
+        totalEvents: 0
     };
+    recentActivity: any[] = [];
 
     // Loading States
     isLoading = false;
@@ -182,12 +185,39 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
 
     loadAllData(): void {
         this.isLoading = true;
-        this.statsService.getComparative(this.period).pipe(
-            catchError(() => of({ comparative: [] }))
-        ).subscribe({
+        
+        // Load both comparative and metrics data in parallel
+        forkJoin({
+            comparative: this.statsService.getComparative(this.period).pipe(
+                catchError(() => of({ comparative: [] }))
+            ),
+            metrics: this.statsService.getMetrics(this.period).pipe(
+                catchError(() => of({ 
+                    totalRevenue: 0, 
+                    totalTickets: 0, 
+                    avgPrice: 0, 
+                    totalEvents: 0,
+                    revenueGrowth: 0, 
+                    ticketsGrowth: 0,
+                    topEvents: [],
+                    recentActivity: []
+                }))
+            )
+        }).subscribe({
             next: (data) => {
-                this.comparative = data?.comparative ?? [];
-                this.calculateMetrics();
+                this.comparative = data.comparative?.comparative ?? [];
+                
+                // Use real growth data from backend
+                this.metrics = {
+                    totalRevenue: data.metrics.totalRevenue,
+                    totalTicketsSold: data.metrics.totalTickets,
+                    avgTicketPrice: data.metrics.avgPrice,
+                    revenueGrowth: data.metrics.revenueGrowth,
+                    ticketsGrowth: data.metrics.ticketsGrowth,
+                    totalEvents: data.metrics.totalEvents
+                };
+                
+                this.recentActivity = data.metrics.recentActivity || [];
                 this.updateAllCharts();
                 this.isLoading = false;
             },
@@ -198,19 +228,7 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
     }
 
     /* ========== CALCULATIONS ========== */
-
-    private calculateMetrics(): void {
-        const totalRevenue = this.comparative.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
-        const totalTickets = this.comparative.reduce((acc, curr) => acc + (curr.participants || 0), 0);
-
-        this.metrics = {
-            totalRevenue,
-            totalTicketsSold: totalTickets,
-            avgTicketPrice: totalTickets > 0 ? totalRevenue / totalTickets : 0,
-            revenueGrowth: 12.5, // TODO: Calculate from historical data
-            ticketsGrowth: 5.2  // TODO: Calculate from historical data
-        };
-    }
+    // Growth metrics now come from backend in getMetrics() call
 
     /* ========== CHART UPDATES ========== */
 

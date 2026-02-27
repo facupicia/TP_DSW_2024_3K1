@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Categoria } from '../interfaces/categoria';
-import { map, Observable } from 'rxjs';
+import { Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -27,13 +27,9 @@ export class CategoryService {
 
   getCategories(): Observable<Categoria[]> {
     if (typeof window !== 'undefined' && window.localStorage) {
-
-      return this.http.get<{ categories: Categoria[] }>(`${this.urlBase}`).pipe(
-
-        map(response => response.categories) // Asegúrate de acceder a 'categories'
-      );
+      return this.http.get<Categoria[]>(`${this.urlBase}`);
     } else {
-      return new Observable<Categoria[]>
+      return new Observable<Categoria[]>();
     }
   }
 

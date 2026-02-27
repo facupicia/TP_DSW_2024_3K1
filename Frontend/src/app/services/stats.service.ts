@@ -25,7 +25,11 @@ export interface MetricsResponse {
     totalRevenue: number;
     totalTickets: number;
     avgPrice: number;
+    totalEvents: number;
+    revenueGrowth: number;
+    ticketsGrowth: number;
     topEvents?: any[];
+    recentActivity?: any[];
 }
 
 /* ============================================================================

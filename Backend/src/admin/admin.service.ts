@@ -4,11 +4,23 @@ import { UserSubscription, SubscriptionStatus } from '../subscription/user_subsc
 import { PaymentLog, PaymentStatus } from '../payment/payment.entity';
 import { User } from '../user/user.entity';
 import { Event } from '../event/event.entity';
+import { getCachedStats, invalidateStatsCache, LONG_TTL } from '../common/services/statsCache';
 
 interface DateRange {
     startDate?: Date;
     endDate?: Date;
 }
+
+/**
+ * NOTE: Date consistency across entities
+ * - PaymentLog.createdAt: When payment was processed (used for revenue/comission metrics)
+ * - Ticket.createdAt: When ticket was sold (used for ticket sales metrics)
+ * - UserSubscription.createdAt: When subscription started
+ * 
+ * For marketplace metrics (revenue, commissions), we use PaymentLog.completedAt or createdAt
+ * For ticket sales counts, we use Ticket.createdAt
+ * This ensures accurate financial reporting even if payment processing is delayed.
+ */
 
 export interface SubscriptionMetrics {
     activeSubscriptions: {
@@ -120,9 +132,15 @@ export class AdminService {
             const totalActive = activeSubs.reduce((sum: number, item: any) => sum + parseInt(item.count), 0);
 
             // MRR calculation (excluding FREE plan)
+            // For annual subscriptions, we divide by 12 to get monthly equivalent
             const mrrQuery = `
         SELECT 
-          COALESCE(SUM(sp."monthlyPrice"), 0) AS mrr
+          COALESCE(SUM(
+            CASE 
+              WHEN us."billingCycle" = 'annual' THEN sp."monthlyPrice" / 12.0
+              ELSE sp."monthlyPrice"
+            END
+          ), 0) AS mrr
         FROM user_subscription us
         INNER JOIN subscription_plan sp ON us."planId" = sp.id
         WHERE us.status = 'active'
@@ -146,6 +164,8 @@ export class AdminService {
             // Cancelled subscriptions in date range (churn calculation)
             let cancelledCount = 0;
             let churnRate = 0;
+            let startPeriodTotal = 0;
+            
             if (dateRange?.startDate && dateRange?.endDate) {
                 const cancelledQuery = `
           SELECT COUNT(*) AS count
@@ -157,9 +177,19 @@ export class AdminService {
                 const cancelledResult = await queryRunner.query(cancelledQuery, [dateRange.startDate, dateRange.endDate]);
                 cancelledCount = parseInt(cancelledResult[0]?.count || 0);
 
-                // Churn rate calculation
-                if (totalActive > 0) {
-                    churnRate = (cancelledCount / totalActive) * 100;
+                // Get total subscriptions at START of period for accurate churn calculation
+                const startPeriodQuery = `
+          SELECT COUNT(*) AS count
+          FROM user_subscription
+          WHERE "createdAt" < $1
+            AND (status != 'cancelled' OR "cancelledAt" >= $1)
+        `;
+                const startPeriodResult = await queryRunner.query(startPeriodQuery, [dateRange.startDate]);
+                startPeriodTotal = parseInt(startPeriodResult[0]?.count || 0);
+
+                // Churn rate calculation: Cancelled / Total at start of period
+                if (startPeriodTotal > 0) {
+                    churnRate = (cancelledCount / startPeriodTotal) * 100;
                 }
             }
 
@@ -545,33 +575,53 @@ export class AdminService {
     }
 
     /**
-     * Get comprehensive overview for dashboard
+     * Get comprehensive overview for dashboard (with caching)
      */
     async getOverview(dateRange?: DateRange) {
-        const [
-            subscriptionMetrics,
-            marketplaceMetrics,
-            commissionMetrics,
-            userMetrics,
-            eventMetrics,
-            revenueOverview
-        ] = await Promise.all([
-            this.getSubscriptionMetrics(dateRange),
-            this.getMarketplaceMetrics(dateRange),
-            this.getCommissionMetrics(dateRange, 5),
-            this.getUserMetrics(dateRange),
-            this.getEventMetrics(),
-            this.getRevenueOverview(dateRange)
-        ]);
-
-        return {
-            revenue: revenueOverview,
-            subscriptions: subscriptionMetrics,
-            marketplace: marketplaceMetrics,
-            commissions: commissionMetrics,
-            users: userMetrics,
-            events: eventMetrics,
-            period: dateRange || { startDate: null, endDate: null }
+        const cacheKey = {
+            start: dateRange?.startDate?.toISOString() || 'all',
+            end: dateRange?.endDate?.toISOString() || 'all'
         };
+
+        return getCachedStats(
+            'overview',
+            cacheKey,
+            async () => {
+                const [
+                    subscriptionMetrics,
+                    marketplaceMetrics,
+                    commissionMetrics,
+                    userMetrics,
+                    eventMetrics,
+                    revenueOverview
+                ] = await Promise.all([
+                    this.getSubscriptionMetrics(dateRange),
+                    this.getMarketplaceMetrics(dateRange),
+                    this.getCommissionMetrics(dateRange, 5),
+                    this.getUserMetrics(dateRange),
+                    this.getEventMetrics(),
+                    this.getRevenueOverview(dateRange)
+                ]);
+
+                return {
+                    revenue: revenueOverview,
+                    subscriptions: subscriptionMetrics,
+                    marketplace: marketplaceMetrics,
+                    commissions: commissionMetrics,
+                    users: userMetrics,
+                    events: eventMetrics,
+                    period: dateRange || { startDate: null, endDate: null }
+                };
+            },
+            LONG_TTL
+        );
+    }
+
+    /**
+     * Invalidate all admin stats cache
+     * Call this when data changes (new payments, subscriptions, etc.)
+     */
+    async invalidateCache(): Promise<void> {
+        await invalidateStatsCache('');
     }
 }

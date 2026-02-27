@@ -97,6 +97,7 @@ async function seedSubscriptionPlans() {
                     userId: organizer.id,
                     planId: freePlan.id,
                     status: SubscriptionStatus.ACTIVE,
+                    billingCycle: 'monthly',
                     currentPeriodStart: new Date(),
                     currentPeriodEnd: null // FREE never expires
                 });

@@ -64,13 +64,46 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Empty State -->
+        <div *ngIf="!isLoading && comparative.length === 0" 
+             class="bg-white rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 p-12 text-center">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-2">No hay datos disponibles</h3>
+            <p class="text-slate-500 max-w-md mx-auto">
+                Aún no tienes eventos con ventas registradas. Crea tu primer evento y comienza a vender entradas para ver las estadísticas.
+            </p>
+            <a routerLink="/events/new" 
+               class="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Crear mi primer evento
+            </a>
+        </div>
+
+        <!-- Stats Grid -->
+        <div *ngIf="!isLoading && comparative.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div
                 class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden group">
                 <div class="relative z-10">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ingresos Totales</p>
                     <h3 class="text-3xl font-black text-slate-900">{{ totalRevenue | currency:'USD':'symbol':'1.0-0' }}
                     </h3>
+                    <div *ngIf="metrics.revenueGrowth !== 0" class="flex items-center gap-1 mt-2">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                              [class.bg-green-100]="metrics.revenueGrowth > 0"
+                              [class.text-green-700]="metrics.revenueGrowth > 0"
+                              [class.bg-red-100]="metrics.revenueGrowth < 0"
+                              [class.text-red-700]="metrics.revenueGrowth < 0">
+                            {{ metrics.revenueGrowth > 0 ? '+' : '' }}{{ metrics.revenueGrowth }}%
+                        </span>
+                        <span class="text-xs text-slate-400">vs período anterior</span>
+                    </div>
                 </div>
                 <div
                     class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-blue-500/5 rounded-full group-hover:scale-125 transition-transform">
@@ -80,6 +113,16 @@
             <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
                 <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tickets Vendidos</p>
                 <h3 class="text-3xl font-black text-slate-900">{{ totalTicketsSold }}</h3>
+                <div *ngIf="metrics.ticketsGrowth !== 0" class="flex items-center gap-1 mt-2">
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                          [class.bg-green-100]="metrics.ticketsGrowth > 0"
+                          [class.text-green-700]="metrics.ticketsGrowth > 0"
+                          [class.bg-red-100]="metrics.ticketsGrowth < 0"
+                          [class.text-red-700]="metrics.ticketsGrowth < 0">
+                        {{ metrics.ticketsGrowth > 0 ? '+' : '' }}{{ metrics.ticketsGrowth }}%
+                    </span>
+                    <span class="text-xs text-slate-400">vs período anterior</span>
+                </div>
             </div>
 
             <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
@@ -87,8 +130,9 @@
                 <h3 class="text-3xl font-black text-slate-900">{{ avgTicketPrice | currency:'USD':'symbol':'1.0-0' }}
                 </h3>
                 <div class="flex items-center gap-2 mt-2">
-                    <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">0.0%</span>
-                    <span class="text-xs text-slate-400">Estable</span>
+                    <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                        {{ metrics.totalEvents }} eventos
+                    </span>
                 </div>
             </div>
         </div>

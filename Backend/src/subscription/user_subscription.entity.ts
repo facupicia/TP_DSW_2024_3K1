@@ -53,6 +53,7 @@ export class UserSubscription extends BaseEntity {
         enum: SubscriptionStatus,
         default: SubscriptionStatus.ACTIVE
     })
+    @Index('idx_subscription_status')
     status: SubscriptionStatus;
 
     /** When current billing period started */
@@ -69,9 +70,19 @@ export class UserSubscription extends BaseEntity {
 
     /** Cancellation date if cancelled */
     @Column({ type: 'timestamp', nullable: true })
+    @Index('idx_subscription_cancelled_at')
     cancelledAt: Date | null;
 
+    /** Billing cycle: monthly or annual */
+    @Column({ 
+        type: 'enum', 
+        enum: ['monthly', 'annual'],
+        default: 'monthly'
+    })
+    billingCycle: 'monthly' | 'annual';
+
     @CreateDateColumn({ type: 'timestamp' })
+    @Index('idx_subscription_created_at')
     createdAt: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
