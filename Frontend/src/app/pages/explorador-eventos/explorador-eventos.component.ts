@@ -37,11 +37,20 @@ export class ExploradorEventosComponent implements OnInit {
   ngOnInit(): void {
     this.isLoading = true;
 
-    // Cargar Eventos
+    // Cargar Eventos (filtrar solo eventos futuros)
     this.eventoService.obtenerEventos().subscribe({
       next: (eventos) => {
-        this.eventos = eventos;
-        this.eventosFiltrados = eventos;
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        
+        // Filtrar eventos que no han pasado (fecha >= hoy)
+        const eventosActivos = eventos.filter(evento => {
+          const fechaEvento = new Date(evento.date);
+          return fechaEvento >= hoy;
+        });
+        
+        this.eventos = eventosActivos;
+        this.eventosFiltrados = eventosActivos;
         this.isLoading = false;
       },
       error: () => {
@@ -53,12 +62,19 @@ export class ExploradorEventosComponent implements OnInit {
     // Cargar Categorías
     this.obtenerCategorias();
 
-    // Cargar Destacados
+    // Cargar Destacados (también filtrar solo eventos futuros)
     this.eventoService.obtenerEventos().subscribe({
       next: (eventos) => {
-        this.eventos = eventos;
-        this.eventosFiltrados = eventos;
-        this.destacados = eventos.filter(e => e.destacado);
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        
+        // Filtrar eventos que no han pasado
+        const eventosActivos = eventos.filter(evento => {
+          const fechaEvento = new Date(evento.date);
+          return fechaEvento >= hoy;
+        });
+        
+        this.destacados = eventosActivos.filter(e => e.destacado);
         this.isLoading = false;
       },
       error: () => {
