@@ -6,6 +6,7 @@ import { SubscriptionService, UserSubscription } from '../../services/subscripti
 import { PromoterService } from '../../services/promoter.service';
 import { EventService } from '../../services/event.service';
 import { hasRoleLevel, hasExactRole } from '../../interfaces/Usuario';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-header',
@@ -36,31 +37,39 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   // Estado de eventos del organizador
   hasEvents = false;
+  private hasEventsChecked = false; // Evita llamadas repetidas
+
+  // Suscripciones para cleanup
+  private subscriptions: Subscription[] = [];
 
   @Input() topOffset: string = '0';
 
   ngOnInit(): void {
     // Cerrar menú al navegar
-    this.router.events.subscribe(() => {
+    const routerSub = this.router.events.subscribe(() => {
       this.isMenuOpen = false;
       this.manageScrollLock();
     });
+    this.subscriptions.push(routerSub);
 
-    // Cargar suscripción y verificar eventos si hay usuario
-    this.user$.subscribe(user => {
+    // Cargar suscripción y verificar eventos UNA SOLA VEZ cuando hay usuario
+    const userSub = this.user$.subscribe(user => {
       if (user) {
         this.loadSubscription();
-        // Solo verificar eventos si es organizador (using role hierarchy)
+        // Solo verificar eventos si es organizador y aún no verificamos
         const userRoles = user.roles || [user.rol] || ['user'];
-        if (hasRoleLevel(userRoles, 'organizer')) {
+        if (hasRoleLevel(userRoles, 'organizer') && !this.hasEventsChecked) {
+          this.hasEventsChecked = true;
           this.checkHasEvents();
         }
       } else {
         this.subscription = null;
         this.isPro = false;
         this.hasEvents = false;
+        this.hasEventsChecked = false; // Reset para cuando vuelva a loguear
       }
     });
+    this.subscriptions.push(userSub);
   }
 
   // --- DETECCIÓN DE SCROLL (Efecto Apple) ---
@@ -131,6 +140,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Limpiar todas las suscripciones
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
+    
     if (typeof document !== 'undefined') {
       document.body.style.overflow = '';
     }
