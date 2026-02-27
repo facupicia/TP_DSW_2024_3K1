@@ -152,4 +152,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
     const roles = user?.roles || [user?.rol] || ['user'];
     return hasExactRole(roles, 'scanner');
   }
+
+  /**
+   * Obtiene las iniciales del usuario para el avatar
+   * Ej: "Juan Perez" -> "JP"
+   */
+  getInitials(user: any): string {
+    if (!user) return '?';
+    const first = user.firstname?.charAt(0) || '';
+    const last = user.lastname?.charAt(0) || '';
+    return (first + last).toUpperCase() || user.email?.charAt(0).toUpperCase() || '?';
+  }
 }

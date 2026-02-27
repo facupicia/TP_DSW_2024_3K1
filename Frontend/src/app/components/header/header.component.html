@@ -25,10 +25,17 @@
         </ng-container>
 
         <ng-container *ngIf="(user$ | async) === null">
+          <!-- Botón Iniciar Sesión destacado -->
           <button routerLink="/login"
-            class="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors">Entrar</button>
+            class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:scale-105 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Iniciar Sesión
+          </button>
           <button routerLink="/register"
-            class="bg-black text-white text-sm font-bold px-5 py-2 rounded-full hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-gray-900/20">
+            class="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors px-4">
             Registrarse
           </button>
         </ng-container>
@@ -36,9 +43,17 @@
         <ng-container *ngIf="user$ | async as user">
           <div class="flex items-center gap-2 pl-2">
             <div class="relative group cursor-pointer" (click)="redirectToProfile()">
-              <img
-                [src]="user?.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
-                class="h-9 w-9 rounded-full object-cover border border-gray-200 group-hover:border-gray-400 transition-all">
+              <!-- Avatar con imagen o iniciales -->
+              <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else initialsAvatar">
+                <img [src]="user.imgPerfil"
+                  class="h-9 w-9 rounded-full object-cover border-2 border-gray-200 group-hover:border-blue-400 transition-all">
+              </ng-container>
+              <!-- Avatar con iniciales -->
+              <ng-template #initialsAvatar>
+                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold border-2 border-white shadow-md group-hover:shadow-lg transition-all">
+                  {{ getInitials(user) }}
+                </div>
+              </ng-template>
               <span *ngIf="isPro"
                 class="absolute -bottom-1 -right-1 px-1.5 py-0.5 text-[8px] font-black rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border border-white">
                 PRO
@@ -50,10 +65,30 @@
 
       <div class="flex items-center gap-2 md:hidden z-[1002]">
 
+        <!-- MOBILE: Botón Login destacado cuando NO está autenticado -->
+        <ng-container *ngIf="(user$ | async) === null">
+          <button routerLink="/login"
+            class="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-full hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            Entrar
+          </button>
+        </ng-container>
+
+        <!-- MOBILE: Avatar cuando está autenticado -->
         <ng-container *ngIf="user$ | async as user">
           <button (click)="redirectToProfile()"
-            class="w-8 h-8 rounded-full overflow-hidden border border-gray-200 active:scale-95 transition-transform mr-1 focus:outline-none">
-            <img [src]="user?.imgPerfil || 'assets/placeholder-user.png'" class="w-full h-full object-cover">
+            class="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 active:scale-95 transition-transform mr-1 focus:outline-none hover:border-blue-400">
+            <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else mobileInitials">
+              <img [src]="user.imgPerfil" class="w-full h-full object-cover">
+            </ng-container>
+            <ng-template #mobileInitials>
+              <div class="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                {{ getInitials(user) }}
+              </div>
+            </ng-template>
           </button>
         </ng-container>
 
@@ -84,15 +119,22 @@
 
     <div *ngIf="user$ | async as user" class="mb-8 flex flex-col items-center text-center animate-fade-in-up">
       <div class="relative mb-3">
-        <img
-          [src]="user.imgPerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'"
-          class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
+        <!-- Avatar grande con imagen o iniciales -->
+        <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else menuInitials">
+          <img [src]="user.imgPerfil"
+            class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
+        </ng-container>
+        <ng-template #menuInitials>
+          <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
+            {{ getInitials(user) }}
+          </div>
+        </ng-template>
         <span *ngIf="isPro"
           class="absolute bottom-0 right-0 px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border-2 border-white">
           PRO
         </span>
       </div>
-      <h3 class="font-bold text-xl text-slate-900">{{ user.firstname }}</h3>
+      <h3 class="font-bold text-xl text-slate-900">{{ user.firstname }} {{ user.lastname }}</h3>
       <p class="text-sm text-slate-500 font-medium">{{ user.email }}</p>
     </div>
 
@@ -160,12 +202,17 @@
 
       <ng-template #guestLinks>
         <div class="space-y-3 mt-4">
+          <!-- Botón Iniciar Sesión destacado en móvil -->
           <button (click)="navigateMobile('/login')"
-            class="w-full py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors">
+            class="w-full py-4 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
             Iniciar Sesión
           </button>
           <button (click)="navigateMobile('/register')"
-            class="w-full py-4 px-4 bg-black text-white rounded-2xl font-bold hover:bg-gray-800 transition-transform active:scale-[0.98]">
+            class="w-full py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors">
             Registrarse
           </button>
         </div>
