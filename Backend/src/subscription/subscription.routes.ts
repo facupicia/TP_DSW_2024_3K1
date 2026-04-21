@@ -13,7 +13,7 @@ import {
 } from "./subscription.controller";
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
-import { validateMPWebhookIP, createValidateMPWebhookSignature } from "../payment/mp-webhook.middleware";
+import { createValidateMPWebhookSignature } from "../payment/mp-webhook.middleware";
 import express from "express";
 
 const router = Router();

@@ -5,7 +5,6 @@ import { UserSubscription, SubscriptionStatus } from './user_subscription.entity
 import { User } from '../user/user.entity';
 import { logger } from '../common/services/logger';
 import { getMPConfig, sanitizeUrl } from '../payment/mp.config';
-import { normalizeInitPoint, sandboxLog } from '../payment/mp.sandbox';
 
 /**
  * Subscription Core Service
@@ -153,25 +152,16 @@ export async function createSubscriptionCheckout(
             throw new Error('MercadoPago no devolvió URL de checkout');
         }
         
-        const initPoint = normalizeInitPoint(response.init_point!);
-        
         logger.info('SUBSCRIPTION_CHECKOUT_CREATED', {
             userId,
             planId,
             billingType,
             preapprovalId: response.id,
-            amount: price,
-            sandbox: initPoint.includes('sandbox')
-        });
-        
-        sandboxLog('SUBSCRIPTION_CHECKOUT_CREATED', {
-            preapprovalId: response.id,
-            initPoint,
             amount: price
         });
         
         return {
-            initPoint,
+            initPoint: response.init_point!,
             preapprovalId: response.id
         };
         

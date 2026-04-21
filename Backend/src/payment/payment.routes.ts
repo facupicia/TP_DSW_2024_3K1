@@ -8,7 +8,6 @@ import {
 } from "./mp-oauth.controller";
 import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { 
-    validateMPWebhookIP,
     createValidateMPWebhookSignature 
 } from "./mp-webhook.middleware";
 

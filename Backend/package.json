@@ -6,15 +6,7 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed": "ts-node src/seed.ts",
-    "test:payment": "ts-node-dev --quiet tests/payment.test.ts",
-    "test:payment-idempotency": "ts-node-dev --quiet tests/payment.idempotency.ts",
-    "verify:migration": "ts-node src/scripts/verify-migration.ts",
-    "test:timestamp": "ts-node src/scripts/test-timestamp-column.ts",
-    "test:db": "ts-node src/scripts/test-connection.ts",
-    "test:auth": "ts-node-dev --quiet tests/auth.bugs.test.ts",
-    "test:roles": "ts-node-dev --quiet tests/role-update.test.ts",
-    "test:google": "ts-node-dev --quiet tests/google-auth.test.ts"
+    "seed": "ts-node src/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -41,11 +33,14 @@
     "qrcode": "^1.5.4",
     "redis": "^4.6.13",
     "reflect-metadata": "^0.2.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "ts-node-dev": "^2.0.0",
     "typeorm": "^0.3.20",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/bcrypt": "^5.0.2",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
@@ -54,6 +49,8 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.4.1",
     "@types/qrcode": "^1.5.5",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.7",
     "nodemon": "^3.1.7",
     "typescript": "^5.6.2"
   }

@@ -6,7 +6,6 @@ import { getActiveSubscription } from '../subscription/subscription.service';
 import { refreshOrganizerToken } from './mp-oauth.controller';
 import { logger } from '../common/services/logger';
 import { getMPConfig, sanitizeUrl } from './mp.config';
-import { normalizeInitPoint, sandboxLog } from './mp.sandbox';
 
 /**
  * Preference Service
@@ -391,25 +390,15 @@ export async function createMercadoPagoPreference(
             throw new Error('MercadoPago did not return preference ID or init_point');
         }
         
-        // Normalizar URL para sandbox si es necesario
-        const initPoint = normalizeInitPoint(result.init_point!);
-        
         logger.info('PREFERENCE_CREATED', {
             preferenceId: result.id,
             userId,
-            organizerId: ticketType.event.user_id,
-            sandbox: initPoint.includes('sandbox')
-        });
-        
-        sandboxLog('PREFERENCE_CREATED', {
-            preferenceId: result.id,
-            initPoint,
-            items: body.items
+            organizerId: ticketType.event.user_id
         });
         
         return {
             id: result.id!,
-            initPoint
+            initPoint: result.init_point!
         };
         
     } finally {
@@ -462,18 +451,15 @@ export async function createPlatformPreference(
             throw new Error('MercadoPago did not return preference ID or init_point');
         }
         
-        const initPoint = normalizeInitPoint(result.init_point!);
-        
         logger.info('PLATFORM_PREFERENCE_CREATED', {
             preferenceId: result.id,
             userId,
-            organizerId: ticketType.event.user_id,
-            sandbox: initPoint.includes('sandbox')
+            organizerId: ticketType.event.user_id
         });
         
         return {
             id: result.id!,
-            initPoint
+            initPoint: result.init_point!
         };
         
     } finally {
