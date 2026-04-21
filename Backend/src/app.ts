@@ -3,9 +3,6 @@ import morgan from "morgan";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import swaggerUi from "swagger-ui-express";
-import swaggerJSDoc from "swagger-jsdoc";
-
 // Routes from modules
 import userRoutes from "./user/user.routes"
 import eventRoutes from "./event/event.routes"
@@ -72,28 +69,6 @@ app.use(limiter);
 
 app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json());
-
-// Swagger Configuration
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'EventLife API',
-      version: '1.0.0',
-      description: 'API para gestión de eventos y venta de entradas',
-    },
-    servers: [
-      {
-        url: process.env.TEST_API_URL || 'https://backend-eventlife.onrender.com',
-        description: 'Production server',
-      },
-    ],
-  },
-  apis: ['./src/**/*.routes.ts', './src/**/*.controller.ts'],
-};
-
-const swaggerSpec = swaggerJSDoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Healthcheck
 app.get('/health', async (_req, res) => {

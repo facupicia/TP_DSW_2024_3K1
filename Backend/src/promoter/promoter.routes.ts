@@ -22,13 +22,6 @@ import {
 
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   name: Promoter
- *   description: Gestión de promotores (RRPP) y estadísticas de ventas
- */
-
 // IMPORTANTE: Las rutas específicas deben ir ANTES que las rutas con parámetros (:id)
 
 // Promoter profile (for logged in promoter) - debe ir antes de /:id
