@@ -48,9 +48,6 @@ export class CheckoutComponent implements OnInit {
   errorMessageText = '';
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
 
-  // Cargo de servicio (configurable, default 10%)
-  serviceFeePercent: number = 10;
-  serviceFeeAmount: number = 0;
   baseAmount: number = 0;
 
   // Coupon state
@@ -191,13 +188,10 @@ export class CheckoutComponent implements OnInit {
       this.baseAmount = this.ticketQuantity * (this.evento.price || 0);
     }
 
-    // Calculate service fee (cargo de servicio)
-    this.serviceFeeAmount = (this.baseAmount * this.serviceFeePercent) / 100;
-    
-    // Total antes de descuento (base + service fee)
-    this.total = this.baseAmount + this.serviceFeeAmount;
+    // Total es solo el precio base (la comisión se maneja internamente via marketplace_fee)
+    this.total = this.baseAmount;
 
-    // Apply coupon discount (aplicado sobre el total)
+    // Apply coupon discount
     if (this.appliedCoupon) {
       this.discountAmount = Math.round((this.total * this.appliedCoupon.discountPercent) / 100);
       this.finalTotal = this.total - this.discountAmount;

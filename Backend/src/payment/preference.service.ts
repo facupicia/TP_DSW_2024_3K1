@@ -235,16 +235,9 @@ export function buildPreferenceBody(
     const unitPrice = Number(ticketType.price);
     const baseAmount = unitPrice * quantity;
     
-    // Cargo de servicio de EventLife (configurable, default 10%)
-    const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
-    const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
-    
-    // Total a cobrar al asistente
-    const totalAmount = baseAmount + serviceFeeAmount;
-    
-    // En marketplace, el marketplace_fee va a la cuenta del integrador (EventLife)
-    // Lo configuramos como el cargo de servicio para que vaya a EventLife
-    const marketplaceFee = Math.ceil(serviceFeeAmount);
+    // Comisión de EventLife (configurable, default 10%)
+    const commissionPercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+    const commissionAmount = Math.ceil((baseAmount * commissionPercent) / 100);
     
     const clientUrl = sanitizeUrl(config.clientUrl);
     const notificationUrl = sanitizeUrl(config.notificationUrl);
@@ -263,14 +256,6 @@ export function buildPreferenceBody(
                 quantity: quantity,
                 unit_price: unitPrice,
                 currency_id: 'ARS',
-            },
-            {
-                id: 'service-fee',
-                title: 'Cargo de servicio EventLife',
-                description: `Comisión por uso de la plataforma (${serviceFeePercent}%)`,
-                quantity: 1,
-                unit_price: serviceFeeAmount,
-                currency_id: 'ARS',
             }
         ],
         payer: {
@@ -288,9 +273,9 @@ export function buildPreferenceBody(
         notification_url: notificationUrl || undefined,
         external_reference: externalRef,
         
-        // Marketplace fee: va al integrador (EventLife) desde la cuenta del organizador
-        // Esto representa el cargo de servicio que EventLife cobra
-        marketplace_fee: 0, // Ya incluimos el cargo como item, no necesitamos marketplace_fee
+        // IMPORTANTE: marketplace_fee es lo que EventLife recibe como comisión
+        // Este monto se transfiere automáticamente a la cuenta de EventLife
+        marketplace_fee: commissionAmount,
         
         // Metadata para el webhook
         metadata: {
@@ -301,12 +286,9 @@ export function buildPreferenceBody(
             organizer_id: ticketType.event.user_id,
             organizer_plan: marketplaceInfo.planName,
             base_amount: baseAmount,
-            service_fee_percent: serviceFeePercent,
-            service_fee_amount: serviceFeeAmount,
-            total_amount: totalAmount,
-            commission_percent: marketplaceInfo.commissionPercent,
-            marketplace_fee: marketplaceFee,
-            payment_model: 'marketplace_with_service_fee',
+            commission_percent: commissionPercent,
+            commission_amount: commissionAmount,
+            payment_model: 'marketplace',
             promoter_code: promoterCode || null
         }
     };

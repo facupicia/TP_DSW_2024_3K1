@@ -98,10 +98,6 @@
                                 <span>{{ ticketQuantity }}x {{ selectedTicketType?.name || 'Entrada' }}</span>
                                 <span class="font-medium">${{ baseAmount }}</span>
                             </div>
-                            <div class="flex justify-between items-center text-gray-600">
-                                <span>Cargo de servicio ({{ serviceFeePercent }}%)</span>
-                                <span class="font-medium text-gray-500">${{ serviceFeeAmount }}</span>
-                            </div>
 
                             <!-- Coupon Section -->
                             <div *ngIf="!appliedCoupon" class="pt-2">
