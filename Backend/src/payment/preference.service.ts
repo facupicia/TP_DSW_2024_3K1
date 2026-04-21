@@ -235,8 +235,8 @@ export function buildPreferenceBody(
     const unitPrice = Number(ticketType.price);
     const baseAmount = unitPrice * quantity;
     
-    // Comisión de EventLife (configurable, default 10%)
-    const commissionPercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
+    // Comisión de EventLife según el plan del organizador (FREE: 8%, PRO: 3%)
+    const commissionPercent = marketplaceInfo.commissionPercent;
     const commissionAmount = Math.ceil((baseAmount * commissionPercent) / 100);
     
     const clientUrl = sanitizeUrl(config.clientUrl);

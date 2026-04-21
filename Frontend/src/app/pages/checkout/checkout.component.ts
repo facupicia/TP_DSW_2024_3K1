@@ -49,6 +49,11 @@ export class CheckoutComponent implements OnInit {
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
 
   baseAmount: number = 0;
+  
+  // Commission info from backend
+  commissionPercent: number = 8;
+  commissionAmount: number = 0;
+  organizerPlanName: string = 'FREE';
 
   // Coupon state
   couponCode = '';
@@ -272,6 +277,13 @@ export class CheckoutComponent implements OnInit {
       }).subscribe({
         next: (response: any) => {
           if (response.init_point) {
+            // Guardar información de comisión para mostrar en el checkout
+            if (response.commission_info) {
+              this.commissionPercent = response.commission_info.commission_percent;
+              this.commissionAmount = response.commission_info.commission_amount;
+              this.organizerPlanName = response.commission_info.plan_name;
+            }
+            
             try {
               const lastPurchase = {
                 preferenceId: response.id,

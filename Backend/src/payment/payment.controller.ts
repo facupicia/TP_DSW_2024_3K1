@@ -7,7 +7,8 @@ import { TicketType } from "../ticketType/ticketType.entity";
 import { 
     validatePurchaseEligibility,
     createMercadoPagoPreference,
-    createPlatformPreference 
+    createPlatformPreference,
+    getMarketPlaceInfo
 } from "./preference.service";
 import { 
     processApprovedPayment,
@@ -77,13 +78,18 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             // Calcular desglose de precios para el frontend
             const ticketTypeRepo = AppDataSource.getRepository(TicketType);
             const ticketType = await ticketTypeRepo.findOne({
-                where: { id: parseInt(ticketTypeId) }
+                where: { id: parseInt(ticketTypeId) },
+                relations: ['event']
             });
             
             const baseAmount = ticketType ? Number(ticketType.price) * quantity : 0;
-            const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
-            const serviceFeeAmount = (baseAmount * serviceFeePercent) / 100;
-            const totalAmount = baseAmount + serviceFeeAmount;
+            
+            // Obtener comisión según el plan del organizador
+            const marketplaceInfo = ticketType 
+                ? await getMarketPlaceInfo(ticketType.event.user_id)
+                : { commissionPercent: 8, planName: 'FREE' };
+            
+            const commissionAmount = Math.ceil((baseAmount * marketplaceInfo.commissionPercent) / 100);
             
             return res.status(200).json({
                 id: result.id,
@@ -91,12 +97,13 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 marketplace: true,
                 pricing: {
                     base_amount: baseAmount,
-                    service_fee_percent: serviceFeePercent,
-                    service_fee_amount: serviceFeeAmount,
-                    total_amount: totalAmount
+                    total_amount: baseAmount
                 },
                 commission_info: {
-                    organizer_net_amount: baseAmount
+                    commission_percent: marketplaceInfo.commissionPercent,
+                    commission_amount: commissionAmount,
+                    plan_name: marketplaceInfo.planName,
+                    organizer_net_amount: baseAmount - commissionAmount
                 }
             });
             

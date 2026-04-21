@@ -19,6 +19,16 @@ export interface PreferenceResponse {
     id: string;
     init_point: string;
     marketplace?: boolean;
+    pricing: {
+        base_amount: number;
+        total_amount: number;
+    };
+    commission_info: {
+        commission_percent: number;
+        commission_amount: number;
+        plan_name: string;
+        organizer_net_amount: number;
+    };
 }
 
 

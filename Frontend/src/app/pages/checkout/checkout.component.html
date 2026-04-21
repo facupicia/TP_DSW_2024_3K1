@@ -98,6 +98,12 @@
                                 <span>{{ ticketQuantity }}x {{ selectedTicketType?.name || 'Entrada' }}</span>
                                 <span class="font-medium">${{ baseAmount }}</span>
                             </div>
+                            
+                            <!-- Comisión según plan del organizador -->
+                            <div class="flex justify-between items-center text-xs text-gray-500">
+                                <span>Comisión plataforma (Plan {{ organizerPlanName }}: {{ commissionPercent }}%)</span>
+                                <span>${{ commissionAmount }}</span>
+                            </div>
 
                             <!-- Coupon Section -->
                             <div *ngIf="!appliedCoupon" class="pt-2">
