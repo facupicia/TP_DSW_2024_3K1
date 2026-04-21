@@ -67,21 +67,6 @@ Comisión EventLife: $5
 Neto organizador: $1,000 (recibe exacto)
 ```
 
-### Opción 3: Modelo QR Alternativo
-
-**Pago por QR (sin vincular MP):**
-```
-Precio ticket: $1,000
-Comisión MP (2.59%): $25.90
-Cargo plataforma (3%): $30
-
-Total cobrado: $1,000
-Neto organizador: $944.10
-```
-
-**Nota**: En este modelo el organizador recibe menos pero no necesita vincular MP.
-
----
 
 ## Implementación Técnica
 
@@ -91,28 +76,13 @@ Neto organizador: $944.10
 # Comisión base de la plataforma (sobre el precio del ticket)
 PLATFORM_SERVICE_FEE_PERCENT=10
 
-# Comisión MP para QR (fijo por MP)
-MP_QR_COMMISSION_PERCENT=2.59
-
 # Comisión MP para Marketplace (variable por método de pago)
 MP_MARKETPLACE_COMMISSION_PERCENT=2.99
 ```
 
 ### Cambios en el Código
 
-#### 1. Modificar `qr-payment.service.ts`:
-```typescript
-// Agregar cargo de servicio de la plataforma
-const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 10);
-const serviceFeeAmount = (totalAmount * serviceFeePercent) / 100;
-const finalAmount = totalAmount + serviceFeeAmount;
-
-// El QR cobra el finalAmount
-// La comisión MP se calcula sobre finalAmount
-// El organizador recibe totalAmount
-```
-
-#### 2. Modificar `preference.service.ts` (Marketplace):
+#### 1. Modificar `preference.service.ts` (Marketplace):
 ```typescript
 // En lugar de marketplace_fee, usar cargo de servicio
 const serviceFeePercent = Number(process.env.PLATFORM_SERVICE_FEE_PERCENT || 8);
@@ -149,12 +119,7 @@ const serviceFeeAmount = (totalAmount * serviceFeePercent) / 100;
 
 ## Plan de Migración
 
-### Fase 1: Implementar Cargo de Servicio en QR
-1. Modificar `qr-payment.service.ts`
-2. Actualizar frontend checkout
-3. Testing
-
-### Fase 2: Implementar en Marketplace
+### Fase 1: Implementar en Marketplace
 1. Modificar `preference.service.ts`
 2. Actualizar webhook para manejar nuevo flujo
 3. Testing

@@ -38,7 +38,6 @@ export interface ExtractedPaymentInfo {
     ticketTypeId: number;
     quantity: number;
     organizerId: number;
-    isQR?: boolean; // Indica si es pago por QR
     promoterCode?: string; // Código del promotor que vendió
 }
 
@@ -204,40 +203,26 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     let ticketTypeId = 0;
     let quantity = 0;
     let organizerId = 0;
-    let isQR = false;
     
     // Prioridad 1: external_reference
-    // Formatos:
-    // - Marketplace: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
-    // - QR: QR|userId|ticketTypeId|quantity
+    // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
     let promoterCode: string | undefined;
     
     if (payment.external_reference) {
         const ref = String(payment.external_reference);
         const parts = ref.split('|');
         
-        // Detectar tipo de pago
-        if (parts[0] === 'QR') {
-            isQR = true;
-            // Formato QR: QR|userId|ticketTypeId|quantity
-            if (parts.length >= 4) {
-                userId = Number(parts[1]) || 0;
-                ticketTypeId = Number(parts[2]) || 0;
-                quantity = Number(parts[3]) || 0;
-            }
-        } else {
-            // Formato Marketplace: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
-            if (parts.length >= 3) {
-                userId = Number(parts[0]) || 0;
-                ticketTypeId = Number(parts[1]) || 0;
-                quantity = Number(parts[2]) || 0;
-            }
-            if (parts.length >= 4) {
-                organizerId = Number(parts[3]) || 0;
-            }
-            if (parts.length >= 5) {
-                promoterCode = parts[4];
-            }
+        // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
+        if (parts.length >= 3) {
+            userId = Number(parts[0]) || 0;
+            ticketTypeId = Number(parts[1]) || 0;
+            quantity = Number(parts[2]) || 0;
+        }
+        if (parts.length >= 4) {
+            organizerId = Number(parts[3]) || 0;
+        }
+        if (parts.length >= 5) {
+            promoterCode = parts[4];
         }
     }
     
@@ -258,12 +243,12 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         logger.error('PAYMENT_EXTRACTION_FAILED', {
             externalRef: payment.external_reference,
             metadata: payment.metadata,
-            extracted: { userId, ticketTypeId, quantity, organizerId, isQR, promoterCode }
+            extracted: { userId, ticketTypeId, quantity, organizerId, promoterCode }
         });
         return null;
     }
     
-    return { userId, ticketTypeId, quantity, organizerId, isQR, promoterCode };
+    return { userId, ticketTypeId, quantity, organizerId, promoterCode };
 }
 
 /**

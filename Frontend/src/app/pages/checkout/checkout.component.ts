@@ -6,7 +6,6 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { TicketService } from '../../services/ticket.service';
 import { PaymentService } from '../../services/payment.service';
 import { HeaderComponent } from '../../components/header/header.component';
-import { QrPaymentComponent } from '../../components/qr-payment/qr-payment.component';
 import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
@@ -17,7 +16,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, QrPaymentComponent],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent],
   templateUrl: './checkout.component.html',
   styleUrls: ['./checkout.component.css']
 })
@@ -49,10 +48,6 @@ export class CheckoutComponent implements OnInit {
   errorMessageText = '';
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
 
-  // Payment method selection
-  selectedPaymentMethod: 'marketplace' | 'qr' = 'marketplace';
-  showQRModal = false;
-  
   // Cargo de servicio (configurable, default 10%)
   serviceFeePercent: number = 10;
   serviceFeeAmount: number = 0;
@@ -254,11 +249,6 @@ export class CheckoutComponent implements OnInit {
   }
 
   comprarTickets() {
-    if (this.selectedPaymentMethod === 'qr') {
-      this.showQRModal = true;
-      return;
-    }
-
     this.showSuccessMessage = false;
     this.showErrorMessage = false;
     this.errorMessageText = '';
@@ -319,13 +309,4 @@ export class CheckoutComponent implements OnInit {
     }
   }
 
-  // Método de pago por QR
-  selectPaymentMethod(method: 'marketplace' | 'qr') {
-    this.selectedPaymentMethod = method;
-  }
-
-  // Cerrar modal de QR
-  closeQRModal() {
-    this.showQRModal = false;
-  }
 }

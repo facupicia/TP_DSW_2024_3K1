@@ -1,5 +1,5 @@
 import express, { Router } from "express";
-import { createPreference, paymentWebhook, getPaymentStatus, simulatePaymentWebhook, createQRPreference } from "./payment.controller";
+import { createPreference, paymentWebhook, getPaymentStatus, simulatePaymentWebhook } from "./payment.controller";
 import { 
     initiateOAuth, 
     oauthCallback, 
@@ -31,15 +31,6 @@ router.post("/create-preference", checkAuthToken, createPreference);
  * Usado por el frontend para polling después del checkout.
  */
 router.get("/status", checkAuthToken, getPaymentStatus);
-
-/**
- * POST /api/payment/create-qr-preference
- * 
- * Crea una preferencia de pago por QR (Checkout Pro).
- * El usuario paga escaneando el QR desde la app de MercadoPago.
- * Comisión MP: 2.59%
- */
-router.post("/create-qr-preference", checkAuthToken, createQRPreference);
 
 /* ==================== WEBHOOK ROUTES ==================== */
 

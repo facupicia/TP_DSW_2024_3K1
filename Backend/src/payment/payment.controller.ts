@@ -14,10 +14,6 @@ import {
     waitForPaymentApproval,
     getPlatformMPClient 
 } from "./payment.core";
-import {
-    createQRPaymentPreference,
-    calculateQRCommission
-} from "./qr-payment.service";
 
 /**
  * Payment Controller
@@ -137,91 +133,6 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         return res.status(500).json({ 
             message: "Error al generar preferencia de pago",
             code: 'INTERNAL_ERROR'
-        });
-    }
-};
-
-// ============================================================================
-// QR PAYMENT
-// ============================================================================
-
-/**
- * POST /api/payment/create-qr-preference
- * 
- * Crea una preferencia de pago por QR (Checkout Pro).
- * 
- * Ventajas:
- * - Comisión MP: 2.59% (vs 8%+ comisión del marketplace)
- * - Pago instantáneo por QR
- * - Ideal para venta rápida de tickets
- * 
- * El dinero va a la cuenta de la PLATAFORMA, no al organizador directamente.
- */
-export const createQRPreference = async (req: CustomRequest, res: Response) => {
-    try {
-        const userId = req.user?.id;
-        const { ticketQuantity, ticketTypeId } = req.body;
-        
-        if (!userId) {
-            return res.status(401).json({ message: "No autorizado." });
-        }
-        
-        if (!ticketTypeId) {
-            return res.status(400).json({ message: "Falta ticketTypeId." });
-        }
-        
-        const quantity = parseInt(ticketQuantity);
-        if (isNaN(quantity) || quantity <= 0) {
-            return res.status(400).json({ message: "Cantidad inválida." });
-        }
-        
-        // Crear preferencia de QR
-        const result = await createQRPaymentPreference(
-            userId,
-            parseInt(ticketTypeId),
-            quantity
-        );
-        
-        // Calcular comisiones para mostrar al frontend
-        // Necesitamos obtener el precio del ticket
-        const ticketTypeRepo = AppDataSource.getRepository(require('../ticketType/ticketType.entity').TicketType);
-        const ticketType = await ticketTypeRepo.findOne({
-            where: { id: parseInt(ticketTypeId) }
-        });
-        
-        const baseAmount = ticketType ? Number(ticketType.price) * quantity : 0;
-        const commission = calculateQRCommission(baseAmount);
-        
-        return res.status(200).json({
-            success: true,
-            id: result.id,
-            init_point: result.initPoint,
-            qr_code_url: result.qrCodeUrl,
-            payment_type: 'qr',
-            pricing: {
-                base_amount: commission.baseAmount,
-                service_fee_percent: commission.serviceFeePercent,
-                service_fee_amount: commission.serviceFeeAmount,
-                total_amount: commission.totalAmount
-            },
-            commission_info: {
-                mp_commission_percent: commission.mpCommissionPercent,
-                mp_commission_amount: commission.mpCommissionAmount,
-                organizer_net_amount: commission.organizerNetAmount,
-                platform_net_amount: commission.platformNetAmount
-            }
-        });
-        
-    } catch (error: any) {
-        logger.error("ERROR_CREATING_QR_PREFERENCE", { 
-            error: error?.message,
-            userId: req.user?.id 
-        });
-        
-        return res.status(500).json({ 
-            success: false,
-            message: error.message || "Error al generar pago por QR",
-            code: 'QR_ERROR'
         });
     }
 };

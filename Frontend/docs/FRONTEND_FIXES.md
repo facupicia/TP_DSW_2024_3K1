@@ -33,37 +33,10 @@ getPlans(forceRefresh = false): Observable<SubscriptionPlan[]> {
 
 **Added:**
 - `marketplace?: boolean` field to `PreferenceResponse`
-- New `QRPreferenceResponse` interface
-- New `createQRPreference()` method
 
 ### 3. Checkout Component (`checkout.component.ts`)
 
-**Added:**
-- Import `PaymentService` and `QrPaymentComponent`
-- `selectedPaymentMethod` property ('marketplace' | 'qr')
-- `showQRModal` property
-- `selectPaymentMethod()` method
-- `closeQRModal()` method
-- Updated `comprarTickets()` to handle QR payments
-
-### 4. Checkout HTML (`checkout.component.html`)
-
-**Added:**
-- Payment method selector UI
-- QR payment modal
-- Two payment options: Traditional (Marketplace) and QR
-
-### 5. QR Payment Component (NEW)
-
-**Created:** `src/app/components/qr-payment/qr-payment.component.ts`
-
-Features:
-- Shows QR payment option
-- Displays commission info (2.59%)
-- Opens MP in new tab
-- Handles loading and error states
-
-### 6. Subscription Landing Component
+### 4. Subscription Landing Component
 
 **Updated:**
 - Added `clearPlansCache()` call before loading
@@ -77,19 +50,10 @@ Features:
 2. Open console (F12)
 3. Should see: "Respuesta de planes:" and "Planes recibidos:"
 
-### Verify QR Payment
-1. Go to checkout
-2. Select "Pagar con QR"
-3. Click "Continuar con QR"
-4. Should open MP in new tab
-
 ## Common Issues
 
 ### Issue: Plans not showing
 **Solution:** Clear browser cache or check console for errors
-
-### Issue: QR payment not working
-**Solution:** Check that backend endpoint `/api/payment/create-qr-preference` exists
 
 ### Issue: Type errors
 **Solution:** Run `ng serve` to see specific errors

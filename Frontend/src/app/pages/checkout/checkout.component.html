@@ -180,82 +180,10 @@
                         </div>
                     </div>
 
-                    <!-- Selector de Método de Pago -->
-                    <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[24px] p-6 shadow-sm">
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
-                            Método de Pago
-                        </label>
-                        
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <!-- Opción: Pago Tradicional (Marketplace) -->
-                            <button type="button"
-                                (click)="selectPaymentMethod('marketplace')"
-                                class="relative p-4 rounded-2xl border-2 transition-all duration-200 text-left"
-                                [class.border-blue-500]="selectedPaymentMethod === 'marketplace'"
-                                [class.bg-blue-50]="selectedPaymentMethod === 'marketplace'"
-                                [class.border-gray-200]="selectedPaymentMethod !== 'marketplace'"
-                                [class.hover:border-gray-300]="selectedPaymentMethod !== 'marketplace'">
-                                
-                                <div class="flex items-start gap-3">
-                                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5"
-                                         [class.border-blue-500]="selectedPaymentMethod === 'marketplace'"
-                                         [class.bg-blue-500]="selectedPaymentMethod === 'marketplace'">
-                                        <svg *ngIf="selectedPaymentMethod === 'marketplace'" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-bold text-gray-900">Pago Tradicional</div>
-                                        <div class="text-sm text-gray-500 mt-1">Tarjeta, efectivo, etc.</div>
-                                        <div class="text-xs text-blue-600 mt-2">Cargo de servicio: {{ serviceFeePercent }}%</div>
-                                    </div>
-                                </div>
-                            </button>
-
-                            <!-- Opción: Pago con QR -->
-                            <button type="button"
-                                (click)="selectPaymentMethod('qr')"
-                                class="relative p-4 rounded-2xl border-2 transition-all duration-200 text-left"
-                                [class.border-green-500]="selectedPaymentMethod === 'qr'"
-                                [class.bg-green-50]="selectedPaymentMethod === 'qr'"
-                                [class.border-gray-200]="selectedPaymentMethod !== 'qr'"
-                                [class.hover:border-gray-300]="selectedPaymentMethod !== 'qr'">
-                                
-                                <div class="flex items-start gap-3">
-                                    <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5"
-                                         [class.border-green-500]="selectedPaymentMethod === 'qr'"
-                                         [class.bg-green-500]="selectedPaymentMethod === 'qr'">
-                                        <svg *ngIf="selectedPaymentMethod === 'qr'" class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-bold text-gray-900 flex items-center gap-2">
-                                            Pagar con QR
-                                            <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">RECOMENDADO</span>
-                                        </div>
-                                        <div class="text-sm text-gray-500 mt-1">Escaneá con la app de MP</div>
-                                        <div class="text-xs text-green-600 mt-2">Cargo de servicio: {{ serviceFeePercent }}%</div>
-                                    </div>
-                                </div>
-                            </button>
-                        </div>
-
-                        <!-- Info adicional -->
-                        <div class="mt-4 p-3 bg-blue-50 rounded-xl">
-                            <p class="text-sm text-blue-700 flex items-center gap-2">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                El organizador recibe exactamente el precio de la entrada. El cargo de servicio cubre las comisiones de procesamiento.
-                            </p>
-                        </div>
-                    </div>
-
                     <button type="submit" [disabled]="loading || timeLeft === 0"
                         class="w-full py-5 rounded-[24px] bg-[#009EE3] text-white font-bold text-xl shadow-xl shadow-blue-400/20 hover:bg-[#008ED0] hover:shadow-blue-400/30 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex justify-center items-center gap-3 disabled:opacity-70 disabled:grayscale disabled:cursor-not-allowed">
 
-                        <span *ngIf="!loading">{{ selectedPaymentMethod === 'qr' ? 'Continuar con QR' : 'Pagar con Mercado Pago' }}</span>
+                        <span *ngIf="!loading">Pagar con Mercado Pago</span>
 
                         <svg *ngIf="!loading" class="w-6 h-6 fill-current" viewBox="0 0 24 24">
                             <path
@@ -369,16 +297,6 @@
                 </div>
             </div>
 
-        </div>
-
-        <!-- Modal de Pago QR -->
-        <div *ngIf="showQRModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <app-qr-payment
-                [ticketTypeId]="selectedTicketType?.id || 0"
-                [quantity]="ticketQuantity"
-                [unitPrice]="selectedTicketType?.price || 0"
-                (close)="closeQRModal()">
-            </app-qr-payment>
         </div>
 
         <div *ngIf="!evento" class="absolute inset-0 flex items-center justify-center bg-white z-50">
