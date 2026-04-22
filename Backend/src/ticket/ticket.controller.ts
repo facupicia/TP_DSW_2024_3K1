@@ -35,7 +35,10 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
 
     try {
         // 1. Buscar Usuario
-        const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
+        const user = await queryRunner.manager.findOne(User, {
+            where: { id: userId },
+            select: ['id', 'email', 'firstname', 'lastname', 'birth']
+        });
         if (!user) {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
@@ -147,11 +150,14 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
 export const getTickets = async (req: CustomRequest, res: Response) => {
     try {
         const { id: userID } = req.params;
+        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
-        const tickets = await Ticket.find({
+        const [tickets, total] = await Ticket.findAndCount({
             where: { userId: parseInt(userID) },
             relations: ['ticketType', 'ticketType.event'],
-            order: { createdAt: 'DESC' }
+            order: { createdAt: 'DESC' },
+            skip,
+            take
         });
 
         const mappedTickets = tickets.map(t => ({
@@ -160,7 +166,7 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
             ticketTypeName: t.ticketType?.name
         }));
 
-        return res.status(200).json(mappedTickets);
+        return res.status(200).json({ data: mappedTickets, total });
     } catch (error: any) {
         return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
     }
@@ -387,6 +393,8 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         const createdTickets: any[] = [];
         const errors: string[] = [];
         let ticketsCreatedCount = 0;
+        const ticketsToInsert: Ticket[] = [];
+        const emailTicketsMap: Record<string, any[]> = {};
 
         for (const email of emails) {
             try {
@@ -416,12 +424,12 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
                     ticket.purchasePrice = 0; // FREE
                     ticket.status = TicketStatus.ACTIVE;
 
-                    await queryRunner.manager.save(Ticket, ticket);
+                    ticketsToInsert.push(ticket);
                     ticketsCreatedCount++;
 
                     ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
-                        ticketId: ticket.id,
+                        ticketId: null, // Will be set after bulk save
                         eventTitle: event.title,
                         eventDate: `${new Date(event.date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${event.time}`,
                         eventLocation: event.direccion || event.ciudad || '',
@@ -430,14 +438,7 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
                     });
                 }
 
-                // Send email with all QRs for this person
-                try {
-                    await enviarCorreoConQR(email, ticketsForThisEmail);
-                } catch (emailErr) {
-                    console.error(`Error enviando email a ${email}:`, emailErr);
-                    errors.push(`Error enviando a: ${email}`);
-                }
-
+                emailTicketsMap[email] = ticketsForThisEmail;
                 createdTickets.push({
                     email,
                     quantity: ticketsForThisEmail.length
@@ -445,6 +446,29 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
 
             } catch (ticketErr: any) {
                 errors.push(`Error creando ticket para ${email}: ${ticketErr.message}`);
+            }
+        }
+
+        // Bulk insert all tickets at once
+        if (ticketsToInsert.length > 0) {
+            await queryRunner.manager.save(Ticket, ticketsToInsert);
+        }
+
+        // Send emails after bulk insert (map saved tickets back to emails)
+        let ticketIndex = 0;
+        for (const email of Object.keys(emailTicketsMap)) {
+            const ticketsForThisEmail = emailTicketsMap[email];
+            for (const t of ticketsForThisEmail) {
+                if (ticketIndex < ticketsToInsert.length) {
+                    t.ticketId = ticketsToInsert[ticketIndex].id;
+                    ticketIndex++;
+                }
+            }
+            try {
+                await enviarCorreoConQR(email, ticketsForThisEmail);
+            } catch (emailErr) {
+                console.error(`Error enviando email a ${email}:`, emailErr);
+                errors.push(`Error enviando a: ${email}`);
             }
         }
 

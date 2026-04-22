@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface Coupon {
@@ -40,7 +40,9 @@ export class CouponService {
      * Get all coupons for an event
      */
     getCouponsByEvent(eventId: number): Observable<Coupon[]> {
-        return this.http.get<Coupon[]>(`${this.baseUrl}/event/${eventId}`);
+        return this.http.get<{ data: Coupon[], total: number }>(`${this.baseUrl}/event/${eventId}`).pipe(
+            map(response => response.data)
+        );
     }
 
     /**

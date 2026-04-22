@@ -90,7 +90,9 @@ export class AuthService {
   }
 
   getUsers(): Observable<any> {
-    return this.http.get(`${this.urlBase}`);
+    return this.http.get(`${this.urlBase}`).pipe(
+      map((response: any) => response.data || response)
+    );
   }
 
   delete(id: number) {

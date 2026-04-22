@@ -70,12 +70,15 @@ export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
 
-        const coupons = await Coupon.find({
+        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const [coupons, total] = await Coupon.findAndCount({
             where: { eventId },
-            order: { createdAt: "DESC" }
+            order: { createdAt: "DESC" },
+            skip,
+            take
         });
 
-        return res.json(coupons);
+        return res.json({ data: coupons, total });
     } catch (error: any) {
         console.error("Error fetching coupons:", error);
         return res.status(500).json({ message: "Error al obtener cupones" });

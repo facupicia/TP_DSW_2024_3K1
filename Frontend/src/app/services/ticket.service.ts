@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable, throwError, map } from 'rxjs';
 import { catchError, timeout } from 'rxjs/operators';
 import { Ticket } from '../interfaces/ticket';
 
@@ -48,7 +48,9 @@ export class TicketService {
   }
 
   getTicketsByUser(userID: number): Observable<Ticket[]> {
-    return this.http.get<Ticket[]>(`${this.urlBase}/${userID}`);
+    return this.http.get<{ data: Ticket[], total: number }>(`${this.urlBase}${userID}`).pipe(
+      map(response => response.data)
+    );
   }
 
   getLastPurchase(): Observable<{ tickets: Ticket[]; status: string }> {

@@ -16,7 +16,14 @@ export const tokenSing = async (user: User) => {
     if (!process.env.SECRET_KEY) {
         throw new Error("SECRET_KEY is missing in environment variables");
     }
-    const roleNames = getRoleNames(user);
+    let roleNames = getRoleNames(user);
+    // If roles weren't loaded (eager removed), fetch them explicitly
+    if (roleNames.length === 0 && user.id) {
+        const refreshed = await User.findOne({ where: { id: user.id }, relations: ['roles'] });
+        if (refreshed) {
+            roleNames = getRoleNames(refreshed);
+        }
+    }
     return jwt.sign(
         {
             id: user.id,

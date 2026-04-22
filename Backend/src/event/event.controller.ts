@@ -44,7 +44,11 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const user = await queryRunner.manager.findOne(User, { where: { id: userId } });
+        const user = await queryRunner.manager.findOne(User, {
+            where: { id: userId },
+            relations: ['roles'],
+            select: ['id', 'firstname', 'lastname', 'email', 'mpUserId']
+        });
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
@@ -374,12 +378,15 @@ export const getEvent = async (req: Request, res: Response) => {
 
 export const getEvents = async (req: Request, res: Response) => {
     try {
-        const events = await Event.find({
+        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const [events, total] = await Event.findAndCount({
             where: { active: true, isPublic: true },
             relations: ["category", "ticketTypes"],
-            order: { date: "ASC" }
+            order: { date: "ASC" },
+            skip,
+            take
         });
-        return res.json(events);
+        return res.json({ data: events, total });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: error.message || "Error fetching events" });
@@ -403,6 +410,7 @@ export const getEventByName = async (req: Request, res: Response) => {
     try {
         const { title } = req.query;
         if (!title) return res.json([]);
+        const { take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
         const events = await AppDataSource.getRepository(Event)
             .createQueryBuilder("event")
@@ -410,6 +418,7 @@ export const getEventByName = async (req: Request, res: Response) => {
             .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
             .where("LOWER(event.title) LIKE :title", { title: `%${String(title).toLowerCase()}%` })
             .andWhere("event.active = true")
+            .limit(take)
             .getMany();
 
         return res.json(events);
@@ -422,12 +431,16 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: "Unauthorized" });
+        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
-        const events = await Event.find({
+        const [events, total] = await Event.findAndCount({
             where: { user_id: userId, active: true },
-            relations: ["category", "ticketTypes"]
+            relations: ["category", "ticketTypes"],
+            order: { date: "DESC" },
+            skip,
+            take
         });
-        return res.json(events);
+        return res.json({ data: events, total });
     } catch (error) {
         return res.status(500).json({ message: "Error fetching user events" });
     }
@@ -476,11 +489,12 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
                 previousEndDate = new Date(0);
         }
 
-        // Get all events for this creator
+        // Get all events for this creator (limit to prevent memory issues)
         const events = await Event.find({
             where: { user_id: userId, active: true },
             relations: ['ticketTypes'],
-            order: { createdAt: 'DESC' }
+            order: { createdAt: 'DESC' },
+            take: 100
         });
 
         const allTicketTypeIds = events.flatMap(e => e.ticketTypes.map(tt => tt.id));
@@ -611,50 +625,36 @@ export const getCreatorStatsComparative = async (req: CustomRequest, res: Respon
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Obtener todos los eventos del creador
-        const events = await Event.find({
-            where: { user_id: userId, active: true },
-            relations: ['ticketTypes'],
-            order: { date: 'DESC' }
-        });
+        // Single unified query with GROUP BY to eliminate N+1
+        const comparative = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .select([
+                'e.id as "eventId"',
+                'e.title as "title"',
+                'COUNT(t.id) as "participants"',
+                'SUM(t.purchasePrice) as "revenue"',
+                `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+            ])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .groupBy('e.id')
+            .addGroupBy('e.title')
+            .orderBy('e.date', 'DESC')
+            .getRawMany();
 
-        const comparative = await Promise.all(events.map(async (event) => {
-            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
-
-            if (ticketTypeIds.length === 0) {
-                return {
-                    eventId: event.id,
-                    title: event.title,
-                    participants: 0,
-                    revenue: 0,
-                    attendanceRate: 0
-                };
-            }
-
-            const stats = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder('t')
-                .select([
-                    'COUNT(t.id) as "totalTickets"',
-                    'SUM(t.purchasePrice) as "totalRevenue"',
-                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
-                ])
-                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
-                .getRawOne();
-
-            const totalTickets = parseInt(stats?.totalTickets || '0');
-            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
-            const usedCount = parseInt(stats?.usedCount || '0');
-
-            return {
-                eventId: event.id,
-                title: event.title,
-                participants: totalTickets,
-                revenue: totalRevenue,
-                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
-            };
+        const formatted = comparative.map(c => ({
+            eventId: parseInt(c.eventId),
+            title: c.title,
+            participants: parseInt(c.participants) || 0,
+            revenue: parseFloat(c.revenue) || 0,
+            attendanceRate: (parseInt(c.participants) || 0) > 0
+                ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0)
+                : 0
         }));
 
-        return res.json({ comparative });
+        return res.json({ comparative: formatted });
     } catch (error) {
         console.error("Error getting comparative stats:", error);
         return res.status(500).json({ message: "Error al obtener estadísticas comparativas" });

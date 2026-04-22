@@ -50,7 +50,7 @@ export const addPromoter = async (req: CustomRequest, res: Response) => {
 
         try {
             // Find user by email - must already exist
-            const promoter = await queryRunner.manager.findOne(User, { where: { email } });
+            const promoter = await queryRunner.manager.findOne(User, { where: { email }, relations: ['roles'] });
 
             if (!promoter) {
                 await queryRunner.rollbackTransaction();
@@ -194,10 +194,13 @@ export const getMyPromoters = async (req: CustomRequest, res: Response) => {
             return res.status(403).json({ code: "FORBIDDEN", message: "Acceso denegado" });
         }
 
-        const promoters = await PromoterGroup.find({
+        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const [promoters, total] = await PromoterGroup.findAndCount({
             where: { organizerId },
             relations: { promoter: true },
-            order: { createdAt: "DESC" }
+            order: { createdAt: "DESC" },
+            skip,
+            take
         });
 
         const formattedPromoters = promoters.map(pg => ({
@@ -214,7 +217,7 @@ export const getMyPromoters = async (req: CustomRequest, res: Response) => {
             createdAt: pg.createdAt
         }));
 
-        return res.status(200).json(formattedPromoters);
+        return res.status(200).json({ data: formattedPromoters, total });
 
     } catch (error: any) {
         console.error("Error fetching promoters:", error);

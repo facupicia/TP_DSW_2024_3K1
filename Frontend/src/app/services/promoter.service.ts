@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import {
   Promoter,
   CreatePromoterRequest,
@@ -25,7 +25,9 @@ export class PromoterService {
    * Get all promoters for the current organizer
    */
   getMyPromoters(): Observable<Promoter[]> {
-    return this.http.get<Promoter[]>(`${this.baseUrl}`);
+    return this.http.get<{ data: Promoter[], total: number }>(`${this.baseUrl}`).pipe(
+      map(response => response.data)
+    );
   }
 
   /**

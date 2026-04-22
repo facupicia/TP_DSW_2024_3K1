@@ -48,6 +48,7 @@ export class Coupon extends BaseEntity {
     event: Event;
 
     @Column()
+    @Index('idx_coupon_event_id')
     eventId: number;
 
     /* ===================== TIMESTAMPS ===================== */

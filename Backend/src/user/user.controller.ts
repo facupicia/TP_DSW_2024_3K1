@@ -40,7 +40,8 @@ export const signupUser = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const users = await User.find({
+    const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+    const [users, total] = await User.findAndCount({
       relations: ['roles'],
       select: {
         id: true,
@@ -49,7 +50,10 @@ export const getUsers = async (req: Request, res: Response) => {
         email: true,
         imgPerfil: true,
         active: true
-      }
+      },
+      order: { id: 'ASC' },
+      skip,
+      take
     })
     const usersWithRoleNames = users.map(u => ({
       id: u.id,
@@ -60,7 +64,7 @@ export const getUsers = async (req: Request, res: Response) => {
       active: u.active,
       roles: getRoleNames(u)
     }));
-    return res.status(200).json(usersWithRoleNames)
+    return res.status(200).json({ data: usersWithRoleNames, total })
   } catch (error) {
     return res.status(500).json({ message: error })
   }
@@ -191,7 +195,7 @@ export const profile = async (req: CustomRequest, res: Response) => {
     const id = req.user!.id
 
 
-    const user = await User.findOneBy({ id: id });
+    const user = await User.findOne({ where: { id }, relations: ['roles'] });
     if (!user) return res.status(404).json('No User found');
 
     // Merge roles: if roles array is incomplete compared to legacy rol, add it

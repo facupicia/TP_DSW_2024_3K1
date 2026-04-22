@@ -45,9 +45,9 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
         }
 
         // Get user with roles array
-        // Note: Using findOneBy instead of findOne with select to avoid TypeORM simple-array issues
         const userData = await User.findOne({
-            where: { id: req.user.id }
+            where: { id: req.user.id },
+            relations: ['roles']
         });
         
         if (!userData) {
@@ -99,7 +99,8 @@ export const checkExactRole = (requiredRoles: string | string[]) => async (req: 
         }
 
         const userData = await User.findOne({
-            where: { id: req.user.id }
+            where: { id: req.user.id },
+            relations: ['roles']
         });
 
         if (!userData) {

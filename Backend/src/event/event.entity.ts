@@ -55,6 +55,7 @@ export class Event extends BaseEntity {
     description: string;
 
     @Column({ default: true })
+    @Index('idx_event_active_public')
     active: boolean;
 
     @Column({ default: false })
@@ -66,6 +67,8 @@ export class Event extends BaseEntity {
     @Column({ default: true })
     isPublic: boolean;
 
+    @Index('idx_event_ciudad', ['ciudad'])
+
     /* ===================== RELATIONS ===================== */
 
     @ManyToOne(() => User, user => user.eventos, { nullable: false })
@@ -73,6 +76,7 @@ export class Event extends BaseEntity {
     user: User;
 
     @Column()
+    @Index('idx_event_user_id')
     user_id: number;
 
     @ManyToOne(() => Category, category => category.events, { nullable: false })
@@ -80,6 +84,7 @@ export class Event extends BaseEntity {
     category: Category;
 
     @Column()
+    @Index('idx_event_category_id')
     categoryId: number;
 
     @OneToMany(() => TicketType, ticketType => ticketType.event, {

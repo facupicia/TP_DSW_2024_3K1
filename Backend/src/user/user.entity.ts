@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn, ManyToMany, JoinTable } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn, ManyToMany, JoinTable, Index } from "typeorm"
 import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
@@ -56,7 +56,7 @@ export class User extends BaseEntity {
      * - admin: Full system access
      * - rrpp: Promoter/Relaciones Públicas - promotes events for an organizer
      */
-    @ManyToMany(() => Role, { eager: true, cascade: true })
+    @ManyToMany(() => Role, { eager: false, cascade: true })
     @JoinTable({
         name: 'user_roles',
         joinColumn: { name: 'userId', referencedColumnName: 'id' },
@@ -76,6 +76,7 @@ export class User extends BaseEntity {
 
     /** MP User ID (collector_id) para recibir pagos de tickets */
     @Column({ type: 'varchar', length: 100, nullable: true })
+    @Index('idx_user_mp_user_id')
     mpUserId: string | null;
 
     /** MP Access Token del organizador (válido 180 días) */
@@ -95,6 +96,7 @@ export class User extends BaseEntity {
     @Column({
         default: true
     })
+    @Index('idx_user_active')
     active: boolean;
 
     @CreateDateColumn({ type: 'timestamp' })
