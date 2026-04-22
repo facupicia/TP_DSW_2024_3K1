@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
@@ -12,6 +12,7 @@ import { ToastService } from '../../services/toast.service';
 import { DemoBannerComponent } from '../../components/demo-banner/demo-banner.component';
 import { CouponService } from '../../services/coupon.service';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-checkout',
@@ -20,7 +21,7 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './checkout.component.html',
   styleUrls: ['./checkout.component.css']
 })
-export class CheckoutComponent implements OnInit {
+export class CheckoutComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   public formBuild = inject(FormBuilder);
@@ -28,6 +29,7 @@ export class CheckoutComponent implements OnInit {
   private ticketService = inject(TicketService);
   private toastService = inject(ToastService);
   private couponService = inject(CouponService);
+  private destroyRef = inject(DestroyRef);
 
   timeLeft: number = 600; // 10 minutos en segundos
   timerDisplay: string = '10:00';
@@ -88,7 +90,7 @@ export class CheckoutComponent implements OnInit {
       this.promoterCodeFromUrl = true;
     }
 
-    this.eventoService.obtenerEvento(Number(this.eventId)).subscribe((evento) => {
+    this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
 
@@ -113,7 +115,7 @@ export class CheckoutComponent implements OnInit {
     });
 
     // Escuchar cambios en el tipo de ticket
-    this.formCheckout.get('ticketTypeId')?.valueChanges.subscribe(id => {
+    this.formCheckout.get('ticketTypeId')?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(id => {
       this.onTicketTypeChange(Number(id));
     });
 

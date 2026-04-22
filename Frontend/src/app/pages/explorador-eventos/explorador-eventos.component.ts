@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-explorador-eventos',
@@ -18,6 +19,7 @@ export class ExploradorEventosComponent implements OnInit {
   private router: Router = inject(Router);
   private eventoService: EventService = inject(EventService);
   private categoryService: CategoryService = inject(CategoryService);
+  private destroyRef = inject(DestroyRef);
 
   eventos: Evento[] = [];
   categorias: string[] = [];
@@ -37,20 +39,21 @@ export class ExploradorEventosComponent implements OnInit {
   ngOnInit(): void {
     this.isLoading = true;
 
-    // Cargar Eventos (filtrar solo eventos futuros)
-    this.eventoService.obtenerEventos().subscribe({
+    // Cargar Eventos y Destacados en una sola llamada
+    this.eventoService.obtenerEventos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (eventos) => {
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
-        
+
         // Filtrar eventos que no han pasado (fecha >= hoy)
         const eventosActivos = eventos.filter(evento => {
           const fechaEvento = new Date(evento.date);
           return fechaEvento >= hoy;
         });
-        
+
         this.eventos = eventosActivos;
         this.eventosFiltrados = eventosActivos;
+        this.destacados = eventosActivos.filter(e => e.destacado);
         this.isLoading = false;
       },
       error: () => {
@@ -61,31 +64,10 @@ export class ExploradorEventosComponent implements OnInit {
 
     // Cargar Categorías
     this.obtenerCategorias();
-
-    // Cargar Destacados (también filtrar solo eventos futuros)
-    this.eventoService.obtenerEventos().subscribe({
-      next: (eventos) => {
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-        
-        // Filtrar eventos que no han pasado
-        const eventosActivos = eventos.filter(evento => {
-          const fechaEvento = new Date(evento.date);
-          return fechaEvento >= hoy;
-        });
-        
-        this.destacados = eventosActivos.filter(e => e.destacado);
-        this.isLoading = false;
-      },
-      error: () => {
-        // Error handled by interceptor
-        this.isLoading = false;
-      }
-    });
   }
 
   obtenerCategorias() {
-    this.categoryService.getCategories().subscribe((categorias) => {
+    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((categorias) => {
       this.categorias = categorias.map(categoria => categoria.name);
     })
   }

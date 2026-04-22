@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, DestroyRef } from '@angular/core';
 import { TicketService } from '../../services/ticket.service';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { TicketCardComponent } from './ticket-card.component';
 import * as htmlToImage from 'html-to-image';
 import { ToastService } from '../../services/toast.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 interface EventGroup {
   eventTitle: string;
@@ -29,6 +30,7 @@ export class TicketsComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private toastService = inject(ToastService);
+  private destroyRef = inject(DestroyRef);
 
   private userID: string | null = null;
 
@@ -119,7 +121,7 @@ export class TicketsComponent implements OnInit {
 
 
   cargarTickets() {
-    this.tickService.getTicketsByUser(Number(this.userID)).subscribe({
+    this.tickService.getTicketsByUser(Number(this.userID)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.agruparTicketsPorEvento(data);
         console.log(this.groupedTickets);

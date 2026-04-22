@@ -29,11 +29,16 @@ const AppDataSource = new DataSource({
     username: !connectionUrl ? process.env.PGUSER : undefined,
     password: !connectionUrl ? process.env.PGPASSWORD : undefined,
     database: !connectionUrl ? process.env.PGDATABASE : undefined,
-    ssl: connectionUrl ? true : false,
-    extra: connectionUrl ? { ssl: { rejectUnauthorized: false } } : undefined,
     synchronize: process.env.DB_SYNC === 'true',
     logging: process.env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, Role],
+    // Connection pool tuning + SSL config for Neon PostgreSQL
+    extra: {
+        ...(connectionUrl ? { ssl: { rejectUnauthorized: false } } : {}),
+        max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+        connectionTimeoutMillis: parseInt(process.env.DB_CONN_TIMEOUT || '5000', 10),
+        idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
+    },
 });
 
 export default AppDataSource;

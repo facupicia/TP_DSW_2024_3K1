@@ -715,7 +715,8 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         // Send initial data
         res.write(`data: ${JSON.stringify({ type: 'initial', data: currentData })}\n\n`);
 
-        // Set up interval to check for updates every 10 seconds
+        // Set up interval to check for updates every 30 seconds (reduced from 10s to lower DB load)
+        // For real-time, consider using a pub/sub system or webhook instead of polling
         const interval = setInterval(async () => {
             try {
                 if (allTicketTypeIds.length === 0) return;
@@ -740,12 +741,12 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
                 if (newData.lastSaleAt && 
                     (!currentData.lastSaleAt || newData.lastSaleAt > currentData.lastSaleAt)) {
                     currentData = newData;
-                    res.write(`data: ${JSON.stringify({ type: 'update', data: newData })}\n\n`);
+                    res.write(`data: ${JSON.stringify({ type: 'update', data: newData }) }\n\n`);
                 }
             } catch (err) {
                 console.error('Error in stats stream:', err);
             }
-        }, 10000);
+        }, 30000);
 
         // Clean up on client disconnect
         req.on('close', () => {
