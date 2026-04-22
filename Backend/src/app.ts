@@ -3,6 +3,8 @@ import morgan from "morgan";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger";
 // Routes from modules
 import userRoutes from "./user/user.routes"
 import eventRoutes from "./event/event.routes"
@@ -93,6 +95,13 @@ app.get('/health', async (_req, res) => {
 
 // Métricas Prometheus
 app.get('/metrics', metricsHandler)
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'EventLife API Docs'
+}));
 
 /* ==================== API ROUTES ==================== */
 app.use("/api/category", categoryRoutes)

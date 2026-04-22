@@ -554,29 +554,31 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
             ? ((currentTickets - previousStats.totalTickets) / previousStats.totalTickets) * 100 
             : 0;
 
-        // Top events by revenue
-        const topEvents = await Promise.all(
-            events.slice(0, 5).map(async (event) => {
-                const ttIds = event.ticketTypes.map(tt => tt.id);
-                if (ttIds.length === 0) return { eventId: event.id, title: event.title, revenue: 0, tickets: 0 };
-                
-                const stats = await AppDataSource.getRepository(Ticket)
-                    .createQueryBuilder('t')
-                    .select([
-                        'COUNT(t.id) as tickets',
-                        'SUM(t.purchasePrice) as revenue'
-                    ])
-                    .where('t.ticketTypeId IN (:...ids)', { ids: ttIds })
-                    .getRawOne();
-                    
-                return {
-                    eventId: event.id,
-                    title: event.title,
-                    revenue: parseFloat(stats?.revenue || '0'),
-                    tickets: parseInt(stats?.tickets || '0')
-                };
-            })
-        );
+        // Top events by revenue (single aggregated query to avoid N+1)
+        const topEventsRaw = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .select([
+                'e.id as "eventId"',
+                'e.title as "title"',
+                'COUNT(t.id) as "tickets"',
+                'SUM(t.purchasePrice) as "revenue"'
+            ])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .groupBy('e.id')
+            .addGroupBy('e.title')
+            .orderBy('SUM(t.purchasePrice)', 'DESC')
+            .limit(5)
+            .getRawMany();
+
+        const topEvents = topEventsRaw.map(r => ({
+            eventId: parseInt(r.eventId),
+            title: r.title,
+            revenue: parseFloat(r.revenue || '0'),
+            tickets: parseInt(r.tickets || '0')
+        }));
 
         // Recent activity (last 10 sales)
         const recentActivity = await AppDataSource.getRepository(Ticket)
@@ -776,51 +778,40 @@ export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) =
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Get stats data using the same logic as getCreatorStatsComparative
-        const events = await Event.find({
-            where: { user_id: userId, active: true },
-            relations: ['ticketTypes', 'category'],
-            order: { date: 'DESC' }
-        });
+        // Get stats data in a single aggregated query to avoid N+1
+        const statsRaw = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .leftJoin('e.category', 'c')
+            .select([
+                'e.id as "eventId"',
+                'e.title as "title"',
+                'e.date as "date"',
+                'c.name as "category"',
+                'COUNT(t.id) as "participants"',
+                'SUM(t.purchasePrice) as "revenue"',
+                `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+            ])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .groupBy('e.id')
+            .addGroupBy('e.title')
+            .addGroupBy('e.date')
+            .addGroupBy('c.name')
+            .orderBy('e.date', 'DESC')
+            .getRawMany();
 
-        const comparative = await Promise.all(events.map(async (event) => {
-            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
-
-            if (ticketTypeIds.length === 0) {
-                return {
-                    eventId: event.id,
-                    title: event.title,
-                    date: event.date,
-                    category: event.category?.name || 'Sin categoría',
-                    participants: 0,
-                    revenue: 0,
-                    attendanceRate: 0
-                };
-            }
-
-            const stats = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder('t')
-                .select([
-                    'COUNT(t.id) as "totalTickets"',
-                    'SUM(t.purchasePrice) as "totalRevenue"',
-                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
-                ])
-                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
-                .getRawOne();
-
-            const totalTickets = parseInt(stats?.totalTickets || '0');
-            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
-            const usedCount = parseInt(stats?.usedCount || '0');
-
-            return {
-                eventId: event.id,
-                title: event.title,
-                date: event.date,
-                category: event.category?.name || 'Sin categoría',
-                participants: totalTickets,
-                revenue: totalRevenue,
-                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
-            };
+        const comparative = statsRaw.map(c => ({
+            eventId: parseInt(c.eventId),
+            title: c.title,
+            date: c.date,
+            category: c.category || 'Sin categoría',
+            participants: parseInt(c.participants) || 0,
+            revenue: parseFloat(c.revenue) || 0,
+            attendanceRate: (parseInt(c.participants) || 0) > 0
+                ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0)
+                : 0
         }));
 
         const totalRevenue = comparative.reduce((sum, e) => sum + e.revenue, 0);
@@ -849,7 +840,7 @@ export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) =
         
         const summaryY = doc.y;
         doc.rect(50, summaryY, 500, 60).stroke('#cccccc');
-        doc.text(`Total de Eventos: ${events.length}`, 60, summaryY + 10);
+        doc.text(`Total de Eventos: ${comparative.length}`, 60, summaryY + 10);
         doc.text(`Ingresos Totales: $${totalRevenue.toLocaleString('es-AR')}`, 60, summaryY + 30);
         doc.text(`Tickets Vendidos: ${totalTickets}`, 300, summaryY + 10);
         doc.text(`Ticket Promedio: $${totalTickets > 0 ? (totalRevenue / totalTickets).toFixed(2) : '0.00'}`, 300, summaryY + 30);
@@ -1173,51 +1164,40 @@ export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) =
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Get stats data
-        const events = await Event.find({
-            where: { user_id: userId, active: true },
-            relations: ['ticketTypes', 'category'],
-            order: { date: 'DESC' }
-        });
+        // Get stats data in a single aggregated query to avoid N+1
+        const statsRaw = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .leftJoin('e.category', 'c')
+            .select([
+                'e.id as "eventId"',
+                'e.title as "title"',
+                'e.date as "date"',
+                'c.name as "category"',
+                'COUNT(t.id) as "participants"',
+                'SUM(t.purchasePrice) as "revenue"',
+                `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
+            ])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .groupBy('e.id')
+            .addGroupBy('e.title')
+            .addGroupBy('e.date')
+            .addGroupBy('c.name')
+            .orderBy('e.date', 'DESC')
+            .getRawMany();
 
-        const comparative = await Promise.all(events.map(async (event) => {
-            const ticketTypeIds = event.ticketTypes.map(tt => tt.id);
-
-            if (ticketTypeIds.length === 0) {
-                return {
-                    eventId: event.id,
-                    title: event.title,
-                    date: event.date,
-                    category: event.category?.name || 'Sin categoría',
-                    participants: 0,
-                    revenue: 0,
-                    attendanceRate: 0
-                };
-            }
-
-            const stats = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder('t')
-                .select([
-                    'COUNT(t.id) as "totalTickets"',
-                    'SUM(t.purchasePrice) as "totalRevenue"',
-                    `SUM(CASE WHEN t.status = 'used' THEN 1 ELSE 0 END) as "usedCount"`
-                ])
-                .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
-                .getRawOne();
-
-            const totalTickets = parseInt(stats?.totalTickets || '0');
-            const totalRevenue = parseFloat(stats?.totalRevenue || '0');
-            const usedCount = parseInt(stats?.usedCount || '0');
-
-            return {
-                eventId: event.id,
-                title: event.title,
-                date: event.date,
-                category: event.category?.name || 'Sin categoría',
-                participants: totalTickets,
-                revenue: totalRevenue,
-                attendanceRate: totalTickets > 0 ? usedCount / totalTickets : 0
-            };
+        const comparative = statsRaw.map(c => ({
+            eventId: parseInt(c.eventId),
+            title: c.title,
+            date: c.date,
+            category: c.category || 'Sin categoría',
+            participants: parseInt(c.participants) || 0,
+            revenue: parseFloat(c.revenue) || 0,
+            attendanceRate: (parseInt(c.participants) || 0) > 0
+                ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0)
+                : 0
         }));
 
         // Generate CSV

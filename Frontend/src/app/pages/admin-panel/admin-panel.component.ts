@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { CategoryService } from '../../services/category.service';
@@ -14,6 +14,7 @@ import { DashboardOverviewComponent } from '../../components/dashboard-overview/
 import { RevenueViewComponent } from '../../components/revenue-view/revenue-view.component';
 import { SubscriptionChartComponent } from '../../components/subscription-chart/subscription-chart.component';
 import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
 type DatePreset = 'today' | '7days' | '30days' | '90days' | 'all';
@@ -32,7 +33,8 @@ type DatePreset = 'today' | '7days' | '30days' | '90days' | 'all';
     PercentFormatterPipe
   ],
   templateUrl: './admin-panel.component.html',
-  styleUrls: ['./admin-panel.component.css']
+  styleUrls: ['./admin-panel.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminPanelComponent implements OnInit {
 
@@ -43,6 +45,7 @@ export class AdminPanelComponent implements OnInit {
   private toast = inject(ToastService);
   private statsService = inject(StatsService);
   private eventService = inject(EventService);
+  private destroyRef = inject(DestroyRef);
 
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
@@ -84,7 +87,7 @@ export class AdminPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarCategorias();
-    this.userService.currentUser$.subscribe(u => {
+    this.userService.currentUser$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
     });
 
@@ -102,7 +105,7 @@ export class AdminPanelComponent implements OnInit {
     if (!token) return;
 
     this.loadingMetrics = true;
-    this.adminService.getOverview(this.dateRange).subscribe({
+    this.adminService.getOverview(this.dateRange).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         if (response.success) {
           this.overview = response.data;
@@ -121,7 +124,7 @@ export class AdminPanelComponent implements OnInit {
   }
 
   getEvents() {
-    this.eventService.getEventsNumber().subscribe({
+    this.eventService.getEventsNumber().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.stats.activeEvents = data;
         console.log(this.stats.activeEvents);
@@ -133,7 +136,7 @@ export class AdminPanelComponent implements OnInit {
 
   cargarCategorias() {
     this.loadingCategories = true;
-    this.categoryService.getCategories().subscribe({
+    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         this.categorias = res;
         this.stats.totalCategories = res.length;
@@ -148,7 +151,7 @@ export class AdminPanelComponent implements OnInit {
     const token = localStorage.getItem('token');
     if (!token) return;
     this.loadingUsers = true;
-    this.userService.getUsers().subscribe({
+    this.userService.getUsers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         this.usuarios = res;
         for (const u of this.usuarios) {
@@ -229,7 +232,7 @@ export class AdminPanelComponent implements OnInit {
   crearCategoria() {
     if (this.formCategory.invalid) return;
     const nombreCategoria = this.formCategory.value.name;
-    this.categoryService.cargarCategoria(nombreCategoria).subscribe({
+    this.categoryService.cargarCategoria(nombreCategoria).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.categorias.push(res);
         this.stats.totalCategories++;
@@ -241,7 +244,7 @@ export class AdminPanelComponent implements OnInit {
 
   eliminarCategoria(id: number) {
     if (confirm('¿Eliminar categoría?')) {
-      this.categoryService.deleteCategory(id).subscribe(() => {
+      this.categoryService.deleteCategory(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
         this.categorias = this.categorias.filter(c => c.id !== id);
         this.stats.totalCategories--;
       });
@@ -250,7 +253,7 @@ export class AdminPanelComponent implements OnInit {
 
   eliminarUsuario(id: any) {
     if (confirm('¿Eliminar usuario? Esta acción es irreversible.')) {
-      this.userService.delete(id).subscribe(() => {
+      this.userService.delete(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
         this.usuarios = this.usuarios.filter(u => u.id !== id);
         this.stats.totalUsers--;
       });
@@ -288,7 +291,7 @@ export class AdminPanelComponent implements OnInit {
     }
     
     this.updatingRole[u.id!] = true;
-    this.userService.updateRole(u.id!, nuevosRoles, 'set').subscribe({
+    this.userService.updateRole(u.id!, nuevosRoles, 'set').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (resp: any) => {
         u.roles = nuevosRoles;
         u.rol = getHighestRole(nuevosRoles); // Update legacy field

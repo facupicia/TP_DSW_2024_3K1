@@ -75,9 +75,11 @@ export class Ticket extends BaseEntity {
     /** Promoter who sold this ticket (if applicable) */
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: "soldByPromoterId" })
+    @Index("idx_ticket_sold_by_promoter")
     soldByPromoter: User | null;
 
     @Column({ nullable: true })
+    @Index("idx_ticket_sold_by_promoter_id")
     soldByPromoterId: number | null;
 
     /** Commission percentage applied at the time of sale */
@@ -99,9 +101,11 @@ export class Ticket extends BaseEntity {
 
     @ManyToOne(() => User, { nullable: true })
     @JoinColumn({ name: "scannedById" })
+    @Index("idx_ticket_scanned_by")
     scannedBy: User | null;
 
     @Column({ nullable: true })
+    @Index("idx_ticket_scanned_by_id")
     scannedById: number | null;
 
     /* ===================== TIMESTAMPS ===================== */

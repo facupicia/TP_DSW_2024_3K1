@@ -31,8 +31,8 @@ const AppDataSource = new DataSource({
     database: !connectionUrl ? process.env.PGDATABASE : undefined,
     ssl: connectionUrl ? true : false,
     extra: connectionUrl ? { ssl: { rejectUnauthorized: false } } : undefined,
-    synchronize: true,
-    logging: false,
+    synchronize: process.env.DB_SYNC === 'true',
+    logging: process.env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, Role],
 });
 

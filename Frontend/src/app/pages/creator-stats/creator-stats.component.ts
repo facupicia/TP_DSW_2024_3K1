@@ -1,9 +1,10 @@
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { NgApexchartsModule } from 'ng-apexcharts';
-import { Subscription, catchError, of, forkJoin } from 'rxjs';
+import { catchError, of, forkJoin } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { StatsService, ComparativeData } from '../../services/stats.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
@@ -113,14 +114,16 @@ const createTopEventsChartOptions = (): ChartOptions => ({
         UpgradeButtonComponent
     ],
     templateUrl: './creator-stats.component.html',
-    styleUrls: ['./creator-stats.component.css']
+    styleUrls: ['./creator-stats.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CreatorStatsComponent implements OnInit, OnDestroy {
+export class CreatorStatsComponent implements OnInit {
     // Dependency Injection
     private readonly statsService = inject(StatsService);
     private readonly subscriptionService = inject(SubscriptionService);
     private readonly router = inject(Router);
     private readonly toastService = inject(ToastService);
+    private readonly destroyRef = inject(DestroyRef);
 
     // Subscription State
     isPro = false;
@@ -149,9 +152,6 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
     retentionChartOptions = createRetentionChartOptions();
     topEventsChartOptions = createTopEventsChartOptions();
 
-    // Subscriptions
-    private refreshSubscription: Subscription | null = null;
-
     // Computed getters for template
     get totalRevenue(): number { return this.metrics.totalRevenue; }
     get totalTicketsSold(): number { return this.metrics.totalTicketsSold; }
@@ -164,14 +164,10 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
         this.loadAllData();
     }
 
-    ngOnDestroy(): void {
-        this.refreshSubscription?.unsubscribe();
-    }
-
     /* ========== DATA LOADING ========== */
 
     private loadSubscription(): void {
-        this.subscriptionService.getMySubscription().subscribe({
+        this.subscriptionService.getMySubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (sub) => {
                 this.subscription = sub;
                 this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
@@ -203,7 +199,7 @@ export class CreatorStatsComponent implements OnInit, OnDestroy {
                     recentActivity: []
                 }))
             )
-        }).subscribe({
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (data) => {
                 this.comparative = data.comparative?.comparative ?? [];
                 
