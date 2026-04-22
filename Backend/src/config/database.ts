@@ -10,6 +10,7 @@ import { TicketType } from "../ticketType/ticketType.entity"
 import { Category } from "../category/category.entity"
 import { PaymentLog } from "../payment/payment.entity"
 import { RoleAudit } from "../user/roleAudit.entity"
+import { Role } from "../user/role.entity"
 import { SubscriptionPlan } from "../subscription/subscription_plan.entity"
 import { UserSubscription } from "../subscription/user_subscription.entity"
 import dotenv from "dotenv";
@@ -32,7 +33,7 @@ const AppDataSource = new DataSource({
     extra: connectionUrl ? { ssl: { rejectUnauthorized: false } } : undefined,
     synchronize: true,
     logging: false,
-    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment],
+    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, Role],
 });
 
 export default AppDataSource;

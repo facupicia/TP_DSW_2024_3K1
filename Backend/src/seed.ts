@@ -104,7 +104,64 @@ async function seed() {
             }
             console.log('✅ Subscription plans created\n');
 
-            // 2.5 User Subscriptions (for organizers)
+            // 3. Roles
+            console.log('🔑 Creating roles...');
+            const rolesData = [
+                { id: 1, name: 'user' },
+                { id: 2, name: 'rrpp' },
+                { id: 3, name: 'scanner' },
+                { id: 4, name: 'organizer' },
+                { id: 5, name: 'admin' }
+            ];
+            for (const role of rolesData) {
+                await queryRunner.manager.query(
+                    `INSERT INTO role (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+                    [role.id, role.name]
+                );
+            }
+            console.log('✅ Roles created\n');
+
+            // 4. Users (Organizers and Regular Users) - MUST be before user_subscription
+            console.log('👤 Creating users...');
+            const hashedPassword = await bcrypt.hash('123456', 10);
+
+            const users = [
+                // Organizers
+                { id: 1, firstname: 'Carlos', lastname: 'López', email: 'carlos.organizador@gmail.com', phone: '3514567890', roles: [4] },
+                { id: 2, firstname: 'María', lastname: 'González', email: 'maria.eventos@gmail.com', phone: '3515678901', roles: [4] },
+                { id: 3, firstname: 'Diego', lastname: 'Fernández', email: 'diego.producciones@gmail.com', phone: '3516789012', roles: [4] },
+                // Regular Users
+                { id: 4, firstname: 'Juan', lastname: 'Pérez', email: 'juan.usuario@gmail.com', phone: '3517890123', roles: [1] },
+                { id: 5, firstname: 'Ana', lastname: 'Rodríguez', email: 'ana.compras@gmail.com', phone: '3518901234', roles: [1] },
+                { id: 6, firstname: 'Laura', lastname: 'Martínez', email: 'laura.eventos@gmail.com', phone: '3519012345', roles: [1] },
+                { id: 7, firstname: 'Pedro', lastname: 'Sánchez', email: 'pedro.fan@gmail.com', phone: '3510123456', roles: [1] },
+                { id: 8, firstname: 'Lucía', lastname: 'Ramírez', email: 'lucia.tickets@gmail.com', phone: '3511234567', roles: [1] },
+                { id: 9, firstname: 'Martín', lastname: 'Torres', email: 'martin.comprador@gmail.com', phone: '3512345678', roles: [1] },
+                { id: 10, firstname: 'Sofía', lastname: 'López', email: 'sofia.music@gmail.com', phone: '3513456789', roles: [1] },
+                // Admin
+                { id: 11, firstname: 'Admin', lastname: 'Sistema', email: 'admin@eventlife.com', phone: '3513456789', roles: [5] }
+            ];
+
+            for (const user of users) {
+                await queryRunner.manager.query(
+                    `INSERT INTO "user" (id, firstname, lastname, email, phone, "imgPerfil", pais, provincia, ciudad, address, birth, password, active, "createdAt", "updatedAt")
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, true, NOW(), NOW())
+                     ON CONFLICT (id) DO NOTHING`,
+                    [user.id, user.firstname, user.lastname, user.email, user.phone,
+                     'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
+                     'Argentina', 'Córdoba', 'Córdoba Capital', 'Dirección ejemplo', '1990-01-01',
+                     hashedPassword]
+                );
+                for (const roleId of user.roles) {
+                    await queryRunner.manager.query(
+                        `INSERT INTO user_roles ("userId", "roleId") VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                        [user.id, roleId]
+                    );
+                }
+            }
+            console.log('✅ Users created\n');
+
+            // 2.5 User Subscriptions (for organizers and users)
             console.log('📅 Creating user subscriptions...');
             const userSubscriptions = [
                 // Organizer 1: FREE plan (monthly)
@@ -134,40 +191,6 @@ async function seed() {
                 );
             }
             console.log('✅ User subscriptions created\n');
-
-            // 3. Users (Organizers and Regular Users)
-            console.log('👤 Creating users...');
-            const hashedPassword = await bcrypt.hash('123456', 10);
-            
-            const users = [
-                // Organizers
-                { id: 1, firstname: 'Carlos', lastname: 'López', email: 'carlos.organizador@gmail.com', phone: '3514567890', roles: ['organizer'] },
-                { id: 2, firstname: 'María', lastname: 'González', email: 'maria.eventos@gmail.com', phone: '3515678901', roles: ['organizer'] },
-                { id: 3, firstname: 'Diego', lastname: 'Fernández', email: 'diego.producciones@gmail.com', phone: '3516789012', roles: ['organizer'] },
-                // Regular Users
-                { id: 4, firstname: 'Juan', lastname: 'Pérez', email: 'juan.usuario@gmail.com', phone: '3517890123', roles: ['user'] },
-                { id: 5, firstname: 'Ana', lastname: 'Rodríguez', email: 'ana.compras@gmail.com', phone: '3518901234', roles: ['user'] },
-                { id: 6, firstname: 'Laura', lastname: 'Martínez', email: 'laura.eventos@gmail.com', phone: '3519012345', roles: ['user'] },
-                { id: 7, firstname: 'Pedro', lastname: 'Sánchez', email: 'pedro.fan@gmail.com', phone: '3510123456', roles: ['user'] },
-                { id: 8, firstname: 'Lucía', lastname: 'Ramírez', email: 'lucia.tickets@gmail.com', phone: '3511234567', roles: ['user'] },
-                { id: 9, firstname: 'Martín', lastname: 'Torres', email: 'martin.comprador@gmail.com', phone: '3512345678', roles: ['user'] },
-                { id: 10, firstname: 'Sofía', lastname: 'López', email: 'sofia.music@gmail.com', phone: '3513456789', roles: ['user'] },
-                // Admin
-                { id: 11, firstname: 'Admin', lastname: 'Sistema', email: 'admin@eventlife.com', phone: '3513456789', roles: ['admin'] }
-            ];
-            
-            for (const user of users) {
-                await queryRunner.manager.query(
-                    `INSERT INTO "user" (id, firstname, lastname, email, phone, "imgPerfil", pais, provincia, ciudad, address, birth, password, roles, active, "createdAt", "updatedAt")
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, true, NOW(), NOW())
-                     ON CONFLICT (id) DO NOTHING`,
-                    [user.id, user.firstname, user.lastname, user.email, user.phone,
-                     'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png',
-                     'Argentina', 'Córdoba', 'Córdoba Capital', 'Dirección ejemplo', '1990-01-01',
-                     hashedPassword, user.roles.join(',')]
-                );
-            }
-            console.log('✅ Users created\n');
 
             // 4. Events
             console.log('🎉 Creating events...');
@@ -276,6 +299,12 @@ async function seed() {
             // Reset sequences to avoid PK conflicts after inserting explicit IDs
             console.log('🔄 Resetting sequences...');
             await queryRunner.manager.query(`
+                SELECT setval('role_id_seq', COALESCE((SELECT MAX(id) FROM role), 0) + 1, false);
+            `);
+            await queryRunner.manager.query(`
+                SELECT setval('user_id_seq', COALESCE((SELECT MAX(id) FROM "user"), 0) + 1, false);
+            `);
+            await queryRunner.manager.query(`
                 SELECT setval('promoter_group_id_seq', COALESCE((SELECT MAX(id) FROM promoter_group), 0) + 1, false);
             `);
             await queryRunner.manager.query(`
@@ -290,6 +319,7 @@ async function seed() {
             console.log('\n📊 Summary:');
             const results = await queryRunner.manager.query(`
                 SELECT 'Categories' as table_name, COUNT(*) as count FROM category
+                UNION ALL SELECT 'Roles', COUNT(*) FROM role
                 UNION ALL SELECT 'Users', COUNT(*) FROM "user"
                 UNION ALL SELECT 'Events', COUNT(*) FROM event
                 UNION ALL SELECT 'Ticket Types', COUNT(*) FROM ticket_type

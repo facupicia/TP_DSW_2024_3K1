@@ -10,12 +10,21 @@
 import "reflect-metadata";
 import AppDataSource from "../../config/database";
 import { User } from "../../user/user.entity";
+import { Role, getRoleNames } from "../../user/role.entity";
 import { Event } from "../../event/event.entity";
 
 async function migrateOrganizers() {
     try {
         await AppDataSource.initialize();
         console.log("📦 Database connected");
+
+        // Ensure organizer role exists
+        const roleRepo = AppDataSource.getRepository(Role);
+        let organizerRole = await roleRepo.findOne({ where: { name: 'organizer' } });
+        if (!organizerRole) {
+            organizerRole = roleRepo.create({ name: 'organizer' });
+            await roleRepo.save(organizerRole);
+        }
 
         // Find all users who have created events
         const usersWithEvents = await AppDataSource
@@ -33,17 +42,22 @@ async function migrateOrganizers() {
 
         console.log(`🔍 Found ${userIds.length} users with events`);
 
-        // Update users with 'user' role to 'organizer'
-        const result = await AppDataSource
-            .getRepository(User)
-            .createQueryBuilder()
-            .update(User)
-            .set({ roles: ['organizer'] })
-            .where("id IN (:...ids)", { ids: userIds })
-            .andWhere("roles = :rol", { rol: 'user' })
-            .execute();
+        // Load users and promote those with only 'user' role
+        const userRepo = AppDataSource.getRepository(User);
+        let promotedCount = 0;
+        for (const userId of userIds) {
+            const user = await userRepo.findOne({ where: { id: userId }, relations: ['roles'] });
+            if (!user) continue;
 
-        console.log(`✅ Promoted ${result.affected} users to 'organizer' role`);
+            const roleNames = getRoleNames(user);
+            if (roleNames.length === 1 && roleNames[0] === 'user') {
+                user.roles = [organizerRole];
+                await userRepo.save(user);
+                promotedCount++;
+            }
+        }
+
+        console.log(`✅ Promoted ${promotedCount} users to 'organizer' role`);
 
     } catch (error) {
         console.error("❌ Migration failed:", error);

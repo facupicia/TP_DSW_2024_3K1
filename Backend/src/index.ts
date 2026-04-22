@@ -5,6 +5,7 @@ import AppDataSource from "./db";
 import dotenv from "dotenv";
 import { verifyMailer } from "./common/services/mailer";
 import { getMPConfig } from "./payment/mp.config";
+import { migrateLegacyRoles } from "./user/migrate-roles";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +22,9 @@ async function main() {
     
     await AppDataSource.initialize();
     console.log("✓ Base de datos conectada");
-    
+
+    await migrateLegacyRoles();
+
     app.listen(PORT);
     console.log(`✓ Servidor iniciado en puerto ${PORT}`);
     

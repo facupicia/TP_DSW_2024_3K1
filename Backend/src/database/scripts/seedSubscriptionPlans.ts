@@ -81,9 +81,10 @@ async function seedSubscriptionPlans() {
         console.log("\n👥 Assigning FREE plan to existing organizers...");
 
         // Find all organizers without a subscription
-        const organizers = await userRepo.find({
-            where: { roles: 'organizer' }
-        });
+        const organizers = await userRepo.createQueryBuilder('user')
+            .innerJoin('user.roles', 'role')
+            .where('role.name = :role', { role: 'organizer' })
+            .getMany();
 
         let assignedCount = 0;
         for (const organizer of organizers) {

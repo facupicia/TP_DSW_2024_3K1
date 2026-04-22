@@ -61,8 +61,8 @@ export class Ticket extends BaseEntity {
     /* ===================== BUSINESS DATA ===================== */
 
     @Column({
-        type: "enum",
-        enum: TicketStatus,
+        type: "varchar",
+        length: 20,
         default: TicketStatus.ACTIVE
     })
     status: TicketStatus;

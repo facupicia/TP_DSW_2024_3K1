@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Event } from "./event.entity";
 import { Category } from "../category/category.entity";
 import { User } from "../user/user.entity";
+import { Role, getRoleNames } from "../user/role.entity";
 import { CustomRequest } from "../common/middleware/authToken";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -92,9 +93,15 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         // ======================================================
 
         // Promote user to organizer role if they don't have it yet
-        const userRoles = user.roles || ['user'];
-        if (!userRoles.includes('organizer')) {
-            user.roles = [...userRoles, 'organizer'];
+        const userRoleNames = getRoleNames(user);
+        if (!userRoleNames.includes('organizer')) {
+            const roleRepo = queryRunner.manager.getRepository(Role);
+            let organizerRole = await roleRepo.findOne({ where: { name: 'organizer' } });
+            if (!organizerRole) {
+                organizerRole = roleRepo.create({ name: 'organizer' });
+                await roleRepo.save(organizerRole);
+            }
+            user.roles = [...user.roles, organizerRole];
             await queryRunner.manager.save(User, user);
             // Ensure user has a subscription (will create FREE if none exists)
             await assignDefaultPlan(userId);

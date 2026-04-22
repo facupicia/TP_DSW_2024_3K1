@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { User } from "../../user/user.entity";
+import { getRoleNames } from "../../user/role.entity";
 import { CustomRequest as AuthRequest } from "./authToken";
 
 export interface IPayload {
@@ -53,11 +54,10 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
             return res.status(404).json({ code: "USER_NOT_FOUND", message: "User not found" });
         }
 
-        // Get user's roles (defaults to ['user'] if not set)
-        // Ensure roles is always an array (TypeORM simple-array can sometimes return string)
-        let userRoles: string[] = userData.roles || ['user'];
-        if (typeof userRoles === 'string') {
-            userRoles = (userRoles as any).split(',').map((r: string) => r.trim()).filter(Boolean);
+        // Get user's role names (defaults to ['user'] if not set)
+        let userRoles: string[] = getRoleNames(userData);
+        if (userRoles.length === 0) {
+            userRoles = ['user'];
         }
         
         const requiredRolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
@@ -99,15 +99,14 @@ export const checkExactRole = (requiredRoles: string | string[]) => async (req: 
         }
 
         const userData = await User.findOne({
-            where: { id: req.user.id },
-            select: ['id', 'roles']
+            where: { id: req.user.id }
         });
-        
+
         if (!userData) {
             return res.status(404).json({ code: "USER_NOT_FOUND", message: "User not found" });
         }
 
-        const userRoles = userData.roles || ['user'];
+        const userRoles = getRoleNames(userData).length > 0 ? getRoleNames(userData) : ['user'];
         const requiredRolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
         
         // Check for exact role match

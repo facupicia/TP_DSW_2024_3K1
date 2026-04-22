@@ -6,11 +6,15 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         if (token) {
             const cloned = req.clone({
                 setHeaders: {
-                    token: `${token}`
+                    Authorization: `Bearer ${token}`
                 }
             });
             return next(cloned);
+        } else {
+            console.warn('[AuthInterceptor] No token found in localStorage for request to:', req.url);
         }
+    } else {
+        console.warn('[AuthInterceptor] window or localStorage not available for request to:', req.url);
     }
     return next(req);
 };

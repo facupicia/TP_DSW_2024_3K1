@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { CustomRequest } from "../common/middleware/authToken";
 import { User } from "../user/user.entity";
+import { Role, getRoleNames } from "../user/role.entity";
 import { Event } from "../event/event.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup, PromoterEventAssignment } from "./promoter.entity";
@@ -70,23 +71,30 @@ export const addPromoter = async (req: CustomRequest, res: Response) => {
             }
 
             // Check if user is already an rrpp for another organizer
-            const promoterRoles = promoter.roles || ['user'];
-            if (promoterRoles.includes("rrpp")) {
+            const promoterRoleNames = getRoleNames(promoter);
+            if (promoterRoleNames.length === 0) promoterRoleNames.push('user');
+            if (promoterRoleNames.includes("rrpp")) {
                 const otherAssignment = await queryRunner.manager.findOne(PromoterGroup, {
                     where: { promoterId: promoter.id }
                 });
                 if (otherAssignment && otherAssignment.organizerId !== organizerId) {
                     await queryRunner.rollbackTransaction();
-                    return res.status(409).json({ 
-                        code: "PROMOTER_HAS_ORGANIZER", 
-                        message: "Este usuario ya es promotor de otro organizador" 
+                    return res.status(409).json({
+                        code: "PROMOTER_HAS_ORGANIZER",
+                        message: "Este usuario ya es promotor de otro organizador"
                     });
                 }
             }
 
             // Add rrpp role if not already has it (keep existing roles)
-            if (!promoterRoles.includes("rrpp") && !promoterRoles.includes("admin")) {
-                promoter.roles = [...promoterRoles, "rrpp"];
+            if (!promoterRoleNames.includes("rrpp") && !promoterRoleNames.includes("admin")) {
+                const roleRepo = queryRunner.manager.getRepository(Role);
+                let rrppRole = await roleRepo.findOne({ where: { name: 'rrpp' } });
+                if (!rrppRole) {
+                    rrppRole = roleRepo.create({ name: 'rrpp' });
+                    await roleRepo.save(rrppRole);
+                }
+                promoter.roles = [...promoter.roles, rrppRole];
                 await queryRunner.manager.save(User, promoter);
             }
 

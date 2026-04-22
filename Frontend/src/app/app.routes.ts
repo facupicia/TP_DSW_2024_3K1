@@ -28,6 +28,7 @@ import { PromoterDashboardComponent } from './pages/promoter-dashboard/promoter-
 import { authGuard } from './guards/auth.guard';
 import { organizerGuard } from './guards/organizer.guard';
 import { promoterGuard } from './guards/promoter.guard';
+import { adminGuard } from './guards/admin.guard';
 
 export const routes: Routes = [
     { path: "", component: LandingComponent, title: 'Home' },
@@ -45,7 +46,7 @@ export const routes: Routes = [
     { path: "checkout/success", component: CheckoutSuccessComponent, title: 'Pago Exitoso' },
     { path: "checkout/failure", component: CheckoutFailureComponent, title: 'Pago Fallido' },
     { path: "checkout/pending", component: CheckoutPendingComponent, title: 'Pago Pendiente' },
-    { path: "admin", component: AdminPanelComponent, title: 'Panel de Administración' },
+    { path: "admin", component: AdminPanelComponent, title: 'Panel de Administración', canActivate: [authGuard, adminGuard] },
     { path: "my-tickets/:id", component: TicketsComponent, title: 'Mis Tickets', canActivate: [authGuard] },
     { path: "creator/stats", component: CreatorStatsComponent, title: 'Estadísticas', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/stats", component: EventStatsComponent, title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },

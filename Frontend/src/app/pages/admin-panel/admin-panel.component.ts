@@ -97,6 +97,10 @@ export class AdminPanelComponent implements OnInit {
    * Load comprehensive overview metrics
    */
   loadOverview() {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
     this.loadingMetrics = true;
     this.adminService.getOverview(this.dateRange).subscribe({
       next: (response) => {

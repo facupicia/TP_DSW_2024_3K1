@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import AppDataSource from "../../config/database";
 import { User } from "../../user/user.entity";
+import { Role } from "../../user/role.entity";
 import { Category } from "../../category/category.entity";
 import { Event } from "../../event/event.entity";
 import { TicketType, TicketTypeStatus } from "../../ticketType/ticketType.entity";
@@ -46,19 +47,32 @@ async function seed() {
     console.log(`📂 ${categoriasCreadas.length} categorías creadas`);
 
     // ===========================================
+    // ROLES
+    // ===========================================
+    const roleNames = ['user', 'rrpp', 'scanner', 'organizer', 'admin'];
+    const rolesMap: Record<string, Role> = {};
+    for (const name of roleNames) {
+        const role = new Role();
+        role.name = name;
+        await AppDataSource.getRepository(Role).save(role);
+        rolesMap[name] = role;
+    }
+    console.log(`🔑 ${roleNames.length} roles creados`);
+
+    // ===========================================
     // USUARIOS
     // ===========================================
     const hashedPassword = await bcrypt.hash("123456", 10);
 
     const usuariosData = [
-        { firstname: "Admin", lastname: "Sistema", email: "admin@eventlife.com", phone: "3513456789", pais: "Argentina", provincia: "Córdoba", ciudad: "Córdoba", address: "Av. San Martín 500", birth: new Date("1990-01-15"), roles: "admin" },
-        { firstname: "María", lastname: "González", email: "maria@gmail.com", phone: "3514567890", pais: "Argentina", provincia: "Buenos Aires", ciudad: "Buenos Aires", address: "Av. Corrientes 1234", birth: new Date("1995-06-20"), roles: "user" },
-        { firstname: "Juan", lastname: "Pérez", email: "juan@gmail.com", phone: "3515678901", pais: "Argentina", provincia: "Córdoba", ciudad: "Villa María", address: "Calle San Martín 456", birth: new Date("2000-03-10"), roles: "user" },
-        { firstname: "Ana", lastname: "Rodríguez", email: "ana@gmail.com", phone: "3516789012", pais: "Argentina", provincia: "Santa Fe", ciudad: "Rosario", address: "Bv. Oroño 789", birth: new Date("1988-11-25"), roles: "user" },
-        { firstname: "Carlos", lastname: "López", email: "carlos@gmail.com", phone: "3517890123", pais: "Argentina", provincia: "Mendoza", ciudad: "Mendoza", address: "Calle Las Heras 321", birth: new Date("2005-08-05"), roles: "user" },
-        { firstname: "Laura", lastname: "Martínez", email: "laura@gmail.com", phone: "3518901234", pais: "Argentina", provincia: "Córdoba", ciudad: "Río Cuarto", address: "Av. Italia 654", birth: new Date("1998-02-14"), roles: "scanner" },
-        { firstname: "Diego", lastname: "Fernández", email: "diego@gmail.com", phone: "3519012345", pais: "Argentina", provincia: "Buenos Aires", ciudad: "La Plata", address: "Calle 7 N° 890", birth: new Date("1992-07-30"), roles: "user" },
-        { firstname: "Sofía", lastname: "Ramírez", email: "sofia@gmail.com", phone: "3510123456", pais: "Argentina", provincia: "Córdoba", ciudad: "Carlos Paz", address: "Av. San Martín 123", birth: new Date("2003-12-01"), roles: "user" }
+        { firstname: "Admin", lastname: "Sistema", email: "admin@eventlife.com", phone: "3513456789", pais: "Argentina", provincia: "Córdoba", ciudad: "Córdoba", address: "Av. San Martín 500", birth: new Date("1990-01-15"), roles: ["admin"] },
+        { firstname: "María", lastname: "González", email: "maria@gmail.com", phone: "3514567890", pais: "Argentina", provincia: "Buenos Aires", ciudad: "Buenos Aires", address: "Av. Corrientes 1234", birth: new Date("1995-06-20"), roles: ["user"] },
+        { firstname: "Juan", lastname: "Pérez", email: "juan@gmail.com", phone: "3515678901", pais: "Argentina", provincia: "Córdoba", ciudad: "Villa María", address: "Calle San Martín 456", birth: new Date("2000-03-10"), roles: ["user"] },
+        { firstname: "Ana", lastname: "Rodríguez", email: "ana@gmail.com", phone: "3516789012", pais: "Argentina", provincia: "Santa Fe", ciudad: "Rosario", address: "Bv. Oroño 789", birth: new Date("1988-11-25"), roles: ["user"] },
+        { firstname: "Carlos", lastname: "López", email: "carlos@gmail.com", phone: "3517890123", pais: "Argentina", provincia: "Mendoza", ciudad: "Mendoza", address: "Calle Las Heras 321", birth: new Date("2005-08-05"), roles: ["user"] },
+        { firstname: "Laura", lastname: "Martínez", email: "laura@gmail.com", phone: "3518901234", pais: "Argentina", provincia: "Córdoba", ciudad: "Río Cuarto", address: "Av. Italia 654", birth: new Date("1998-02-14"), roles: ["scanner"] },
+        { firstname: "Diego", lastname: "Fernández", email: "diego@gmail.com", phone: "3519012345", pais: "Argentina", provincia: "Buenos Aires", ciudad: "La Plata", address: "Calle 7 N° 890", birth: new Date("1992-07-30"), roles: ["user"] },
+        { firstname: "Sofía", lastname: "Ramírez", email: "sofia@gmail.com", phone: "3510123456", pais: "Argentina", provincia: "Córdoba", ciudad: "Carlos Paz", address: "Av. San Martín 123", birth: new Date("2003-12-01"), roles: ["user"] }
     ];
 
     const usuariosCreados: User[] = [];
@@ -74,7 +88,7 @@ async function seed() {
         user.ciudad = userData.ciudad;
         user.address = userData.address;
         user.birth = userData.birth;
-        user.roles = [userData.roles];
+        user.roles = userData.roles.map(r => rolesMap[r]).filter(Boolean);
         await AppDataSource.getRepository(User).save(user);
         usuariosCreados.push(user);
     }
@@ -197,6 +211,9 @@ async function seed() {
     console.log("\n========================================");
     console.log("✅ SEED COMPLETADO EXITOSAMENTE");
     console.log("========================================");
+    console.log("✅ SEED COMPLETADO EXITOSAMENTE");
+    console.log("========================================");
+    console.log(`🔑 Roles: ${roleNames.length}`);
     console.log(`📂 Categorías: ${categoriasCreadas.length}`);
     console.log(`👥 Usuarios: ${usuariosCreados.length}`);
     console.log(`🎉 Eventos: ${eventosCreados.length}`);

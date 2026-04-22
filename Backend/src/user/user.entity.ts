@@ -1,7 +1,8 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn, ManyToMany, JoinTable } from "typeorm"
 import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
+import { Role } from "./role.entity";
 @Entity()
 @Unique(['email'])
 export class User extends BaseEntity {
@@ -48,18 +49,28 @@ export class User extends BaseEntity {
      * User roles. Valid values: 'user', 'organizer', 'scanner', 'admin', 'rrpp'
      * A user can have multiple roles simultaneously.
      * Hierarchy: admin > organizer > scanner > rrpp > user
-     * 
+     *
      * - user: Regular user, can buy tickets
      * - organizer: User who has created events, can manage their events
      * - scanner: Can scan/validate tickets
      * - admin: Full system access
      * - rrpp: Promoter/Relaciones Públicas - promotes events for an organizer
      */
-    @Column({
-        type: "simple-array",
-        default: "user"
+    @ManyToMany(() => Role, { eager: true, cascade: true })
+    @JoinTable({
+        name: 'user_roles',
+        joinColumn: { name: 'userId', referencedColumnName: 'id' },
+        inverseJoinColumn: { name: 'roleId', referencedColumnName: 'id' }
     })
-    roles: string[];
+    roles: Role[];
+
+    /**
+     * Temporary mapping to the old 'roles' column (simple-array).
+     * This preserves existing data during migration to the new Role table.
+     * It will be removed in a future cleanup.
+     */
+    @Column({ type: 'simple-array', nullable: true, select: false, name: 'roles' })
+    legacyRoles?: string[];
 
     /* ==================== MERCADO PAGO MARKETPLACE ==================== */
 
