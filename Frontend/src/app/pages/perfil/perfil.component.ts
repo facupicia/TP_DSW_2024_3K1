@@ -117,7 +117,7 @@ export class PerfilComponent implements OnInit {
 
   connectMercadoPago(): void {
     this.mpLoading = true;
-    this.paymentService.connectMercadoPago().subscribe({
+    this.paymentService.connectMercadoPago('/profile').subscribe({
       next: (response) => {
         this.mpLoading = false;
         window.location.href = response.authUrl;

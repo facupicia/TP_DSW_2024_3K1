@@ -34,18 +34,21 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 code: 'UNAUTHORIZED',
-                message: 'No autorizado' 
+                message: 'No autorizado'
             });
         }
-        
+
         const config = getMPConfig();
         const redirectUri = `${config.appUrl}/api/payment/mp/callback`;
-        
-        // Generar state firmado
-        const state = generateOAuthState(userId);
-        
+
+        // Capturar página de retorno (ej: /create-event, /profile, /settings)
+        const redirectTo = req.query.redirectTo as string | undefined;
+
+        // Generar state firmado con redirectTo
+        const state = generateOAuthState(userId, redirectTo);
+
         const params = new URLSearchParams({
             client_id: config.clientId,
             response_type: 'code',
@@ -53,22 +56,22 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
             redirect_uri: redirectUri,
             state: state
         });
-        
+
         const authUrl = `${MP_ENDPOINTS.auth}?${params.toString()}`;
-        
-        logger.info('MP_OAUTH_INITIATED', { userId, redirectUri });
-        
+
+        logger.info('MP_OAUTH_INITIATED', { userId, redirectUri, redirectTo });
+
         return res.json({
             success: true,
             authUrl,
             message: 'Redirige al usuario a authUrl para conectar su cuenta de Mercado Pago'
         });
-        
+
     } catch (error: any) {
         logger.error('MP_OAUTH_INIT_ERROR', { error: error?.message });
-        return res.status(500).json({ 
+        return res.status(500).json({
             code: 'INIT_ERROR',
-            message: 'Error al iniciar conexión con Mercado Pago' 
+            message: 'Error al iniciar conexión con Mercado Pago'
         });
     }
 };
@@ -85,43 +88,42 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
  */
 export const oauthCallback = async (req: Request, res: Response) => {
     const config = getMPConfig();
-    
+
     try {
         const { code, state, error } = req.query;
-        
-        // Construir URL base para redirección
-        const buildRedirectUrl = (params: Record<string, string>) => {
-            const searchParams = new URLSearchParams(params);
-            return `${config.clientUrl}/perfil?${searchParams.toString()}`;
-        };
-        
+
+        // Determinar página de retorno (default: /perfil)
+        let returnPath = '/perfil';
+
         // Si MP envía un error (usuario canceló, etc)
         if (error) {
             logger.warn('MP_OAUTH_CANCELLED', { error });
-            return res.redirect(buildRedirectUrl({ 
-                mp_error: 'cancelled',
-                mp_error_description: String(error) 
-            }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=cancelled&mp_error_description=${encodeURIComponent(String(error))}`);
         }
-        
+
         if (!code || !state) {
-            logger.error('MP_OAUTH_MISSING_PARAMS', { 
-                hasCode: !!code, 
-                hasState: !!state 
+            logger.error('MP_OAUTH_MISSING_PARAMS', {
+                hasCode: !!code,
+                hasState: !!state
             });
-            return res.redirect(buildRedirectUrl({ mp_error: 'missing_params' }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=missing_params`);
         }
-        
+
         // Verificar state
         const stateData = verifyOAuthState(String(state));
         if (!stateData) {
             logger.error('MP_OAUTH_INVALID_STATE', { state: String(state).substring(0, 20) });
-            return res.redirect(buildRedirectUrl({ mp_error: 'invalid_state' }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=invalid_state`);
         }
-        
-        const { userId } = stateData;
+
+        const { userId, redirectTo } = stateData;
+        // Usar la página original si existe, sino default
+        if (redirectTo) {
+            returnPath = redirectTo;
+        }
+
         const redirectUri = `${config.appUrl}/api/payment/mp/callback`;
-        
+
         // Intercambiar código por tokens
         const tokenResponse = await fetch(MP_ENDPOINTS.token, {
             method: 'POST',
@@ -137,54 +139,42 @@ export const oauthCallback = async (req: Request, res: Response) => {
                 redirect_uri: redirectUri
             }).toString()
         });
-        
+
         if (!tokenResponse.ok) {
             const errorData = await tokenResponse.text();
-            logger.error('MP_OAUTH_TOKEN_ERROR', { 
-                status: tokenResponse.status, 
+            logger.error('MP_OAUTH_TOKEN_ERROR', {
+                status: tokenResponse.status,
                 error: errorData,
-                userId 
+                userId
             });
-            return res.redirect(buildRedirectUrl({ mp_error: 'token_exchange_failed' }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=token_exchange_failed`);
         }
-        
+
         const tokens = await tokenResponse.json();
-        
-        /*
-        tokens contiene:
-        {
-            access_token: "APP_USR-xxx",
-            token_type: "bearer",
-            expires_in: 15552000, // 180 días
-            scope: "...",
-            user_id: 123456789,
-            refresh_token: "TG-xxx"
-        }
-        */
-        
+
         if (!tokens.access_token || !tokens.user_id) {
-            logger.error('MP_OAUTH_INVALID_TOKENS', { 
+            logger.error('MP_OAUTH_INVALID_TOKENS', {
                 hasAccessToken: !!tokens.access_token,
-                hasUserId: !!tokens.user_id 
+                hasUserId: !!tokens.user_id
             });
-            return res.redirect(buildRedirectUrl({ mp_error: 'invalid_tokens' }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=invalid_tokens`);
         }
-        
+
         // Calcular fecha de expiración
         const expiresAt = new Date();
         expiresAt.setSeconds(expiresAt.getSeconds() + (tokens.expires_in || 15552000));
-        
+
         // Encriptar tokens antes de guardar
         const encryptedAccessToken = encryptToString(tokens.access_token);
-        const encryptedRefreshToken = tokens.refresh_token 
-            ? encryptToString(tokens.refresh_token) 
+        const encryptedRefreshToken = tokens.refresh_token
+            ? encryptToString(tokens.refresh_token)
             : null;
-        
+
         if (!encryptedAccessToken) {
             logger.error('MP_OAUTH_ENCRYPTION_FAILED', { userId });
-            return res.redirect(buildRedirectUrl({ mp_error: 'encryption_failed' }));
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=encryption_failed`);
         }
-        
+
         // Guardar tokens encriptados
         const userRepo = AppDataSource.getRepository(User);
         await userRepo.update(userId, {
@@ -193,15 +183,16 @@ export const oauthCallback = async (req: Request, res: Response) => {
             mpRefreshToken: encryptedRefreshToken,
             mpTokenExpiresAt: expiresAt
         });
-        
-        logger.info('MP_OAUTH_SUCCESS', { 
-            userId, 
+
+        logger.info('MP_OAUTH_SUCCESS', {
+            userId,
             mpUserId: tokens.user_id,
-            expiresAt: expiresAt.toISOString()
+            expiresAt: expiresAt.toISOString(),
+            redirectTo: returnPath
         });
-        
-        return res.redirect(buildRedirectUrl({ mp_connected: 'true' }));
-        
+
+        return res.redirect(`${config.clientUrl}${returnPath}?mp_connected=true`);
+
     } catch (error: any) {
         logger.error('MP_OAUTH_CALLBACK_ERROR', { error: error?.message });
         return res.redirect(`${config.clientUrl}/perfil?mp_error=server_error`);

@@ -49,9 +49,11 @@ export class PaymentService {
     /**
      * Inicia el flujo OAuth para conectar Mercado Pago
      * Retorna la URL a la que se debe redirigir al usuario
+     * @param redirectTo Ruta a la que redirigir después del OAuth (ej: /create-event)
      */
-    connectMercadoPago(): Observable<MpConnectResponse> {
-        return this.http.get<MpConnectResponse>(`${this.baseUrl}/mp/connect`);
+    connectMercadoPago(redirectTo?: string): Observable<MpConnectResponse> {
+        const params = redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
+        return this.http.get<MpConnectResponse>(`${this.baseUrl}/mp/connect${params}`);
     }
 
     /**

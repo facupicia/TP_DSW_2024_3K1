@@ -103,7 +103,7 @@ export class SettingsComponent implements OnInit {
 
     connectMercadoPago(): void {
         this.mpLoading = true;
-        this.paymentService.connectMercadoPago().subscribe({
+        this.paymentService.connectMercadoPago('/settings').subscribe({
             next: (response) => {
                 this.mpLoading = false;
                 window.location.href = response.authUrl;

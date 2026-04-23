@@ -70,36 +70,38 @@ export function sanitizeUrl(url: string): string {
 
 /**
  * Genera un state firmado para OAuth
+ * Incluye redirectTo para devolver al usuario a la página original
  */
-export function generateOAuthState(userId: number): string {
+export function generateOAuthState(userId: number, redirectTo?: string): string {
     const config = getMPConfig();
     const timestamp = Date.now();
-    const data = JSON.stringify({ userId, ts: timestamp });
-    
+    const data = JSON.stringify({ userId, ts: timestamp, redirectTo });
+
     const signature = crypto
         .createHmac('sha256', config.clientSecret)
         .update(data)
         .digest('hex');
-    
+
     const payload = { d: data, s: signature };
     return Buffer.from(JSON.stringify(payload)).toString('base64url');
 }
 
 /**
  * Verifica y decodifica el state de OAuth
+ * Retorna también redirectTo si existe
  */
-export function verifyOAuthState(state: string): { userId: number } | null {
+export function verifyOAuthState(state: string): { userId: number; redirectTo?: string } | null {
     try {
         const config = getMPConfig();
         const payload = JSON.parse(Buffer.from(state, 'base64url').toString());
-        
+
         if (!payload.d || !payload.s) return null;
-        
+
         const expectedSignature = crypto
             .createHmac('sha256', config.clientSecret)
             .update(payload.d)
             .digest('hex');
-        
+
         if (!crypto.timingSafeEqual(
             Buffer.from(payload.s),
             Buffer.from(expectedSignature)
@@ -107,16 +109,16 @@ export function verifyOAuthState(state: string): { userId: number } | null {
             logger.warn('MP_OAUTH_INVALID_SIGNATURE');
             return null;
         }
-        
+
         const data = JSON.parse(payload.d);
-        
+
         // Verificar expiración (15 minutos)
         if (Date.now() - data.ts > 15 * 60 * 1000) {
             logger.warn('MP_OAUTH_STATE_EXPIRED');
             return null;
         }
-        
-        return { userId: data.userId };
+
+        return { userId: data.userId, redirectTo: data.redirectTo };
     } catch (error) {
         logger.error('MP_OAUTH_STATE_DECODE_ERROR', { error: (error as Error).message });
         return null;

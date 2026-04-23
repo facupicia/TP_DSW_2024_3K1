@@ -443,7 +443,9 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   /** Inicia el flujo OAuth para conectar MP */
   connectMercadoPago(): void {
     this.mpLoading = true;
-    this.paymentService.connectMercadoPago().subscribe({
+    // Pasar ruta actual para que el callback redirija de vuelta aquí
+    const redirectTo = this.router.url;
+    this.paymentService.connectMercadoPago(redirectTo).subscribe({
       next: (response) => {
         // Redirigir al usuario a la URL de autorización de MP
         window.location.href = response.authUrl;
