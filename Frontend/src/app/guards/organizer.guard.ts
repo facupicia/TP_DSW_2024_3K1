@@ -13,11 +13,9 @@ export const organizerGuard: CanActivateFn = (route, state) => {
     const router = inject(Router);
     const authService = inject(AuthService);
 
-    return authService.currentUser$.pipe(
+    return authService.ensureCurrentUser().pipe(
         take(1),
         map(user => {
-            console.log('[organizerGuard] User:', user);
-            
             // Handle both new 'roles' array and legacy 'rol' field
             // If roles is just ['user'] but rol is higher, use rol
             let userRoles = user?.roles || ['user'];
@@ -31,16 +29,12 @@ export const organizerGuard: CanActivateFn = (route, state) => {
                 
                 if (legacyLevel > currentLevel && !userRoles.includes(legacyRol)) {
                     userRoles = [...userRoles, legacyRol];
-                    console.log('[organizerGuard] Added legacy role:', legacyRol);
                 }
             }
-            
-            console.log('[organizerGuard] User roles:', userRoles);
-            
+
             // Check if user has organizer level or higher (admin also passes)
             const hasAccess = user && hasRoleLevel(userRoles, 'organizer');
-            console.log('[organizerGuard] Has organizer access:', hasAccess);
-            
+
             if (hasAccess) {
                 return true;
             }

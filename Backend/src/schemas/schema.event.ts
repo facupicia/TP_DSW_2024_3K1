@@ -22,6 +22,7 @@ export const createEventSchema = z.object({
         categoryId: z.number().int().positive("La categoría es obligatoria"),
         destacado: z.boolean().optional(),
         minAge: z.number().int().min(0).max(99).optional().default(0),
+        isPublic: z.boolean().optional(),
         ticketTypes: z.array(z.object({
             name: z.string().min(1, "El nombre del tipo de entrada es obligatorio"),
             price: z.number().nonnegative("El precio no puede ser negativo"),
@@ -38,7 +39,10 @@ export const createEventSchema = z.object({
 export const updateEventSchema = z.object({
     body: z.object({
         title: z.string().optional(),
-        location: z.string().optional(),
+        pais: z.string().optional(),
+        provincia: z.string().optional(),
+        ciudad: z.string().optional(),
+        direccion: z.string().optional(),
         organizer: z.string().optional(),
         image: z.string().optional(),
         date: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida").optional(),
@@ -47,6 +51,7 @@ export const updateEventSchema = z.object({
         categoryId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional(),
         destacado: z.boolean().optional(),
         active: z.boolean().optional(),
+        isPublic: z.boolean().optional(),
         minAge: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional(),
         ticketTypes: z.array(z.object({
             id: z.union([z.number(), z.string(), z.null()]).optional().transform(val =>

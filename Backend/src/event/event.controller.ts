@@ -9,6 +9,7 @@ import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { log } from "console";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
+import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
 
 /* ======================================================
@@ -41,6 +42,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         const userId = req.user?.id;
 
         if (!userId) {
+            await queryRunner.rollbackTransaction();
             return res.status(401).json({ message: "Unauthorized" });
         }
 
@@ -50,6 +52,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             select: ['id', 'firstname', 'lastname', 'email', 'mpUserId']
         });
         if (!user) {
+            await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "User not found" });
         }
 
@@ -98,6 +101,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
 
         // Promote user to organizer role if they don't have it yet
         const userRoleNames = getRoleNames(user);
+        let wasPromotedToOrganizer = false;
         if (!userRoleNames.includes('organizer')) {
             const roleRepo = queryRunner.manager.getRepository(Role);
             let organizerRole = await roleRepo.findOne({ where: { name: 'organizer' } });
@@ -109,10 +113,12 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             await queryRunner.manager.save(User, user);
             // Ensure user has a subscription (will create FREE if none exists)
             await assignDefaultPlan(userId);
+            wasPromotedToOrganizer = true;
         }
 
         const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });
         if (!category) {
+            await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "Category not found" });
         }
 
@@ -124,7 +130,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         event.direccion = direccion;
         event.organizer = organizer;
         event.image = image;
-        event.date = date;
+        event.date = new Date(date);
         event.time = time;
         event.description = description;
         event.destacado = destacado ?? false;
@@ -155,6 +161,12 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
 
         await queryRunner.commitTransaction();
 
+        // Generate new token if user was promoted so frontend gets updated roles
+        let newToken: string | undefined;
+        if (wasPromotedToOrganizer) {
+            newToken = await tokenSing(user);
+        }
+
         // Limpiar referencia circular antes de devolver JSON
         // TicketType -> Event -> TicketTypes ...
         if (event.ticketTypes) {
@@ -163,14 +175,18 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             });
         }
 
-        return res.status(201).json(event);
+        const response: any = { ...event };
+        if (newToken) {
+            response.token = newToken;
+        }
+        return res.status(201).json(response);
 
-    } catch (error) {
+    } catch (error: any) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
         }
-        console.error(error);
-        return res.status(500).json({ message: "Error creating event" });
+        console.error("Error creating event:", error);
+        return res.status(500).json({ message: error.message || "Error creating event" });
     } finally {
         await queryRunner.release();
     }
@@ -179,14 +195,22 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
 /* ======================================================
    UPDATE EVENT
 ====================================================== */
-export const updateEvent = async (req: Request, res: Response) => {
+export const updateEvent = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+        const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes('admin');
+        if (!userId) {
+            await queryRunner.rollbackTransaction();
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const idNum = Number(req.params.id);
         if (isNaN(idNum) || idNum <= 0) {
+            await queryRunner.rollbackTransaction();
             return res.status(400).json({ message: "Invalid event id" });
         }
 
@@ -196,7 +220,13 @@ export const updateEvent = async (req: Request, res: Response) => {
         });
 
         if (!event) {
+            await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "Event not found" });
+        }
+
+        if (event.user_id !== userId && !isAdmin) {
+            await queryRunner.rollbackTransaction();
+            return res.status(403).json({ message: "No tienes permiso para modificar este evento" });
         }
 
         const {
@@ -221,6 +251,7 @@ export const updateEvent = async (req: Request, res: Response) => {
         if (categoryId) {
             const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });
             if (!category) {
+                await queryRunner.rollbackTransaction();
                 return res.status(404).json({ message: "Category not found" });
             }
             event.category = category;
@@ -234,7 +265,7 @@ export const updateEvent = async (req: Request, res: Response) => {
         event.direccion = direccion ?? event.direccion;
         event.organizer = organizer ?? event.organizer;
         event.image = image ?? event.image;
-        event.date = date ?? event.date;
+        event.date = date ? new Date(date) : event.date;
         event.time = time ?? event.time;
         event.description = description ?? event.description;
         event.active = active ?? event.active;
@@ -321,8 +352,14 @@ export const updateEvent = async (req: Request, res: Response) => {
 /* ======================================================
    DELETE EVENT (SOFT LOGIC)
 ====================================================== */
-export const deleteEvent = async (req: Request, res: Response) => {
+export const deleteEvent = async (req: CustomRequest, res: Response) => {
     try {
+        const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes('admin');
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
         const idNum = Number(req.params.id);
         if (isNaN(idNum) || idNum <= 0) {
             return res.status(400).json({ message: "Invalid event id" });
@@ -331,6 +368,10 @@ export const deleteEvent = async (req: Request, res: Response) => {
         const event = await Event.findOneBy({ id: idNum });
         if (!event) {
             return res.status(404).json({ message: "Event not found" });
+        }
+
+        if (event.user_id !== userId && !isAdmin) {
+            return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
         }
 
         event.active = false;
@@ -378,15 +419,65 @@ export const getEvent = async (req: Request, res: Response) => {
 
 export const getEvents = async (req: Request, res: Response) => {
     try {
-        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
-        const [events, total] = await Event.findAndCount({
-            where: { active: true, isPublic: true },
-            relations: ["category", "ticketTypes"],
-            order: { date: "ASC" },
-            skip,
-            take
+        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 200, 1000);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const baseWhere = {
+            active: true,
+            isPublic: true
+        };
+
+        const topSales = await AppDataSource.getRepository(Event)
+            .createQueryBuilder("event")
+            .leftJoin("event.ticketTypes", "ticketTypes")
+            .select("event.id", "id")
+            .addSelect("COALESCE(SUM(ticketTypes.soldCount), 0)", "salesCount")
+            .where("event.active = true")
+            .andWhere("event.isPublic = true")
+            .andWhere("event.date >= :today", { today })
+            .andWhere("event.deletedAt IS NULL")
+            .groupBy("event.id")
+            .having("COALESCE(SUM(ticketTypes.soldCount), 0) > 0")
+            .orderBy('"salesCount"', "DESC")
+            .limit(12)
+            .getRawMany();
+
+        const salesByEventId = new Map<number, number>(
+            topSales.map((row: any) => [Number(row.id), Number(row.salesCount || 0)])
+        );
+        const dynamicFeaturedIds = new Set<number>(salesByEventId.keys());
+
+        const [events, total] = await AppDataSource.getRepository(Event)
+            .createQueryBuilder("event")
+            .leftJoinAndSelect("event.category", "category")
+            .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
+            .where("event.active = :active", { active: baseWhere.active })
+            .andWhere("event.isPublic = :isPublic", { isPublic: baseWhere.isPublic })
+            .andWhere("event.date >= :today", { today })
+            .andWhere("event.deletedAt IS NULL")
+            .orderBy("event.destacado", "DESC")
+            .addOrderBy("event.date", "ASC")
+            .skip(skip)
+            .take(take)
+            .getManyAndCount();
+
+        const data = events.map(event => {
+            const ticketSales = (event.ticketTypes || []).reduce((sum, tt) => sum + (tt.soldCount || 0), 0);
+            return {
+                ...event,
+                destacado: event.destacado || dynamicFeaturedIds.has(event.id),
+                salesCount: salesByEventId.get(event.id) || ticketSales
+            };
         });
-        return res.json({ data: events, total });
+
+        return res.json({
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil(total / limit))
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ message: error.message || "Error fetching events" });
@@ -408,16 +499,22 @@ export const getEventsNumber = async (req: Request, res: Response) => {
 
 export const getEventByName = async (req: Request, res: Response) => {
     try {
-        const { title } = req.query;
-        if (!title) return res.json([]);
+        const rawTitle = req.query.title || req.query.search;
+        if (!rawTitle) return res.json([]);
         const { take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const events = await AppDataSource.getRepository(Event)
             .createQueryBuilder("event")
             .leftJoinAndSelect("event.category", "category")
             .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
-            .where("LOWER(event.title) LIKE :title", { title: `%${String(title).toLowerCase()}%` })
+            .where("LOWER(event.title) LIKE :title", { title: `%${String(rawTitle).toLowerCase()}%` })
             .andWhere("event.active = true")
+            .andWhere("event.isPublic = true")
+            .andWhere("event.date >= :today", { today })
+            .andWhere("event.deletedAt IS NULL")
+            .orderBy("event.date", "ASC")
             .limit(take)
             .getMany();
 

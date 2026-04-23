@@ -51,12 +51,12 @@ export const updateUserSchema = z.object({
         lastname: z.string().min(1, "Lastname is required").optional(),
         email: z.string().email("Invalid email format").optional(),
         password: z.string().min(6, "Password must be at least 6 characters long").optional(),
-        roles: RolesArray.optional(),
         phone: z
             .string()
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
                 message: "El número de teléfono no es válido.",
-            }),
+            })
+            .optional(),
         pais: z.string().min(1, "Pais is required").optional(),
         provincia: z.string().min(1, "Provincia is required").optional(),
         ciudad: z.string().min(1, "Ciudad is required").optional(),

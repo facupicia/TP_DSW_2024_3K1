@@ -3,11 +3,12 @@
  * All endpoints related to user management and authentication
  */
 import { Router } from "express"
-import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin } from "./user.controller"
+import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin, refreshSession, logoutUser } from "./user.controller"
 import { schemaValidation } from "../common/middleware/schemaValidacion"
 import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema } from "../schemas/schema.user"
 import { checkAuthToken } from "../common/middleware/authToken"
 import { checkRoleAuth } from "../common/middleware/checkRole"
+import { authRateLimiter } from "../common/middleware/rateLimit"
 
 const router = Router()
 
@@ -17,9 +18,13 @@ router.put("/profile/:id", checkAuthToken, checkRoleAuth(["user", "admin", "scan
 router.get("/profile", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), profile)
 
 
-router.post("/login", schemaValidation(signinUserSchema), signinUser)
+router.post("/login", authRateLimiter, schemaValidation(signinUserSchema), signinUser)
 
-router.post("/google", schemaValidation(googleSigninSchema), googleSignin)
+router.post("/google", authRateLimiter, schemaValidation(googleSigninSchema), googleSignin)
+
+router.post("/refresh", refreshSession)
+
+router.post("/logout", logoutUser)
 
 router.post("/register", schemaValidation(signupUserSchema), signupUser)
 
@@ -28,7 +33,7 @@ router.get("/", checkAuthToken, checkRoleAuth(["admin"]), getUsers)
 
 
 
-router.get("/:id", getUser)
+router.get("/:id", checkAuthToken, getUser)
 
 
 router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteUser)

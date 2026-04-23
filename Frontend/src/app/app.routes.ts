@@ -3,6 +3,7 @@ import { authGuard } from './guards/auth.guard';
 import { organizerGuard } from './guards/organizer.guard';
 import { promoterGuard } from './guards/promoter.guard';
 import { adminGuard } from './guards/admin.guard';
+import { scannerGuard } from './guards/scanner.guard';
 
 export const routes: Routes = [
     { path: "", loadComponent: () => import('./pages/landing/landing.component').then(m => m.LandingComponent), title: 'Home' },
@@ -25,7 +26,7 @@ export const routes: Routes = [
     { path: "creator/stats", loadComponent: () => import('./pages/creator-stats/creator-stats.component').then(m => m.CreatorStatsComponent), title: 'Estadísticas', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/stats", loadComponent: () => import('./pages/event-stats/event-stats.component').then(m => m.EventStatsComponent), title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/config", loadComponent: () => import('./pages/event-config/event-config.component').then(m => m.EventConfigComponent), title: 'Configuración de Evento', canActivate: [authGuard, organizerGuard] },
-    { path: "scanner", loadComponent: () => import('./pages/scanner/scanner.component').then(m => m.ScannerComponent), title: 'Escáner', canActivate: [authGuard] },
+    { path: "scanner", loadComponent: () => import('./pages/scanner/scanner.component').then(m => m.ScannerComponent), title: 'Escáner', canActivate: [authGuard, scannerGuard] },
 
     // Promoter (RRPP) routes
     { path: "promoter/management", loadComponent: () => import('./pages/promoter-management/promoter-management.component').then(m => m.PromoterManagementComponent), title: 'Gestión de Promotores', canActivate: [authGuard, organizerGuard] },

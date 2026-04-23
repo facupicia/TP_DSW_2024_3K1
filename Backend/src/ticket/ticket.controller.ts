@@ -149,11 +149,19 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
 
 export const getTickets = async (req: CustomRequest, res: Response) => {
     try {
-        const { id: userID } = req.params;
+        const requesterId = req.user?.id;
+        const requesterRoles = req.user?.roles || [];
+        if (!requesterId) {
+            return res.status(401).json({ message: "No autorizado" });
+        }
+
+        const requestedUserId = parseInt(req.params.id);
+        const isAdmin = requesterRoles.includes('admin');
+        const userID = isAdmin && !isNaN(requestedUserId) ? requestedUserId : requesterId;
         const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
         const [tickets, total] = await Ticket.findAndCount({
-            where: { userId: parseInt(userID) },
+            where: { userId: userID },
             relations: ['ticketType', 'ticketType.event'],
             order: { createdAt: 'DESC' },
             skip,
@@ -226,9 +234,11 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
     }
 };
 
-export const validateTicket = async (req: Request, res: Response) => {
+export const validateTicket = async (req: CustomRequest, res: Response) => {
     try {
         const { code } = req.body;
+        const userRoles = req.user?.roles || [];
+        const requesterId = req.user?.id;
 
         const ticket = await Ticket.findOne({
             where: [{ codigo_unico: code }, { id: parseInt(code) || -1 }],
@@ -237,6 +247,14 @@ export const validateTicket = async (req: Request, res: Response) => {
 
         if (!ticket) {
             return res.status(404).json({ message: "Ticket no encontrado", valid: false });
+        }
+
+        const isAdmin = userRoles.includes('admin');
+        const isGlobalScanner = userRoles.includes('scanner');
+        const isEventOwner = ticket.ticketType?.event?.user_id === requesterId;
+
+        if (!isAdmin && !isGlobalScanner && !isEventOwner) {
+            return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento", valid: false });
         }
 
         if (ticket.status === TicketStatus.USED) {
@@ -251,10 +269,22 @@ export const validateTicket = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "Ticket cancelado", valid: false });
         }
 
-        // Marcar como usado
+        // Marcar como usado de forma atómica para evitar doble escaneo simultáneo
+        const usedAt = new Date();
+        const updateResult = await Ticket.update(
+            { id: ticket.id, status: TicketStatus.ACTIVE },
+            { status: TicketStatus.USED, usedAt }
+        );
+
+        if (!updateResult.affected) {
+            return res.status(409).json({
+                message: "Ticket ya fue utilizado",
+                valid: false
+            });
+        }
+
         ticket.status = TicketStatus.USED;
-        ticket.usedAt = new Date();
-        await ticket.save();
+        ticket.usedAt = usedAt;
 
         return res.json({
             message: "Ticket válido. Acceso permitido.",

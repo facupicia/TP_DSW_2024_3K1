@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, OneToMany, JoinColumn, ManyToMany, JoinTable, Index } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, BaseEntity, Unique, OneToMany, ManyToMany, JoinTable, Index } from "typeorm"
 import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
@@ -104,6 +104,9 @@ export class User extends BaseEntity {
 
     @UpdateDateColumn({ type: 'timestamp' })
     updatedAt: Date;
+
+    @DeleteDateColumn({ type: 'timestamp', nullable: true })
+    deletedAt?: Date;
 
     @OneToMany(() => Event, evento => evento.user)
     eventos: Event[];

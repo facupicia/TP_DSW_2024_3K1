@@ -219,8 +219,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     // Use evento.id instead of eventId (route param) to ensure correct event
     const eventIdToUse = this.evento?.id || Number(this.eventId);
-    console.log('Validating coupon:', this.couponCode, 'for eventId:', eventIdToUse);
-
     this.couponService.validateCoupon(this.couponCode.trim(), eventIdToUse).subscribe({
       next: (result) => {
         if (result.valid) {
@@ -275,7 +273,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.ticketService.comprarTicket({ 
         cantidad: this.ticketQuantity, 
         ticketTypeId,
-        promoterCode: this.promoterCode || undefined
+        promoterCode: this.promoterCode || undefined,
+        couponId: this.appliedCoupon?.couponId,
+        couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined
       }).subscribe({
         next: (response: any) => {
           if (response.init_point) {

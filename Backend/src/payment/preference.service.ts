@@ -6,6 +6,7 @@ import { getActiveSubscription } from '../subscription/subscription.service';
 import { refreshOrganizerToken } from './mp-oauth.controller';
 import { logger } from '../common/services/logger';
 import { getMPConfig, sanitizeUrl } from './mp.config';
+import { Coupon } from '../coupon/coupon.entity';
 
 /**
  * Preference Service
@@ -23,11 +24,23 @@ export interface PreferenceInput {
     ticketTypeId: number;
     quantity: number;
     promoterCode?: string;
+    couponId?: number;
+    couponCode?: string;
 }
 
 export interface PreferenceResult {
     id: string;
     initPoint: string;
+    pricing: PreferencePricing;
+}
+
+export interface PreferencePricing {
+    baseAmount: number;
+    discountAmount: number;
+    totalAmount: number;
+    unitPrice: number;
+    couponId?: number;
+    discountPercent?: number;
 }
 
 export interface ValidationResult {
@@ -211,6 +224,51 @@ export function calculateMarketplaceFee(
     return fee;
 }
 
+async function resolveValidCoupon(
+    couponId: number | undefined,
+    couponCode: string | undefined,
+    eventId: number
+): Promise<Coupon | null> {
+    if (!couponId && !couponCode) return null;
+
+    const where: any = couponId
+        ? { id: couponId, eventId, isActive: true }
+        : { code: couponCode!.toUpperCase().trim(), eventId, isActive: true };
+
+    const coupon = await Coupon.findOne({ where });
+    if (!coupon) {
+        throw new Error('COUPON_INVALID');
+    }
+
+    if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+        throw new Error('COUPON_EXPIRED');
+    }
+
+    if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
+        throw new Error('COUPON_EXHAUSTED');
+    }
+
+    return coupon;
+}
+
+function calculatePricing(unitPrice: number, quantity: number, coupon?: Coupon | null): PreferencePricing {
+    const baseAmount = unitPrice * quantity;
+    const discountPercent = coupon?.discountPercent || 0;
+    const discountAmount = discountPercent > 0
+        ? Math.min(baseAmount, Math.round((baseAmount * discountPercent) / 100))
+        : 0;
+    const totalAmount = Math.max(baseAmount - discountAmount, 0);
+
+    return {
+        baseAmount,
+        discountAmount,
+        totalAmount,
+        unitPrice: Number((totalAmount / quantity).toFixed(2)),
+        couponId: coupon?.id,
+        discountPercent: coupon?.discountPercent
+    };
+}
+
 // ============================================================================
 // PREFERENCE BUILDER
 // ============================================================================
@@ -228,16 +286,17 @@ export function buildPreferenceBody(
     ticketType: TicketType,
     quantity: number,
     marketplaceInfo: MarketPlaceInfo,
-    promoterCode?: string
+    promoterCode?: string,
+    coupon?: Coupon | null
 ): any {
     const config = getMPConfig();
     
-    const unitPrice = Number(ticketType.price);
-    const baseAmount = unitPrice * quantity;
+    const originalUnitPrice = Number(ticketType.price);
+    const pricing = calculatePricing(originalUnitPrice, quantity, coupon);
     
     // Comisión de EventLife según el plan del organizador (FREE: 8%, PRO: 3%)
     const commissionPercent = marketplaceInfo.commissionPercent;
-    const commissionAmount = Math.ceil((baseAmount * commissionPercent) / 100);
+    const commissionAmount = Math.ceil((pricing.totalAmount * commissionPercent) / 100);
     
     const clientUrl = sanitizeUrl(config.clientUrl);
     const notificationUrl = sanitizeUrl(config.notificationUrl);
@@ -254,7 +313,7 @@ export function buildPreferenceBody(
                 title: `${ticketType.event.title} - ${ticketType.name}`.substring(0, 255),
                 description: `Entrada para ${ticketType.event.title}`,
                 quantity: quantity,
-                unit_price: unitPrice,
+                unit_price: pricing.unitPrice,
                 currency_id: 'ARS',
             }
         ],
@@ -285,11 +344,15 @@ export function buildPreferenceBody(
             amount_tickets: Number(quantity),
             organizer_id: ticketType.event.user_id,
             organizer_plan: marketplaceInfo.planName,
-            base_amount: baseAmount,
+            base_amount: pricing.baseAmount,
+            discount_amount: pricing.discountAmount,
+            total_amount: pricing.totalAmount,
             commission_percent: commissionPercent,
             commission_amount: commissionAmount,
             payment_model: 'marketplace',
-            promoter_code: promoterCode || null
+            promoter_code: promoterCode || null,
+            coupon_id: pricing.couponId || null,
+            coupon_discount_percent: pricing.discountPercent || null
         }
     };
     
@@ -313,7 +376,7 @@ export function buildPreferenceBody(
 export async function createMercadoPagoPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
-    const { userId, ticketTypeId, quantity } = input;
+        const { userId, ticketTypeId, quantity } = input;
     
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -353,7 +416,9 @@ export async function createMercadoPagoPreference(
         const preference = new Preference(mpClient);
         
         // Construir body
-        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode);
+        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
+        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode, coupon);
+        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
         
         // Log de creación
         logger.info('PREFERENCE_CREATING', {
@@ -380,7 +445,8 @@ export async function createMercadoPagoPreference(
         
         return {
             id: result.id!,
-            initPoint: result.init_point!
+            initPoint: result.init_point!,
+            pricing
         };
         
     } finally {
@@ -422,7 +488,9 @@ export async function createPlatformPreference(
         
         // Obtener info de comisión para metadata
         const marketplaceInfo = await getMarketPlaceInfo(ticketType.event.user_id);
-        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode);
+        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
+        const body = buildPreferenceBody(user, ticketType, quantity, marketplaceInfo, input.promoterCode, coupon);
+        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
         
         // Sin marketplace_fee al usar token de plataforma
         delete body.marketplace_fee;
@@ -441,7 +509,8 @@ export async function createPlatformPreference(
         
         return {
             id: result.id!,
-            initPoint: result.init_point!
+            initPoint: result.init_point!,
+            pricing
         };
         
     } finally {

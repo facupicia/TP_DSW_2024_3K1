@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, inject } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common'; // Agregamos DatePipe para las fechas
+import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common'; // Agregamos DatePipe para las fechas
 import { Router, RouterLink } from '@angular/router'; // RouterLink es vital para el HTML
+import { PLATFORM_ID } from '@angular/core';
 
 // Tus componentes (si los usas dentro, aunque ahora el HTML tiene el diseño directo)
 import { HeaderComponent } from '../../components/header/header.component';
@@ -30,6 +31,7 @@ import { LandingGestionComponent } from '../../components/features/gestion/gesti
   styleUrls: ['./landing.component.css']
 })
 export class LandingComponent implements OnInit {
+  private platformId = inject(PLATFORM_ID);
 
   activeSection: string = 'inicio';
   scrollProgress: number = 0;
@@ -75,6 +77,10 @@ export class LandingComponent implements OnInit {
   constructor(private eventService: EventService, private router: Router) { }
 
   ngOnInit(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
     // Carga simple y directa de datos
     this.eventService.obtenerEventos().subscribe((data) => {
       this.events = data;

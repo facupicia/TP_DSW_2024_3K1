@@ -386,16 +386,58 @@
       <!-- Users Tab (existing) -->
 
       <div *ngSwitchCase="'users'" class="animate-fade-in-up">
+        <div class="users-toolbar">
+          <div class="users-toolbar__filters">
+            <input
+              type="text"
+              [(ngModel)]="userSearchInput"
+              (keyup.enter)="applyUserFilters()"
+              placeholder="Buscar por nombre o email"
+              class="modern-input users-search-input">
+
+            <select [(ngModel)]="userRoleFilter" class="modern-select" (change)="applyUserFilters()">
+              <option value="">Todos los roles</option>
+              <option *ngFor="let r of availableRoles" [value]="r">{{ r }}</option>
+            </select>
+
+            <select [(ngModel)]="userActiveFilter" class="modern-select" (change)="applyUserFilters()">
+              <option value="all">Todos los estados</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+          </div>
+
+          <div class="users-toolbar__actions">
+            <select
+              [ngModel]="userLimit"
+              (ngModelChange)="onUserPageSizeChange($event)"
+              class="modern-select modern-select--compact">
+              <option *ngFor="let size of userPageSizeOptions" [ngValue]="size">{{ size }} por página</option>
+            </select>
+            <button class="toolbar-btn toolbar-btn--secondary" (click)="clearUserFilters()">Limpiar</button>
+            <button class="toolbar-btn toolbar-btn--primary" (click)="applyUserFilters()">Buscar</button>
+          </div>
+        </div>
+
         <div
           class="glass-table-container overflow-hidden border border-gray-100 rounded-[24px] md:rounded-[32px] bg-white shadow-sm">
+
+          <div class="users-summary" *ngIf="!loadingUsers">
+            <span>{{ userRangeStart }}-{{ userRangeEnd }} de {{ userTotal }} usuarios</span>
+            <span *ngIf="userSearch || userRoleFilter || userActiveFilter !== 'all'">Filtros activos</span>
+          </div>
 
           <div *ngIf="loadingUsers" class="p-6 space-y-4">
             <div *ngFor="let i of [1,2,3,4]" class="h-20 bg-gray-50 animate-pulse rounded-2xl"></div>
           </div>
 
           <div *ngIf="!loadingUsers">
+            <div *ngIf="usuarios.length === 0" class="users-empty-state">
+              <h3>No se encontraron usuarios</h3>
+              <p>Ajustá los filtros o cambiá la búsqueda para ver otros resultados.</p>
+            </div>
 
-            <div class="block md:hidden">
+            <div class="block md:hidden" *ngIf="usuarios.length > 0">
               <div *ngFor="let u of usuarios; trackBy: trackUser" class="p-5 border-b border-gray-50 last:border-0">
 
                 <div class="flex items-center justify-between mb-4">
@@ -442,7 +484,7 @@
               </div>
             </div>
 
-            <div class="hidden md:block overflow-x-auto">
+            <div class="hidden md:block overflow-x-auto" *ngIf="usuarios.length > 0">
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr class="bg-gray-50/50">
@@ -500,6 +542,26 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <div class="pagination-bar" *ngIf="userTotalPages > 1">
+              <button
+                class="pagination-btn"
+                (click)="changeUserPage(userPage - 1)"
+                [disabled]="userPage === 1 || loadingUsers">
+                Anterior
+              </button>
+
+              <div class="pagination-meta">
+                <span>Página {{ userPage }} de {{ userTotalPages }}</span>
+              </div>
+
+              <button
+                class="pagination-btn"
+                (click)="changeUserPage(userPage + 1)"
+                [disabled]="userPage === userTotalPages || loadingUsers">
+                Siguiente
+              </button>
             </div>
 
           </div>

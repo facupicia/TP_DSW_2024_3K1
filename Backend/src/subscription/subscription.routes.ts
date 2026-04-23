@@ -39,8 +39,8 @@ router.get("/plans", getPlans);
  * Recibe notificaciones de MercadoPago sobre suscripciones.
  * NOTA: No requiere auth token - los webhooks vienen directamente de MP.
  */
-router.post("/webhook", express.json(), subscriptionWebhook);
-router.get("/webhook", subscriptionWebhook);
+router.post("/webhook", express.json(), createValidateMPWebhookSignature('subscription'), subscriptionWebhook);
+router.get("/webhook", createValidateMPWebhookSignature('subscription'), subscriptionWebhook);
 
 /**
  * GET /api/subscription/callback

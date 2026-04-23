@@ -28,6 +28,7 @@ export async function processRefund(
         amount?: number; // Si no se especifica, es reembolso total
         reason?: string;
         requestedBy: number; // User ID que solicita el reembolso
+        requesterRoles?: string[];
     }
 ): Promise<RefundResult> {
     logger.info('REFUND_START', { paymentId, options });
@@ -44,14 +45,25 @@ export async function processRefund(
         });
         
         if (!paymentLog) {
+            await queryRunner.rollbackTransaction();
             return {
                 success: false,
                 message: 'Payment not found in system'
             };
         }
+
+        const isAdmin = options.requesterRoles?.includes('admin') || false;
+        if (!isAdmin && paymentLog.organizerId !== options.requestedBy) {
+            await queryRunner.rollbackTransaction();
+            return {
+                success: false,
+                message: 'No tienes permiso para reembolsar este pago'
+            };
+        }
         
         // 2. Verificar que no esté ya reembolsado
         if (paymentLog.status === PaymentStatus.REFUNDED) {
+            await queryRunner.rollbackTransaction();
             return {
                 success: false,
                 message: 'Payment already refunded'
@@ -193,7 +205,7 @@ export async function processRefund(
 /**
  * Obtiene el estado de reembolso de un pago
  */
-export async function getRefundStatus(paymentId: string): Promise<{
+export async function getRefundStatus(paymentId: string, requestedBy?: number, requesterRoles: string[] = []): Promise<{
     canRefund: boolean;
     alreadyRefunded: boolean;
     refundAmount?: number;
@@ -211,6 +223,15 @@ export async function getRefundStatus(paymentId: string): Promise<{
                 canRefund: false,
                 alreadyRefunded: false,
                 message: 'Payment not found'
+            };
+        }
+
+        const isAdmin = requesterRoles.includes('admin');
+        if (!isAdmin && paymentLog.organizerId !== requestedBy) {
+            return {
+                canRefund: false,
+                alreadyRefunded: false,
+                message: 'No tienes permiso para consultar este reembolso'
             };
         }
         

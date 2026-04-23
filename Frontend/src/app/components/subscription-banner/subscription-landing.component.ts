@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { PLATFORM_ID } from '@angular/core';
 import { Router } from '@angular/router';
 import { SubscriptionService, SubscriptionPlan, SubscriptionLimits } from '../../services/subscription.service';
 import { ToastService } from '../../services/toast.service';
@@ -17,6 +18,7 @@ export class SubscriptionLandingComponent implements OnInit {
     private authService = inject(AuthService); // Para verificar si está logueado
     private router = inject(Router);
     private toast = inject(ToastService);
+    private platformId = inject(PLATFORM_ID);
 
     plans: SubscriptionPlan[] = [];
     currentLimits: SubscriptionLimits | null = null;
@@ -28,6 +30,10 @@ export class SubscriptionLandingComponent implements OnInit {
     isLoggedIn = false;
 
     ngOnInit() {
+        if (!isPlatformBrowser(this.platformId)) {
+            return;
+        }
+
         this.checkLoginStatus();
         this.loadPlans();
     }

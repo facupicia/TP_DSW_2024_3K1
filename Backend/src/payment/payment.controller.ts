@@ -36,7 +36,7 @@ import {
 export const createPreference = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
-        const { ticketQuantity, ticketTypeId, promoterCode } = req.body;
+        const { ticketQuantity, ticketTypeId, promoterCode, couponId, couponCode } = req.body;
         
         // Validaciones básicas
         if (!userId) {
@@ -72,38 +72,35 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 userId,
                 ticketTypeId: parseInt(ticketTypeId),
                 quantity,
-                promoterCode
+                promoterCode,
+                couponId: couponId ? parseInt(couponId) : undefined,
+                couponCode
             });
-            
-            // Calcular desglose de precios para el frontend
             const ticketTypeRepo = AppDataSource.getRepository(TicketType);
-            const ticketType = await ticketTypeRepo.findOne({
-                where: { id: parseInt(ticketTypeId) },
-                relations: ['event']
-            });
-            
-            const baseAmount = ticketType ? Number(ticketType.price) * quantity : 0;
-            
-            // Obtener comisión según el plan del organizador
-            const marketplaceInfo = ticketType 
+            const ticketType = await ticketTypeRepo.findOne({ where: { id: parseInt(ticketTypeId) }, relations: ['event'] });
+            const marketplaceInfo = ticketType
                 ? await getMarketPlaceInfo(ticketType.event.user_id)
                 : { commissionPercent: 8, planName: 'FREE' };
-            
-            const commissionAmount = Math.ceil((baseAmount * marketplaceInfo.commissionPercent) / 100);
+            const commissionAmount = Math.ceil((result.pricing.totalAmount * marketplaceInfo.commissionPercent) / 100);
             
             return res.status(200).json({
                 id: result.id,
                 init_point: result.initPoint,
                 marketplace: true,
+                external_reference: ticketType
+                    ? `${userId}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCode ? `|${promoterCode}` : ''}`
+                    : undefined,
                 pricing: {
-                    base_amount: baseAmount,
-                    total_amount: baseAmount
+                    base_amount: result.pricing.baseAmount,
+                    discount_amount: result.pricing.discountAmount,
+                    total_amount: result.pricing.totalAmount,
+                    coupon_id: result.pricing.couponId
                 },
                 commission_info: {
                     commission_percent: marketplaceInfo.commissionPercent,
                     commission_amount: commissionAmount,
                     plan_name: marketplaceInfo.planName,
-                    organizer_net_amount: baseAmount - commissionAmount
+                    organizer_net_amount: result.pricing.totalAmount - commissionAmount
                 }
             });
             
@@ -125,6 +122,17 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 return res.status(400).json({
                     code: 'ORGANIZER_MP_NOT_LINKED',
                     message: 'El organizador de este evento no tiene asociada su cuenta de Mercado Pago. No es posible procesar el pago.'
+                });
+            }
+
+            if (['COUPON_INVALID', 'COUPON_EXPIRED', 'COUPON_EXHAUSTED'].includes(error.message)) {
+                return res.status(400).json({
+                    code: error.message,
+                    message: error.message === 'COUPON_EXPIRED'
+                        ? 'El cupón expiró.'
+                        : error.message === 'COUPON_EXHAUSTED'
+                            ? 'El cupón ya no tiene usos disponibles.'
+                            : 'El cupón no es válido para este evento.'
                 });
             }
             

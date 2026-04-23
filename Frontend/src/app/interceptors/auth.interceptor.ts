@@ -1,20 +1,45 @@
-import { HttpInterceptorFn } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { catchError, switchMap, tap, throwError } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const cloned = req.clone({
-                setHeaders: {
-                    Authorization: `Bearer ${token}`
-                }
-            });
-            return next(cloned);
-        } else {
-            console.warn('[AuthInterceptor] No token found in localStorage for request to:', req.url);
-        }
-    } else {
-        console.warn('[AuthInterceptor] window or localStorage not available for request to:', req.url);
-    }
-    return next(req);
+    const http = inject(HttpClient);
+    const token = typeof window !== 'undefined' && window.localStorage
+        ? localStorage.getItem('token')
+        : null;
+
+    const isAuthEndpoint = req.url.includes('/user/login')
+        || req.url.includes('/user/google')
+        || req.url.includes('/user/refresh')
+        || req.url.includes('/user/logout');
+
+    const cloned = req.clone({
+        withCredentials: true,
+        ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {})
+    });
+
+    return next(cloned).pipe(
+        catchError((error: HttpErrorResponse) => {
+            if (error.status !== 401 || isAuthEndpoint || typeof window === 'undefined') {
+                return throwError(() => error);
+            }
+
+            return http.post<{ token: string }>(`${environment.apiUrl}/user/refresh`, {}, { withCredentials: true }).pipe(
+                tap((resp) => {
+                    if (resp?.token) {
+                        localStorage.setItem('token', resp.token);
+                    }
+                }),
+                switchMap((resp) => next(req.clone({
+                    withCredentials: true,
+                    ...(resp?.token ? { setHeaders: { Authorization: `Bearer ${resp.token}` } } : {})
+                }))),
+                catchError((refreshError) => {
+                    localStorage.removeItem('token');
+                    return throwError(() => refreshError);
+                })
+            );
+        })
+    );
 };

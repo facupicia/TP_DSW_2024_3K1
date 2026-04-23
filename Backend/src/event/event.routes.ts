@@ -4,7 +4,6 @@
  */
 import { Router } from "express"
 import { getEvent, createEvent, deleteEvent, getEventByName, getEventsByUser, updateEvent, getEvents, getCreatorStats, getCreatorStatsComparative, streamCreatorStats, exportCreatorStatsPdf, getPlatformStats, getEventStats, exportCreatorStatsCsv, getEventsNumber } from "./event.controller"
-import { createTicket } from "../ticket/ticket.controller"
 import { createEventSchema, updateEventSchema } from "../schemas/schema.event"
 import { schemaValidation } from "../common/middleware/schemaValidacion"
 import { checkAuthToken } from "../common/middleware/authToken"
@@ -16,7 +15,7 @@ const router = Router()
 router.get("/", getEvents)  // Ruta pública para listar eventos
 router.get("/explore", getEvents)
 router.get("/search", getEventByName)
-router.get("/count", getEventsNumber)
+router.get("/count", checkAuthToken, checkRoleAuth(["admin"]), getEventsNumber)
 
 /* ==================== STATISTICS ROUTES (before /:id) ==================== */
 router.get("/stats", checkAuthToken, checkRoleAuth(["organizer", "admin"]), getCreatorStats)
@@ -32,7 +31,12 @@ router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin",
 router.get("/my-events", checkAuthToken, checkRoleAuth(["organizer", "admin", "user", "rrpp"]), getEventsByUser)
 
 /* ==================== DYNAMIC ROUTES (must be last) ==================== */
-router.post("/:id/buy", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), createTicket)
+router.post("/:id/buy", checkAuthToken, (_req, res) => {
+    res.status(410).json({
+        code: "DIRECT_TICKET_PURCHASE_DISABLED",
+        message: "La compra directa fue deshabilitada. Usa /api/payment/create-preference."
+    })
+})
 router.get("/:id", getEvent)
 router.delete("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), deleteEvent)
 router.put("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(updateEventSchema), updateEvent)

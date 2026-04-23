@@ -31,7 +31,7 @@ export const tokenSing = async (user: User) => {
         },
         process.env.SECRET_KEY,
         {
-            expiresIn: '24h'
+            expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m'
         }
     );
 }

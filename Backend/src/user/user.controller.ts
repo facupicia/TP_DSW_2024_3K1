@@ -2,11 +2,13 @@ import { User } from "./user.entity"
 import { Request, Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken';
+import { Brackets } from "typeorm";
 import { tokenSing } from "../common/services/generateToken"
 import { CustomRequest } from "../common/middleware/authToken";
 import { Roles, getHighestRole } from "../schemas/schema.user";
 import { OAuth2Client } from "google-auth-library";
 import { getRoleNames, findRolesByNames } from "./role.entity";
+import { issueRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../common/services/sessionTokens";
 
 
 export const signupUser = async (req: Request, res: Response) => {
@@ -40,21 +42,48 @@ export const signupUser = async (req: Request, res: Response) => {
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
-    const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
-    const [users, total] = await User.findAndCount({
-      relations: ['roles'],
-      select: {
-        id: true,
-        firstname: true,
-        lastname: true,
-        email: true,
-        imgPerfil: true,
-        active: true
-      },
-      order: { id: 'ASC' },
-      skip,
-      take
-    })
+    const { getPagination } = await import("../common/services/pagination");
+    const { page, limit, skip, take } = getPagination(req.query, 20, 100);
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const role = typeof req.query.role === 'string' ? req.query.role.trim() : '';
+    const activeQuery = typeof req.query.active === 'string' ? req.query.active.trim().toLowerCase() : '';
+
+    const qb = User.createQueryBuilder("user")
+      .leftJoinAndSelect("user.roles", "role")
+      .select([
+        "user.id",
+        "user.firstname",
+        "user.lastname",
+        "user.email",
+        "user.imgPerfil",
+        "user.active",
+        "role.id",
+        "role.name"
+      ])
+      .orderBy("user.id", "ASC")
+      .skip(skip)
+      .take(take);
+
+    if (search) {
+      qb.andWhere(
+        new Brackets((subQb) => {
+          subQb
+            .where("LOWER(user.firstname) LIKE :search", { search: `%${search.toLowerCase()}%` })
+            .orWhere("LOWER(user.lastname) LIKE :search", { search: `%${search.toLowerCase()}%` })
+            .orWhere("LOWER(user.email) LIKE :search", { search: `%${search.toLowerCase()}%` });
+        })
+      );
+    }
+
+    if (role && Roles.safeParse(role).success) {
+      qb.innerJoin("user.roles", "roleFilter", "roleFilter.name = :roleName", { roleName: role });
+    }
+
+    if (activeQuery === 'true' || activeQuery === 'false') {
+      qb.andWhere("user.active = :active", { active: activeQuery === 'true' });
+    }
+
+    const [users, total] = await qb.getManyAndCount();
     const usersWithRoleNames = users.map(u => ({
       id: u.id,
       firstname: u.firstname,
@@ -64,17 +93,36 @@ export const getUsers = async (req: Request, res: Response) => {
       active: u.active,
       roles: getRoleNames(u)
     }));
-    return res.status(200).json({ data: usersWithRoleNames, total })
+    return res.status(200).json({
+      data: usersWithRoleNames,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit))
+    })
   } catch (error) {
     return res.status(500).json({ message: error })
   }
 }
 
-export const getUser = async (req: Request, res: Response) => {
+export const getUser = async (req: CustomRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const targetId = parseInt(id);
+    const requesterId = req.user?.id;
+    const requesterRoles = req.user?.roles || [];
+    const isAdmin = requesterRoles.includes('admin');
+
+    if (!requesterId) {
+      return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+    }
+
+    if (requesterId !== targetId && !isAdmin) {
+      return res.status(403).json({ code: "FORBIDDEN_USER_LOOKUP", message: "No puedes consultar otros usuarios" });
+    }
+
     const user = await User.findOne({
-      where: { id: parseInt(id) },
+      where: { id: targetId },
       relations: ['roles'],
       select: {
         id: true,
@@ -102,33 +150,37 @@ export const getUser = async (req: Request, res: Response) => {
   }
 };
 
-export const updateUser = async (req: Request, res: Response) => {
+export const updateUser = async (req: CustomRequest, res: Response) => {
   try {
-    const { firstname, lastname, email, password, roles, phone, birth, pais, provincia, ciudad, imgPerfil, address } = req.body
-    const user = await User.findOneBy({ id: parseInt(req.params.id) })
+    const targetId = parseInt(req.params.id)
+    const requesterId = req.user?.id
+    const requesterRoles = req.user?.roles || []
+    const isAdmin = requesterRoles.includes('admin')
+
+    if (!requesterId) {
+      return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" })
+    }
+
+    if (requesterId !== targetId && !isAdmin) {
+      return res.status(403).json({ code: "FORBIDDEN_PROFILE", message: "No puedes editar el perfil de otro usuario" })
+    }
+
+    const { firstname, lastname, email, password, phone, birth, pais, provincia, ciudad, imgPerfil, address } = req.body
+    const user = await User.findOneBy({ id: targetId })
 
     if (!user) return res.status(404).json({ message: "User does not exist" })
-    user.firstname = firstname
-    user.phone = phone
-    user.birth = birth
-    user.pais = pais
-    user.provincia = provincia
-    user.ciudad = ciudad
-    user.address = address
-    user.imgPerfil = imgPerfil
-    user.lastname = lastname
-    user.email = email
+    if (firstname !== undefined) user.firstname = firstname
+    if (phone !== undefined) user.phone = phone
+    if (birth !== undefined) user.birth = birth
+    if (pais !== undefined) user.pais = pais
+    if (provincia !== undefined) user.provincia = provincia
+    if (ciudad !== undefined) user.ciudad = ciudad
+    if (address !== undefined) user.address = address
+    if (imgPerfil !== undefined) user.imgPerfil = imgPerfil
+    if (lastname !== undefined) user.lastname = lastname
+    if (email !== undefined) user.email = email
     if (password) {
       user.password = await bcrypt.hash(password, 10);
-    }
-    if (roles && Array.isArray(roles)) {
-      // Validate all roles
-      const invalidRoles = roles.filter((r: string) => !Roles.options.includes(r as any));
-      if (invalidRoles.length > 0) {
-        return res.status(400).json({ code: "INVALID_ROLE", message: `Roles no válidos: ${invalidRoles.join(', ')}` });
-      }
-      const roleEntities = await findRolesByNames(roles);
-      user.roles = roleEntities;
     }
 
     await user.save()
@@ -142,10 +194,14 @@ export const updateUser = async (req: Request, res: Response) => {
 export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    const result = await User.delete({ id: parseInt(id) });
+    const user = await User.findOneBy({ id: parseInt(id) });
 
-    if (result.affected === 0)
+    if (!user)
       return res.status(404).json({ message: "User not found" });
+
+    user.active = false;
+    await user.save();
+    await User.softRemove(user);
 
     return res.sendStatus(204);
   } catch (error) {
@@ -178,11 +234,36 @@ export const signinUser = async (req: Request, res: Response) => {
     // Generar token con id
     const tokenSession = await tokenSing(user)
 
+    await issueRefreshToken(res, user);
+
     return res.status(200).json({ "token": tokenSession })
 
   } catch (error: any) {
     console.error('Login error:', error);
     return res.status(500).json({ message: error.message || 'Internal Server Error' });
+  }
+};
+
+export const refreshSession = async (req: Request, res: Response) => {
+  try {
+    const tokenSession = await rotateRefreshToken(req, res);
+
+    if (!tokenSession) {
+      return res.status(401).json({ code: "REFRESH_INVALID", message: "Sesión expirada o inválida" });
+    }
+
+    return res.status(200).json({ token: tokenSession });
+  } catch (error: any) {
+    return res.status(500).json({ code: "REFRESH_ERROR", message: error.message || "Internal Server Error" });
+  }
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+  try {
+    await revokeRefreshToken(req, res);
+    return res.status(204).send();
+  } catch (error: any) {
+    return res.status(500).json({ code: "LOGOUT_ERROR", message: error.message || "Internal Server Error" });
   }
 };
 
@@ -393,6 +474,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       }
     }
     const tokenSession = await tokenSing(user);
+    await issueRefreshToken(res, user);
     return res.status(200).json({ token: tokenSession });
   } catch (error: any) {
     return res.status(500).json({ code: "GOOGLE_AUTH_ERROR", message: error.message || "Error interno" });

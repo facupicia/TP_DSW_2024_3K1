@@ -42,18 +42,9 @@ export class ExploradorEventosComponent implements OnInit {
     // Cargar Eventos y Destacados en una sola llamada
     this.eventoService.obtenerEventos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (eventos) => {
-        const hoy = new Date();
-        hoy.setHours(0, 0, 0, 0);
-
-        // Filtrar eventos que no han pasado (fecha >= hoy)
-        const eventosActivos = eventos.filter(evento => {
-          const fechaEvento = new Date(evento.date);
-          return fechaEvento >= hoy;
-        });
-
-        this.eventos = eventosActivos;
-        this.eventosFiltrados = eventosActivos;
-        this.destacados = eventosActivos.filter(e => e.destacado);
+        this.eventos = eventos;
+        this.eventosFiltrados = eventos;
+        this.destacados = eventos.filter(e => e.destacado);
         this.isLoading = false;
       },
       error: () => {

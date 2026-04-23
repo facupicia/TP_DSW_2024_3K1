@@ -27,9 +27,7 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
     return function validateMPWebhookSignature(req: Request, res: Response, next: NextFunction): void {
         const config = getMPConfig();
         const signature = req.headers['x-signature'] as string | undefined;
-        const webhookSecret = type === 'payment' 
-            ? config.webhookSecret 
-            : undefined;
+        const webhookSecret = config.webhookSecret;
         
         logger.info('MP_WEBHOOK_RECEIVED', {
             type,
@@ -40,9 +38,21 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             hasSecret: !!webhookSecret
         });
         
-        // Si no hay secret configurado, continuar (modo desarrollo)
-        if (!webhookSecret || !signature) {
+        if (!webhookSecret) {
+            if (process.env.NODE_ENV === 'production') {
+                logger.error('MP_WEBHOOK_SECRET_MISSING_PRODUCTION', { type, path: req.path });
+                res.status(503).json({ error: 'Webhook signature validation is not configured' });
+                return;
+            }
+
+            // Development/sandbox mode only.
             next();
+            return;
+        }
+
+        if (!signature) {
+            logger.error('MP_WEBHOOK_MISSING_SIGNATURE', { type, path: req.path });
+            res.status(401).json({ error: 'Missing signature' });
             return;
         }
         
@@ -54,7 +64,7 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             
             if (!tsPart || !v1Part) {
                 logger.warn('MP_WEBHOOK_INVALID_SIGNATURE_FORMAT', { signature });
-                next();
+                res.status(401).json({ error: 'Invalid signature format' });
                 return;
             }
             
@@ -88,7 +98,7 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             
         } catch (error) {
             logger.error('MP_WEBHOOK_SIGNATURE_ERROR', { error: (error as Error).message });
-            next();
+            res.status(401).json({ error: 'Invalid signature' });
         }
     };
 }

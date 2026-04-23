@@ -2,7 +2,6 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
 // Routes from modules
@@ -19,11 +18,13 @@ import promoterRoutes from "./promoter/promoter.routes"
 import { adminRouter } from "./admin/admin.controller"
 
 // Utilities
-import { paymentWebhook } from "./payment/payment.controller"
 import { errorHandler } from "./common/middleware/errorHandler"
 import { getMailerStatus } from "./common/services/mailer"
 import { requestId } from "./common/services/requestId"
 import { metricsMiddleware, metricsHandler } from "./common/services/metrics"
+import { checkAuthToken } from "./common/middleware/authToken"
+import { checkRoleAuth } from "./common/middleware/checkRole"
+import { globalRateLimiter } from "./common/middleware/rateLimit"
 
 const app = express();
 
@@ -53,21 +54,7 @@ app.use(cors({
     exposedHeaders: ['x-request-id']
 }));
 
-const limiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (_req, res, _next, options) => {
-        const reset = res.getHeader('ratelimit-reset') || res.getHeader('x-ratelimit-reset');
-        res.status(options.statusCode).json({
-            code: "RATE_LIMITED",
-            message: "Demasiadas solicitudes desde este cliente. Intenta de nuevo más tarde.",
-            retryAfter: reset ?? null
-        });
-    }
-});
-app.use(limiter);
+app.use(globalRateLimiter);
 
 app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json());
@@ -97,7 +84,7 @@ app.get('/health', async (_req, res) => {
 app.get('/metrics', metricsHandler)
 
 // Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+app.use('/api-docs', checkAuthToken, checkRoleAuth(["admin"]), swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'EventLife API Docs'
@@ -115,10 +102,6 @@ app.use("/api/subscription", subscriptionRoutes)
 app.use("/api/coupon", couponRoutes)
 app.use("/api/promoter", promoterRoutes)
 app.use("/api/admin", adminRouter)
-
-// Fallback para webhooks configurados al dominio raíz (MP envía ?topic=payment&id=...)
-app.post("/", paymentWebhook)
-app.get("/", paymentWebhook)
 
 // Global error handler (must be after routes)
 app.use(errorHandler)

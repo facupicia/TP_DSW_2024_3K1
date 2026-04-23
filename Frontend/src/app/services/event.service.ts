@@ -73,7 +73,8 @@ export class EventService {
   }
 
   obtenerEventos(): Observable<Evento[]> {
-    return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`).pipe(
+    const params = new HttpParams().set('limit', '1000');
+    return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`, { params }).pipe(
       map(response => response.data || []),
       tap(events => {
         if (Array.isArray(events)) {

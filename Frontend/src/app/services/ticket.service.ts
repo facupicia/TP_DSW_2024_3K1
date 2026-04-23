@@ -13,7 +13,7 @@ export class TicketService {
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/ticket/";
 
-  comprarTicket(objeto: { cantidad: number, ticketTypeId: number, promoterCode?: string }): Observable<any> {
+  comprarTicket(objeto: { cantidad: number, ticketTypeId: number, promoterCode?: string, couponId?: number, couponCode?: string }): Observable<any> {
     // Redirige al endpoint de pago
     const token = localStorage.getItem('token');
     const headers: HttpHeaders = new HttpHeaders(
@@ -27,6 +27,11 @@ export class TicketService {
     
     if (objeto.promoterCode) {
       body.promoterCode = objeto.promoterCode;
+    }
+
+    if (objeto.couponId) {
+      body.couponId = objeto.couponId;
+      body.couponCode = objeto.couponCode;
     }
 
     return this.http.post<any>(

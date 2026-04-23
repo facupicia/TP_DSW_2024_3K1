@@ -487,31 +487,32 @@ export class AdminService {
         const queryRunner = AppDataSource.createQueryRunner();
 
         try {
+            const safeLast = Number.isFinite(last) ? Math.min(Math.max(Math.floor(last), 1), 365) : 30;
             let truncate = 'day';
-            let interval = `${last} days`;
+            let interval = `${safeLast} days`;
 
             if (period === 'week') {
                 truncate = 'week';
-                interval = `${last} weeks`;
+                interval = `${safeLast} weeks`;
             } else if (period === 'month') {
                 truncate = 'month';
-                interval = `${last} months`;
+                interval = `${safeLast} months`;
             }
 
             const query = `
         SELECT 
-          DATE_TRUNC('${truncate}', pl."createdAt") AS period,
+          DATE_TRUNC($1, pl."createdAt") AS period,
           SUM(pl."commissionAmount") AS commission,
           SUM(pl."totalAmount") AS gmv,
           COUNT(*) AS transactions
         FROM payment_log pl
         WHERE pl.status = 'completed'
-          AND pl."createdAt" >= NOW() - INTERVAL '${interval}'
+          AND pl."createdAt" >= NOW() - ($2::interval)
         GROUP BY period
         ORDER BY period ASC
       `;
 
-            const result = await queryRunner.query(query);
+            const result = await queryRunner.query(query, [truncate, interval]);
 
             return result.map((row: any) => ({
                 period: row.period,

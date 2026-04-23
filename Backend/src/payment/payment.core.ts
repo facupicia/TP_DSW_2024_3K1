@@ -5,6 +5,7 @@ import { User } from '../user/user.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
 import { Ticket } from '../ticket/ticket.entity';
 import { PromoterGroup } from '../promoter/promoter.entity';
+import { Coupon } from '../coupon/coupon.entity';
 import { getActiveSubscription } from '../subscription/subscription.service';
 import { createTicketsForPurchase, sendTicketEmail } from '../ticket/ticket.service';
 import { logger } from '../common/services/logger';
@@ -39,6 +40,7 @@ export interface ExtractedPaymentInfo {
     quantity: number;
     organizerId: number;
     promoterCode?: string; // Código del promotor que vendió
+    couponId?: number;
 }
 
 export interface CommissionInfo {
@@ -203,6 +205,8 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     let ticketTypeId = 0;
     let quantity = 0;
     let organizerId = 0;
+    const meta = payment.metadata || {};
+    let couponId = Number(meta.coupon_id) || 0;
     
     // Prioridad 1: external_reference
     // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
@@ -228,7 +232,6 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     
     // Prioridad 2: Metadata (fallback)
     if (!userId || !ticketTypeId) {
-        const meta = payment.metadata || {};
         const additional = payment.additional_info || {};
         const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
         
@@ -248,7 +251,7 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         return null;
     }
     
-    return { userId, ticketTypeId, quantity, organizerId, promoterCode };
+    return { userId, ticketTypeId, quantity, organizerId, promoterCode, couponId: couponId || undefined };
 }
 
 /**
@@ -433,7 +436,7 @@ export async function processApprovedPayment(
             promoterCode: info.promoterCode
         });
         
-        const { userId, ticketTypeId, quantity, organizerId, promoterCode } = info;
+        const { userId, ticketTypeId, quantity, organizerId, promoterCode, couponId } = info;
         
         // 2. Verificar que el usuario existe
         const userRepo = queryRunner.manager.getRepository(User);
@@ -454,11 +457,35 @@ export async function processApprovedPayment(
         }
         
         // 4. Verificar que el monto pagado coincida con lo esperado
-        const expectedTotal = Number(ticketType.price) * quantity;
+        const baseTotal = Number(ticketType.price) * quantity;
+        let expectedTotal = baseTotal;
+        let coupon: Coupon | null = null;
+
+        if (couponId) {
+            coupon = await queryRunner.manager.findOne(Coupon, {
+                where: { id: couponId, eventId: ticketType.event.id, isActive: true }
+            });
+
+            if (!coupon) {
+                throw new Error('Coupon not valid for this event');
+            }
+
+            if (coupon.expiresAt && new Date() > coupon.expiresAt) {
+                throw new Error('Coupon expired');
+            }
+
+            if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
+                throw new Error('Coupon exhausted');
+            }
+
+            const discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
+            expectedTotal = Math.max(baseTotal - discountAmount, 0);
+        }
+
         const paidAmount = paymentData.transaction_amount || 0;
         
         // Tolerancia de 1% para diferencias de redondeo
-        const tolerance = expectedTotal * 0.01;
+        const tolerance = Math.max(expectedTotal * 0.01, 1);
         if (Math.abs(paidAmount - expectedTotal) > tolerance) {
             logger.error('PAYMENT_AMOUNT_MISMATCH', {
                 paymentId,
@@ -466,7 +493,7 @@ export async function processApprovedPayment(
                 paid: paidAmount,
                 tolerance
             });
-            // Continuar pero loguear - no bloquear por pequeñas diferencias
+            throw new Error('Payment amount mismatch');
         }
         
         // 5. Obtener comisión del organizador
@@ -511,7 +538,7 @@ export async function processApprovedPayment(
             userId,
             ticketTypeId,
             organizerId: actualOrganizerId,
-            unitPrice: Number(ticketType.price),
+            unitPrice: Number((expectedTotal / quantity).toFixed(2)),
             quantity,
             totalAmount: expectedTotal,
             commissionPercent: commission.percent,
@@ -533,6 +560,22 @@ export async function processApprovedPayment(
             await queryRunner.commitTransaction();
             return { success: false, error: 'No stock available', logId: log.id };
         }
+
+        if (coupon) {
+            const couponUpdate = await queryRunner.manager
+                .createQueryBuilder()
+                .update(Coupon)
+                .set({ usedCount: () => `"usedCount" + 1` })
+                .where('id = :id', { id: coupon.id })
+                .andWhere('("maxUses" = 0 OR "usedCount" < "maxUses")')
+                .execute();
+
+            if (!couponUpdate.affected) {
+                await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
+                await queryRunner.commitTransaction();
+                return { success: false, error: 'Coupon exhausted', logId: log.id };
+            }
+        }
         
         // 8. Crear tickets con información del promotor
         const tickets = await createTicketsForPurchase(
@@ -546,6 +589,10 @@ export async function processApprovedPayment(
                 promoterCode
             } : undefined
         );
+        const paidUnitPrice = Number((expectedTotal / quantity).toFixed(2));
+        tickets.forEach(ticket => {
+            ticket.purchasePrice = paidUnitPrice;
+        });
         await queryRunner.manager.save(Ticket, tickets);
         
         // 9. Marcar como completado

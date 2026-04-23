@@ -7,6 +7,7 @@ import {
     disconnectMp 
 } from "./mp-oauth.controller";
 import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
+import { checkRoleAuth } from "../common/middleware/checkRole";
 import { 
     createValidateMPWebhookSignature 
 } from "./mp-webhook.middleware";
@@ -41,11 +42,10 @@ router.get("/status", checkAuthToken, getPaymentStatus);
  * NOTA: No requiere auth token - los webhooks vienen directamente de MP.
  */
 
-// POST webhook - sin validaciones complejas para evitar errores 502
-router.post("/webhook", express.json(), paymentWebhook);
+router.post("/webhook", express.json(), createValidateMPWebhookSignature('payment'), paymentWebhook);
 
 // GET webhook - para notificaciones GET de MP  
-router.get("/webhook", paymentWebhook);
+router.get("/webhook", createValidateMPWebhookSignature('payment'), paymentWebhook);
 
 /* ==================== MP OAUTH ROUTES ==================== */
 
@@ -97,12 +97,13 @@ router.post("/mp/disconnect", checkAuthToken, disconnectMp);
  * 
  * Body: { amount?: number, reason?: string }
  */
-router.post("/refund/:paymentId", checkAuthToken, async (req: CustomRequest, res) => {
+router.post("/refund/:paymentId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
     const { processRefund } = await import('./refund.service');
     const result = await processRefund(req.params.paymentId, {
         amount: req.body?.amount,
         reason: req.body?.reason,
-        requestedBy: req.user?.id
+        requestedBy: req.user?.id,
+        requesterRoles: req.user?.roles || []
     });
     res.status(result.success ? 200 : 400).json(result);
 });
@@ -112,9 +113,9 @@ router.post("/refund/:paymentId", checkAuthToken, async (req: CustomRequest, res
  * 
  * Verifica si un pago puede ser reembolsado.
  */
-router.get("/refund-status/:paymentId", checkAuthToken, async (req: CustomRequest, res) => {
+router.get("/refund-status/:paymentId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
     const { getRefundStatus } = await import('./refund.service');
-    const result = await getRefundStatus(req.params.paymentId);
+    const result = await getRefundStatus(req.params.paymentId, req.user?.id, req.user?.roles || []);
     res.status(200).json(result);
 });
 

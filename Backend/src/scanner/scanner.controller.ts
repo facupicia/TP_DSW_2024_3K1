@@ -32,6 +32,15 @@ export class ScannerController {
                 return res.status(404).json({ message: "Ticket inexistente" });
             }
 
+            const userRoles = req.user?.roles || [];
+            const isAdmin = userRoles.includes('admin');
+            const isGlobalScanner = userRoles.includes('scanner');
+            const isEventOwner = ticket.ticketType.event.user_id === scannerId;
+
+            if (!isAdmin && !isGlobalScanner && !isEventOwner) {
+                return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento" });
+            }
+
             // --- Validaciones de Estado ---
             if (ticket.status === TicketStatus.USED) {
                 return res.status(409).json({
@@ -60,10 +69,19 @@ export class ScannerController {
             }
 
             // --- Éxito ---
+            const usedAt = new Date();
+            const updateResult = await Ticket.update(
+                { id: ticket.id, status: TicketStatus.ACTIVE },
+                { status: TicketStatus.USED, usedAt, scannedById: scannerId }
+            );
+
+            if (!updateResult.affected) {
+                return res.status(409).json({ message: "Entrada YA utilizada" });
+            }
+
             ticket.status = TicketStatus.USED;
-            ticket.usedAt = new Date();
+            ticket.usedAt = usedAt;
             ticket.scannedById = scannerId;
-            await ticket.save();
 
             return res.json({
                 message: "Ticket válido - Acceso Permitido",

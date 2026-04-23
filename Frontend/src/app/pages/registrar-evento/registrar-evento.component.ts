@@ -375,9 +375,19 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     } else {
       // CREAR
       this.eventService.crearEvento(eventData).subscribe({
-        next: () => {
+        next: (response: any) => {
           this.toastService.success('Evento creado con éxito!');
-          setTimeout(() => this.router.navigate(['/my-events']), 1500);
+
+          // If backend returned a new token (user was promoted to organizer), update it
+          if (response?.token && typeof window !== 'undefined') {
+            localStorage.setItem('token', response.token);
+            this.authService.getProfile().subscribe({
+              next: () => this.router.navigate(['/my-events']),
+              error: () => this.router.navigate(['/my-events'])
+            });
+          } else {
+            setTimeout(() => this.router.navigate(['/my-events']), 1500);
+          }
         },
         error: (err) => {
           this.isSubmitting = false;

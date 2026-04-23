@@ -4,11 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { CategoryService } from '../../services/category.service';
 import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
-import { AuthService } from '../../services/auth.service';
+import { AuthService, PaginatedUsersResponse } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
-import { StatsService } from '../../services/stats.service';
 import { Usuario, getHighestRole, hasExactRole } from '../../interfaces/Usuario';
-import { EventService } from '../../services/event.service';
 import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
 import { DashboardOverviewComponent } from '../../components/dashboard-overview/dashboard-overview.component';
 import { RevenueViewComponent } from '../../components/revenue-view/revenue-view.component';
@@ -43,8 +41,6 @@ export class AdminPanelComponent implements OnInit {
   private adminService = inject(AdminService);
   public formBuild = inject(FormBuilder);
   private toast = inject(ToastService);
-  private statsService = inject(StatsService);
-  private eventService = inject(EventService);
   private destroyRef = inject(DestroyRef);
 
   public activeTab: TabView = 'dashboard';
@@ -56,6 +52,18 @@ export class AdminPanelComponent implements OnInit {
   public selectedRoles: Record<number, string[]> = {};  // Support multiple roles
   public availableRoles: Array<'user' | 'admin' | 'scanner' | 'organizer' | 'rrpp'> = ['user', 'admin', 'scanner', 'organizer', 'rrpp'];
   public currentUser: any = null;
+  public hasLoadedUsers = false;
+  public hasLoadedCategories = false;
+
+  public userPage = 1;
+  public userLimit = 20;
+  public userTotal = 0;
+  public userTotalPages = 1;
+  public userSearchInput = '';
+  public userSearch = '';
+  public userRoleFilter = '';
+  public userActiveFilter: 'all' | 'active' | 'inactive' = 'all';
+  public readonly userPageSizeOptions = [10, 20, 50, 100];
 
   // Date Range Filter
   public selectedDatePreset: DatePreset = 'all';
@@ -86,13 +94,9 @@ export class AdminPanelComponent implements OnInit {
   dateRange: DateRange | undefined = undefined;
 
   ngOnInit(): void {
-    this.cargarCategorias();
     this.userService.currentUser$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
     });
-
-    this.cargarUsuarios();
-    this.getEvents();
     this.loadOverview();
   }
 
@@ -123,37 +127,42 @@ export class AdminPanelComponent implements OnInit {
     });
   }
 
-  getEvents() {
-    this.eventService.getEventsNumber().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (data) => {
-        this.stats.activeEvents = data;
-        console.log(this.stats.activeEvents);
-      },
-      error: (err) => console.error(err)
-    });
-  }
-
-
   cargarCategorias() {
     this.loadingCategories = true;
     this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         this.categorias = res;
         this.stats.totalCategories = res.length;
+        this.hasLoadedCategories = true;
         this.loadingCategories = false;
       },
       error: () => { this.loadingCategories = false; }
     });
   }
 
-  cargarUsuarios() {
+  cargarUsuarios(resetPage = false) {
     if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     if (!token) return;
+    if (resetPage) {
+      this.userPage = 1;
+    }
+
     this.loadingUsers = true;
-    this.userService.getUsers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res) => {
-        this.usuarios = res;
+    this.userService.getUsers({
+      page: this.userPage,
+      limit: this.userLimit,
+      search: this.userSearch,
+      role: this.userRoleFilter,
+      active: this.userActiveFilter === 'all' ? undefined : this.userActiveFilter === 'active'
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res: PaginatedUsersResponse) => {
+        this.usuarios = res.data;
+        this.userTotal = res.total;
+        this.userPage = res.page;
+        this.userLimit = res.limit;
+        this.userTotalPages = res.totalPages;
+        this.hasLoadedUsers = true;
         for (const u of this.usuarios) {
           if (u.id !== undefined) {
             // Initialize with user's roles (support both old 'rol' and new 'roles')
@@ -161,7 +170,7 @@ export class AdminPanelComponent implements OnInit {
             this.selectedRoles[u.id] = userRoles;
           }
         }
-        this.stats.totalUsers = res.length;
+        this.stats.totalUsers = res.total;
         this.loadingUsers = false;
       },
       error: () => { this.loadingUsers = false; }
@@ -170,10 +179,10 @@ export class AdminPanelComponent implements OnInit {
 
   cambiarTab(tab: TabView) {
     this.activeTab = tab;
-    if (tab === 'users' && this.usuarios.length === 0 && !this.loadingUsers) {
+    if (tab === 'users' && !this.hasLoadedUsers && !this.loadingUsers) {
       this.cargarUsuarios();
     }
-    if (tab === 'categories' && this.categorias.length === 0 && !this.loadingCategories) {
+    if (tab === 'categories' && !this.hasLoadedCategories && !this.loadingCategories) {
       this.cargarCategorias();
     }
     // Load metrics when switching to metrics tabs
@@ -254,8 +263,10 @@ export class AdminPanelComponent implements OnInit {
   eliminarUsuario(id: any) {
     if (confirm('¿Eliminar usuario? Esta acción es irreversible.')) {
       this.userService.delete(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-        this.usuarios = this.usuarios.filter(u => u.id !== id);
-        this.stats.totalUsers--;
+        if (this.usuarios.length === 1 && this.userPage > 1) {
+          this.userPage--;
+        }
+        this.cargarUsuarios();
       });
     }
   }
@@ -327,6 +338,41 @@ export class AdminPanelComponent implements OnInit {
   getUserRolesDisplay(u: Usuario): string {
     const roles = u.roles || [u.rol] || ['user'];
     return roles.join(', ');
+  }
+
+  applyUserFilters() {
+    this.userSearch = this.userSearchInput.trim();
+    this.cargarUsuarios(true);
+  }
+
+  clearUserFilters() {
+    this.userSearchInput = '';
+    this.userSearch = '';
+    this.userRoleFilter = '';
+    this.userActiveFilter = 'all';
+    this.cargarUsuarios(true);
+  }
+
+  changeUserPage(page: number) {
+    if (page < 1 || page > this.userTotalPages || page === this.userPage || this.loadingUsers) {
+      return;
+    }
+    this.userPage = page;
+    this.cargarUsuarios();
+  }
+
+  onUserPageSizeChange(limit: number) {
+    this.userLimit = limit;
+    this.cargarUsuarios(true);
+  }
+
+  get userRangeStart(): number {
+    if (this.userTotal === 0) return 0;
+    return (this.userPage - 1) * this.userLimit + 1;
+  }
+
+  get userRangeEnd(): number {
+    return Math.min(this.userPage * this.userLimit, this.userTotal);
   }
 
   toggleMobileNav() {

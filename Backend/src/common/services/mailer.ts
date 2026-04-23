@@ -97,6 +97,8 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
       } catch {
         errorJson = { message: errorText };
       }
+      console.error("❌ Error API Brevo:", errorJson);
+      return null;
     }
 
     const data = await response.json();

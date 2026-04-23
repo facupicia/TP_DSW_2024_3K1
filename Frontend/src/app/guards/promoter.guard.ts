@@ -14,7 +14,7 @@ export const promoterGuard: CanActivateFn = (route, state) => {
     const router = inject(Router);
     const authService = inject(AuthService);
 
-    return authService.currentUser$.pipe(
+    return authService.ensureCurrentUser().pipe(
         take(1),
         map(user => {
             const userRoles = user?.roles || [user?.rol] || ['user'];

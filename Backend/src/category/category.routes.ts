@@ -15,6 +15,6 @@ const router = Router()
 router.post("/new", schemaValidation(createCategorySchema), checkAuthToken, checkRoleAuth(["admin"]), createCategory)
 router.get("/", getCategories)
 router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteCategory)
-router.get("/:id", getCategoryByID)
+router.get("/:id", checkAuthToken, checkRoleAuth(["admin"]), getCategoryByID)
 
 export default router;

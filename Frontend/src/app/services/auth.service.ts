@@ -1,12 +1,27 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Usuario } from '../interfaces/Usuario';
-import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchError } from 'rxjs';
+import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchError, of } from 'rxjs';
 import { ResponseAcceso } from '../interfaces/ResponseAcceso';
 import { Login } from '../interfaces/Login';
 import { UsuarioEdit } from '../interfaces/UsuarioEdit';
 
+export interface UsersQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  active?: boolean;
+}
+
+export interface PaginatedUsersResponse {
+  data: Usuario[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 
 @Injectable({
@@ -20,11 +35,22 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<any>(null); // Inicializa con null o datos de localStorage si persistes sesión
   public currentUser$ = this.currentUserSubject.asObservable();
 
+  get currentUserValue(): any {
+    return this.currentUserSubject.value;
+  }
+
   constructor() {
     // Opcional: Recuperar sesión al recargar
     if (typeof window !== 'undefined' && localStorage.getItem('token')) {
       this.getProfile().subscribe({
         error: (err) => console.error('Error restaurando sesión:', err)
+      });
+    } else if (typeof window !== 'undefined') {
+      this.refreshToken().subscribe({
+        next: () => this.getProfile().subscribe({
+          error: (err) => console.error('Error restaurando perfil:', err)
+        }),
+        error: () => { }
       });
     }
   }
@@ -34,7 +60,7 @@ export class AuthService {
   }
 
   login(objeto: Login): Observable<ResponseAcceso> {
-    return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto).pipe(
+    return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto, { withCredentials: true }).pipe(
       tap((resp) => {
         if (resp?.token && typeof window !== 'undefined') {
           localStorage.setItem('token', resp.token);
@@ -48,7 +74,7 @@ export class AuthService {
   }
 
   loginWithGoogle(credential: string): Observable<ResponseAcceso> {
-    return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }).pipe(
+    return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }, { withCredentials: true }).pipe(
       tap((resp) => {
         if (resp?.token && typeof window !== 'undefined') {
           localStorage.setItem('token', resp.token);
@@ -76,6 +102,28 @@ export class AuthService {
     );
   }
 
+  refreshToken(): Observable<ResponseAcceso> {
+    return this.http.post<ResponseAcceso>(`${this.urlBase}refresh`, {}, { withCredentials: true }).pipe(
+      tap((resp) => {
+        if (resp?.token && typeof window !== 'undefined') {
+          localStorage.setItem('token', resp.token);
+        }
+      })
+    );
+  }
+
+  ensureCurrentUser(): Observable<any> {
+    if (this.currentUserSubject.value) {
+      return of(this.currentUserSubject.value);
+    }
+
+    if (typeof window !== 'undefined' && localStorage.getItem('token')) {
+      return this.getProfile();
+    }
+
+    return of(null);
+  }
+
   obtenerImagenUsuario(id: number): Observable<UsuarioEdit> {
     return this.http.get<UsuarioEdit>(`${this.urlBase}/${id}`);
   }
@@ -89,9 +137,25 @@ export class AuthService {
     return this.http.get<Usuario>(`${this.urlBase}${id}`);
   }
 
-  getUsers(): Observable<any> {
-    return this.http.get(`${this.urlBase}`).pipe(
-      map((response: any) => response.data || response)
+  getUsers(params?: UsersQueryParams): Observable<PaginatedUsersResponse> {
+    let httpParams = new HttpParams();
+
+    if (params?.page) httpParams = httpParams.set('page', params.page.toString());
+    if (params?.limit) httpParams = httpParams.set('limit', params.limit.toString());
+    if (params?.search?.trim()) httpParams = httpParams.set('search', params.search.trim());
+    if (params?.role?.trim()) httpParams = httpParams.set('role', params.role.trim());
+    if (typeof params?.active === 'boolean') httpParams = httpParams.set('active', String(params.active));
+
+    return this.http.get<PaginatedUsersResponse>(`${this.urlBase}`, {
+      params: httpParams
+    }).pipe(
+      map((response: any) => ({
+        data: response.data || [],
+        total: response.total || 0,
+        page: response.page || params?.page || 1,
+        limit: response.limit || params?.limit || 20,
+        totalPages: response.totalPages || 1
+      }))
     );
   }
 
@@ -105,6 +169,9 @@ export class AuthService {
 
   logout() {
     console.log('Cerrando sesión...');
+    this.http.post(`${this.urlBase}logout`, {}, { withCredentials: true }).subscribe({
+      error: () => { }
+    });
     this.currentUserSubject.next(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');

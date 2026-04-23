@@ -14,13 +14,14 @@ export const scannerGuard: CanActivateFn = (route, state) => {
     const router = inject(Router);
     const authService = inject(AuthService);
 
-    return authService.currentUser$.pipe(
+    return authService.ensureCurrentUser().pipe(
         take(1),
         map(user => {
             const userRoles = user?.roles || [user?.rol] || ['user'];
             
-            // Check if user has scanner or admin role (exact match)
-            if (user && (hasExactRole(userRoles, 'scanner') || hasExactRole(userRoles, 'admin'))) {
+            // Scanner, admin, and organizers can access the scanner UI.
+            // Backend still enforces event ownership for organizers.
+            if (user && (hasExactRole(userRoles, 'scanner') || hasExactRole(userRoles, 'admin') || hasExactRole(userRoles, 'organizer'))) {
                 return true;
             }
 
