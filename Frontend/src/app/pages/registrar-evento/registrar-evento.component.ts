@@ -61,6 +61,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   private locationSearch$ = new Subject<string>();
   private map: any;
   private marker: any;
+  private leaflet: any;
 
   public formRegistroEvento: FormGroup = this.formBuild.group({
     category: ['', Validators.required],
@@ -71,7 +72,7 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     pais: ['', Validators.required],
     provincia: ['', Validators.required],
     ciudad: ['', Validators.required],
-    direccion: [''],
+    direccion: ['', Validators.required],
     image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
     organizer: ['Organizer', Validators.required],
     minAge: [0], // 0 = sin restricción, 18 = +18, etc.
@@ -218,13 +219,15 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       debounceTime(1000), // AUMENTA ESTO: Nominatim pide máximo 1 petición por segundo
       distinctUntilChanged(),
       switchMap(query => {
-        if (query && query.length > 3 && this.showSuggestions) {
+        const normalizedQuery = query.trim();
+        if (normalizedQuery.length > 3 && this.showSuggestions) {
           // AGREGA &email=tu@email.com
-          return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5&addressdetails=1&email=tu_contacto@tudominio.com`);
+          return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(normalizedQuery)}&limit=5&addressdetails=1&email=tu_contacto@tudominio.com`).pipe(
+            catchError(() => of([]))
+          );
         }
         return of([]);
-      }),
-      catchError(() => of([]))
+      })
     ).subscribe(results => {
       this.locationSuggestions = results;
     });
@@ -244,10 +247,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           if (data && data.address) {
             const addr = data.address;
             this.formRegistroEvento.patchValue({
-              pais: addr.country || '',
-              provincia: addr.state || addr.region || '',
-              ciudad: addr.city || addr.town || addr.village || addr.municipality || '',
-              direccion: [addr.road, addr.house_number].filter(Boolean).join(' ') || ''
+              pais: this.getCountry(addr),
+              provincia: this.getProvince(addr),
+              ciudad: this.getCity(addr),
+              direccion: this.getStreetAddress(addr, data.display_name)
             }, { emitEvent: false });
           }
         }
@@ -266,6 +269,8 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   }
 
   private initMap(L: any): void {
+    this.leaflet = L;
+
     // 1. CORRECCIÓN DE ICONOS PARA PRODUCCIÓN
     // Definimos los iconos manualmente para evitar que salgan rotos al compilar
     const iconDefault = L.icon({
@@ -302,10 +307,10 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     this.showSuggestions = false;
     const addr = item.address || {};
     this.formRegistroEvento.patchValue({
-      pais: addr.country || '',
-      provincia: addr.state || addr.region || '',
-      ciudad: addr.city || addr.town || addr.village || addr.municipality || '',
-      direccion: [addr.road, addr.house_number].filter(Boolean).join(' ') || item.display_name
+      pais: this.getCountry(addr),
+      provincia: this.getProvince(addr),
+      ciudad: this.getCity(addr),
+      direccion: this.getStreetAddress(addr, item.display_name)
     }, { emitEvent: false });
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
@@ -313,7 +318,25 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
     if (this.map) {
       this.map.setView([lat, lng], 16);
       if (this.marker) this.marker.setLatLng([lat, lng]);
+      else if (this.leaflet) this.marker = this.leaflet.marker([lat, lng]).addTo(this.map);
     }
+  }
+
+  private getCountry(addr: any): string {
+    return addr.country || '';
+  }
+
+  private getProvince(addr: any): string {
+    return addr.state || addr.province || addr.region || addr.state_district || '';
+  }
+
+  private getCity(addr: any): string {
+    return addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.city_district || addr.suburb || '';
+  }
+
+  private getStreetAddress(addr: any, fallback = ''): string {
+    const street = addr.road || addr.pedestrian || addr.footway || addr.path || addr.neighbourhood || addr.suburb || '';
+    return [street, addr.house_number].filter(Boolean).join(' ') || fallback;
   }
 
 

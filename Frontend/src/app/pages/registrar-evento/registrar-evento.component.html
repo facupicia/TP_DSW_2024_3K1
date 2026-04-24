@@ -145,25 +145,29 @@
             <div class="grid grid-cols-2 gap-4 mt-4">
               <div class="space-y-2">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">País</label>
-                <input type="text" formControlName="pais" readonly
-                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+                <input type="text" formControlName="pais" placeholder="Argentina"
+                  class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium text-sm focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none">
               </div>
               <div class="space-y-2">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Provincia</label>
-                <input type="text" formControlName="provincia" readonly
-                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+                <input type="text" formControlName="provincia" placeholder="Córdoba"
+                  class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium text-sm focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none">
               </div>
               <div class="space-y-2">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Ciudad</label>
-                <input type="text" formControlName="ciudad" readonly
-                  class="w-full bg-gray-100 border-none rounded-2xl py-3 px-4 text-gray-700 font-medium text-sm outline-none">
+                <input type="text" formControlName="ciudad" placeholder="Córdoba"
+                  class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium text-sm focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none">
               </div>
               <div class="space-y-2">
                 <label class="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Dirección</label>
-                <input type="text" formControlName="direccion"
+                <input type="text" formControlName="direccion" placeholder="Av. Colón 123"
                   class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium text-sm focus:ring-2 focus:ring-black/5 focus:bg-white transition-all outline-none">
               </div>
             </div>
+            <p *ngIf="(formRegistroEvento.get('pais')?.invalid || formRegistroEvento.get('provincia')?.invalid || formRegistroEvento.get('ciudad')?.invalid || formRegistroEvento.get('direccion')?.invalid) && formRegistroEvento.touched"
+              class="text-xs text-red-500 ml-2">
+              Completá país, provincia, ciudad y dirección.
+            </p>
 
             <div class="mt-4 h-64 w-full rounded-2xl overflow-hidden shadow-inner border border-gray-200 z-0 relative"
               id="map"></div>
