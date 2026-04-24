@@ -392,7 +392,7 @@
               type="text"
               [(ngModel)]="userSearchInput"
               (keyup.enter)="applyUserFilters()"
-              placeholder="Buscar por nombre o email"
+              placeholder="Buscar por email, nombre o ID"
               class="modern-input users-search-input">
 
             <select [(ngModel)]="userRoleFilter" class="modern-select" (change)="applyUserFilters()">
@@ -415,14 +415,16 @@
               <option *ngFor="let size of userPageSizeOptions" [ngValue]="size">{{ size }} por página</option>
             </select>
             <button class="toolbar-btn toolbar-btn--secondary" (click)="clearUserFilters()">Limpiar</button>
-            <button class="toolbar-btn toolbar-btn--primary" (click)="applyUserFilters()">Buscar</button>
+            <button class="toolbar-btn toolbar-btn--primary" (click)="applyUserFilters()" [disabled]="!canSearchUsers">
+              Buscar
+            </button>
           </div>
         </div>
 
         <div
           class="glass-table-container overflow-hidden border border-gray-100 rounded-[24px] md:rounded-[32px] bg-white shadow-sm">
 
-          <div class="users-summary" *ngIf="!loadingUsers">
+          <div class="users-summary" *ngIf="!loadingUsers && hasLoadedUsers">
             <span>{{ userRangeStart }}-{{ userRangeEnd }} de {{ userTotal }} usuarios</span>
             <span *ngIf="userSearch || userRoleFilter || userActiveFilter !== 'all'">Filtros activos</span>
           </div>
@@ -432,9 +434,14 @@
           </div>
 
           <div *ngIf="!loadingUsers">
-            <div *ngIf="usuarios.length === 0" class="users-empty-state">
+            <div *ngIf="!hasLoadedUsers" class="users-empty-state">
+              <h3>Buscar usuario</h3>
+              <p>{{ userQueryMessage }}</p>
+            </div>
+
+            <div *ngIf="hasLoadedUsers && usuarios.length === 0" class="users-empty-state">
               <h3>No se encontraron usuarios</h3>
-              <p>Ajustá los filtros o cambiá la búsqueda para ver otros resultados.</p>
+              <p>{{ userQueryMessage || 'Ajustá los filtros o cambiá la búsqueda para ver otros resultados.' }}</p>
             </div>
 
             <div class="block md:hidden" *ngIf="usuarios.length > 0">

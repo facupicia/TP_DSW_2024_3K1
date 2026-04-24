@@ -31,22 +31,18 @@ export const getPromotersStats = async (req: CustomRequest, res: Response) => {
         const queryBuilder = AppDataSource.getRepository(Ticket)
             .createQueryBuilder("t")
             .leftJoin("t.ticketType", "tt")
+            .leftJoin("tt.event", "e")
             .leftJoin("t.soldByPromoter", "p")
             .leftJoin(PromoterGroup, "pg", "pg.promoterId = t.soldByPromoterId AND pg.organizerId = :organizerId", { organizerId })
             .where("t.soldByPromoterId IS NOT NULL");
 
         if (eventId) {
             queryBuilder.andWhere("tt.eventId = :eventId", { eventId: parseInt(eventId as string) });
-        } else {
-            // Filter by organizer's events if no specific event
-            const organizerEvents = await Event.find({
-                where: { user_id: organizerId },
-                select: ["id"]
-            });
-            const eventIds = organizerEvents.map(e => e.id);
-            if (eventIds.length > 0) {
-                queryBuilder.andWhere("tt.eventId IN (:...eventIds)", { eventIds });
+            if (!userRoles.includes('admin')) {
+                queryBuilder.andWhere("e.user_id = :organizerId", { organizerId });
             }
+        } else {
+            queryBuilder.andWhere("e.user_id = :organizerId", { organizerId });
         }
 
         if (startDate) {
@@ -185,13 +181,38 @@ export const getPromoterStatsById = async (req: CustomRequest, res: Response) =>
             .orderBy("e.date", "DESC")
             .getRawMany();
 
-        // Get recent sales
-        const recentSales = await Ticket.find({
-            where: { soldByPromoterId: promoterGroup.promoterId },
-            relations: ['ticketType', 'ticketType.event'],
-            order: { createdAt: "DESC" },
-            take: 10
-        });
+        const recentSalesQuery = AppDataSource.getRepository(Ticket)
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .select([
+                "ticket.id",
+                "ticket.purchasePrice",
+                "ticket.promoterCommissionAmount",
+                "ticket.promoterCommissionPercentage",
+                "ticket.createdAt",
+                "ticket.soldByPromoterId",
+                "ticketType.id",
+                "ticketType.name",
+                "event.id",
+                "event.title"
+            ])
+            .where("ticket.soldByPromoterId = :promoterId", { promoterId: promoterGroup.promoterId });
+
+        if (eventId) {
+            recentSalesQuery.andWhere("ticketType.eventId = :eventId", { eventId: parseInt(eventId as string) });
+        }
+        if (startDate) {
+            recentSalesQuery.andWhere("ticket.createdAt >= :startDate", { startDate: new Date(startDate as string) });
+        }
+        if (endDate) {
+            recentSalesQuery.andWhere("ticket.createdAt <= :endDate", { endDate: new Date(endDate as string) });
+        }
+
+        const recentSales = await recentSalesQuery
+            .orderBy("ticket.createdAt", "DESC")
+            .take(10)
+            .getMany();
 
         return res.status(200).json({
             promoter: {
@@ -321,13 +342,42 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
             .orderBy("month", "ASC")
             .getRawMany();
 
-        // Get recent sales
-        const recentSales = await Ticket.find({
-            where: { soldByPromoterId: userId },
-            relations: ['ticketType', 'ticketType.event', 'user'],
-            order: { createdAt: "DESC" },
-            take: 10
-        });
+        const recentSalesQuery = AppDataSource.getRepository(Ticket)
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .leftJoinAndSelect("ticket.user", "user")
+            .select([
+                "ticket.id",
+                "ticket.purchasePrice",
+                "ticket.promoterCommissionAmount",
+                "ticket.promoterCommissionPercentage",
+                "ticket.createdAt",
+                "ticket.soldByPromoterId",
+                "ticketType.id",
+                "ticketType.name",
+                "event.id",
+                "event.title",
+                "user.id",
+                "user.firstname",
+                "user.lastname"
+            ])
+            .where("ticket.soldByPromoterId = :userId", { userId });
+
+        if (eventId) {
+            recentSalesQuery.andWhere("ticketType.eventId = :eventId", { eventId: parseInt(eventId as string) });
+        }
+        if (startDate) {
+            recentSalesQuery.andWhere("ticket.createdAt >= :startDate", { startDate: new Date(startDate as string) });
+        }
+        if (endDate) {
+            recentSalesQuery.andWhere("ticket.createdAt <= :endDate", { endDate: new Date(endDate as string) });
+        }
+
+        const recentSales = await recentSalesQuery
+            .orderBy("ticket.createdAt", "DESC")
+            .take(10)
+            .getMany();
 
         return res.status(200).json({
             overallStats: {

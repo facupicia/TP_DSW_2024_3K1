@@ -160,13 +160,37 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
         const userID = isAdmin && !isNaN(requestedUserId) ? requestedUserId : requesterId;
         const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
-        const [tickets, total] = await Ticket.findAndCount({
-            where: { userId: userID },
-            relations: ['ticketType', 'ticketType.event'],
-            order: { createdAt: 'DESC' },
-            skip,
-            take
-        });
+        const [tickets, total] = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .select([
+                "ticket.id",
+                "ticket.codigo_unico",
+                "ticket.qrCode",
+                "ticket.ticketTypeId",
+                "ticket.userId",
+                "ticket.status",
+                "ticket.purchasePrice",
+                "ticket.usedAt",
+                "ticket.createdAt",
+                "ticketType.id",
+                "ticketType.name",
+                "ticketType.price",
+                "ticketType.status",
+                "event.id",
+                "event.title",
+                "event.date",
+                "event.time",
+                "event.ciudad",
+                "event.direccion",
+                "event.image"
+            ])
+            .where("ticket.userId = :userID", { userID })
+            .orderBy("ticket.createdAt", "DESC")
+            .skip(skip)
+            .take(take)
+            .getManyAndCount();
 
         const mappedTickets = tickets.map(t => ({
             ...t,
@@ -192,11 +216,12 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
         const logRepo = AppDataSource.getRepository(PaymentLog);
         const ticketRepo = AppDataSource.getRepository(Ticket);
 
-        // Último pago
-        const lastLog = await logRepo.findOne({
-            where: { userId },
-            order: { createdAt: 'DESC' }
-        });
+        const lastLog = await logRepo
+            .createQueryBuilder("log")
+            .select(["log.id", "log.status", "log.ticketTypeId", "log.createdAt"])
+            .where("log.userId = :userId", { userId })
+            .orderBy("log.createdAt", "DESC")
+            .getOne();
 
         if (!lastLog) {
             return res.status(200).json({ tickets: [], status: 'no_logs' });
@@ -207,15 +232,36 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
         }
 
         // Tickets asociados al tipo de ticket del último pago
-        const tickets = await ticketRepo.find({
-            where: {
-                userId,
-                ticketTypeId: lastLog.ticketTypeId!
-            },
-            order: { createdAt: 'DESC' },
-            relations: ['ticketType', 'ticketType.event'],
-            take: 10
-        });
+        const tickets = await ticketRepo
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .select([
+                "ticket.id",
+                "ticket.codigo_unico",
+                "ticket.qrCode",
+                "ticket.ticketTypeId",
+                "ticket.userId",
+                "ticket.status",
+                "ticket.purchasePrice",
+                "ticket.usedAt",
+                "ticket.createdAt",
+                "ticketType.id",
+                "ticketType.name",
+                "ticketType.price",
+                "event.id",
+                "event.title",
+                "event.date",
+                "event.time",
+                "event.ciudad",
+                "event.direccion",
+                "event.image"
+            ])
+            .where("ticket.userId = :userId", { userId })
+            .andWhere("ticket.ticketTypeId = :ticketTypeId", { ticketTypeId: lastLog.ticketTypeId })
+            .orderBy("ticket.createdAt", "DESC")
+            .take(10)
+            .getMany();
 
         const mappedTickets = tickets.map(t => ({
             ...t,
@@ -240,10 +286,30 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         const userRoles = req.user?.roles || [];
         const requesterId = req.user?.id;
 
-        const ticket = await Ticket.findOne({
-            where: [{ codigo_unico: code }, { id: parseInt(code) || -1 }],
-            relations: ['ticketType', 'ticketType.event', 'user']
-        });
+        const ticket = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .leftJoinAndSelect("ticket.user", "user")
+            .select([
+                "ticket.id",
+                "ticket.codigo_unico",
+                "ticket.status",
+                "ticket.usedAt",
+                "ticket.ticketTypeId",
+                "ticket.userId",
+                "ticketType.id",
+                "ticketType.name",
+                "event.id",
+                "event.title",
+                "event.user_id",
+                "user.id",
+                "user.firstname",
+                "user.lastname"
+            ])
+            .where("ticket.codigo_unico = :code", { code })
+            .orWhere("ticket.id = :id", { id: parseInt(code) || -1 })
+            .getOne();
 
         if (!ticket) {
             return res.status(404).json({ message: "Ticket no encontrado", valid: false });
@@ -320,7 +386,7 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
 
         const ticket = await queryRunner.manager.findOne(Ticket, {
             where: { id: parseInt(id), userId },
-            relations: { ticketType: true }
+            select: ["id", "userId", "ticketTypeId", "status"]
         });
 
         if (!ticket) {
@@ -337,18 +403,7 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
         ticket.status = TicketStatus.CANCELLED;
         await queryRunner.manager.save(Ticket, ticket);
 
-        // Restaurar stock
-        if (ticket.ticketType) {
-            const ticketType = await queryRunner.manager.findOne(TicketType, {
-                where: { id: ticket.ticketType.id },
-                relations: { event: true }
-            });
-
-            if (ticketType) {
-                ticketType.soldCount -= 1;
-                await queryRunner.manager.save(TicketType, ticketType);
-            }
-        }
+        await queryRunner.manager.decrement(TicketType, { id: ticket.ticketTypeId }, "soldCount", 1);
 
         await queryRunner.commitTransaction();
         return res.status(200).json({ message: "Ticket cancelado", ticketId: ticket.id });

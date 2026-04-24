@@ -23,13 +23,19 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
         }
 
         // Validate event exists and belongs to user
-        const event = await Event.findOne({ where: { id: eventId, user_id: userId } });
+        const event = await Event.findOne({
+            where: { id: eventId, user_id: userId },
+            select: ["id"]
+        });
         if (!event) {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
 
         // Check if code already exists
-        const existingCoupon = await Coupon.findOne({ where: { code: code.toUpperCase() } });
+        const existingCoupon = await Coupon.findOne({
+            where: { code: code.toUpperCase().trim() },
+            select: ["id"]
+        });
         if (existingCoupon) {
             return res.status(400).json({ message: "El código ya existe" });
         }
@@ -65,7 +71,10 @@ export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
         }
 
         // Verify event belongs to user
-        const event = await Event.findOne({ where: { id: eventId, user_id: userId } });
+        const event = await Event.findOne({
+            where: { id: eventId, user_id: userId },
+            select: ["id"]
+        });
         if (!event) {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
@@ -98,21 +107,26 @@ export const deleteCoupon = async (req: CustomRequest, res: Response) => {
             return res.status(401).json({ message: "No autorizado" });
         }
 
-        const coupon = await Coupon.findOne({
-            where: { id: couponId },
-            relations: ["event"]
-        });
+        const coupon = await AppDataSource.getRepository(Coupon)
+            .createQueryBuilder("coupon")
+            .innerJoin("coupon.event", "event")
+            .select([
+                'coupon.id AS "id"',
+                'event.user_id AS "eventUserId"'
+            ])
+            .where("coupon.id = :couponId", { couponId })
+            .getRawOne();
 
         if (!coupon) {
             return res.status(404).json({ message: "Cupón no encontrado" });
         }
 
         // Verify event belongs to user
-        if (coupon.event.user_id !== userId) {
+        if (Number(coupon.eventUserId) !== userId) {
             return res.status(403).json({ message: "No tienes permiso para eliminar este cupón" });
         }
 
-        await coupon.remove();
+        await Coupon.delete(couponId);
 
         return res.json({ message: "Cupón eliminado correctamente" });
     } catch (error: any) {
@@ -134,23 +148,29 @@ export const toggleCoupon = async (req: CustomRequest, res: Response) => {
             return res.status(401).json({ message: "No autorizado" });
         }
 
-        const coupon = await Coupon.findOne({
-            where: { id: couponId },
-            relations: ["event"]
-        });
+        const coupon = await AppDataSource.getRepository(Coupon)
+            .createQueryBuilder("coupon")
+            .innerJoin("coupon.event", "event")
+            .select([
+                'coupon.id AS "id"',
+                'coupon.isActive AS "isActive"',
+                'event.user_id AS "eventUserId"'
+            ])
+            .where("coupon.id = :couponId", { couponId })
+            .getRawOne();
 
         if (!coupon) {
             return res.status(404).json({ message: "Cupón no encontrado" });
         }
 
-        if (coupon.event.user_id !== userId) {
+        if (Number(coupon.eventUserId) !== userId) {
             return res.status(403).json({ message: "No tienes permiso para modificar este cupón" });
         }
 
-        coupon.isActive = !coupon.isActive;
-        await coupon.save();
+        await Coupon.update(couponId, { isActive: !coupon.isActive });
+        const updatedCoupon = await Coupon.findOneBy({ id: couponId });
 
-        return res.json(coupon);
+        return res.json(updatedCoupon);
     } catch (error: any) {
         console.error("Error toggling coupon:", error);
         return res.status(500).json({ message: "Error al modificar cupón" });
@@ -170,7 +190,8 @@ export const validateCoupon = async (req: Request, res: Response) => {
         }
 
         const coupon = await Coupon.findOne({
-            where: { code: code.toUpperCase().trim(), eventId, isActive: true }
+            where: { code: code.toUpperCase().trim(), eventId, isActive: true },
+            select: ["id", "discountPercent", "maxUses", "usedCount", "expiresAt"]
         });
 
         if (!coupon) {

@@ -7,7 +7,6 @@ import { CustomRequest } from "../common/middleware/authToken";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
-import { log } from "console";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
 import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
@@ -404,7 +403,18 @@ export const getEvent = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Event not found" });
         }
 
-        return res.json(event);
+        // Limpiar datos sensibles del usuario antes de enviar al frontend
+        const safeUser = event.user ? {
+            id: event.user.id,
+            firstname: event.user.firstname,
+            lastname: event.user.lastname,
+            imgPerfil: event.user.imgPerfil
+        } : null;
+
+        return res.json({
+            ...event,
+            user: safeUser
+        });
 
     } catch (error) {
         console.error(error);
@@ -586,22 +596,14 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
                 previousEndDate = new Date(0);
         }
 
-        // Get all events for this creator (limit to prevent memory issues)
-        const events = await Event.find({
-            where: { user_id: userId, active: true },
-            relations: ['ticketTypes'],
-            order: { createdAt: 'DESC' },
-            take: 100
-        });
+        const totalEvents = await Event.count({ where: { user_id: userId, active: true } });
 
-        const allTicketTypeIds = events.flatMap(e => e.ticketTypes.map(tt => tt.id));
-
-        if (allTicketTypeIds.length === 0) {
+        if (totalEvents === 0) {
             return res.json({
                 totalRevenue: 0,
                 totalTickets: 0,
                 avgPrice: 0,
-                totalEvents: events.length,
+                totalEvents,
                 revenueGrowth: 0,
                 ticketsGrowth: 0,
                 topEvents: [],
@@ -612,12 +614,15 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
         // Current period stats
         const currentStats = await AppDataSource.getRepository(Ticket)
             .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
             .select([
                 'COUNT(t.id) as "totalTickets"',
                 'SUM(t.purchasePrice) as "totalRevenue"',
                 'AVG(t.purchasePrice) as "avgPrice"'
             ])
-            .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
             .andWhere('t.createdAt >= :startDate', { startDate })
             .getRawOne();
 
@@ -626,11 +631,14 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
         if (period !== 'all') {
             const prev = await AppDataSource.getRepository(Ticket)
                 .createQueryBuilder('t')
+                .innerJoin('t.ticketType', 'tt')
+                .innerJoin('tt.event', 'e')
                 .select([
                     'COUNT(t.id) as "totalTickets"',
                     'SUM(t.purchasePrice) as "totalRevenue"'
                 ])
-                .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+                .where('e.user_id = :userId', { userId })
+                .andWhere('e.active = true')
                 .andWhere('t.createdAt >= :previousStartDate', { previousStartDate })
                 .andWhere('t.createdAt < :previousEndDate', { previousEndDate })
                 .getRawOne();
@@ -689,7 +697,8 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
                 'tt.name as ticketType',
                 'e.title as eventTitle'
             ])
-            .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
             .orderBy('t.createdAt', 'DESC')
             .limit(10)
             .getRawMany();
@@ -698,7 +707,7 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
             totalRevenue: currentRevenue,
             totalTickets: currentTickets,
             avgPrice: parseFloat(currentStats?.avgPrice || '0'),
-            totalEvents: events.length,
+            totalEvents,
             revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
             ticketsGrowth: parseFloat(ticketsGrowth.toFixed(1)),
             topEvents: topEvents.sort((a, b) => b.revenue - a.revenue),
@@ -776,38 +785,30 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        // Send initial data
-        const events = await Event.find({
-            where: { user_id: userId, active: true },
-            relations: ['ticketTypes'],
-            order: { createdAt: 'DESC' }
-        });
-
-        const allTicketTypeIds = events.flatMap(e => e.ticketTypes.map(tt => tt.id));
-        
         let currentData = {
             totalRevenue: 0,
             totalTickets: 0,
             lastSaleAt: null as Date | null
         };
 
-        if (allTicketTypeIds.length > 0) {
-            const stats = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder('t')
-                .select([
-                    'COUNT(t.id) as "totalTickets"',
-                    'SUM(t.purchasePrice) as "totalRevenue"',
-                    'MAX(t.createdAt) as "lastSaleAt"'
-                ])
-                .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
-                .getRawOne();
+        const stats = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .select([
+                'COUNT(t.id) as "totalTickets"',
+                'SUM(t.purchasePrice) as "totalRevenue"',
+                'MAX(t.createdAt) as "lastSaleAt"'
+            ])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .getRawOne();
 
-            currentData = {
-                totalRevenue: parseFloat(stats?.totalRevenue || '0'),
-                totalTickets: parseInt(stats?.totalTickets || '0'),
-                lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null
-            };
-        }
+        currentData = {
+            totalRevenue: parseFloat(stats?.totalRevenue || '0'),
+            totalTickets: parseInt(stats?.totalTickets || '0'),
+            lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null
+        };
 
         // Send initial data
         res.write(`data: ${JSON.stringify({ type: 'initial', data: currentData })}\n\n`);
@@ -816,16 +817,17 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         // For real-time, consider using a pub/sub system or webhook instead of polling
         const interval = setInterval(async () => {
             try {
-                if (allTicketTypeIds.length === 0) return;
-
                 const stats = await AppDataSource.getRepository(Ticket)
                     .createQueryBuilder('t')
+                    .innerJoin('t.ticketType', 'tt')
+                    .innerJoin('tt.event', 'e')
                     .select([
                         'COUNT(t.id) as "totalTickets"',
                         'SUM(t.purchasePrice) as "totalRevenue"',
                         'MAX(t.createdAt) as "lastSaleAt"'
                     ])
-                    .where('t.ticketTypeId IN (:...ids)', { ids: allTicketTypeIds })
+                    .where('e.user_id = :userId', { userId })
+                    .andWhere('e.active = true')
                     .getRawOne();
 
                 const newData = {
@@ -1198,40 +1200,49 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
             .limit(7)
             .getRawMany();
 
-        // 4. Demografía (edad y ciudad de compradores)
-        const demographics = await AppDataSource.getRepository(Ticket)
+        const ageGroupExpression = `CASE
+            WHEN DATE_PART('year', AGE(CURRENT_DATE, u.birth)) < 18 THEN '-18'
+            WHEN DATE_PART('year', AGE(CURRENT_DATE, u.birth)) < 25 THEN '18-24'
+            WHEN DATE_PART('year', AGE(CURRENT_DATE, u.birth)) < 35 THEN '25-34'
+            WHEN DATE_PART('year', AGE(CURRENT_DATE, u.birth)) < 45 THEN '35-44'
+            ELSE '45+'
+        END`;
+
+        const ageRows = await AppDataSource.getRepository(Ticket)
             .createQueryBuilder('t')
             .innerJoin('t.user', 'u')
             .select([
-                'u.birth as "birth"',
-                'u.ciudad as "ciudad"'
+                `${ageGroupExpression} as "ageGroup"`,
+                'COUNT(t.id) as "count"'
             ])
             .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('u.birth IS NOT NULL')
+            .groupBy(ageGroupExpression)
             .getRawMany();
 
-        // Procesar edades
-        const ages: Record<string, number> = {};
-        const ciudades: Record<string, number> = {};
-        const now = new Date();
+        const cityRows = await AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.user', 'u')
+            .select([
+                'u.ciudad as "name"',
+                'COUNT(t.id) as "value"'
+            ])
+            .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('u.ciudad IS NOT NULL')
+            .groupBy('u.ciudad')
+            .orderBy('"value"', 'DESC')
+            .limit(10)
+            .getRawMany();
 
-        demographics.forEach((d: any) => {
-            // Calcular edad
-            if (d.birth) {
-                const birth = new Date(d.birth);
-                const age = Math.floor((now.getTime() - birth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-                const ageGroup = age < 18 ? '-18' : age < 25 ? '18-24' : age < 35 ? '25-34' : age < 45 ? '35-44' : '45+';
-                ages[ageGroup] = (ages[ageGroup] || 0) + 1;
-            }
-            // Contar ciudades
-            if (d.ciudad) {
-                ciudades[d.ciudad] = (ciudades[d.ciudad] || 0) + 1;
-            }
+        const ages: Record<string, number> = {};
+        ageRows.forEach((row: any) => {
+            ages[row.ageGroup] = parseInt(row.count) || 0;
         });
 
-        const ciudadesArray = Object.entries(ciudades)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 10);
+        const ciudadesArray = cityRows.map((row: any) => ({
+            name: row.name,
+            value: parseInt(row.value) || 0
+        }));
 
         return res.json({
             title: event.title,

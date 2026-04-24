@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/seed.ts",
-    "seed:volume": "ts-node src/seed-volume.ts"
+    "seed:volume": "ts-node src/seed-volume.ts",
+    "db:indexes": "ts-node src/database/scripts/run-query-indexes.ts"
   },
   "keywords": [],
   "author": "",

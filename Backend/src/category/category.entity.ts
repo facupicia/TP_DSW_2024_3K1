@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, OneToMany, Index } from 'typeorm';
 import { Event } from '../event/event.entity';
 @Entity()
 export class Category extends BaseEntity{
@@ -7,6 +7,7 @@ export class Category extends BaseEntity{
     id: number;
 
     @Column()
+    @Index('idx_category_name')
     name: string;
 
     @OneToMany(() => Event, event => event.category)

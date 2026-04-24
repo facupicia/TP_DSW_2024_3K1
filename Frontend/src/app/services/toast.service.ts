@@ -11,6 +11,20 @@ export class ToastService {
     private lastToast: { message: string; title: string; type: string; time: number } | null = null;
     private readonly DEBOUNCE_MS = 3000; // 3 seconds debounce
 
+    private normalizeText(value: unknown): string {
+        if (typeof value === 'string') return value;
+        if (value && typeof value === 'object') {
+            const maybeMessage = (value as any).message || (value as any).error?.message || (value as any).error;
+            if (typeof maybeMessage === 'string') return maybeMessage;
+            try {
+                return JSON.stringify(value);
+            } catch {
+                return 'Ocurrió un error inesperado';
+            }
+        }
+        return String(value ?? 'Ocurrió un error inesperado');
+    }
+
     private shouldShowToast(message: string, title: string, type: string): boolean {
         const now = Date.now();
         
@@ -28,27 +42,31 @@ export class ToastService {
         return true;
     }
 
-    success(message: string, title: string = 'Éxito') {
-        if (this.shouldShowToast(message, title, 'success')) {
-            this.toastr.success(message, title);
+    success(message: unknown, title: string = 'Éxito') {
+        const text = this.normalizeText(message);
+        if (this.shouldShowToast(text, title, 'success')) {
+            this.toastr.success(text, title);
         }
     }
 
-    error(message: string, title: string = 'Error') {
-        if (this.shouldShowToast(message, title, 'error')) {
-            this.toastr.error(message, title);
+    error(message: unknown, title: string = 'Error') {
+        const text = this.normalizeText(message);
+        if (this.shouldShowToast(text, title, 'error')) {
+            this.toastr.error(text, title);
         }
     }
 
-    warning(message: string, title: string = 'Advertencia') {
-        if (this.shouldShowToast(message, title, 'warning')) {
-            this.toastr.warning(message, title);
+    warning(message: unknown, title: string = 'Advertencia') {
+        const text = this.normalizeText(message);
+        if (this.shouldShowToast(text, title, 'warning')) {
+            this.toastr.warning(text, title);
         }
     }
 
-    info(message: string, title: string = 'Información') {
-        if (this.shouldShowToast(message, title, 'info')) {
-            this.toastr.info(message, title);
+    info(message: unknown, title: string = 'Información') {
+        const text = this.normalizeText(message);
+        if (this.shouldShowToast(text, title, 'info')) {
+            this.toastr.info(text, title);
         }
     }
 }

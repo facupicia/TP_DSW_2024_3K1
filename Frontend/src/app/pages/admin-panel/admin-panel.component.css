@@ -234,6 +234,11 @@
     background: #000000;
 }
 
+.toolbar-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .toolbar-btn--secondary {
     background: #ffffff;
     color: #374151;

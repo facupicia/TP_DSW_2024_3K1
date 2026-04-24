@@ -10,6 +10,7 @@ export enum TicketTypeStatus {
 }
 
 @Entity('ticket_type')
+@Index('idx_ticket_type_event_status', ['eventId', 'status'])
 @Check('"soldCount" >= 0')
 @Check('"soldCount" <= "capacity"')
 export class TicketType extends BaseEntity {

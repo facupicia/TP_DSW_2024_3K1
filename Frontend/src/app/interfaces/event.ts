@@ -12,6 +12,13 @@ export interface TicketType {
     status?: 'active' | 'sold_out' | 'paused' | 'disabled';
 }
 
+export interface PublicUser {
+    id: number;
+    firstname: string;
+    lastname: string;
+    imgPerfil: string;
+}
+
 export interface Evento {
     destacado: boolean;
     user_id: number;
@@ -33,6 +40,7 @@ export interface Evento {
     minAge?: number; // 0 = sin restricción, 18 = +18, etc.
     isPublic?: boolean; // true = visible en explorador, false = solo por link
     salesCount?: number;
+    user?: PublicUser; // Datos públicos del organizador
     // Legacy fields (optional/deprecated for display)
     capacity?: number;
     price?: number;

@@ -18,6 +18,10 @@ import { Category } from "../category/category.entity";
 import { PromoterEventAssignment } from "../promoter/promoter.entity";
 
 @Entity("event")
+@Index('idx_event_public_date', ['active', 'isPublic', 'date'])
+@Index('idx_event_user_active_date', ['user_id', 'active', 'date'])
+@Index('idx_event_category_active_date', ['categoryId', 'active', 'date'])
+@Index('idx_event_ciudad', ['ciudad'])
 export class Event extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -66,8 +70,6 @@ export class Event extends BaseEntity {
 
     @Column({ default: true })
     isPublic: boolean;
-
-    @Index('idx_event_ciudad', ['ciudad'])
 
     /* ===================== RELATIONS ===================== */
 

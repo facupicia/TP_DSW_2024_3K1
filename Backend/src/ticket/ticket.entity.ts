@@ -20,6 +20,12 @@ export enum TicketStatus {
 }
 
 @Entity("ticket")
+@Index("idx_ticket_user_created", ["userId", "createdAt"])
+@Index("idx_ticket_type_created", ["ticketTypeId", "createdAt"])
+@Index("idx_ticket_type_status", ["ticketTypeId", "status"])
+@Index("idx_ticket_promoter_created", ["soldByPromoterId", "createdAt"])
+@Index("idx_ticket_scanner_used", ["scannedById", "usedAt"])
+@Index("idx_ticket_status_created", ["status", "createdAt"])
 export class Ticket extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -56,6 +62,7 @@ export class Ticket extends BaseEntity {
     user: User;
 
     @Column()
+    @Index("idx_ticket_user_id")
     userId: number;
 
     /* ===================== BUSINESS DATA ===================== */

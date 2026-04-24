@@ -63,7 +63,8 @@ export class AdminPanelComponent implements OnInit {
   public userSearch = '';
   public userRoleFilter = '';
   public userActiveFilter: 'all' | 'active' | 'inactive' = 'all';
-  public readonly userPageSizeOptions = [10, 20, 50, 100];
+  public userQueryMessage = 'Buscá por email, nombre o ID para administrar roles sin cargar toda la base.';
+  public readonly userPageSizeOptions = [10, 20, 50];
 
   // Date Range Filter
   public selectedDatePreset: DatePreset = 'all';
@@ -144,6 +145,14 @@ export class AdminPanelComponent implements OnInit {
     if (typeof window === 'undefined') return;
     const token = localStorage.getItem('token');
     if (!token) return;
+    if (!this.canSearchUsers) {
+      this.usuarios = [];
+      this.userTotal = 0;
+      this.userTotalPages = 1;
+      this.hasLoadedUsers = false;
+      this.userQueryMessage = 'Ingresá al menos 2 caracteres, un ID numérico o filtrá por rol.';
+      return;
+    }
     if (resetPage) {
       this.userPage = 1;
     }
@@ -163,6 +172,7 @@ export class AdminPanelComponent implements OnInit {
         this.userLimit = res.limit;
         this.userTotalPages = res.totalPages;
         this.hasLoadedUsers = true;
+        this.userQueryMessage = res.message || (res.total === 0 ? 'No se encontraron usuarios para esa búsqueda.' : '');
         for (const u of this.usuarios) {
           if (u.id !== undefined) {
             // Initialize with user's roles (support both old 'rol' and new 'roles')
@@ -173,15 +183,17 @@ export class AdminPanelComponent implements OnInit {
         this.stats.totalUsers = res.total;
         this.loadingUsers = false;
       },
-      error: () => { this.loadingUsers = false; }
+      error: (err) => {
+        this.userQueryMessage = typeof err?.error?.message === 'string'
+          ? err.error.message
+          : 'Error al buscar usuarios';
+        this.loadingUsers = false;
+      }
     });
   }
 
   cambiarTab(tab: TabView) {
     this.activeTab = tab;
-    if (tab === 'users' && !this.hasLoadedUsers && !this.loadingUsers) {
-      this.cargarUsuarios();
-    }
     if (tab === 'categories' && !this.hasLoadedCategories && !this.loadingCategories) {
       this.cargarCategorias();
     }
@@ -342,6 +354,14 @@ export class AdminPanelComponent implements OnInit {
 
   applyUserFilters() {
     this.userSearch = this.userSearchInput.trim();
+    if (!this.canSearchUsers) {
+      this.usuarios = [];
+      this.userTotal = 0;
+      this.userTotalPages = 1;
+      this.hasLoadedUsers = false;
+      this.userQueryMessage = 'Ingresá al menos 2 caracteres, un ID numérico o filtrá por rol.';
+      return;
+    }
     this.cargarUsuarios(true);
   }
 
@@ -350,7 +370,12 @@ export class AdminPanelComponent implements OnInit {
     this.userSearch = '';
     this.userRoleFilter = '';
     this.userActiveFilter = 'all';
-    this.cargarUsuarios(true);
+    this.usuarios = [];
+    this.userTotal = 0;
+    this.userPage = 1;
+    this.userTotalPages = 1;
+    this.hasLoadedUsers = false;
+    this.userQueryMessage = 'Buscá por email, nombre o ID para administrar roles sin cargar toda la base.';
   }
 
   changeUserPage(page: number) {
@@ -363,7 +388,14 @@ export class AdminPanelComponent implements OnInit {
 
   onUserPageSizeChange(limit: number) {
     this.userLimit = limit;
-    this.cargarUsuarios(true);
+    if (this.canSearchUsers) {
+      this.cargarUsuarios(true);
+    }
+  }
+
+  get canSearchUsers(): boolean {
+    const search = this.userSearchInput.trim() || this.userSearch.trim();
+    return /^\d+$/.test(search) || search.length >= 2 || Boolean(this.userRoleFilter);
   }
 
   get userRangeStart(): number {

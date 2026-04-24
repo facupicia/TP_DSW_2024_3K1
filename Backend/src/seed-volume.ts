@@ -382,6 +382,7 @@ async function seedVolume() {
     });
     const usersByEmail = new Map(insertedUsers.map(user => [user.email, user]));
     const usersByKey = new Map<string, User>();
+    const userRoleRows: Array<{ userId: number; roleId: number }> = [];
 
     for (const userData of usersData) {
         const user = usersByEmail.get(userData.email);
@@ -390,11 +391,17 @@ async function seedVolume() {
         for (const roleName of userData.roles) {
             const role = roles.get(roleName);
             if (!role) continue;
-            await AppDataSource.query(
-                `INSERT INTO user_roles ("userId", "roleId") VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-                [user.id, role.id]
-            );
+            userRoleRows.push({ userId: user.id, roleId: role.id });
         }
+    }
+
+    for (const rows of chunk(userRoleRows, 1000)) {
+        await AppDataSource.query(
+            `INSERT INTO user_roles ("userId", "roleId")
+             SELECT * FROM UNNEST($1::int[], $2::int[])
+             ON CONFLICT DO NOTHING`,
+            [rows.map(row => row.userId), rows.map(row => row.roleId)]
+        );
     }
 
     const subscriptionRows = usersData
@@ -520,6 +527,7 @@ async function seedVolume() {
         order: { id: "ASC" }
     });
     const ticketTypesByEvent = new Map<number, TicketType[]>();
+    const eventsById = new Map(insertedEvents.map(event => [event.id, event]));
     for (const ticketType of ticketTypes) {
         const list = ticketTypesByEvent.get(ticketType.eventId) || [];
         list.push(ticketType);
@@ -593,7 +601,7 @@ async function seedVolume() {
 
     for (let index = 0; index < config.tickets; index++) {
         const ticketType = pick(ticketTypes, index * 7);
-        const event = insertedEvents.find(item => item.id === ticketType.eventId);
+        const event = eventsById.get(ticketType.eventId);
         if (!event) continue;
 
         const buyer = pick(buyerUsers, index * 3);
@@ -664,15 +672,32 @@ async function seedVolume() {
         await AppDataSource.getRepository(PaymentLog).insert(rows);
     }
 
-    for (const [ticketTypeId, soldCount] of soldByTicketType.entries()) {
-        await AppDataSource.getRepository(TicketType).update(
-            { id: ticketTypeId },
-            {
-                soldCount,
-                status: soldCount >= (ticketTypes.find(tt => tt.id === ticketTypeId)?.capacity || 0)
-                    ? TicketTypeStatus.SOLD_OUT
-                    : TicketTypeStatus.ACTIVE
-            }
+    const ticketTypesById = new Map(ticketTypes.map(ticketType => [ticketType.id, ticketType]));
+    const soldCountRows = Array.from(soldByTicketType.entries()).map(([ticketTypeId, soldCount]) => {
+        const ticketType = ticketTypesById.get(ticketTypeId);
+        return {
+            ticketTypeId,
+            soldCount,
+            status: soldCount >= (ticketType?.capacity || 0)
+                ? TicketTypeStatus.SOLD_OUT
+                : TicketTypeStatus.ACTIVE
+        };
+    });
+
+    for (const rows of chunk(soldCountRows, 500)) {
+        await AppDataSource.query(
+            `UPDATE ticket_type AS tt
+             SET "soldCount" = data."soldCount",
+                 status = data.status::ticket_type_status_enum
+             FROM (
+                SELECT * FROM UNNEST($1::int[], $2::int[], $3::text[])
+             ) AS data(id, "soldCount", status)
+             WHERE tt.id = data.id`,
+            [
+                rows.map(row => row.ticketTypeId),
+                rows.map(row => row.soldCount),
+                rows.map(row => row.status)
+            ]
         );
     }
 

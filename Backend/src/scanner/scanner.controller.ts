@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { CustomRequest } from "../common/middleware/authToken";
-import { LessThan, MoreThan } from "typeorm"; // Asumiendo TypeORM
+import AppDataSource from "../db";
 
 export class ScannerController {
 
@@ -22,10 +22,30 @@ export class ScannerController {
                 cleanCode = parts[parts.length - 1];
             }
 
-            const ticket = await Ticket.findOne({
-                where: { codigo_unico: cleanCode },
-                relations: ["user", "ticketType", "ticketType.event"]
-            });
+            const ticket = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder("ticket")
+                .leftJoinAndSelect("ticket.user", "user")
+                .leftJoinAndSelect("ticket.ticketType", "ticketType")
+                .leftJoinAndSelect("ticketType.event", "event")
+                .select([
+                    "ticket.id",
+                    "ticket.codigo_unico",
+                    "ticket.status",
+                    "ticket.usedAt",
+                    "ticket.scannedById",
+                    "user.id",
+                    "user.firstname",
+                    "user.lastname",
+                    "user.email",
+                    "ticketType.id",
+                    "ticketType.name",
+                    "event.id",
+                    "event.title",
+                    "event.date",
+                    "event.user_id"
+                ])
+                .where("ticket.codigo_unico = :code", { code: cleanCode })
+                .getOne();
 
             // --- Validaciones de Existencia ---
             if (!ticket) {
@@ -100,12 +120,30 @@ export class ScannerController {
             // @ts-ignore
             const scannerId = req.user.id;
 
-            const tickets = await Ticket.find({
-                where: { scannedById: scannerId },
-                relations: ["ticketType", "ticketType.event", "user"],
-                order: { usedAt: "DESC" },
-                take: 20 // Bajar a 20 o 30 para que cargue más rápido en móviles
-            });
+            const tickets = await AppDataSource.getRepository(Ticket)
+                .createQueryBuilder("ticket")
+                .leftJoinAndSelect("ticket.ticketType", "ticketType")
+                .leftJoinAndSelect("ticketType.event", "event")
+                .leftJoinAndSelect("ticket.user", "user")
+                .select([
+                    "ticket.id",
+                    "ticket.codigo_unico",
+                    "ticket.status",
+                    "ticket.usedAt",
+                    "ticket.scannedById",
+                    "ticketType.id",
+                    "ticketType.name",
+                    "event.id",
+                    "event.title",
+                    "event.date",
+                    "user.id",
+                    "user.firstname",
+                    "user.lastname"
+                ])
+                .where("ticket.scannedById = :scannerId", { scannerId })
+                .orderBy("ticket.usedAt", "DESC")
+                .take(20)
+                .getMany();
 
             return res.json(tickets);
         } catch (error) {

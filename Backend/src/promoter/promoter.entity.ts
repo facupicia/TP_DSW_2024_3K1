@@ -7,7 +7,8 @@ import {
     BaseEntity,
     ManyToOne,
     JoinColumn,
-    OneToMany
+    OneToMany,
+    Index
 } from "typeorm";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
@@ -17,6 +18,9 @@ import { Event } from "../event/event.entity";
  * An organizer can have multiple promoters in their group
  */
 @Entity("promoter_group")
+@Index('idx_promoter_group_organizer_active', ['organizerId', 'isActive'])
+@Index('idx_promoter_group_promoter_active', ['promoterId', 'isActive'])
+@Index('idx_promoter_group_organizer_promoter', ['organizerId', 'promoterId'])
 export class PromoterGroup extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
@@ -76,6 +80,8 @@ export class PromoterGroup extends BaseEntity {
  * Links promoters to specific events with their custom commission
  */
 @Entity("promoter_event_assignment")
+@Index('idx_promoter_assignment_event_active', ['eventId', 'isActive'])
+@Index('idx_promoter_assignment_group_active', ['promoterGroupId', 'isActive'])
 export class PromoterEventAssignment extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;

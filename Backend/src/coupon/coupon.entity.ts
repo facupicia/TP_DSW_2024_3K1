@@ -13,6 +13,8 @@ import {
 import { Event } from "../event/event.entity";
 
 @Entity("coupon")
+@Index('idx_coupon_event_created', ['eventId', 'createdAt'])
+@Index('idx_coupon_event_code_active', ['eventId', 'code', 'isActive'])
 export class Coupon extends BaseEntity {
 
     @PrimaryGeneratedColumn()
