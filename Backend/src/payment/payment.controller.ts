@@ -7,7 +7,6 @@ import { TicketType } from "../ticketType/ticketType.entity";
 import { 
     validatePurchaseEligibility,
     createMercadoPagoPreference,
-    createPlatformPreference,
     getMarketPlaceInfo
 } from "./preference.service";
 import { 
@@ -23,6 +22,33 @@ import {
  * Mantiene solo la responsabilidad de manejar HTTP requests/responses.
  */
 
+interface GuestBuyerPayload {
+    firstname: string;
+    lastname: string;
+    email: string;
+    phone: string;
+    birth?: string;
+}
+
+function normalizeGuestBuyer(rawBuyer: any): GuestBuyerPayload | null {
+    if (!rawBuyer || typeof rawBuyer !== "object") {
+        return null;
+    }
+
+    const normalized: GuestBuyerPayload = {
+        firstname: String(rawBuyer.firstname || "").trim(),
+        lastname: String(rawBuyer.lastname || "").trim(),
+        email: String(rawBuyer.email || "").trim().toLowerCase(),
+        phone: String(rawBuyer.phone || "").trim()
+    };
+
+    if (rawBuyer.birth) {
+        normalized.birth = String(rawBuyer.birth).trim();
+    }
+
+    return normalized;
+}
+
 // ============================================================================
 // PREFERENCE CREATION
 // ============================================================================
@@ -34,13 +60,21 @@ import {
  * En el modelo marketplace, usa el token del organizador.
  */
 export const createPreference = async (req: CustomRequest, res: Response) => {
+    const guestBuyer = normalizeGuestBuyer(req.body?.buyer);
+
     try {
         const userId = req.user?.id;
         const { ticketQuantity, ticketTypeId, promoterCode, couponId, couponCode } = req.body;
+        const isGuestCheckout = !userId;
         
         // Validaciones básicas
-        if (!userId) {
-            return res.status(401).json({ message: "No autorizado." });
+        if (isGuestCheckout) {
+            if (!guestBuyer?.firstname || !guestBuyer?.lastname || !guestBuyer?.email || !guestBuyer?.phone) {
+                return res.status(400).json({
+                    code: "GUEST_BUYER_REQUIRED",
+                    message: "Completa nombre, apellido, email y teléfono para continuar."
+                });
+            }
         }
         
         if (!ticketTypeId) {
@@ -56,7 +90,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         const validation = await validatePurchaseEligibility({
             userId,
             ticketTypeId: parseInt(ticketTypeId),
-            quantity
+            quantity,
+            guestBuyer: guestBuyer || undefined
         });
         
         if (!validation.valid) {
@@ -74,7 +109,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 quantity,
                 promoterCode,
                 couponId: couponId ? parseInt(couponId) : undefined,
-                couponCode
+                couponCode,
+                guestBuyer: guestBuyer || undefined
             });
             const ticketTypeRepo = AppDataSource.getRepository(TicketType);
             const ticketType = await ticketTypeRepo.findOne({ where: { id: parseInt(ticketTypeId) }, relations: ['event'] });
@@ -87,9 +123,9 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 id: result.id,
                 init_point: result.initPoint,
                 marketplace: true,
-                external_reference: ticketType
-                    ? `${userId}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCode ? `|${promoterCode}` : ''}`
-                    : undefined,
+                external_reference: result.externalReference,
+                guest_checkout: result.guestCheckout,
+                delivery_email: result.buyerEmail,
                 pricing: {
                     base_amount: result.pricing.baseAmount,
                     discount_amount: result.pricing.discountAmount,
@@ -142,7 +178,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
     } catch (error: any) {
         logger.error("ERROR_CREATING_PREFERENCE", { 
             error: error?.message,
-            userId: req.user?.id 
+            userId: req.user?.id,
+            guestEmail: guestBuyer?.email
         });
         
         return res.status(500).json({ 

@@ -90,6 +90,53 @@
                         </div>
                     </div>
 
+                    <div *ngIf="!isAuthenticated" class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 shadow-sm space-y-5">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Datos del comprador</h3>
+                            <p class="text-sm text-gray-500 mt-1">Te enviaremos las entradas al correo que completes aquí, sin obligarte a crear una cuenta.</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nombre</label>
+                                <input formControlName="firstname" type="text" placeholder="Facundo"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Apellido</label>
+                                <input formControlName="lastname" type="text" placeholder="Picia"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teléfono</label>
+                                <input formControlName="phone" type="tel" placeholder="+54 9 351..."
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                                    Fecha de nacimiento
+                                    <span *ngIf="requiresBirthDate"> *</span>
+                                </label>
+                                <input formControlName="birth" type="date"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                                <p *ngIf="requiresBirthDate" class="text-xs text-gray-400 mt-1">La usamos para validar la edad mínima del evento.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Correo electrónico</label>
+                                <input formControlName="email" type="email" placeholder="tu@email.com"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Confirmar correo</label>
+                                <input formControlName="confirmEmail" type="email" placeholder="tu@email.com"
+                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="bg-gray-50/80 rounded-[32px] p-8 border border-gray-100">
                         <h3 class="text-lg font-bold text-gray-900 mb-6">Detalle de Pago</h3>
 

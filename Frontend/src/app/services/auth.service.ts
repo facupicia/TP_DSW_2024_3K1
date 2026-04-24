@@ -21,6 +21,17 @@ export interface PaginatedUsersResponse {
   page: number;
   limit: number;
   totalPages: number;
+  queryRequired?: boolean;
+  message?: string;
+}
+
+export interface AccountClaimInfo {
+  valid: boolean;
+  email?: string;
+  firstname?: string;
+  lastname?: string;
+  expiresAt?: string;
+  message?: string;
 }
 
 
@@ -81,6 +92,29 @@ export class AuthService {
         }
       }),
       // Encadenamos la obtención del perfil
+      switchMap((resp) => this.getProfile().pipe(
+        map(() => resp)
+      ))
+    );
+  }
+
+  requestAccountClaim(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.urlBase}claim/request`, { email });
+  }
+
+  validateAccountClaim(token: string): Observable<AccountClaimInfo> {
+    return this.http.get<AccountClaimInfo>(`${this.urlBase}claim/validate`, {
+      params: new HttpParams().set('token', token)
+    });
+  }
+
+  completeAccountClaim(token: string, password: string): Observable<ResponseAcceso> {
+    return this.http.post<ResponseAcceso>(`${this.urlBase}claim/complete`, { token, password }, { withCredentials: true }).pipe(
+      tap((resp) => {
+        if (resp?.token && typeof window !== 'undefined') {
+          localStorage.setItem('token', resp.token);
+        }
+      }),
       switchMap((resp) => this.getProfile().pipe(
         map(() => resp)
       ))
@@ -154,7 +188,9 @@ export class AuthService {
         total: response.total || 0,
         page: response.page || params?.page || 1,
         limit: response.limit || params?.limit || 20,
-        totalPages: response.totalPages || 1
+        totalPages: response.totalPages || 1,
+        queryRequired: response.queryRequired,
+        message: response.message
       }))
     );
   }

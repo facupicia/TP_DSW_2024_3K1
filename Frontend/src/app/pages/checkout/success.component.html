@@ -9,7 +9,10 @@
     <h1 class="text-2xl font-bold text-gray-900 mb-2">Pago aprobado</h1>
 
     <div *ngIf="loading" class="space-y-4">
-      <p class="text-gray-600">Estamos confirmando tu pago con el banco...</p>
+      <p class="text-gray-600">
+        <span *ngIf="guestCheckout">Estamos confirmando tu pago y preparando el envío a {{ deliveryEmail || 'tu correo' }}...</span>
+        <span *ngIf="!guestCheckout">Estamos confirmando tu pago con el banco...</span>
+      </p>
       <div class="flex items-center justify-center">
         <svg class="animate-spin h-6 w-6 text-gray-700" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -20,8 +23,13 @@
     </div>
 
     <div *ngIf="confirmed" class="mt-4 transition-opacity duration-300 ease-in-out opacity-100">
-      <p class="text-gray-700 mb-4">¡Pago confirmado!</p>
-      <a (click)="verTickets()" class="inline-block mt-6 px-5 py-3 rounded-xl bg-black text-white font-semibold">Ver mis tickets</a>
+      <p class="text-gray-700 mb-4" *ngIf="guestCheckout">
+        ¡Pago confirmado! Enviamos tus entradas a <strong>{{ deliveryEmail || 'tu correo' }}</strong>.
+      </p>
+      <p class="text-gray-700 mb-4" *ngIf="!guestCheckout">¡Pago confirmado!</p>
+      <a (click)="verTickets()" class="inline-block mt-6 px-5 py-3 rounded-xl bg-black text-white font-semibold">
+        {{ guestCheckout ? 'Volver a eventos' : 'Ver mis tickets' }}
+      </a>
     </div>
   </div>
 </section>

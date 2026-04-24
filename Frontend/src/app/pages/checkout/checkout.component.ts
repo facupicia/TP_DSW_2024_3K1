@@ -4,7 +4,6 @@ import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TicketService } from '../../services/ticket.service';
-import { PaymentService } from '../../services/payment.service';
 import { HeaderComponent } from '../../components/header/header.component';
 import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
@@ -30,6 +29,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private couponService = inject(CouponService);
   private destroyRef = inject(DestroyRef);
+  isAuthenticated = false;
 
   timeLeft: number = 600; // 10 minutos en segundos
   timerDisplay: string = '10:00';
@@ -72,10 +72,20 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   public formCheckout: FormGroup = this.formBuild.group({
     ticketTypeId: ['', Validators.required],
-    quantity: [1, [Validators.required, Validators.min(1)]]
+    quantity: [1, [Validators.required, Validators.min(1)]],
+    firstname: [''],
+    lastname: [''],
+    email: [''],
+    confirmEmail: [''],
+    phone: [''],
+    birth: ['']
   });
 
   ngOnInit(): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      this.isAuthenticated = !!window.localStorage.getItem('token');
+    }
+
     this.eventId = this.route.snapshot.paramMap.get('id');
 
     if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
@@ -93,6 +103,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
+      this.configureBuyerValidators();
 
       // Auto-select first active ticket type
       if (this.ticketTypes.length > 0) {
@@ -121,6 +132,66 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     // Iniciar el temporizador apenas carga el checkout
     this.startTimer();
+  }
+
+  get requiresBirthDate(): boolean {
+    return !this.isAuthenticated && !!this.evento?.minAge && this.evento.minAge > 0;
+  }
+
+  private configureBuyerValidators() {
+    const guestControls = ['firstname', 'lastname', 'email', 'confirmEmail', 'phone', 'birth'];
+
+    guestControls.forEach((controlName) => {
+      const control = this.formCheckout.get(controlName);
+      if (!control) return;
+
+      if (this.isAuthenticated) {
+        control.clearValidators();
+      } else {
+        const validators = controlName === 'birth'
+          ? (this.requiresBirthDate ? [Validators.required] : [])
+          : [Validators.required];
+        control.setValidators(validators);
+      }
+
+      control.updateValueAndValidity({ emitEvent: false });
+    });
+  }
+
+  private getGuestBuyer() {
+    if (this.isAuthenticated) {
+      return null;
+    }
+
+    const firstname = String(this.formCheckout.get('firstname')?.value || '').trim();
+    const lastname = String(this.formCheckout.get('lastname')?.value || '').trim();
+    const email = String(this.formCheckout.get('email')?.value || '').trim().toLowerCase();
+    const confirmEmail = String(this.formCheckout.get('confirmEmail')?.value || '').trim().toLowerCase();
+    const phone = String(this.formCheckout.get('phone')?.value || '').trim();
+    const birth = String(this.formCheckout.get('birth')?.value || '').trim();
+
+    if (!firstname || !lastname || !email || !confirmEmail || !phone) {
+      this.toastService.warning('Completa los datos del comprador para continuar.');
+      return null;
+    }
+
+    if (email !== confirmEmail) {
+      this.toastService.warning('Los correos no coinciden.');
+      return null;
+    }
+
+    if (this.requiresBirthDate && !birth) {
+      this.toastService.warning(`Este evento requiere validar la edad mínima de ${this.evento?.minAge} años.`);
+      return null;
+    }
+
+    return {
+      firstname,
+      lastname,
+      email,
+      phone,
+      ...(birth ? { birth } : {})
+    };
   }
 
   onTicketTypeChange(id: number) {
@@ -255,16 +326,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     if (!this.formCheckout.valid) return;
     if (!this.selectedTicketType && this.ticketTypes.length > 0) return;
+    const guestBuyer = this.getGuestBuyer();
+    if (!this.isAuthenticated && !guestBuyer) return;
 
     this.loading = true;
     this.paymentStatus = 'processing';
-    const token = localStorage.getItem('token');
-
-    // Si no está logueado, redirigir
-    if (!token) {
-      this.router.navigate(['/login']);
-      return;
-    }
 
     if (this.eventId) {
       // 3. LOGICA MERCADO PAGO REAL (Marketplace)
@@ -275,7 +341,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         ticketTypeId,
         promoterCode: this.promoterCode || undefined,
         couponId: this.appliedCoupon?.couponId,
-        couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined
+        couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined,
+        buyer: guestBuyer || undefined
       }).subscribe({
         next: (response: any) => {
           if (response.init_point) {
@@ -293,6 +360,8 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 eventId: Number(this.eventId),
                 ticketTypeId: ticketTypeId,
                 quantity: this.ticketQuantity,
+                guestCheckout: !this.isAuthenticated,
+                deliveryEmail: response.delivery_email || guestBuyer?.email || null,
                 at: Date.now()
               };
               if (typeof window !== 'undefined' && window.localStorage) {
@@ -310,6 +379,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         error: (error) => {
           // Error interceptor will show toast, but we also set component state
           this.showErrorMessage = true;
+          this.errorMessageText = error?.error?.message || error?.userMessage || 'No pudimos iniciar el pago.';
           this.loading = false;
           this.paymentStatus = 'failure';
         }

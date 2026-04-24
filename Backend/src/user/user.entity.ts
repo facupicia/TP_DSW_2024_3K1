@@ -5,6 +5,7 @@ import { PromoterGroup } from "../promoter/promoter.entity";
 import { Role } from "./role.entity";
 @Entity()
 @Unique(['email'])
+@Index('idx_user_active_created', ['active', 'createdAt'])
 export class User extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -98,6 +99,13 @@ export class User extends BaseEntity {
     })
     @Index('idx_user_active')
     active: boolean;
+
+    @Column({ default: false })
+    @Index('idx_user_guest_account')
+    isGuestAccount: boolean;
+
+    @Column({ type: 'timestamp', nullable: true })
+    claimedAt: Date | null;
 
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;

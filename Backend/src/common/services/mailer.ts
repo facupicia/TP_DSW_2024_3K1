@@ -213,4 +213,71 @@ export const sendPromoterInvitationEmail = async (
   }
 };
 
+export const sendAccountClaimEmail = async (
+  email: string,
+  buyerName: string,
+  claimUrl: string,
+) => {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.error("FALTA BREVO_API_KEY");
+    return null;
+  }
+
+  try {
+    const safeName = buyerName || "comprador";
+    const htmlContent = `
+            <html>
+                <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h1 style="color: #0084f0;">Accede a tus entradas cuando quieras</h1>
+                        <p>Hola ${safeName},</p>
+                        <p>Creaste una compra como invitado en EventLife. Puedes reclamar tu cuenta para ver tus tickets y próximas compras desde tu perfil.</p>
+                        <a href="${claimUrl}"
+                           style="display: inline-block; background: #111827; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; margin: 20px 0; font-weight: bold;">
+                            Reclamar mi cuenta
+                        </a>
+                        <p style="font-size: 13px; color: #666;">Este enlace vence por seguridad. Si no fuiste tú, puedes ignorar este correo.</p>
+                        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+                        <p style="font-size: 12px; color: #999; margin-top: 40px;">EventLife App</p>
+                    </div>
+                </body>
+            </html>
+        `;
+
+    const body = {
+      sender: {
+        name: "Event Life",
+        email: process.env.MAIL_FROM || "no-reply@eventlife.com",
+      },
+      to: [{ email }],
+      subject: "Reclama tu cuenta de EventLife",
+      htmlContent,
+    };
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error API Brevo claim account:", errorText);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log("✅ Correo de reclamo enviado. ID:", (data as any)?.messageId);
+    return data;
+  } catch (error) {
+    console.error("ERROR al enviar email de reclamo:", error);
+    return null;
+  }
+};
+
 export default enviarCorreoConQR;

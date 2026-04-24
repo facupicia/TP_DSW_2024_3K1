@@ -93,5 +93,21 @@ export const googleSigninSchema = z.object({
     })
 })
 
+export const requestAccountClaimSchema = z.object({
+    body: z.object({
+        email: z.string().email("Invalid email format")
+    })
+})
 
+export const validateAccountClaimSchema = z.object({
+    query: z.object({
+        token: z.string().min(20, "Token is required")
+    })
+})
 
+export const completeAccountClaimSchema = z.object({
+    body: z.object({
+        token: z.string().min(20, "Token is required"),
+        password: z.string().min(6, "Password must be at least 6 characters long")
+    })
+})

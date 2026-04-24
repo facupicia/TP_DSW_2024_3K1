@@ -9,9 +9,15 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
     const router = inject(Router);
     const injector = inject(Injector);
+    const isSilentAuthRequest = req.url.includes('/user/refresh')
+        || req.url.includes('/user/logout');
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
+            if (error.status === 401 && isSilentAuthRequest) {
+                return throwError(() => error);
+            }
+
             const authService = injector.get(AuthService);
             let errorMessage = 'Ocurrió un error inesperado';
 
@@ -37,7 +43,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         const errorCode = error.error?.code;
                         const noLogoutCodes = [
                             'PLAN_LIMIT_', 'MP_NOT_LINKED', 'PLAN_LIMIT_EVENTS', 'PLAN_LIMIT_TICKET_TYPES',
-                            'FORBIDDEN_ROLE' // Don't logout on role permission errors
+                            'FORBIDDEN_ROLE', 'FORBIDDEN_USER_LOOKUP' // Don't logout on role/user permission errors
                         ];
                         const shouldNotLogout = noLogoutCodes.some(code => 
                             errorCode?.startsWith(code) || errorCode === code

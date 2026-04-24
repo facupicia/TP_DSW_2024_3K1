@@ -71,23 +71,38 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             const timestamp = tsPart.split('=')[1];
             const receivedHash = v1Part.split('=')[1];
             
-            // Template: "id:<data.id>|topic:<topic>|ts:<timestamp>"
-            const dataId = req.query['data.id'] || req.body?.data?.id || '';
-            const topic = req.query.topic || req.query.type || req.body?.type || '';
-            const template = `id:${dataId}|topic:${topic}|ts:${timestamp}`;
+            // MercadoPago signs this manifest: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+            const rawDataId = req.query['data.id'] || req.query.id || req.body?.data?.id || req.body?.id || '';
+            const dataId = String(rawDataId).toLowerCase();
+            const requestId = String(req.headers['x-request-id'] || '');
+            let template = '';
+            if (dataId) template += `id:${dataId};`;
+            if (requestId) template += `request-id:${requestId};`;
+            template += `ts:${timestamp};`;
             
             const expectedHash = crypto
                 .createHmac('sha256', webhookSecret)
                 .update(template)
                 .digest('hex');
             
+            if (receivedHash.length !== expectedHash.length) {
+                logger.error('MP_WEBHOOK_INVALID_SIGNATURE_LENGTH', {
+                    receivedLength: receivedHash.length,
+                    expectedLength: expectedHash.length,
+                    template
+                });
+                res.status(401).json({ error: 'Invalid signature' });
+                return;
+            }
+
             if (!crypto.timingSafeEqual(
                 Buffer.from(receivedHash),
                 Buffer.from(expectedHash)
             )) {
                 logger.error('MP_WEBHOOK_INVALID_SIGNATURE', {
                     received: receivedHash,
-                    expected: expectedHash
+                    expected: expectedHash,
+                    template
                 });
                 res.status(401).json({ error: 'Invalid signature' });
                 return;

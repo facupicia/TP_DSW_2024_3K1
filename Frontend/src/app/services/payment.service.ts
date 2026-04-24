@@ -19,6 +19,8 @@ export interface PreferenceResponse {
     id: string;
     init_point: string;
     marketplace?: boolean;
+    guest_checkout?: boolean;
+    delivery_email?: string;
     pricing: {
         base_amount: number;
         discount_amount?: number;
@@ -68,13 +70,27 @@ export class PaymentService {
     /**
      * Crea una preferencia de pago para comprar tickets
      */
-    createPreference(ticketTypeId: number, ticketQuantity: number, promoterCode?: string, couponId?: number, couponCode?: string): Observable<PreferenceResponse> {
+    createPreference(
+        ticketTypeId: number,
+        ticketQuantity: number,
+        promoterCode?: string,
+        couponId?: number,
+        couponCode?: string,
+        buyer?: {
+            firstname: string;
+            lastname: string;
+            email: string;
+            phone: string;
+            birth?: string;
+        }
+    ): Observable<PreferenceResponse> {
         return this.http.post<PreferenceResponse>(`${this.baseUrl}/create-preference`, {
             ticketTypeId,
             ticketQuantity,
             promoterCode,
             couponId,
-            couponCode
+            couponCode,
+            buyer
         });
     }
 

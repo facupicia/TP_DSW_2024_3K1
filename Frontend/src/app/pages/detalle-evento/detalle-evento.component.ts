@@ -69,8 +69,9 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
       next: (data) => {
         console.log(`[DEBUG] Evento cargado:`, data);
         this.evento = data;
-        if (data.user_id) {
-          this.obtenerImagenUsuario(data.user_id);
+        if (data.user) {
+          this.user = data.user;
+          this.imgPerfil = data.user.imgPerfil;
         }
         this.startCountdown();
         this.loading = false;
@@ -162,15 +163,6 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     };
   }
 
-  obtenerImagenUsuario(userId: number): void {
-    this.accesService.obtenerImagenUsuario(userId).subscribe({
-      next: (user) => {
-        this.user = user;
-        this.imgPerfil = user.imgPerfil;
-      }
-    });
-  }
-
   private calculateAge(birthDate: Date): number {
     const birth = new Date(birthDate);
     const today = new Date();
@@ -185,7 +177,8 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   reservarEntrada(eventId: number): void {
     const token = localStorage.getItem('token');
     if (!token) {
-      this.router.navigate(['/login']);
+      const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
+      this.router.navigate([`/ticket/${eventId}`], { queryParams });
       return;
     }
     this.accesService.getProfile().subscribe({

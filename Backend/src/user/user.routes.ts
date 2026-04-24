@@ -3,9 +3,9 @@
  * All endpoints related to user management and authentication
  */
 import { Router } from "express"
-import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin, refreshSession, logoutUser } from "./user.controller"
+import { signupUser, getUsers, updateUser, deleteUser, getUser, signinUser, profile, updateUserRole, googleSignin, refreshSession, logoutUser, requestAccountClaim, validateAccountClaim, completeAccountClaim } from "./user.controller"
 import { schemaValidation } from "../common/middleware/schemaValidacion"
-import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema } from "../schemas/schema.user"
+import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema, requestAccountClaimSchema, validateAccountClaimSchema, completeAccountClaimSchema } from "../schemas/schema.user"
 import { checkAuthToken } from "../common/middleware/authToken"
 import { checkRoleAuth } from "../common/middleware/checkRole"
 import { authRateLimiter } from "../common/middleware/rateLimit"
@@ -27,6 +27,12 @@ router.post("/refresh", refreshSession)
 router.post("/logout", logoutUser)
 
 router.post("/register", schemaValidation(signupUserSchema), signupUser)
+
+router.post("/claim/request", authRateLimiter, schemaValidation(requestAccountClaimSchema), requestAccountClaim)
+
+router.get("/claim/validate", schemaValidation(validateAccountClaimSchema), validateAccountClaim)
+
+router.post("/claim/complete", authRateLimiter, schemaValidation(completeAccountClaimSchema), completeAccountClaim)
 
 
 router.get("/", checkAuthToken, checkRoleAuth(["admin"]), getUsers)

@@ -9,6 +9,8 @@ import { Roles, getHighestRole } from "../schemas/schema.user";
 import { OAuth2Client } from "google-auth-library";
 import { getRoleNames, findRolesByNames } from "./role.entity";
 import { issueRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../common/services/sessionTokens";
+import { createAccountClaimToken, consumeAccountClaimToken, findValidAccountClaimToken } from "./accountClaim.service";
+import { sendAccountClaimEmail } from "../common/services/mailer";
 
 
 export const signupUser = async (req: Request, res: Response) => {
@@ -43,10 +45,37 @@ export const signupUser = async (req: Request, res: Response) => {
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const { getPagination } = await import("../common/services/pagination");
-    const { page, limit, skip, take } = getPagination(req.query, 20, 100);
+    const { page, limit, skip, take } = getPagination(req.query, 20, 50);
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const role = typeof req.query.role === 'string' ? req.query.role.trim() : '';
     const activeQuery = typeof req.query.active === 'string' ? req.query.active.trim().toLowerCase() : '';
+    const validRole = role && Roles.safeParse(role).success ? role : '';
+    const isNumericSearch = /^\d+$/.test(search);
+    const hasSearch = isNumericSearch || search.length >= 2;
+    const hasRoleFilter = Boolean(validRole);
+
+    if (!hasSearch && !hasRoleFilter) {
+      return res.status(200).json({
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 1,
+        queryRequired: true,
+        message: "Usá búsqueda por email, nombre, ID o filtrá por rol para consultar usuarios."
+      });
+    }
+
+    if (search && !hasSearch) {
+      return res.status(400).json({
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 1,
+        message: "La búsqueda debe tener al menos 2 caracteres o ser un ID numérico."
+      });
+    }
 
     const qb = User.createQueryBuilder("user")
       .leftJoinAndSelect("user.roles", "role")
@@ -60,23 +89,28 @@ export const getUsers = async (req: Request, res: Response) => {
         "role.id",
         "role.name"
       ])
-      .orderBy("user.id", "ASC")
+      .orderBy("user.createdAt", "DESC")
+      .addOrderBy("user.id", "DESC")
       .skip(skip)
       .take(take);
 
     if (search) {
       qb.andWhere(
         new Brackets((subQb) => {
-          subQb
-            .where("LOWER(user.firstname) LIKE :search", { search: `%${search.toLowerCase()}%` })
-            .orWhere("LOWER(user.lastname) LIKE :search", { search: `%${search.toLowerCase()}%` })
-            .orWhere("LOWER(user.email) LIKE :search", { search: `%${search.toLowerCase()}%` });
+          const normalizedSearch = `%${search.toLowerCase()}%`;
+          subQb.where("LOWER(user.firstname) LIKE :search", { search: normalizedSearch })
+            .orWhere("LOWER(user.lastname) LIKE :search", { search: normalizedSearch })
+            .orWhere("LOWER(user.email) LIKE :search", { search: normalizedSearch });
+
+          if (isNumericSearch) {
+            subQb.orWhere("user.id = :userId", { userId: Number(search) });
+          }
         })
       );
     }
 
-    if (role && Roles.safeParse(role).success) {
-      qb.innerJoin("user.roles", "roleFilter", "roleFilter.name = :roleName", { roleName: role });
+    if (validRole) {
+      qb.innerJoin("user.roles", "roleFilter", "roleFilter.name = :roleName", { roleName: validRole });
     }
 
     if (activeQuery === 'true' || activeQuery === 'false') {
@@ -100,8 +134,12 @@ export const getUsers = async (req: Request, res: Response) => {
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit))
     })
-  } catch (error) {
-    return res.status(500).json({ message: error })
+  } catch (error: any) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({
+      code: "USERS_SEARCH_ERROR",
+      message: error?.message || "Error al buscar usuarios"
+    })
   }
 }
 
@@ -267,6 +305,86 @@ export const logoutUser = async (req: Request, res: Response) => {
   }
 };
 
+export const requestAccountClaim = async (req: Request, res: Response) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const genericResponse = {
+      message: "Si existe una cuenta invitada con ese correo, enviaremos un enlace para reclamarla."
+    };
+
+    const user = await User.findOne({
+      where: { email },
+      relations: ['roles']
+    });
+
+    if (!user || !user.active || !user.isGuestAccount) {
+      return res.status(200).json(genericResponse);
+    }
+
+    const claim = await createAccountClaimToken(user);
+    await sendAccountClaimEmail(
+      user.email,
+      `${user.firstname || ""} ${user.lastname || ""}`.trim(),
+      claim.claimUrl
+    );
+
+    return res.status(200).json(genericResponse);
+  } catch (error: any) {
+    return res.status(500).json({ code: "CLAIM_REQUEST_ERROR", message: error.message || "Internal Server Error" });
+  }
+};
+
+export const validateAccountClaim = async (req: Request, res: Response) => {
+  try {
+    const token = String(req.query.token || "");
+    const claimToken = await findValidAccountClaimToken(token);
+
+    if (!claimToken) {
+      return res.status(400).json({
+        valid: false,
+        message: "El enlace no es válido o expiró."
+      });
+    }
+
+    return res.status(200).json({
+      valid: true,
+      email: claimToken.user.email,
+      firstname: claimToken.user.firstname,
+      lastname: claimToken.user.lastname,
+      expiresAt: claimToken.expiresAt
+    });
+  } catch (error: any) {
+    return res.status(500).json({ code: "CLAIM_VALIDATE_ERROR", message: error.message || "Internal Server Error" });
+  }
+};
+
+export const completeAccountClaim = async (req: Request, res: Response) => {
+  try {
+    const rawToken = String(req.body?.token || "");
+    const password = String(req.body?.password || "");
+    const user = await consumeAccountClaimToken(rawToken);
+
+    if (!user) {
+      return res.status(400).json({
+        code: "CLAIM_TOKEN_INVALID",
+        message: "El enlace no es válido o expiró."
+      });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.isGuestAccount = false;
+    user.claimedAt = new Date();
+    await User.save(user);
+
+    const tokenSession = await tokenSing(user);
+    await issueRefreshToken(res, user);
+
+    return res.status(200).json({ token: tokenSession });
+  } catch (error: any) {
+    return res.status(500).json({ code: "CLAIM_COMPLETE_ERROR", message: error.message || "Internal Server Error" });
+  }
+};
+
 
 
 
@@ -309,6 +427,8 @@ export const profile = async (req: CustomRequest, res: Response) => {
       ciudad: user.ciudad,
       birth: user.birth,
       imgPerfil: user.imgPerfil,
+      isGuestAccount: user.isGuestAccount,
+      claimedAt: user.claimedAt,
       roles: userRoles,
       rol: getHighestRole(userRoles) // Backward compatibility
     });

@@ -11,6 +11,8 @@ import { createTicketsForPurchase, sendTicketEmail } from '../ticket/ticket.serv
 import { logger } from '../common/services/logger';
 import { getMPConfig } from './mp.config';
 import { decryptFromString } from '../common/services/encryption';
+import { createAccountClaimToken } from '../user/accountClaim.service';
+import { sendAccountClaimEmail } from '../common/services/mailer';
 
 /**
  * Payment Core Service
@@ -621,6 +623,18 @@ export async function processApprovedPayment(
             ).catch(err => {
                 logger.error('PAYMENT_EMAIL_ERROR', { paymentId, error: err?.message });
             });
+
+            if (user.isGuestAccount) {
+                createAccountClaimToken(user)
+                    .then(claim => sendAccountClaimEmail(
+                        user.email,
+                        `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+                        claim.claimUrl
+                    ))
+                    .catch(err => {
+                        logger.error('PAYMENT_CLAIM_EMAIL_ERROR', { paymentId, userId: user.id, error: err?.message });
+                    });
+            }
         }
         
         return { 

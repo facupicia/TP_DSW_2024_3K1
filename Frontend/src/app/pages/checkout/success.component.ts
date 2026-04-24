@@ -29,14 +29,30 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
     maxAttempts = 10;
     lastTickets: any[] = [];
     pollRef: any;
+    guestCheckout = false;
+    deliveryEmail = '';
+    externalReference: string | null = null;
     ngOnInit(): void {
-        this.profileService.currentUser$.subscribe(user => {
-            this.userProfile = user || {};
-        });
-        if (typeof window !== 'undefined' && !this.userProfile?.id && window.localStorage?.getItem('token')) {
-            this.profileService.getProfile().subscribe();
-        }
         if (typeof window !== 'undefined') {
+            try {
+                const rawLastPurchase = window.localStorage?.getItem('lastPurchase');
+                if (rawLastPurchase) {
+                    const parsed = JSON.parse(rawLastPurchase);
+                    this.guestCheckout = !!parsed?.guestCheckout;
+                    this.deliveryEmail = parsed?.deliveryEmail || '';
+                    this.externalReference = parsed?.external_reference || null;
+                }
+            } catch { }
+
+            if (!this.guestCheckout) {
+                this.profileService.currentUser$.subscribe(user => {
+                    this.userProfile = user || {};
+                });
+                if (!this.userProfile?.id && window.localStorage?.getItem('token')) {
+                    this.profileService.getProfile().subscribe();
+                }
+            }
+
             this.startPolling();
         }
     }
@@ -47,31 +63,30 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
         this.loading = true;
         this.confirmed = false;
         this.attempts = 0;
-        
-        // Obtener external_reference del localStorage
-        let extRef: string | null = null;
-        try {
-            const lp = window.localStorage?.getItem('lastPurchase');
-            if (lp) {
-                const parsed = JSON.parse(lp);
-                extRef = parsed?.external_reference || null;
-            }
-        } catch {}
+        const extRef = this.externalReference;
         
         this.pollRef = setInterval(() => {
             this.attempts++;
             
-            // Si hay external_reference, consultar estado de pago primero
             if (extRef) {
                 this.http.get<{ success: boolean; status: string; paymentLogId?: number }>(
                     `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`
                 ).subscribe({
                     next: (state) => {
-                        // Si el pago fue rechazado/fallido, mostrar error
                         if (state?.status === 'failure') {
                             this.loading = false;
                             this.confirmed = false;
                             this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
+                            clearInterval(this.pollRef);
+                            return;
+                        }
+
+                        if (state?.status === 'approved' && this.guestCheckout) {
+                            this.loading = false;
+                            this.confirmed = true;
+                            this.toast.success(this.deliveryEmail
+                                ? `Pago confirmado. Enviamos las entradas a ${this.deliveryEmail}.`
+                                : 'Pago confirmado. Tus entradas ya fueron enviadas.');
                             clearInterval(this.pollRef);
                         }
                     },
@@ -80,8 +95,19 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
                     }
                 });
             }
-            
-            // Consultar tickets del usuario
+
+            if (this.guestCheckout) {
+                if (this.attempts >= this.maxAttempts) {
+                    clearInterval(this.pollRef);
+                    this.loading = false;
+                    this.confirmed = false;
+                    this.toast.info(this.deliveryEmail
+                        ? `Seguimos procesando la compra. Te avisaremos por correo en ${this.deliveryEmail}.`
+                        : 'Seguimos procesando la compra. Te avisaremos por correo.');
+                }
+                return;
+            }
+
             this.tickets.getLastPurchase().subscribe({
                 next: (resp) => {
                     if (resp.status === 'approved' && resp.tickets?.length) {
@@ -115,7 +141,11 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
         }, 2000);
     }
     verTickets() {
-        // Si tienes el ID en userProfile, úsalo. Si no, ajusta la ruta.
+        if (this.guestCheckout) {
+            this.router.navigate(['/events']);
+            return;
+        }
+
         if (this.userProfile.id) {
             this.router.navigate([`/my-tickets/${this.userProfile.id}`]);
         } else {

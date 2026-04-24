@@ -6,7 +6,7 @@ import {
     getMpStatus, 
     disconnectMp 
 } from "./mp-oauth.controller";
-import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
+import { checkAuthToken, optionalAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
 import { 
     createValidateMPWebhookSignature 
@@ -20,17 +20,17 @@ const router = Router();
  * POST /api/payment/create-preference
  * 
  * Crea una preferencia de pago para comprar tickets.
- * Requiere autenticación.
+ * Acepta usuarios autenticados o compradores invitados.
  */
-router.post("/create-preference", checkAuthToken, createPreference);
+router.post("/create-preference", optionalAuthToken, createPreference);
 
 /**
  * GET /api/payment/status
  * 
  * Verifica el estado de un pago por external_reference.
- * Usado por el frontend para polling después del checkout.
+ * Usado por el frontend para polling después del checkout, incluso para invitados.
  */
-router.get("/status", checkAuthToken, getPaymentStatus);
+router.get("/status", getPaymentStatus);
 
 /* ==================== WEBHOOK ROUTES ==================== */
 

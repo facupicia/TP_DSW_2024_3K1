@@ -1,0 +1,10 @@
+.claim-panel {
+  border-radius: 16px;
+  padding: 32px;
+}
+
+@media (max-width: 480px) {
+  .claim-panel {
+    padding: 24px;
+  }
+}
