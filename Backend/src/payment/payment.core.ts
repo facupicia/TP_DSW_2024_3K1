@@ -60,6 +60,13 @@ export interface PaymentResult {
     promoterCommission?: number;
 }
 
+export interface WebhookPaymentLookupResult {
+    payment: PaymentData;
+    client: MercadoPagoConfig;
+    source: 'platform' | 'organizer';
+    organizerId?: number;
+}
+
 // ============================================================================
 // MERCADOPAGO CLIENTS
 // ============================================================================
@@ -107,6 +114,30 @@ export async function getOrganizerMPClient(organizerId: number): Promise<Mercado
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 2000;
 
+function normalizePaymentData(paymentId: string, result: any): PaymentData {
+    return {
+        id: paymentId,
+        status: result.status || 'unknown',
+        external_reference: result.external_reference || undefined,
+        metadata: result.metadata || {},
+        additional_info: result.additional_info || {},
+        transaction_amount: result.transaction_amount || 0
+    };
+}
+
+async function fetchPaymentOnce(
+    paymentId: string,
+    client: MercadoPagoConfig
+): Promise<PaymentData | null> {
+    try {
+        const paymentClient = new Payment(client);
+        const result = await paymentClient.get({ id: paymentId });
+        return normalizePaymentData(paymentId, result);
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Obtiene un pago de MercadoPago con reintentos
  */
@@ -123,16 +154,7 @@ export async function fetchPaymentWithRetry(
     while (attempts < MAX_RETRY_ATTEMPTS) {
         try {
             const result = await paymentClient.get({ id: paymentId });
-            
-            // Normalizar la respuesta
-            return {
-                id: paymentId,
-                status: result.status || 'unknown',
-                external_reference: result.external_reference || undefined,
-                metadata: result.metadata || {},
-                additional_info: result.additional_info || {},
-                transaction_amount: result.transaction_amount || 0
-            };
+            return normalizePaymentData(paymentId, result);
             
         } catch (error: any) {
             lastError = error;
@@ -156,6 +178,72 @@ export async function fetchPaymentWithRetry(
         error: lastError?.message
     });
     
+    return null;
+}
+
+/**
+ * Resuelve el pago recibido por webhook usando el token que realmente puede leerlo.
+ *
+ * En marketplace las preferencias se crean con el token OAuth del organizador, por
+ * eso el token de plataforma no siempre puede consultar el pago notificado.
+ */
+export async function resolveWebhookPayment(
+    paymentId: string
+): Promise<WebhookPaymentLookupResult | null> {
+    const platformClient = getPlatformMPClient();
+    const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
+
+    if (platformPayment) {
+        return {
+            payment: platformPayment,
+            client: platformClient,
+            source: 'platform'
+        };
+    }
+
+    logger.warn('PAYMENT_LOOKUP_PLATFORM_MISS', { paymentId });
+
+    const userRepo = AppDataSource.getRepository(User);
+    const organizers = await userRepo
+        .createQueryBuilder('user')
+        .select(['user.id', 'user.mpAccessToken'])
+        .where('user.mpAccessToken IS NOT NULL')
+        .andWhere('user.mpUserId IS NOT NULL')
+        .getMany();
+
+    for (const organizer of organizers) {
+        const accessToken = decryptFromString(organizer.mpAccessToken);
+        if (!accessToken) {
+            logger.warn('PAYMENT_ORGANIZER_TOKEN_DECRYPT_SKIPPED', {
+                organizerId: organizer.id
+            });
+            continue;
+        }
+
+        const client = new MercadoPagoConfig({ accessToken });
+        const organizerPayment = await fetchPaymentOnce(paymentId, client);
+
+        if (organizerPayment) {
+            logger.info('PAYMENT_LOOKUP_ORGANIZER_HIT', {
+                paymentId,
+                organizerId: organizer.id,
+                status: organizerPayment.status
+            });
+
+            return {
+                payment: organizerPayment,
+                client,
+                source: 'organizer',
+                organizerId: organizer.id
+            };
+        }
+    }
+
+    logger.error('PAYMENT_LOOKUP_FAILED_ALL_TOKENS', {
+        paymentId,
+        organizersChecked: organizers.length
+    });
+
     return null;
 }
 

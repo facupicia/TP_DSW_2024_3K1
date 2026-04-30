@@ -39,12 +39,14 @@ export interface WebhookData {
 
 /**
  * Obtiene el cliente de MP para suscripciones
- * Usa MP_ACCESS_TOKEN_SUSCRIPCION si está disponible, sino el default
  */
 export function getSubscriptionMPClient(): MercadoPagoConfig {
     const config = getMPConfig();
-    const token = config.subscriptionAccessToken || config.accessToken;
-    return new MercadoPagoConfig({ accessToken: token });
+    if (!config.subscriptionAccessToken) {
+        throw new Error('MP_ACCESS_TOKEN_SUSCRIPCION is required for subscription payments');
+    }
+
+    return new MercadoPagoConfig({ accessToken: config.subscriptionAccessToken });
 }
 
 // ============================================================================

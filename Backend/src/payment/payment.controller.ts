@@ -12,7 +12,7 @@ import {
 import { 
     processApprovedPayment,
     waitForPaymentApproval,
-    getPlatformMPClient 
+    resolveWebhookPayment
 } from "./payment.core";
 
 /**
@@ -250,7 +250,17 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     }
     
     try {
-        const paymentData = await waitForPaymentApproval(String(paymentId), getPlatformMPClient());
+        const lookup = await resolveWebhookPayment(String(paymentId));
+
+        if (!lookup) {
+            logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId: String(paymentId) });
+            res.status(500).json({ received: false });
+            return;
+        }
+
+        const paymentData = lookup.payment.status === 'approved'
+            ? lookup.payment
+            : await waitForPaymentApproval(String(paymentId), lookup.client);
 
         if (!paymentData) {
             logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId: String(paymentId) });
@@ -263,6 +273,8 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
         if (result.success) {
             logger.info("WEBHOOK_PAYMENT_PROCESSED", {
                 paymentId: String(paymentId),
+                tokenSource: lookup.source,
+                organizerId: lookup.organizerId,
                 ticketsCount: result.tickets?.length
             });
             res.status(200).json({ received: true });

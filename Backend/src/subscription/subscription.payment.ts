@@ -4,11 +4,16 @@ import { SubscriptionPlan } from "./subscription_plan.entity";
 import { UserSubscription, SubscriptionStatus } from "./user_subscription.entity";
 import { User } from "../user/user.entity";
 import { logger } from "../common/services/logger";
+import { getMPConfig } from "../payment/mp.config";
 
 // Separate MP client for subscriptions (uses different access token)
 const getSubscriptionClient = () => {
-    const accessToken = process.env.MP_ACCESS_TOKEN_SUSCRIPCION;
-    return new MercadoPagoConfig({ accessToken });
+    const config = getMPConfig();
+    if (!config.subscriptionAccessToken) {
+        throw new Error('MP_ACCESS_TOKEN_SUSCRIPCION is required for subscription payments');
+    }
+
+    return new MercadoPagoConfig({ accessToken: config.subscriptionAccessToken });
 };
 
 /**
