@@ -9,7 +9,40 @@ import { generarQRUrl } from "../common/utils/qr";
 import enviarCorreoConQR from "../common/services/mailer";
 import { createTicketsForPurchase } from "./ticket.service";
 import { PaymentLog } from "../payment/payment.entity";
+import { PromoterEventAssignment } from "../promoter/promoter.entity";
 import AppDataSource from "../db";
+
+function sanitizeTicketCode(code: unknown): string {
+    if (typeof code !== "string") return "";
+    let cleanCode = code.trim().replace(/\/+$/, "");
+    if (cleanCode.includes("/") || cleanCode.includes("http")) {
+        const parts = cleanCode.split("/");
+        cleanCode = parts[parts.length - 1];
+    }
+    return cleanCode.trim();
+}
+
+function getEventDateTime(event: { date: any; time?: string | null }) {
+    const date = String(event.date).split("T")[0];
+    const time = event.time || "00:00";
+    return new Date(`${date}T${time}`);
+}
+
+async function canValidateEvent(userId: number, roles: string[], eventId: number, eventOwnerId: number) {
+    if (roles.includes("admin") || eventOwnerId === userId) return true;
+    if (!roles.includes("scanner")) return false;
+
+    const assignedCount = await AppDataSource.getRepository(PromoterEventAssignment)
+        .createQueryBuilder("assignment")
+        .innerJoin("assignment.promoterGroup", "promoterGroup")
+        .where("assignment.eventId = :eventId", { eventId })
+        .andWhere("assignment.isActive = true")
+        .andWhere("promoterGroup.isActive = true")
+        .andWhere("promoterGroup.promoterId = :userId", { userId })
+        .getCount();
+
+    return assignedCount > 0;
+}
 
 export const createTicket = async (req: CustomRequest, res: Response) => {
     // 0. Validaciones Previas (Fail Fast)
@@ -285,6 +318,16 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         const { code } = req.body;
         const userRoles = req.user?.roles || [];
         const requesterId = req.user?.id;
+        const cleanCode = sanitizeTicketCode(code);
+        const codeAsId = /^\d+$/.test(cleanCode) ? parseInt(cleanCode, 10) : -1;
+
+        if (!requesterId) {
+            return res.status(401).json({ message: "No autorizado", valid: false });
+        }
+
+        if (!cleanCode) {
+            return res.status(400).json({ message: "Code is required", valid: false });
+        }
 
         const ticket = await AppDataSource.getRepository(Ticket)
             .createQueryBuilder("ticket")
@@ -296,30 +339,36 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
                 "ticket.codigo_unico",
                 "ticket.status",
                 "ticket.usedAt",
+                "ticket.scannedById",
                 "ticket.ticketTypeId",
                 "ticket.userId",
                 "ticketType.id",
                 "ticketType.name",
                 "event.id",
                 "event.title",
+                "event.date",
+                "event.time",
                 "event.user_id",
                 "user.id",
                 "user.firstname",
                 "user.lastname"
             ])
-            .where("ticket.codigo_unico = :code", { code })
-            .orWhere("ticket.id = :id", { id: parseInt(code) || -1 })
+            .where("ticket.codigo_unico = :code", { code: cleanCode })
+            .orWhere("ticket.id = :id", { id: codeAsId })
             .getOne();
 
         if (!ticket) {
             return res.status(404).json({ message: "Ticket no encontrado", valid: false });
         }
 
-        const isAdmin = userRoles.includes('admin');
-        const isGlobalScanner = userRoles.includes('scanner');
-        const isEventOwner = ticket.ticketType?.event?.user_id === requesterId;
+        const isAuthorized = await canValidateEvent(
+            requesterId,
+            userRoles,
+            ticket.ticketType.event.id,
+            ticket.ticketType.event.user_id
+        );
 
-        if (!isAdmin && !isGlobalScanner && !isEventOwner) {
+        if (!isAuthorized) {
             return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento", valid: false });
         }
 
@@ -335,11 +384,20 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
             return res.status(400).json({ message: "Ticket cancelado", valid: false });
         }
 
+        const eventDate = getEventDateTime(ticket.ticketType.event);
+        const hoursDiff = (Date.now() - eventDate.getTime()) / (1000 * 60 * 60);
+        if (hoursDiff > 24) {
+            return res.status(409).json({
+                message: `Este ticket es de un evento pasado: ${ticket.ticketType.event.title}`,
+                valid: false
+            });
+        }
+
         // Marcar como usado de forma atómica para evitar doble escaneo simultáneo
         const usedAt = new Date();
         const updateResult = await Ticket.update(
             { id: ticket.id, status: TicketStatus.ACTIVE },
-            { status: TicketStatus.USED, usedAt }
+            { status: TicketStatus.USED, usedAt, scannedById: requesterId }
         );
 
         if (!updateResult.affected) {
@@ -351,6 +409,7 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
 
         ticket.status = TicketStatus.USED;
         ticket.usedAt = usedAt;
+        ticket.scannedById = requesterId;
 
         return res.json({
             message: "Ticket válido. Acceso permitido.",
@@ -378,15 +437,21 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
     try {
         const { id } = req.params;
         const userId = req.user?.id;
+        const ticketId = Number(id);
 
         if (!userId) {
             await queryRunner.rollbackTransaction();
             return res.status(401).json({ message: "No autorizado" });
         }
 
+        if (!Number.isSafeInteger(ticketId) || ticketId <= 0) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({ message: "ID de ticket inválido" });
+        }
+
         const ticket = await queryRunner.manager.findOne(Ticket, {
-            where: { id: parseInt(id), userId },
-            select: ["id", "userId", "ticketTypeId", "status"]
+            where: { id: ticketId, userId },
+            select: ["id", "userId", "ticketTypeId", "status", "purchasePrice"]
         });
 
         if (!ticket) {
@@ -397,6 +462,14 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
         if (ticket.status === TicketStatus.USED || ticket.status === TicketStatus.CANCELLED) {
             await queryRunner.rollbackTransaction();
             return res.status(400).json({ message: `Ticket ya ${ticket.status === TicketStatus.USED ? 'utilizado' : 'cancelado'}` });
+        }
+
+        if (Number(ticket.purchasePrice) > 0) {
+            await queryRunner.rollbackTransaction();
+            return res.status(409).json({
+                code: "PAID_TICKET_REFUND_REQUIRED",
+                message: "Los tickets pagos deben cancelarse mediante el flujo de reembolso para mantener consistente el pago y el stock."
+            });
         }
 
         // Cancelar ticket
@@ -424,10 +497,10 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
 export const inviteGuests = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
 
     try {
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes('admin');
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
         }
@@ -445,11 +518,32 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             return res.status(400).json({ message: "Debes proporcionar al menos un email" });
         }
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const errors: string[] = [];
+        const normalizedEmails = Array.from(new Set(
+            emails
+                .map((email: unknown) => typeof email === "string" ? email.trim().toLowerCase() : "")
+                .filter(Boolean)
+        ));
+        const validEmails = normalizedEmails.filter(email => {
+            if (!emailRegex.test(email)) {
+                errors.push(`Email inválido: ${email}`);
+                return false;
+            }
+            return true;
+        });
+
+        if (validEmails.length === 0) {
+            return res.status(400).json({ message: "No hay emails válidos para invitar", errors });
+        }
+
         // Limit to prevent abuse (max 50 invites per request)
-        const totalTickets = emails.length * ticketQty;
-        if (emails.length > 50 || totalTickets > 100) {
+        const totalTickets = validEmails.length * ticketQty;
+        if (validEmails.length > 50 || totalTickets > 100) {
             return res.status(400).json({ message: "Máximo 50 emails o 100 tickets por solicitud" });
         }
+
+        await queryRunner.startTransaction();
 
         // Get ticket type with event
         const ticketType = await queryRunner.manager.findOne(TicketType, {
@@ -458,17 +552,28 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         });
 
         if (!ticketType) {
+            await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "Tipo de ticket no encontrado" });
         }
 
         // Verify organizer owns the event
-        if (ticketType.event.user_id !== userId) {
+        if (ticketType.event.user_id !== userId && !isAdmin) {
+            await queryRunner.rollbackTransaction();
             return res.status(403).json({ message: "No tienes permiso para invitar a este evento" });
         }
 
-        // Check stock
-        const availableStock = ticketType.capacity - ticketType.soldCount;
-        if (availableStock < totalTickets) {
+        // Reserve stock atomically to avoid overselling with concurrent invitations/purchases.
+        const stockUpdate = await queryRunner.manager
+            .createQueryBuilder()
+            .update(TicketType)
+            .set({ soldCount: () => `"soldCount" + ${totalTickets}` })
+            .where("id = :id", { id: ticketType.id })
+            .andWhere(`"soldCount" + ${totalTickets} <= "capacity"`)
+            .execute();
+
+        if (!stockUpdate.affected) {
+            await queryRunner.rollbackTransaction();
+            const availableStock = ticketType.capacity - ticketType.soldCount;
             return res.status(400).json({
                 message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${totalTickets}`
             });
@@ -476,20 +581,12 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
 
         const event = ticketType.event;
         const createdTickets: any[] = [];
-        const errors: string[] = [];
         let ticketsCreatedCount = 0;
         const ticketsToInsert: Ticket[] = [];
         const emailTicketsMap: Record<string, any[]> = {};
 
-        for (const email of emails) {
+        for (const email of validEmails) {
             try {
-                // Validate email format
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    errors.push(`Email inválido: ${email}`);
-                    continue;
-                }
-
                 const ticketsForThisEmail: any[] = [];
 
                 // Create multiple tickets for this email
@@ -534,10 +631,27 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             }
         }
 
+        if (ticketsToInsert.length === 0) {
+            await queryRunner.rollbackTransaction();
+            return res.status(400).json({ message: "No se pudo crear ninguna invitación", errors });
+        }
+
+        const reservedButNotCreated = totalTickets - ticketsToInsert.length;
+        if (reservedButNotCreated > 0) {
+            await queryRunner.manager.decrement(
+                TicketType,
+                { id: ticketType.id },
+                "soldCount",
+                reservedButNotCreated
+            );
+        }
+
         // Bulk insert all tickets at once
         if (ticketsToInsert.length > 0) {
             await queryRunner.manager.save(Ticket, ticketsToInsert);
         }
+
+        await queryRunner.commitTransaction();
 
         // Send emails after bulk insert (map saved tickets back to emails)
         let ticketIndex = 0;
@@ -556,18 +670,6 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
                 errors.push(`Error enviando a: ${email}`);
             }
         }
-
-        // INCREMENT SOLDCOUNT for all created tickets
-        if (ticketsCreatedCount > 0) {
-            await queryRunner.manager.increment(
-                TicketType,
-                { id: ticketType.id },
-                "soldCount",
-                ticketsCreatedCount
-            );
-        }
-
-        await queryRunner.commitTransaction();
 
         return res.status(201).json({
             message: `${ticketsCreatedCount} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,

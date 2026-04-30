@@ -25,6 +25,7 @@ const EnvSchema = z.object({
     // Mercado Pago - Subscriptions
     MP_ACCESS_TOKEN_SUSCRIPCION: z.string().optional(),
     MP_NOTIFICATION_URL_SUSCRIPCION: z.string().optional(),
+    MP_SUBSCRIPTION_WEBHOOK_SECRET: z.string().optional(),
     MP_SUBSCRIPTION_BACK_URL: z.string().optional(),
 
     // Database

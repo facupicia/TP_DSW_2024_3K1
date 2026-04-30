@@ -11,29 +11,46 @@ import AppDataSource from "../db";
 export const createCoupon = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
         }
 
         const { code, discountPercent, maxUses, expiresAt, eventId } = req.body;
+        const normalizedCode = typeof code === "string" ? code.trim().toUpperCase() : "";
+        const numericEventId = Number(eventId);
+        const numericDiscount = Number(discountPercent);
+        const numericMaxUses = maxUses === undefined || maxUses === null || maxUses === "" ? 0 : Number(maxUses);
+
+        if (!normalizedCode) {
+            return res.status(400).json({ message: "El código es requerido" });
+        }
+
+        if (!Number.isInteger(numericEventId) || numericEventId <= 0) {
+            return res.status(400).json({ message: "Evento inválido" });
+        }
 
         // Validate discount percent
-        if (!discountPercent || discountPercent < 1 || discountPercent > 100) {
+        if (!Number.isFinite(numericDiscount) || numericDiscount < 1 || numericDiscount > 100) {
             return res.status(400).json({ message: "El descuento debe ser entre 1% y 100%" });
+        }
+
+        if (!Number.isInteger(numericMaxUses) || numericMaxUses < 0) {
+            return res.status(400).json({ message: "El máximo de usos no puede ser negativo" });
         }
 
         // Validate event exists and belongs to user
         const event = await Event.findOne({
-            where: { id: eventId, user_id: userId },
-            select: ["id"]
+            where: { id: numericEventId },
+            select: ["id", "user_id"]
         });
-        if (!event) {
+        if (!event || (event.user_id !== userId && !isAdmin)) {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
 
         // Check if code already exists
         const existingCoupon = await Coupon.findOne({
-            where: { code: code.toUpperCase().trim() },
+            where: { code: normalizedCode },
             select: ["id"]
         });
         if (existingCoupon) {
@@ -41,11 +58,11 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
         }
 
         const coupon = new Coupon();
-        coupon.code = code.toUpperCase().trim();
-        coupon.discountPercent = discountPercent;
-        coupon.maxUses = maxUses || 0; // 0 = unlimited
+        coupon.code = normalizedCode;
+        coupon.discountPercent = numericDiscount;
+        coupon.maxUses = numericMaxUses; // 0 = unlimited
         coupon.expiresAt = expiresAt ? new Date(expiresAt) : null;
-        coupon.eventId = eventId;
+        coupon.eventId = numericEventId;
         coupon.isActive = true;
 
         await coupon.save();
@@ -64,18 +81,23 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
 export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         const eventId = parseInt(req.params.eventId);
 
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
         }
 
+        if (isNaN(eventId) || eventId <= 0) {
+            return res.status(400).json({ message: "Evento inválido" });
+        }
+
         // Verify event belongs to user
         const event = await Event.findOne({
-            where: { id: eventId, user_id: userId },
-            select: ["id"]
+            where: { id: eventId },
+            select: ["id", "user_id"]
         });
-        if (!event) {
+        if (!event || (event.user_id !== userId && !isAdmin)) {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
 
@@ -101,10 +123,15 @@ export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
 export const deleteCoupon = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         const couponId = parseInt(req.params.id);
 
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
+        }
+
+        if (isNaN(couponId) || couponId <= 0) {
+            return res.status(400).json({ message: "Cupón inválido" });
         }
 
         const coupon = await AppDataSource.getRepository(Coupon)
@@ -122,7 +149,7 @@ export const deleteCoupon = async (req: CustomRequest, res: Response) => {
         }
 
         // Verify event belongs to user
-        if (Number(coupon.eventUserId) !== userId) {
+        if (Number(coupon.eventUserId) !== userId && !isAdmin) {
             return res.status(403).json({ message: "No tienes permiso para eliminar este cupón" });
         }
 
@@ -142,10 +169,15 @@ export const deleteCoupon = async (req: CustomRequest, res: Response) => {
 export const toggleCoupon = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         const couponId = parseInt(req.params.id);
 
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
+        }
+
+        if (isNaN(couponId) || couponId <= 0) {
+            return res.status(400).json({ message: "Cupón inválido" });
         }
 
         const coupon = await AppDataSource.getRepository(Coupon)
@@ -163,7 +195,7 @@ export const toggleCoupon = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Cupón no encontrado" });
         }
 
-        if (Number(coupon.eventUserId) !== userId) {
+        if (Number(coupon.eventUserId) !== userId && !isAdmin) {
             return res.status(403).json({ message: "No tienes permiso para modificar este cupón" });
         }
 
@@ -184,13 +216,15 @@ export const toggleCoupon = async (req: CustomRequest, res: Response) => {
 export const validateCoupon = async (req: Request, res: Response) => {
     try {
         const { code, eventId } = req.body;
+        const normalizedCode = typeof code === "string" ? code.trim().toUpperCase() : "";
+        const numericEventId = Number(eventId);
 
-        if (!code || !eventId) {
+        if (!normalizedCode || !Number.isInteger(numericEventId) || numericEventId <= 0) {
             return res.status(400).json({ valid: false, message: "Código y evento requeridos" });
         }
 
         const coupon = await Coupon.findOne({
-            where: { code: code.toUpperCase().trim(), eventId, isActive: true },
+            where: { code: normalizedCode, eventId: numericEventId, isActive: true },
             select: ["id", "discountPercent", "maxUses", "usedCount", "expiresAt"]
         });
 

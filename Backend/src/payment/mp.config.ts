@@ -18,6 +18,7 @@ export interface MPConfig {
     clientId: string;
     clientSecret: string;
     webhookSecret?: string;
+    subscriptionWebhookSecret?: string;
     subscriptionAccessToken?: string;
     notificationUrl: string;
     subscriptionBackUrl: string;
@@ -51,6 +52,7 @@ export function getMPConfig(): MPConfig {
         clientId: process.env.MP_CLIENT_ID!,
         clientSecret: process.env.MP_CLIENT_SECRET!,
         webhookSecret: process.env.MP_WEBHOOK_SECRET,
+        subscriptionWebhookSecret: process.env.MP_SUBSCRIPTION_WEBHOOK_SECRET,
         subscriptionAccessToken: process.env.MP_ACCESS_TOKEN_SUSCRIPCION,
         notificationUrl: process.env.MP_NOTIFICATION_URL || '',
         subscriptionBackUrl: process.env.MP_SUBSCRIPTION_BACK_URL || process.env.BACKEND_URL || 'http://localhost:3000',

@@ -1,7 +1,40 @@
 import { Request, Response } from "express";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { CustomRequest } from "../common/middleware/authToken";
+import { PromoterEventAssignment } from "../promoter/promoter.entity";
 import AppDataSource from "../db";
+
+function sanitizeTicketCode(code: unknown): string {
+    if (typeof code !== "string") return "";
+    let cleanCode = code.trim().replace(/\/+$/, "");
+    if (cleanCode.includes("/") || cleanCode.includes("http")) {
+        const parts = cleanCode.split("/");
+        cleanCode = parts[parts.length - 1];
+    }
+    return cleanCode.trim();
+}
+
+function getEventDateTime(event: { date: any; time?: string | null }) {
+    const date = String(event.date).split("T")[0];
+    const time = event.time || "00:00";
+    return new Date(`${date}T${time}`);
+}
+
+async function canValidateEvent(userId: number, roles: string[], eventId: number, eventOwnerId: number) {
+    if (roles.includes("admin") || eventOwnerId === userId) return true;
+    if (!roles.includes("scanner")) return false;
+
+    const assignedCount = await AppDataSource.getRepository(PromoterEventAssignment)
+        .createQueryBuilder("assignment")
+        .innerJoin("assignment.promoterGroup", "promoterGroup")
+        .where("assignment.eventId = :eventId", { eventId })
+        .andWhere("assignment.isActive = true")
+        .andWhere("promoterGroup.isActive = true")
+        .andWhere("promoterGroup.promoterId = :userId", { userId })
+        .getCount();
+
+    return assignedCount > 0;
+}
 
 export class ScannerController {
 
@@ -15,11 +48,9 @@ export class ScannerController {
                 return res.status(400).json({ message: "Code is required" });
             }
 
-            // 1. MEJORA: Limpieza robusta de URL (quita barras finales y espacios)
-            let cleanCode = code.trim().replace(/\/+$/, ''); // Quita slashes del final
-            if (cleanCode.includes('/') || cleanCode.includes('http')) {
-                const parts = cleanCode.split('/');
-                cleanCode = parts[parts.length - 1];
+            const cleanCode = sanitizeTicketCode(code);
+            if (!cleanCode) {
+                return res.status(400).json({ message: "Code is required" });
             }
 
             const ticket = await AppDataSource.getRepository(Ticket)
@@ -36,12 +67,12 @@ export class ScannerController {
                     "user.id",
                     "user.firstname",
                     "user.lastname",
-                    "user.email",
                     "ticketType.id",
                     "ticketType.name",
                     "event.id",
                     "event.title",
                     "event.date",
+                    "event.time",
                     "event.user_id"
                 ])
                 .where("ticket.codigo_unico = :code", { code: cleanCode })
@@ -53,11 +84,14 @@ export class ScannerController {
             }
 
             const userRoles = req.user?.roles || [];
-            const isAdmin = userRoles.includes('admin');
-            const isGlobalScanner = userRoles.includes('scanner');
-            const isEventOwner = ticket.ticketType.event.user_id === scannerId;
+            const isAuthorized = await canValidateEvent(
+                scannerId,
+                userRoles,
+                ticket.ticketType.event.id,
+                ticket.ticketType.event.user_id
+            );
 
-            if (!isAdmin && !isGlobalScanner && !isEventOwner) {
+            if (!isAuthorized) {
                 return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento" });
             }
 
@@ -77,7 +111,7 @@ export class ScannerController {
             // Verifica que el evento no haya terminado hace días.
             // Esto asume que tienes una propiedad 'date' en tu entidad Event.
             const event = ticket.ticketType.event;
-            const eventDate = new Date(event.date); // Asegúrate que sea objeto Date
+            const eventDate = getEventDateTime(event);
             const now = new Date();
             // Ejemplo: Si el evento fue hace más de 24hs, no dejar pasar
             const hoursDiff = (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);

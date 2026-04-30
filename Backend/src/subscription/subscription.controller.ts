@@ -11,7 +11,9 @@ import {
 import {
     createSubscriptionCheckout,
     processSubscriptionWebhook,
-    cancelUserSubscription
+    cancelUserSubscription,
+    fetchSubscriptionFromMP,
+    parseSubscriptionExternalRef
 } from "./subscription.core";
 import { logger } from "../common/services/logger";
 import { getMPConfig } from "../payment/mp.config";
@@ -215,6 +217,18 @@ export const verifySubscription = async (req: CustomRequest, res: Response) => {
                 message: "ID de preaprobación requerido" 
             });
         }
+
+        const remoteSubscription = await fetchSubscriptionFromMP(preapprovalId);
+        const parsedRef = remoteSubscription?.external_reference
+            ? parseSubscriptionExternalRef(String(remoteSubscription.external_reference))
+            : null;
+
+        if (!parsedRef || parsedRef.userId !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "No tienes permiso para verificar esta suscripción"
+            });
+        }
         
         // Procesar webhook manualmente
         await processSubscriptionWebhook("preapproval", preapprovalId);
@@ -286,8 +300,8 @@ export const subscriptionWebhook = async (req: Request, res: Response) => {
         logger.info('SUBSCRIPTION_WEBHOOK_RECEIVED', { 
             type, 
             dataId, 
-            body: req.body,
-            query: req.query 
+            hasBody: !!req.body,
+            queryKeys: Object.keys(req.query || {})
         });
         
         if (!type || !dataId) {
@@ -295,19 +309,13 @@ export const subscriptionWebhook = async (req: Request, res: Response) => {
             return res.sendStatus(200);
         }
         
-        // Procesar asíncronamente
-        setImmediate(() => {
-            processSubscriptionWebhook(String(type), String(dataId))
-                .catch(err => {
-                    logger.error('Subscription webhook processing error:', err);
-                });
-        });
+        await processSubscriptionWebhook(String(type), String(dataId));
         
         return res.sendStatus(200);
         
     } catch (error: any) {
-        logger.error("Subscription webhook error:", error);
-        return res.sendStatus(200); // Siempre 200 a MP
+        logger.error("Subscription webhook error:", { error: error?.message });
+        return res.sendStatus(500);
     }
 };
 
@@ -358,12 +366,21 @@ export const subscriptionCallback = async (req: Request, res: Response) => {
  */
 export const adminAssignPlan = async (req: CustomRequest, res: Response) => {
     try {
-        const { userId, planId, durationMonths = 1 } = req.body;
+        const userId = Number(req.body?.userId);
+        const planId = Number(req.body?.planId);
+        const durationMonths = Number(req.body?.durationMonths ?? 1);
         
-        if (!userId || !planId) {
+        if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isSafeInteger(planId) || planId <= 0) {
             return res.status(400).json({ 
                 success: false,
                 message: "userId y planId son requeridos" 
+            });
+        }
+
+        if (!Number.isSafeInteger(durationMonths) || durationMonths < 1 || durationMonths > 36) {
+            return res.status(400).json({
+                success: false,
+                message: "durationMonths debe ser un entero entre 1 y 36"
             });
         }
         

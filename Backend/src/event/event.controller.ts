@@ -1137,10 +1137,15 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
     try {
         const eventId = parseInt(req.params.id);
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes('admin');
+
+        if (isNaN(eventId) || eventId <= 0) {
+            return res.status(400).json({ message: "ID de evento inválido" });
+        }
 
         // Verificar que el evento existe y pertenece al usuario
         const event = await Event.findOne({
-            where: { id: eventId, user_id: userId },
+            where: isAdmin ? { id: eventId } : { id: eventId, user_id: userId },
             relations: ['ticketTypes']
         });
 

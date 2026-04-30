@@ -17,6 +17,7 @@ export const createTicketType = async (req: CustomRequest, res: Response) => {
         } = req.body;
 
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         if (!userId) {
             return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
         }
@@ -46,7 +47,7 @@ export const createTicketType = async (req: CustomRequest, res: Response) => {
         }
 
         // Verificar que el usuario sea el dueño del evento
-        if (event.user_id !== userId) {
+        if (event.user_id !== userId && !isAdmin) {
             return res.status(403).json({ code: "FORBIDDEN", message: "No tienes permiso para modificar este evento" });
         }
 
@@ -114,6 +115,7 @@ export const updateTicketType = async (req: CustomRequest, res: Response) => {
         }
 
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         if (!userId) {
             return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
         }
@@ -128,7 +130,7 @@ export const updateTicketType = async (req: CustomRequest, res: Response) => {
         }
 
         // Verificar que el usuario sea el dueño del evento
-        if (ticketType.event?.user_id !== userId) {
+        if (ticketType.event?.user_id !== userId && !isAdmin) {
             return res.status(403).json({ code: "FORBIDDEN", message: "No tienes permiso para modificar este ticket type" });
         }
 
@@ -201,6 +203,7 @@ export const deactivateTicketType = async (req: CustomRequest, res: Response) =>
         }
 
         const userId = req.user?.id;
+        const isAdmin = (req.user?.roles || []).includes("admin");
         if (!userId) {
             return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
         }
@@ -215,7 +218,7 @@ export const deactivateTicketType = async (req: CustomRequest, res: Response) =>
         }
 
         // Verificar que el usuario sea el dueño del evento
-        if (ticketType.event?.user_id !== userId) {
+        if (ticketType.event?.user_id !== userId && !isAdmin) {
             return res.status(403).json({ code: "FORBIDDEN", message: "No tienes permiso para desactivar este ticket type" });
         }
 

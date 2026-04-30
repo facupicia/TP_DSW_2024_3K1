@@ -27,7 +27,9 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
     return function validateMPWebhookSignature(req: Request, res: Response, next: NextFunction): void {
         const config = getMPConfig();
         const signature = req.headers['x-signature'] as string | undefined;
-        const webhookSecret = config.webhookSecret;
+        const webhookSecret = type === 'subscription'
+            ? (config.subscriptionWebhookSecret || config.webhookSecret)
+            : config.webhookSecret;
         
         logger.info('MP_WEBHOOK_RECEIVED', {
             type,
@@ -63,7 +65,7 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             const v1Part = parts.find(p => p.startsWith('v1='));
             
             if (!tsPart || !v1Part) {
-                logger.warn('MP_WEBHOOK_INVALID_SIGNATURE_FORMAT', { signature });
+                logger.warn('MP_WEBHOOK_INVALID_SIGNATURE_FORMAT', { type, path: req.path });
                 res.status(401).json({ error: 'Invalid signature format' });
                 return;
             }
@@ -87,9 +89,9 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             
             if (receivedHash.length !== expectedHash.length) {
                 logger.error('MP_WEBHOOK_INVALID_SIGNATURE_LENGTH', {
+                    type,
                     receivedLength: receivedHash.length,
-                    expectedLength: expectedHash.length,
-                    template
+                    expectedLength: expectedHash.length
                 });
                 res.status(401).json({ error: 'Invalid signature' });
                 return;
@@ -100,9 +102,8 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
                 Buffer.from(expectedHash)
             )) {
                 logger.error('MP_WEBHOOK_INVALID_SIGNATURE', {
-                    received: receivedHash,
-                    expected: expectedHash,
-                    template
+                    type,
+                    path: req.path
                 });
                 res.status(401).json({ error: 'Invalid signature' });
                 return;

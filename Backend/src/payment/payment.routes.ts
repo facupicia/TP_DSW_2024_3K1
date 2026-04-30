@@ -1,4 +1,4 @@
-import express, { Router } from "express";
+import { Router } from "express";
 import { createPreference, paymentWebhook, getPaymentStatus, simulatePaymentWebhook } from "./payment.controller";
 import { 
     initiateOAuth, 
@@ -42,7 +42,7 @@ router.get("/status", getPaymentStatus);
  * NOTA: No requiere auth token - los webhooks vienen directamente de MP.
  */
 
-router.post("/webhook", express.json(), createValidateMPWebhookSignature('payment'), paymentWebhook);
+router.post("/webhook", createValidateMPWebhookSignature('payment'), paymentWebhook);
 
 // GET webhook - para notificaciones GET de MP  
 router.get("/webhook", createValidateMPWebhookSignature('payment'), paymentWebhook);
@@ -80,7 +80,7 @@ router.get("/mp/status", checkAuthToken, getMpStatus);
  * 
  * Body: { paymentId: string, externalReference?: string }
  */
-router.post("/test-webhook", checkAuthToken, simulatePaymentWebhook);
+router.post("/test-webhook", checkAuthToken, checkRoleAuth(["admin"]), simulatePaymentWebhook);
 
 /**
  * POST /api/payment/mp/disconnect

@@ -14,7 +14,6 @@ import {
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
 import { createValidateMPWebhookSignature } from "../payment/mp-webhook.middleware";
-import express from "express";
 
 const router = Router();
 
@@ -39,7 +38,7 @@ router.get("/plans", getPlans);
  * Recibe notificaciones de MercadoPago sobre suscripciones.
  * NOTA: No requiere auth token - los webhooks vienen directamente de MP.
  */
-router.post("/webhook", express.json(), createValidateMPWebhookSignature('subscription'), subscriptionWebhook);
+router.post("/webhook", createValidateMPWebhookSignature('subscription'), subscriptionWebhook);
 router.get("/webhook", createValidateMPWebhookSignature('subscription'), subscriptionWebhook);
 
 /**

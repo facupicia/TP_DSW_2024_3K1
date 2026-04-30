@@ -203,12 +203,17 @@ export async function waitForPaymentApproval(
  * Extrae información del pago desde external_reference o metadata
  */
 export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo | null {
+    const toPositiveInt = (value: unknown): number => {
+        const n = Number(value);
+        return Number.isSafeInteger(n) && n > 0 ? n : 0;
+    };
+
     let userId = 0;
     let ticketTypeId = 0;
     let quantity = 0;
     let organizerId = 0;
     const meta = payment.metadata || {};
-    let couponId = Number(meta.coupon_id) || 0;
+    let couponId = toPositiveInt(meta.coupon_id);
     
     // Prioridad 1: external_reference
     // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
@@ -220,15 +225,15 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         
         // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
         if (parts.length >= 3) {
-            userId = Number(parts[0]) || 0;
-            ticketTypeId = Number(parts[1]) || 0;
-            quantity = Number(parts[2]) || 0;
+            userId = toPositiveInt(parts[0]);
+            ticketTypeId = toPositiveInt(parts[1]);
+            quantity = toPositiveInt(parts[2]);
         }
         if (parts.length >= 4) {
-            organizerId = Number(parts[3]) || 0;
+            organizerId = toPositiveInt(parts[3]);
         }
         if (parts.length >= 5) {
-            promoterCode = parts[4];
+            promoterCode = String(parts[4] || "").trim().slice(0, 50) || undefined;
         }
     }
     
@@ -237,18 +242,18 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         const additional = payment.additional_info || {};
         const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
         
-        userId = Number(meta.user_id) || userId;
-        ticketTypeId = Number(meta.ticket_type_id || item?.id) || ticketTypeId;
-        quantity = Number(meta.amount_tickets || item?.quantity) || quantity || 1;
-        organizerId = Number(meta.organizer_id) || organizerId;
+        userId = toPositiveInt(meta.user_id) || userId;
+        ticketTypeId = toPositiveInt(meta.ticket_type_id || item?.id) || ticketTypeId;
+        quantity = toPositiveInt(meta.amount_tickets || item?.quantity) || quantity || 1;
+        organizerId = toPositiveInt(meta.organizer_id) || organizerId;
     }
     
     // Validación
-    if (!userId || !ticketTypeId || !quantity || quantity <= 0) {
+    if (!userId || !ticketTypeId || !quantity || quantity <= 0 || quantity > 100) {
         logger.error('PAYMENT_EXTRACTION_FAILED', {
-            externalRef: payment.external_reference,
-            metadata: payment.metadata,
-            extracted: { userId, ticketTypeId, quantity, organizerId, promoterCode }
+            hasExternalRef: !!payment.external_reference,
+            metadataKeys: Object.keys(payment.metadata || {}),
+            extracted: { userId, ticketTypeId, quantity, organizerId, hasPromoterCode: !!promoterCode }
         });
         return null;
     }
@@ -412,7 +417,7 @@ export async function processApprovedPayment(
 ): Promise<PaymentResult> {
     logger.info('PROCESS_APPROVED_PAYMENT_START', {
         paymentId,
-        externalReference: paymentData.external_reference,
+        hasExternalReference: !!paymentData.external_reference,
         status: paymentData.status,
         transactionAmount: paymentData.transaction_amount
     });
@@ -425,7 +430,12 @@ export async function processApprovedPayment(
         // 1. Extraer información del pago
         const info = extractPaymentInfo(paymentData);
         if (!info) {
-            logger.error('PROCESS_PAYMENT_EXTRACTION_FAILED', { paymentId, paymentData });
+            logger.error('PROCESS_PAYMENT_EXTRACTION_FAILED', {
+                paymentId,
+                status: paymentData.status,
+                hasExternalReference: !!paymentData.external_reference,
+                metadataKeys: Object.keys(paymentData.metadata || {})
+            });
             throw new Error('Failed to extract payment information');
         }
         
@@ -484,7 +494,10 @@ export async function processApprovedPayment(
             expectedTotal = Math.max(baseTotal - discountAmount, 0);
         }
 
-        const paidAmount = paymentData.transaction_amount || 0;
+        const paidAmount = Number(paymentData.transaction_amount);
+        if (!Number.isFinite(paidAmount) || paidAmount < 0) {
+            throw new Error('Invalid payment amount');
+        }
         
         // Tolerancia de 1% para diferencias de redondeo
         const tolerance = Math.max(expectedTotal * 0.01, 1);

@@ -69,7 +69,7 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
             this.attempts++;
             
             if (extRef) {
-                this.http.get<{ success: boolean; status: string; paymentLogId?: number }>(
+                this.http.get<{ success: boolean; status: string }>(
                     `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`
                 ).subscribe({
                     next: (state) => {

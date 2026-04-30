@@ -28,7 +28,7 @@ import { globalRateLimiter } from "./common/middleware/rateLimit"
 
 const app = express();
 
-app.use(express.urlencoded({ extended: false }))
+app.use(express.urlencoded({ extended: false, limit: "100kb" }))
 app.use(requestId)
 app.use(metricsMiddleware)
 
@@ -57,7 +57,7 @@ app.use(cors({
 app.use(globalRateLimiter);
 
 app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 // Healthcheck
 app.get('/health', async (_req, res) => {
@@ -81,7 +81,10 @@ app.get('/health', async (_req, res) => {
 });
 
 // Métricas Prometheus
-app.get('/metrics', metricsHandler)
+const metricsMiddlewares = process.env.METRICS_PUBLIC === "true"
+    ? []
+    : [checkAuthToken, checkRoleAuth(["admin"])];
+app.get('/metrics', ...metricsMiddlewares, metricsHandler)
 
 // Swagger UI
 app.use('/api-docs', checkAuthToken, checkRoleAuth(["admin"]), swaggerUi.serve, swaggerUi.setup(swaggerSpec, {

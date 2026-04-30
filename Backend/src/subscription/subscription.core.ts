@@ -199,7 +199,7 @@ export function parseSubscriptionExternalRef(
     const parts = externalRef.split('|');
     
     if (parts.length < 4 || parts[0] !== 'SUB') {
-        logger.error('SUBSCRIPTION_INVALID_EXTERNAL_REF', { externalRef });
+        logger.error('SUBSCRIPTION_INVALID_EXTERNAL_REF', { partsLength: parts.length });
         return null;
     }
     
@@ -208,7 +208,7 @@ export function parseSubscriptionExternalRef(
     const billingType = parts[3] as 'monthly' | 'yearly';
     
     if (!userId || !planId || !['monthly', 'yearly'].includes(billingType)) {
-        logger.error('SUBSCRIPTION_PARSE_ERROR', { externalRef, userId, planId, billingType });
+        logger.error('SUBSCRIPTION_PARSE_ERROR', { userId, planId, billingType });
         return null;
     }
     

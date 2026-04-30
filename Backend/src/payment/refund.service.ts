@@ -1,7 +1,9 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
+import { In } from 'typeorm';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { Ticket, TicketStatus } from '../ticket/ticket.entity';
+import { TicketType } from '../ticketType/ticketType.entity';
 import { logger } from '../common/services/logger';
 import { getPlatformMPClient, getOrganizerMPClient } from './payment.core';
 
@@ -31,11 +33,15 @@ export async function processRefund(
         requesterRoles?: string[];
     }
 ): Promise<RefundResult> {
-    logger.info('REFUND_START', { paymentId, options });
+    logger.info('REFUND_START', {
+        paymentId,
+        hasAmount: options.amount !== undefined,
+        requestedBy: options.requestedBy,
+        requesterRoles: options.requesterRoles
+    });
     
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    await queryRunner.startTransaction();
     
     try {
         // 1. Buscar el pago en nuestra base de datos
@@ -45,7 +51,6 @@ export async function processRefund(
         });
         
         if (!paymentLog) {
-            await queryRunner.rollbackTransaction();
             return {
                 success: false,
                 message: 'Payment not found in system'
@@ -54,7 +59,6 @@ export async function processRefund(
 
         const isAdmin = options.requesterRoles?.includes('admin') || false;
         if (!isAdmin && paymentLog.organizerId !== options.requestedBy) {
-            await queryRunner.rollbackTransaction();
             return {
                 success: false,
                 message: 'No tienes permiso para reembolsar este pago'
@@ -63,10 +67,33 @@ export async function processRefund(
         
         // 2. Verificar que no esté ya reembolsado
         if (paymentLog.status === PaymentStatus.REFUNDED) {
-            await queryRunner.rollbackTransaction();
             return {
                 success: false,
                 message: 'Payment already refunded'
+            };
+        }
+
+        if (paymentLog.status !== PaymentStatus.COMPLETED) {
+            return {
+                success: false,
+                message: 'Only completed payments can be refunded'
+            };
+        }
+
+        const totalAmount = Number(paymentLog.totalAmount);
+        const requestedAmount = options.amount === undefined ? totalAmount : Number(options.amount);
+
+        if (!Number.isFinite(requestedAmount) || requestedAmount <= 0 || requestedAmount > totalAmount) {
+            return {
+                success: false,
+                message: 'Invalid refund amount'
+            };
+        }
+
+        if (Math.abs(requestedAmount - totalAmount) > 0.01) {
+            return {
+                success: false,
+                message: 'Partial refunds are disabled until ticket-level refund tracking is available'
             };
         }
         
@@ -87,8 +114,8 @@ export async function processRefund(
         // 4. Hacer el reembolso en MP usando la API REST directamente
         // El SDK de MercadoPago no tiene método refund, usamos fetch
         const refundData: any = {};
-        if (options.amount) {
-            refundData.amount = options.amount;
+        if (options.amount !== undefined) {
+            refundData.amount = requestedAmount;
         }
         
         const accessToken = (mpClient as any).accessToken;
@@ -107,6 +134,8 @@ export async function processRefund(
         }
         
         const refundResult = await mpResponse.json();
+
+        await queryRunner.startTransaction();
         
         // 5. Actualizar estado en nuestra BD
         await paymentLogRepo.update(
@@ -116,7 +145,7 @@ export async function processRefund(
                 refundedAt: new Date(),
                 refundedBy: options.requestedBy,
                 refundReason: options.reason,
-                refundAmount: options.amount || paymentLog.totalAmount
+                refundAmount: requestedAmount
             }
         );
         
@@ -129,27 +158,34 @@ export async function processRefund(
         const fiveMinutesBefore = new Date(paymentTime.getTime() - 5 * 60 * 1000);
         const fiveMinutesAfter = new Date(paymentTime.getTime() + 5 * 60 * 1000);
         
-        await ticketRepo
-            .createQueryBuilder()
-            .update(Ticket)
-            .set({ 
-                status: TicketStatus.CANCELLED
-            })
+        const ticketsToCancel = await ticketRepo
+            .createQueryBuilder("ticket")
+            .select(["ticket.id"])
             .where('"userId" = :userId', { userId: paymentLog.userId })
             .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
             .andWhere('"createdAt" BETWEEN :start AND :end', { 
                 start: fiveMinutesBefore, 
                 end: fiveMinutesAfter 
             })
-            .andWhere('status != :cancelled', { cancelled: TicketStatus.CANCELLED })
-            .execute();
+            .andWhere('status = :active', { active: TicketStatus.ACTIVE })
+            .orderBy('"createdAt"', "DESC")
+            .take(paymentLog.quantity)
+            .getMany();
+
+        if (ticketsToCancel.length > 0) {
+            await ticketRepo.update(
+                { id: In(ticketsToCancel.map(ticket => ticket.id)) },
+                { status: TicketStatus.CANCELLED }
+            );
+        }
         
         // 7. Restaurar stock
-        const ticketTypeRepo = queryRunner.manager.getRepository(require('../ticketType/ticketType.entity').TicketType);
+        const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
+        const cancelledCount = ticketsToCancel.length;
         await ticketTypeRepo
             .createQueryBuilder()
             .update()
-            .set({ soldCount: () => `GREATEST("soldCount" - ${paymentLog.quantity}, 0)` })
+            .set({ soldCount: () => `GREATEST("soldCount" - ${cancelledCount}, 0)` })
             .where('id = :id', { id: paymentLog.ticketTypeId })
             .execute();
         
@@ -158,18 +194,21 @@ export async function processRefund(
         logger.info('REFUND_SUCCESS', {
             paymentId,
             refundId: refundResult.id,
-            amount: options.amount || paymentLog.totalAmount
+            amount: requestedAmount,
+            cancelledTickets: cancelledCount
         });
         
         return {
             success: true,
             refundId: String(refundResult.id),
-            amountRefunded: options.amount || paymentLog.totalAmount,
+            amountRefunded: requestedAmount,
             message: 'Refund processed successfully'
         };
         
     } catch (error: any) {
-        await queryRunner.rollbackTransaction();
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
         
         logger.error('REFUND_ERROR', {
             paymentId,

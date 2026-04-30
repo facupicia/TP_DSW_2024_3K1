@@ -155,6 +155,10 @@ export const getUser = async (req: CustomRequest, res: Response) => {
       return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
     }
 
+    if (isNaN(targetId) || targetId <= 0) {
+      return res.status(400).json({ code: "INVALID_USER_ID", message: "ID de usuario inválido" });
+    }
+
     if (requesterId !== targetId && !isAdmin) {
       return res.status(403).json({ code: "FORBIDDEN_USER_LOOKUP", message: "No puedes consultar otros usuarios" });
     }
@@ -197,6 +201,10 @@ export const updateUser = async (req: CustomRequest, res: Response) => {
 
     if (!requesterId) {
       return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" })
+    }
+
+    if (isNaN(targetId) || targetId <= 0) {
+      return res.status(400).json({ code: "INVALID_USER_ID", message: "ID de usuario inválido" })
     }
 
     if (requesterId !== targetId && !isAdmin) {
@@ -445,6 +453,10 @@ export const updateUserRole = async (req: CustomRequest, res: Response) => {
 
     if (!req.user || !req.user.id) {
       return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+    }
+
+    if (isNaN(targetId) || targetId <= 0) {
+      return res.status(400).json({ code: "INVALID_USER_ID", message: "ID de usuario inválido" });
     }
 
     // Admin cannot demote or change own role via this endpoint to avoid lockout risk

@@ -25,7 +25,7 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
         }
 
         if (!token) {
-            console.warn('[AUTH] No token in request. Headers:', JSON.stringify(req.headers));
+            console.warn('[AUTH] No token in request', { path: req.path, method: req.method });
             return res.status(401).json({ code: 'AUTH_NO_TOKEN', message: 'No token provided' });
         }
 

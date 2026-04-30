@@ -49,6 +49,23 @@ function normalizeGuestBuyer(rawBuyer: any): GuestBuyerPayload | null {
     return normalized;
 }
 
+function parsePositiveInteger(value: unknown): number | null {
+    if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) {
+        return value;
+    }
+
+    if (typeof value === "string" && /^[1-9]\d*$/.test(value.trim())) {
+        const parsed = Number(value.trim());
+        return Number.isSafeInteger(parsed) ? parsed : null;
+    }
+
+    return null;
+}
+
+function isValidEmail(value: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 // ============================================================================
 // PREFERENCE CREATION
 // ============================================================================
@@ -75,21 +92,34 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                     message: "Completa nombre, apellido, email y teléfono para continuar."
                 });
             }
+
+            if (!isValidEmail(guestBuyer.email)) {
+                return res.status(400).json({
+                    code: "GUEST_EMAIL_INVALID",
+                    message: "El email del comprador no es válido."
+                });
+            }
         }
         
-        if (!ticketTypeId) {
-            return res.status(400).json({ message: "Falta ticketTypeId." });
+        const parsedTicketTypeId = parsePositiveInteger(ticketTypeId);
+        if (!parsedTicketTypeId) {
+            return res.status(400).json({ message: "ticketTypeId inválido." });
         }
         
-        const quantity = parseInt(ticketQuantity);
-        if (isNaN(quantity) || quantity <= 0) {
+        const quantity = parsePositiveInteger(ticketQuantity);
+        if (!quantity) {
             return res.status(400).json({ message: "Cantidad inválida." });
+        }
+
+        const parsedCouponId = couponId ? parsePositiveInteger(couponId) : undefined;
+        if (couponId && !parsedCouponId) {
+            return res.status(400).json({ code: "COUPON_INVALID", message: "Cupón inválido." });
         }
         
         // Validar elegibilidad de compra
         const validation = await validatePurchaseEligibility({
             userId,
-            ticketTypeId: parseInt(ticketTypeId),
+            ticketTypeId: parsedTicketTypeId,
             quantity,
             guestBuyer: guestBuyer || undefined
         });
@@ -105,15 +135,15 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         try {
             const result = await createMercadoPagoPreference({
                 userId,
-                ticketTypeId: parseInt(ticketTypeId),
+                ticketTypeId: parsedTicketTypeId,
                 quantity,
                 promoterCode,
-                couponId: couponId ? parseInt(couponId) : undefined,
+                couponId: parsedCouponId,
                 couponCode,
                 guestBuyer: guestBuyer || undefined
             });
             const ticketTypeRepo = AppDataSource.getRepository(TicketType);
-            const ticketType = await ticketTypeRepo.findOne({ where: { id: parseInt(ticketTypeId) }, relations: ['event'] });
+            const ticketType = await ticketTypeRepo.findOne({ where: { id: parsedTicketTypeId }, relations: ['event'] });
             const marketplaceInfo = ticketType
                 ? await getMarketPlaceInfo(ticketType.event.user_id)
                 : { commissionPercent: 8, planName: 'FREE' };
@@ -197,49 +227,53 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
  * POST/GET /api/payment/webhook
  * 
  * Recibe notificaciones de MercadoPago sobre pagos.
- * Responde inmediatamente 200 OK y procesa asíncronamente.
+ * Procesa la notificación antes de confirmar para que MP pueda reintentar ante fallos.
  */
 export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     const paymentId = req.query.id || req.query['data.id'] || req.body?.data?.id || req.body?.id;
     const topic = req.query.topic || req.query.type || req.body?.type;
     
-    logger.info("WEBHOOK_RECEIVED", { paymentId, topic, query: req.query, body: req.body });
-    
-    // Siempre responder 200 OK inmediatamente
-    res.status(200).json({ received: true });
+    logger.info("WEBHOOK_RECEIVED", {
+        paymentId: paymentId ? String(paymentId) : undefined,
+        topic,
+        hasBody: !!req.body,
+        queryKeys: Object.keys(req.query || {})
+    });
     
     // Procesar solo si es un pago
     const isPayment = topic === 'payment' || req.body?.type === 'payment';
     
     if (!paymentId || !isPayment) {
         logger.info("WEBHOOK_IGNORED", { reason: 'Not a payment', topic });
+        res.status(200).json({ received: true, ignored: true });
         return;
     }
     
-    // Procesar asíncronamente
-    setImmediate(async () => {
-        try {
-            const paymentData = await waitForPaymentApproval(String(paymentId), getPlatformMPClient());
-            
-            if (!paymentData) {
-                logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId });
-                return;
-            }
-            
-            const result = await processApprovedPayment(String(paymentId), paymentData);
-            
-            if (result.success) {
-                logger.info("WEBHOOK_PAYMENT_PROCESSED", {
-                    paymentId,
-                    ticketsCount: result.tickets?.length
-                });
-            } else {
-                logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId, error: result.error });
-            }
-        } catch (error: any) {
-            logger.error("WEBHOOK_PROCESSING_ERROR", { paymentId, error: error?.message });
+    try {
+        const paymentData = await waitForPaymentApproval(String(paymentId), getPlatformMPClient());
+
+        if (!paymentData) {
+            logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId: String(paymentId) });
+            res.status(200).json({ received: true, ignored: true });
+            return;
         }
-    });
+
+        const result = await processApprovedPayment(String(paymentId), paymentData);
+
+        if (result.success) {
+            logger.info("WEBHOOK_PAYMENT_PROCESSED", {
+                paymentId: String(paymentId),
+                ticketsCount: result.tickets?.length
+            });
+            res.status(200).json({ received: true });
+        } else {
+            logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId: String(paymentId), error: result.error });
+            res.status(500).json({ received: false });
+        }
+    } catch (error: any) {
+        logger.error("WEBHOOK_PROCESSING_ERROR", { paymentId: String(paymentId), error: error?.message });
+        res.status(500).json({ received: false });
+    }
 };
 
 // ============================================================================
@@ -338,6 +372,13 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
                 message: "external_reference requerido"
             });
         }
+
+        if (externalRef.length > 160 || !/^[A-Za-z0-9._|:-]+$/.test(externalRef)) {
+            return res.status(400).json({
+                success: false,
+                message: "external_reference inválido"
+            });
+        }
         
         const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
         
@@ -373,9 +414,7 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
         
         return res.status(200).json({
             success: true,
-            status,
-            paymentLogId: paymentLog.id,
-            createdAt: paymentLog.createdAt
+            status
         });
         
     } catch (error: any) {
