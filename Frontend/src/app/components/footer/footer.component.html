@@ -1,15 +1,46 @@
-<footer class="bg-white border-t border-gray-100 py-12">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center">
-    
-    <div class="mb-4 md:mb-0">
-      <span class="text-sm text-gray-500">© 2024 EventLife Inc. Todos los derechos reservados.</span>
-    </div>
+<footer class="footer-shell">
+  <div class="footer-inner">
+    <section class="footer-cta" aria-label="Acciones principales">
+      <div>
+        <p class="footer-eyebrow">Seguimos?</p>
+        <h2>Encontrá tu próximo evento o creá el tuyo.</h2>
+      </div>
+      <div class="footer-actions">
+        <a routerLink="/events" class="footer-primary">Explorar eventos</a>
+        <a routerLink="/create-event" class="footer-secondary">Crear evento</a>
+      </div>
+    </section>
 
-    <div class="flex space-x-6">
-      <a routerLink="/privacy" class="text-sm text-gray-500 hover:text-black transition-colors">Privacidad</a>
-      <a routerLink="/terms" class="text-sm text-gray-500 hover:text-black transition-colors">Términos</a>
-      <a routerLink="/support" class="text-sm text-gray-500 hover:text-black transition-colors">Soporte</a>
-    </div>
+    <section class="footer-grid" aria-label="Navegación del pie de página">
+      <div class="footer-brand">
+        <a routerLink="/" class="footer-logo">Event<span>Life.</span></a>
+        <p>
+          Tickets, pagos y validación QR para que asistentes y organizadores
+          tengan una experiencia simple de principio a fin.
+        </p>
+      </div>
 
+      <nav class="footer-column" aria-label="Plataforma">
+        <h3>Plataforma</h3>
+        <a routerLink="/events">Explorar eventos</a>
+        <a routerLink="/create-event">Crear evento</a>
+        <a routerLink="/login">Iniciar sesión</a>
+        <a routerLink="/register">Registrarse</a>
+      </nav>
+
+      <nav class="footer-column" aria-label="Legal">
+        <a routerLink="/privacy">Privacidad</a>
+        <a routerLink="/terms">Términos</a>
+        <a routerLink="/support">Preguntas frecuentes</a>
+      </nav>
+    </section>
+
+    <div class="footer-bottom">
+      <span>© 2024 EventLife Inc. Todos los derechos reservados.</span>
+      <span
+        >Hecho para descubrir, vender y validar eventos con menos
+        fricción.</span
+      >
+    </div>
   </div>
 </footer>

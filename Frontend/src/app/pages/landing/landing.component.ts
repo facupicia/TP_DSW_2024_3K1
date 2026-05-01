@@ -5,7 +5,6 @@ import { PLATFORM_ID } from '@angular/core';
 
 // Tus componentes (si los usas dentro, aunque ahora el HTML tiene el diseño directo)
 import { HeaderComponent } from '../../components/header/header.component';
-import { FooterComponent } from '../../components/footer/footer.component';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
 import { SubscriptionLandingComponent } from '../../components/subscription-banner/subscription-landing.component';
@@ -18,7 +17,6 @@ import { LandingGestionComponent } from '../../components/features/gestion/gesti
   standalone: true,
   imports: [
     HeaderComponent,
-    FooterComponent,
     CommonModule, // Para *ngFor, *ngIf
     RouterLink,   // Para routerLink=""
     DatePipe,     // Para el pipe | date
