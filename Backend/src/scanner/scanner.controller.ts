@@ -1,8 +1,11 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { CustomRequest } from "../common/middleware/authToken";
-import { PromoterEventAssignment } from "../promoter/promoter.entity";
 import AppDataSource from "../db";
+import { canValidateEvent } from "./scanner-permissions";
+import { User } from "../user/user.entity";
+import { findRolesByNames, getRoleNames } from "../user/role.entity";
+import { ScannerOrganizerAssignment } from "./scanner-organizer-assignment.entity";
 
 function sanitizeTicketCode(code: unknown): string {
     if (typeof code !== "string") return "";
@@ -20,23 +23,157 @@ function getEventDateTime(event: { date: any; time?: string | null }) {
     return new Date(`${date}T${time}`);
 }
 
-async function canValidateEvent(userId: number, roles: string[], eventId: number, eventOwnerId: number) {
-    if (roles.includes("admin") || eventOwnerId === userId) return true;
-    if (!roles.includes("scanner")) return false;
-
-    const assignedCount = await AppDataSource.getRepository(PromoterEventAssignment)
-        .createQueryBuilder("assignment")
-        .innerJoin("assignment.promoterGroup", "promoterGroup")
-        .where("assignment.eventId = :eventId", { eventId })
-        .andWhere("assignment.isActive = true")
-        .andWhere("promoterGroup.isActive = true")
-        .andWhere("promoterGroup.promoterId = :userId", { userId })
-        .getCount();
-
-    return assignedCount > 0;
-}
-
 export class ScannerController {
+    private static getOrganizerId(req: CustomRequest, res: Response) {
+        const requesterId = req.user?.id;
+        if (!requesterId) {
+            res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+            return null;
+        }
+
+        return requesterId;
+    }
+
+    static async getOrganizerScanners(req: CustomRequest, res: Response) {
+        try {
+            const organizerId = ScannerController.getOrganizerId(req, res);
+            if (!organizerId) return;
+
+            const assignments = await AppDataSource.getRepository(ScannerOrganizerAssignment)
+                .createQueryBuilder("assignment")
+                .leftJoinAndSelect("assignment.scanner", "scanner")
+                .where("assignment.organizerId = :organizerId", { organizerId })
+                .andWhere("assignment.isActive = true")
+                .orderBy("assignment.createdAt", "DESC")
+                .getMany();
+
+            return res.json({
+                data: assignments.map(assignment => ({
+                    id: assignment.id,
+                    organizerId: assignment.organizerId,
+                    scannerId: assignment.scannerId,
+                    isActive: assignment.isActive,
+                    createdAt: assignment.createdAt,
+                    scanner: {
+                        id: assignment.scanner.id,
+                        firstname: assignment.scanner.firstname,
+                        lastname: assignment.scanner.lastname,
+                        email: assignment.scanner.email,
+                        imgPerfil: assignment.scanner.imgPerfil
+                    }
+                })),
+                total: assignments.length
+            });
+        } catch (error) {
+            console.error("Error listando scanners:", error);
+            return res.status(500).json({ message: "Error interno del servidor" });
+        }
+    }
+
+    static async assignScannerToOrganizer(req: CustomRequest, res: Response) {
+        try {
+            const organizerId = ScannerController.getOrganizerId(req, res);
+            if (!organizerId) return;
+
+            const { email, userId } = req.body as { email?: string; userId?: number };
+            const userRepo = AppDataSource.getRepository(User);
+            const scanner = userId
+                ? await userRepo.findOne({ where: { id: userId, active: true }, relations: ["roles"] })
+                : await userRepo.createQueryBuilder("user")
+                    .leftJoinAndSelect("user.roles", "role")
+                    .where("LOWER(user.email) = LOWER(:email)", { email: String(email).trim() })
+                    .andWhere("user.active = true")
+                    .getOne();
+
+            if (!scanner) {
+                return res.status(404).json({ code: "USER_NOT_FOUND", message: "Usuario no encontrado o inactivo" });
+            }
+
+            const roleNames = getRoleNames(scanner);
+            const canOpenScanner = roleNames.some(role => ["scanner", "organizer", "admin"].includes(role));
+            if (!canOpenScanner) {
+                const [scannerRole] = await findRolesByNames(["scanner"]);
+                scanner.roles = [...(scanner.roles || []), scannerRole];
+                await userRepo.save(scanner);
+            }
+
+            const assignmentRepo = AppDataSource.getRepository(ScannerOrganizerAssignment);
+            const existingAssignment = await assignmentRepo.findOne({
+                where: { organizerId, scannerId: scanner.id }
+            });
+
+            if (existingAssignment) {
+                if (!existingAssignment.isActive) {
+                    existingAssignment.isActive = true;
+                    existingAssignment.assignedById = req.user?.id || null;
+                    await assignmentRepo.save(existingAssignment);
+                }
+
+                return res.status(200).json({
+                    message: "Scanner asignado al organizador",
+                    assignment: {
+                        id: existingAssignment.id,
+                        organizerId: existingAssignment.organizerId,
+                        scannerId: existingAssignment.scannerId
+                    }
+                });
+            }
+
+            const assignment = assignmentRepo.create({
+                organizerId,
+                scannerId: scanner.id,
+                assignedById: req.user?.id || null,
+                isActive: true
+            });
+            await assignmentRepo.save(assignment);
+
+            return res.status(201).json({
+                message: "Scanner asignado al organizador",
+                assignment: {
+                    id: assignment.id,
+                    organizerId: assignment.organizerId,
+                    scannerId: assignment.scannerId,
+                    scanner: {
+                        id: scanner.id,
+                        firstname: scanner.firstname,
+                        lastname: scanner.lastname,
+                        email: scanner.email,
+                        imgPerfil: scanner.imgPerfil
+                    }
+                }
+            });
+        } catch (error: any) {
+            console.error("Error asignando scanner:", error);
+            if (error.code === "23505") {
+                return res.status(409).json({ code: "ALREADY_ASSIGNED", message: "El usuario ya está asignado como scanner" });
+            }
+            return res.status(500).json({ message: error.message || "Error interno del servidor" });
+        }
+    }
+
+    static async removeScannerFromOrganizer(req: CustomRequest, res: Response) {
+        try {
+            const organizerId = ScannerController.getOrganizerId(req, res);
+            if (!organizerId) return;
+            const assignmentId = parseInt(req.params.assignmentId, 10);
+
+            const assignment = await AppDataSource.getRepository(ScannerOrganizerAssignment).findOne({
+                where: { id: assignmentId, organizerId }
+            });
+
+            if (!assignment) {
+                return res.status(404).json({ code: "ASSIGNMENT_NOT_FOUND", message: "Asignación no encontrada" });
+            }
+
+            assignment.isActive = false;
+            await assignment.save();
+
+            return res.json({ message: "Scanner desasignado del organizador" });
+        } catch (error) {
+            console.error("Error quitando scanner:", error);
+            return res.status(500).json({ message: "Error interno del servidor" });
+        }
+    }
 
     static async validateTicket(req: CustomRequest, res: Response) {
         try {

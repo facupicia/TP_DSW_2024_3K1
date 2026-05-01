@@ -498,6 +498,42 @@
                                             </div>
                                           }
 
+                                          @if (esOrganizer) {
+                                            <div
+                                              (click)="gestionarScanners()"
+                                              class="bg-white p-6 rounded-[28px] shadow-sm border border-gray-100 cursor-pointer group hover:shadow-xl hover:shadow-emerald-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col h-full min-h-[180px]"
+                                              >
+                                              <div
+                                                class="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-2xl -mr-10 -mt-10 transition-colors group-hover:bg-emerald-100"
+                                              ></div>
+                                              <div
+                                                class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform relative z-10"
+                                                >
+                                                <svg
+                                                  class="w-6 h-6"
+                                                  fill="none"
+                                                  viewBox="0 0 24 24"
+                                                  stroke="currentColor"
+                                                  >
+                                                  <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M3 7V5a2 2 0 012-2h2m10 0h2a2 2 0 012 2v2M3 17v2a2 2 0 002 2h2m10 0h2a2 2 0 002-2v-2M7 12h10"
+                                                  />
+                                                </svg>
+                                              </div>
+                                              <div class="relative z-10 mt-auto">
+                                                <h4
+                                                  class="text-lg font-bold text-slate-900 group-hover:text-emerald-700 transition-colors"
+                                                  >
+                                                  Scanners
+                                                </h4>
+                                                <p class="text-sm text-slate-500 mt-1">Gestionar accesos.</p>
+                                              </div>
+                                            </div>
+                                          }
+
                                           @if (esScanner) {
                                             <div
                                               (click)="irAlScanner()"

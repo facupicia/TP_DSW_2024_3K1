@@ -9,8 +9,8 @@ import { generarQRUrl } from "../common/utils/qr";
 import enviarCorreoConQR from "../common/services/mailer";
 import { createTicketsForPurchase } from "./ticket.service";
 import { PaymentLog } from "../payment/payment.entity";
-import { PromoterEventAssignment } from "../promoter/promoter.entity";
 import AppDataSource from "../db";
+import { canValidateEvent } from "../scanner/scanner-permissions";
 
 function sanitizeTicketCode(code: unknown): string {
     if (typeof code !== "string") return "";
@@ -26,22 +26,6 @@ function getEventDateTime(event: { date: any; time?: string | null }) {
     const date = String(event.date).split("T")[0];
     const time = event.time || "00:00";
     return new Date(`${date}T${time}`);
-}
-
-async function canValidateEvent(userId: number, roles: string[], eventId: number, eventOwnerId: number) {
-    if (roles.includes("admin") || eventOwnerId === userId) return true;
-    if (!roles.includes("scanner")) return false;
-
-    const assignedCount = await AppDataSource.getRepository(PromoterEventAssignment)
-        .createQueryBuilder("assignment")
-        .innerJoin("assignment.promoterGroup", "promoterGroup")
-        .where("assignment.eventId = :eventId", { eventId })
-        .andWhere("assignment.isActive = true")
-        .andWhere("promoterGroup.isActive = true")
-        .andWhere("promoterGroup.promoterId = :userId", { userId })
-        .getCount();
-
-    return assignedCount > 0;
 }
 
 export const createTicket = async (req: CustomRequest, res: Response) => {

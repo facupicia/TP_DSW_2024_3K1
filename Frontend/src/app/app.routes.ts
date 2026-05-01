@@ -34,6 +34,7 @@ export const routes: Routes = [
     { path: "event/:id/stats", loadComponent: () => import('./pages/event-stats/event-stats.component').then(m => m.EventStatsComponent), title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/config", loadComponent: () => import('./pages/event-config/event-config.component').then(m => m.EventConfigComponent), title: 'Configuración de Evento', canActivate: [authGuard, organizerGuard] },
     { path: "scanner", loadComponent: () => import('./pages/scanner/scanner.component').then(m => m.ScannerComponent), title: 'Escáner', canActivate: [authGuard, scannerGuard] },
+    { path: "scanner/management", loadComponent: () => import('./pages/scanner-management/scanner-management.component').then(m => m.ScannerManagementComponent), title: 'Gestión de Scanners', canActivate: [authGuard, organizerGuard] },
 
     // Promoter (RRPP) routes
     { path: "promoter/management", loadComponent: () => import('./pages/promoter-management/promoter-management.component').then(m => m.PromoterManagementComponent), title: 'Gestión de Promotores', canActivate: [authGuard, organizerGuard] },

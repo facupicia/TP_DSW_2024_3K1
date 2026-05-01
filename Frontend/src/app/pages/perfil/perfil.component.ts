@@ -240,6 +240,7 @@ export class PerfilComponent implements OnInit {
   misEventos() { this.router.navigate(['/my-events']); }
   irAlScanner() { this.router.navigate(['/scanner']); }
   gestionarPromotores() { this.router.navigate(['/promoter/management']); }
+  gestionarScanners() { this.router.navigate(['/scanner/management']); }
 
   logout() {
     this.profileService.logout();

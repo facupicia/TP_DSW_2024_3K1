@@ -18,6 +18,7 @@ import { UserSubscription } from "../subscription/user_subscription.entity"
 import dotenv from "dotenv";
 import { Coupon } from "../coupon/coupon.entity"
 import { PromoterGroup, PromoterEventAssignment } from "../promoter/promoter.entity"
+import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignment.entity"
 
 dotenv.config();
 
@@ -33,7 +34,7 @@ const AppDataSource = new DataSource({
     database: !connectionUrl ? process.env.PGDATABASE : undefined,
     synchronize: process.env.NODE_ENV !== 'production' && process.env.DB_SYNC === 'true',
     logging: process.env.DB_LOGGING === 'true',
-    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, Role, RefreshToken, AccountClaimToken],
+    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken],
     // Connection pool tuning + SSL config for Neon PostgreSQL
     extra: {
         ...(connectionUrl ? { ssl: { rejectUnauthorized: false } } : {}),

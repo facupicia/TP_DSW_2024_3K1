@@ -3,6 +3,7 @@ import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
 import { Role } from "./role.entity";
+import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignment.entity";
 @Entity()
 @Unique(['email'])
 @Index('idx_user_active_created', ['active', 'createdAt'])
@@ -131,5 +132,13 @@ export class User extends BaseEntity {
     /** Promoter assignments for this user (if rrpp) */
     @OneToMany(() => PromoterGroup, group => group.promoter)
     promoterAssignments: PromoterGroup[];
+
+    /** Events this user can scan tickets for */
+    @OneToMany(() => ScannerOrganizerAssignment, assignment => assignment.scanner)
+    scannerAssignments: ScannerOrganizerAssignment[];
+
+    /** Scanner team assignments owned by this organizer */
+    @OneToMany(() => ScannerOrganizerAssignment, assignment => assignment.organizer)
+    scannerAssignmentsOwned: ScannerOrganizerAssignment[];
 
 }

@@ -1,7 +1,22 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
+
+export interface ScannerAssignment {
+    id: number;
+    organizerId: number;
+    scannerId: number;
+    isActive: boolean;
+    createdAt: string;
+    scanner: {
+        id: number;
+        firstname: string;
+        lastname: string;
+        email: string;
+        imgPerfil?: string;
+    };
+}
 
 @Injectable({
     providedIn: 'root'
@@ -19,5 +34,19 @@ export class ScannerService {
 
     getHistory(): Observable<any[]> {
         return this.http.get<any[]>(`${this.urlBase}history`);
+    }
+
+    getOrganizerScanners(): Observable<ScannerAssignment[]> {
+        return this.http.get<{ data: ScannerAssignment[], total: number }>(`${this.urlBase}team`).pipe(
+            map(response => response.data || [])
+        );
+    }
+
+    assignScannerToOrganizer(email: string): Observable<{ message: string; assignment: ScannerAssignment }> {
+        return this.http.post<{ message: string; assignment: ScannerAssignment }>(`${this.urlBase}team`, { email });
+    }
+
+    removeScannerFromOrganizer(assignmentId: number): Observable<{ message: string }> {
+        return this.http.delete<{ message: string }>(`${this.urlBase}team/${assignmentId}`);
     }
 }
