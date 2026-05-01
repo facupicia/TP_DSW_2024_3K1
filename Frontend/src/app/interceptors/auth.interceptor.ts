@@ -7,23 +7,29 @@ let refreshRequest$: Observable<{ token: string }> | null = null;
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
     const http = inject(HttpClient);
-    const token = typeof window !== 'undefined' && window.localStorage
-        ? localStorage.getItem('token')
+
+    if (req.url.startsWith('//')) {
+        return throwError(() => new Error('Blocked protocol-relative HTTP request'));
+    }
+
+    const isApiRequest = req.url.startsWith(environment.apiUrl);
+    const token = isApiRequest && typeof window !== 'undefined' && window.localStorage
+        ? window.localStorage.getItem('token')
         : null;
 
-    const isAuthEndpoint = req.url.includes('/user/login')
+    const isAuthEndpoint = isApiRequest && (req.url.includes('/user/login')
         || req.url.includes('/user/google')
         || req.url.includes('/user/refresh')
-        || req.url.includes('/user/logout');
+        || req.url.includes('/user/logout'));
 
-    const cloned = req.clone({
+    const cloned = isApiRequest ? req.clone({
         withCredentials: true,
         ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {})
-    });
+    }) : req;
 
     return next(cloned).pipe(
         catchError((error: HttpErrorResponse) => {
-            if (error.status !== 401 || isAuthEndpoint || typeof window === 'undefined') {
+            if (!isApiRequest || error.status !== 401 || isAuthEndpoint || typeof window === 'undefined') {
                 return throwError(() => error);
             }
 
@@ -31,7 +37,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 refreshRequest$ = http.post<{ token: string }>(`${environment.apiUrl}/user/refresh`, {}, { withCredentials: true }).pipe(
                     tap((resp) => {
                         if (resp?.token) {
-                            localStorage.setItem('token', resp.token);
+                            window.localStorage.setItem('token', resp.token);
                         }
                     }),
                     finalize(() => {
@@ -47,7 +53,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                     ...(resp?.token ? { setHeaders: { Authorization: `Bearer ${resp.token}` } } : {})
                 }))),
                 catchError((refreshError) => {
-                    localStorage.removeItem('token');
+                    window.localStorage.removeItem('token');
                     return throwError(() => refreshError);
                 })
             );

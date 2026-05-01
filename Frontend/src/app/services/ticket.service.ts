@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Observable, throwError, map } from 'rxjs';
@@ -27,12 +27,6 @@ export class TicketService {
       birth?: string;
     }
   }): Observable<any> {
-    // Redirige al endpoint de pago
-    const token = localStorage.getItem('token');
-    const headers: HttpHeaders = new HttpHeaders(
-      token ? { Authorization: `Bearer ${token}` } : {}
-    );
-
     const body: any = { 
       ticketQuantity: objeto.cantidad, 
       ticketTypeId: objeto.ticketTypeId 
@@ -53,8 +47,7 @@ export class TicketService {
 
     return this.http.post<any>(
       `${environment.apiUrl}/payment/create-preference`,
-      body,
-      { headers }
+      body
     ).pipe(
       timeout(15000),
       catchError((err) => {
@@ -85,11 +78,7 @@ export class TicketService {
   }
 
   cancelarTicket(id: number): Observable<any> {
-    const token = localStorage.getItem('token');
-    const headers: HttpHeaders = new HttpHeaders(
-      token ? { Authorization: `Bearer ${token}` } : {}
-    );
-    return this.http.put<any>(`${this.urlBase}cancel/${id}`, {}, { headers });
+    return this.http.put<any>(`${this.urlBase}cancel/${id}`, {});
   }
 
   /**

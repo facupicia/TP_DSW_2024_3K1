@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Usuario } from '../interfaces/Usuario';
-import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchError, of } from 'rxjs';
+import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchError, of, finalize, shareReplay } from 'rxjs';
 import { ResponseAcceso } from '../interfaces/ResponseAcceso';
 import { Login } from '../interfaces/Login';
 import { UsuarioEdit } from '../interfaces/UsuarioEdit';
@@ -43,7 +43,8 @@ export class AuthService {
   private http = inject(HttpClient)
   private urlBase: string = environment.apiUrl + "/user/"
 
-  private currentUserSubject = new BehaviorSubject<any>(null); // Inicializa con null o datos de localStorage si persistes sesión
+  private currentUserSubject = new BehaviorSubject<any>(null);
+  private restoreSession$?: Observable<any>;
   public currentUser$ = this.currentUserSubject.asObservable();
 
   get currentUserValue(): any {
@@ -51,18 +52,29 @@ export class AuthService {
   }
 
   constructor() {
-    // Opcional: Recuperar sesión al recargar
-    if (typeof window !== 'undefined' && localStorage.getItem('token')) {
-      this.getProfile().subscribe({
-        error: (err) => console.error('Error restaurando sesión:', err)
-      });
-    } else if (typeof window !== 'undefined') {
-      this.refreshToken().subscribe({
-        next: () => this.getProfile().subscribe({
-          error: (err) => console.error('Error restaurando perfil:', err)
-        }),
-        error: () => { }
-      });
+    if (this.hasBrowserStorage()) {
+      this.ensureCurrentUser().subscribe({ error: () => { } });
+    }
+  }
+
+  private hasBrowserStorage(): boolean {
+    return typeof window !== 'undefined' && !!window.localStorage;
+  }
+
+  private getAccessToken(): string | null {
+    return this.hasBrowserStorage() ? window.localStorage.getItem('token') : null;
+  }
+
+  private setAccessToken(token: string): void {
+    if (this.hasBrowserStorage()) {
+      window.localStorage.setItem('token', token);
+    }
+  }
+
+  private clearStoredSession(): void {
+    if (this.hasBrowserStorage()) {
+      window.localStorage.removeItem('token');
+      window.localStorage.removeItem('cachedProfile');
     }
   }
 
@@ -73,11 +85,10 @@ export class AuthService {
   login(objeto: Login): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto, { withCredentials: true }).pipe(
       tap((resp) => {
-        if (resp?.token && typeof window !== 'undefined') {
-          localStorage.setItem('token', resp.token);
+        if (resp?.token) {
+          this.setAccessToken(resp.token);
         }
       }),
-      // Encadenamos la obtención del perfil para asegurar que el estado esté actualizado antes de completar
       switchMap((resp) => this.getProfile().pipe(
         map(() => resp)
       ))
@@ -87,11 +98,10 @@ export class AuthService {
   loginWithGoogle(credential: string): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }, { withCredentials: true }).pipe(
       tap((resp) => {
-        if (resp?.token && typeof window !== 'undefined') {
-          localStorage.setItem('token', resp.token);
+        if (resp?.token) {
+          this.setAccessToken(resp.token);
         }
       }),
-      // Encadenamos la obtención del perfil
       switchMap((resp) => this.getProfile().pipe(
         map(() => resp)
       ))
@@ -111,8 +121,8 @@ export class AuthService {
   completeAccountClaim(token: string, password: string): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}claim/complete`, { token, password }, { withCredentials: true }).pipe(
       tap((resp) => {
-        if (resp?.token && typeof window !== 'undefined') {
-          localStorage.setItem('token', resp.token);
+        if (resp?.token) {
+          this.setAccessToken(resp.token);
         }
       }),
       switchMap((resp) => this.getProfile().pipe(
@@ -124,12 +134,9 @@ export class AuthService {
   getProfile(): Observable<any> {
     return this.http.get(`${this.urlBase}profile`).pipe(
       tap(profile => {
-        console.log('Perfil actualizado en estado global');
-        this.currentUserSubject.next(profile); // Actualiza el estado reactivo
+        this.currentUserSubject.next(profile);
       }),
       catchError(err => {
-        // Si falla el perfil por auth, limpiamos la sesión. Errores temporales no deben cerrar sesión.
-        console.error('Error obteniendo perfil:', err);
         if (err?.status === 401 || err?.status === 403) {
           this.logout();
         }
@@ -141,8 +148,8 @@ export class AuthService {
   refreshToken(): Observable<ResponseAcceso> {
     return this.http.post<ResponseAcceso>(`${this.urlBase}refresh`, {}, { withCredentials: true }).pipe(
       tap((resp) => {
-        if (resp?.token && typeof window !== 'undefined') {
-          localStorage.setItem('token', resp.token);
+        if (resp?.token) {
+          this.setAccessToken(resp.token);
         }
       })
     );
@@ -153,11 +160,25 @@ export class AuthService {
       return of(this.currentUserSubject.value);
     }
 
-    if (typeof window !== 'undefined' && localStorage.getItem('token')) {
-      return this.getProfile();
+    if (!this.hasBrowserStorage()) {
+      return of(null);
     }
 
-    return of(null);
+    if (!this.restoreSession$) {
+      const loadSession$ = this.getAccessToken()
+        ? this.getProfile()
+        : this.refreshToken().pipe(switchMap(() => this.getProfile()));
+
+      this.restoreSession$ = loadSession$.pipe(
+        catchError(() => of(null)),
+        finalize(() => {
+          this.restoreSession$ = undefined;
+        }),
+        shareReplay({ bufferSize: 1, refCount: false })
+      );
+    }
+
+    return this.restoreSession$;
   }
 
   obtenerImagenUsuario(id: number): Observable<UsuarioEdit> {
@@ -206,14 +227,10 @@ export class AuthService {
   }
 
   logout() {
-    console.log('Cerrando sesión...');
     this.http.post(`${this.urlBase}logout`, {}, { withCredentials: true }).subscribe({
       error: () => { }
     });
     this.currentUserSubject.next(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('cachedProfile');
-    }
+    this.clearStoredSession();
   }
 }

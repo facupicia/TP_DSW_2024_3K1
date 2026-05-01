@@ -33,7 +33,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
                         if (typeof window !== 'undefined') {
-                            localStorage.removeItem('token');
+                            window.localStorage.removeItem('token');
                         }
                         authService.logout();
                         router.navigate(['/login']);
@@ -56,7 +56,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                             // Actual permission error - logout
                             errorMessage = 'No tienes permisos para realizar esta acción.';
                             if (typeof window !== 'undefined') {
-                                localStorage.removeItem('token');
+                                window.localStorage.removeItem('token');
                             }
                             authService.logout();
                             router.navigate(['/login']);
@@ -69,9 +69,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         errorMessage = 'Recurso no encontrado.';
                         break;
                     case 500:
-                        // [MODIFIED] Show server message if available for debugging
-                        errorMessage = error.error.message || 'Error interno del servidor. Por favor, intenta más tarde.';
-                        console.error('SERVER ERROR 500 DETAILS:', error);
+                        errorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
                         break;
                     default:
                         errorMessage = `Error ${error.status}: ${error.error.message || error.message}`;

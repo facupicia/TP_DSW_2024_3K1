@@ -144,6 +144,6 @@ export class ScannerComponent implements OnInit {
                 this.audioError.currentTime = 0;
                 this.audioError.play();
             }
-        } catch (e) { console.log('Audio error', e); }
+        } catch { }
     }
 }

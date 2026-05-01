@@ -63,11 +63,9 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
 
   cargarEvento(id: number) {
     this.loading = true;
-    console.log(`[DEBUG] Cargando evento ${id}...`);
     
     this.eventoService.obtenerEvento(id).subscribe({
       next: (data) => {
-        console.log(`[DEBUG] Evento cargado:`, data);
         this.evento = data;
         if (data.user) {
           this.user = data.user;
@@ -76,8 +74,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
         this.startCountdown();
         this.loading = false;
       },
-      error: (err) => {
-        console.error(`[DEBUG] Error cargando evento ${id}:`, err);
+      error: () => {
         this.loading = false;
         this.toastService.error('No se pudo cargar el evento');
         this.router.navigate(['/events']);
@@ -119,7 +116,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000));
     const format = (d: Date) => d.toISOString().replace(/-|:|\.\d\d\d/g, "");
     const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&details=${encodeURIComponent(description)}&location=${encodeURIComponent(location)}&dates=${format(startDate)}/${format(endDate)}`;
-    window.open(googleUrl, '_blank');
+    window.open(googleUrl, '_blank', 'noopener,noreferrer');
   }
 
   shareEvent() {
@@ -128,7 +125,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
         title: this.evento.title,
         text: `¡Mira este evento! ${this.evento.title}`,
         url: window.location.href
-      }).catch((error) => console.log('Error compartiendo', error));
+      }).catch(() => { });
     } else {
       navigator.clipboard.writeText(window.location.href);
       this.toastService.info('Enlace copiado al portapapeles');

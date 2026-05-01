@@ -124,7 +124,6 @@ export class TicketsComponent implements OnInit {
     this.tickService.getTicketsByUser(Number(this.userID)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.agruparTicketsPorEvento(data);
-        console.log(this.groupedTickets);
         this.loading = false;
       },
       error: () => {

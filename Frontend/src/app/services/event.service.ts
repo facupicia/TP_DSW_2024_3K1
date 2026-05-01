@@ -1,8 +1,8 @@
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Evento } from '../interfaces/event';
-import { Observable, tap, map, timeout } from 'rxjs';
+import { Observable, tap, map, timeout, of } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -34,7 +34,7 @@ export class EventService {
         })
       );
     } else {
-      return new Observable<Evento[]>();
+      return of([]);
     }
   }
 

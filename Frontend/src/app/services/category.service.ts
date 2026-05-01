@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Categoria } from '../interfaces/categoria';
@@ -16,21 +16,11 @@ export class CategoryService {
   constructor() { }
 
   cargarCategoria(objeto: string) {
-    if (typeof window !== 'undefined' && window.localStorage) {
-
-      return this.http.post(`${this.urlBase}/new`, objeto)
-
-    } else {
-      return new Observable<Categoria[]>();
-    }
+    return this.http.post(`${this.urlBase}/new`, objeto)
   }
 
   getCategories(): Observable<Categoria[]> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return this.http.get<Categoria[]>(`${this.urlBase}`);
-    } else {
-      return new Observable<Categoria[]>();
-    }
+    return this.http.get<Categoria[]>(`${this.urlBase}`);
   }
 
   getCategoryByID(id: number): Observable<Categoria> { // 
