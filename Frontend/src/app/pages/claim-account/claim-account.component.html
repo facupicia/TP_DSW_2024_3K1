@@ -7,89 +7,103 @@
     </div>
 
     <div class="claim-panel bg-white border border-gray-200 shadow-sm">
-      <div *ngIf="loading" class="py-12 text-center">
-        <div class="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-gray-200 border-t-gray-950 animate-spin"></div>
-        <p class="text-sm font-medium text-gray-500">Validando enlace...</p>
-      </div>
-
-      <form *ngIf="!loading && !invalid && !token" [formGroup]="requestForm" (ngSubmit)="requestLink()" class="space-y-6">
-        <div>
-          <h1 class="text-2xl font-black text-gray-950">Reclamar cuenta</h1>
-          <p class="mt-2 text-sm leading-6 text-gray-500">
-            Ingresa el correo que usaste al comprar como invitado y te enviaremos un enlace de acceso.
-          </p>
+      @if (loading) {
+        <div class="py-12 text-center">
+          <div class="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-gray-200 border-t-gray-950 animate-spin"></div>
+          <p class="text-sm font-medium text-gray-500">Validando enlace...</p>
         </div>
+      }
 
-        <label class="block">
-          <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Correo electrónico</span>
-          <input formControlName="email" type="email" placeholder="tu@email.com"
-            class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
-        </label>
-
-        <button type="submit" [disabled]="requesting || requestSent"
-          class="flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60">
-          <span *ngIf="!requesting && !requestSent">Enviar enlace</span>
-          <span *ngIf="requesting">Enviando...</span>
-          <span *ngIf="requestSent">Enlace solicitado</span>
-        </button>
-
-        <a routerLink="/login" class="block text-center text-sm font-bold text-gray-500 hover:text-gray-950">
-          Volver al login
-        </a>
-      </form>
-
-      <div *ngIf="!loading && invalid && token" class="space-y-5 text-center">
-        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
-          !
-        </div>
-        <div>
-          <h1 class="text-2xl font-black text-gray-950">Enlace no disponible</h1>
-          <p class="mt-2 text-sm leading-6 text-gray-500">
-            El enlace para reclamar la cuenta expiró o ya fue utilizado.
-          </p>
-        </div>
-        <a routerLink="/login" class="block w-full rounded-xl bg-gray-950 px-5 py-3 text-center text-sm font-bold text-white">
-          Ir a iniciar sesión
-        </a>
-      </div>
-
-      <form *ngIf="!loading && !invalid && token" [formGroup]="form" (ngSubmit)="completeClaim()" class="space-y-6">
-        <div>
-          <p class="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600">{{ claimInfo?.email }}</p>
-          <h1 class="text-2xl font-black text-gray-950">Reclama tu cuenta</h1>
-          <p class="mt-2 text-sm leading-6 text-gray-500">
-            Crea una contraseña para entrar a EventLife y consultar tus entradas cuando quieras.
-          </p>
-        </div>
-
-        <div class="space-y-4">
+      @if (!loading && !invalid && !token) {
+        <form [formGroup]="requestForm" (ngSubmit)="requestLink()" class="space-y-6">
+          <div>
+            <h1 class="text-2xl font-black text-gray-950">Reclamar cuenta</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-500">
+              Ingresa el correo que usaste al comprar como invitado y te enviaremos un enlace de acceso.
+            </p>
+          </div>
           <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Contraseña</span>
-            <div class="relative">
-              <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="Mínimo 6 caracteres"
-                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-24 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
-              <button type="button" (click)="showPassword = !showPassword"
-                class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100">
-                {{ showPassword ? 'Ocultar' : 'Ver' }}
-              </button>
-            </div>
-            <span *ngIf="form.get('password')?.hasError('minlength') && form.get('password')?.touched"
-              class="mt-1 block text-xs text-red-500">Usa al menos 6 caracteres.</span>
-          </label>
-
-          <label class="block">
-            <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Confirmar contraseña</span>
-            <input [type]="showPassword ? 'text' : 'password'" formControlName="confirmPassword" placeholder="Repite la contraseña"
+            <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Correo electrónico</span>
+            <input formControlName="email" type="email" placeholder="tu@email.com"
               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
           </label>
-        </div>
+          <button type="submit" [disabled]="requesting || requestSent"
+            class="flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60">
+            @if (!requesting && !requestSent) {
+              <span>Enviar enlace</span>
+            }
+            @if (requesting) {
+              <span>Enviando...</span>
+            }
+            @if (requestSent) {
+              <span>Enlace solicitado</span>
+            }
+          </button>
+          <a routerLink="/login" class="block text-center text-sm font-bold text-gray-500 hover:text-gray-950">
+            Volver al login
+          </a>
+        </form>
+      }
 
-        <button type="submit" [disabled]="submitting"
-          class="flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60">
-          <span *ngIf="!submitting">Activar cuenta</span>
-          <span *ngIf="submitting">Activando...</span>
-        </button>
-      </form>
+      @if (!loading && invalid && token) {
+        <div class="space-y-5 text-center">
+          <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+            !
+          </div>
+          <div>
+            <h1 class="text-2xl font-black text-gray-950">Enlace no disponible</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-500">
+              El enlace para reclamar la cuenta expiró o ya fue utilizado.
+            </p>
+          </div>
+          <a routerLink="/login" class="block w-full rounded-xl bg-gray-950 px-5 py-3 text-center text-sm font-bold text-white">
+            Ir a iniciar sesión
+          </a>
+        </div>
+      }
+
+      @if (!loading && !invalid && token) {
+        <form [formGroup]="form" (ngSubmit)="completeClaim()" class="space-y-6">
+          <div>
+            <p class="mb-2 text-xs font-bold uppercase tracking-widest text-blue-600">{{ claimInfo?.email }}</p>
+            <h1 class="text-2xl font-black text-gray-950">Reclama tu cuenta</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-500">
+              Crea una contraseña para entrar a EventLife y consultar tus entradas cuando quieras.
+            </p>
+          </div>
+          <div class="space-y-4">
+            <label class="block">
+              <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Contraseña</span>
+              <div class="relative">
+                <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="Mínimo 6 caracteres"
+                  class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-24 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
+                <button type="button" (click)="showPassword = !showPassword"
+                  class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100">
+                  {{ showPassword ? 'Ocultar' : 'Ver' }}
+                </button>
+              </div>
+              @if (form.get('password')?.hasError('minlength') && form.get('password')?.touched) {
+                <span
+                class="mt-1 block text-xs text-red-500">Usa al menos 6 caracteres.</span>
+              }
+            </label>
+            <label class="block">
+              <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Confirmar contraseña</span>
+              <input [type]="showPassword ? 'text' : 'password'" formControlName="confirmPassword" placeholder="Repite la contraseña"
+                class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
+            </label>
+          </div>
+          <button type="submit" [disabled]="submitting"
+            class="flex w-full items-center justify-center rounded-xl bg-gray-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60">
+            @if (!submitting) {
+              <span>Activar cuenta</span>
+            }
+            @if (submitting) {
+              <span>Activando...</span>
+            }
+          </button>
+        </form>
+      }
     </div>
   </section>
 </main>

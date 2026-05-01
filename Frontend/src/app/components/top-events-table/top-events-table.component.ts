@@ -1,11 +1,11 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminService, EventRanking, DateRange } from '../../services/admin.service';
 import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
 
 @Component({
     selector: 'app-top-events-table',
-    standalone: true,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [CommonModule, CurrencyFormatterPipe],
     template: `
     <div class="top-events-container">
@@ -15,68 +15,79 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
           Top Eventos por Revenue
         </h3>
         <div class="limit-selector">
-          <button 
-            *ngFor="let l of limits" 
-            [class.active]="limit === l"
-            (click)="changeLimit(l)"
-            class="limit-btn">
-            Top {{ l }}
-          </button>
+          @for (l of limits; track l) {
+            <button
+              [class.active]="limit === l"
+              (click)="changeLimit(l)"
+              class="limit-btn">
+              Top {{ l }}
+            </button>
+          }
         </div>
       </div>
-
+    
       <!-- Loading State -->
-      <div *ngIf="loading" class="loading-rows">
-        <div *ngFor="let i of [1,2,3,4,5]" class="skeleton-row"></div>
-      </div>
-
+      @if (loading) {
+        <div class="loading-rows">
+          @for (i of [1,2,3,4,5]; track i) {
+            <div class="skeleton-row"></div>
+          }
+        </div>
+      }
+    
       <!-- Table -->
-      <div *ngIf="!loading && events.length > 0" class="table-wrapper">
-        <table class="events-table">
-          <thead>
-            <tr>
-              <th class="rank-col">#</th>
-              <th>Evento</th>
-              <th class="num-col">Tickets</th>
-              <th class="num-col">Revenue</th>
-              <th class="num-col">Comisión</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let event of events; let i = index" class="event-row" [class.top-3]="i < 3">
-              <td class="rank-col">
-                <span class="rank-badge" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
-                  {{ i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : (i + 1))) }}
-                </span>
-              </td>
-              <td class="event-info">
-                <p class="event-title">{{ event.eventTitle }}</p>
-                <p class="event-organizer">{{ event.organizer }}</p>
-              </td>
-              <td class="num-col">
-                <span class="tickets-count">{{ event.ticketsSold }}</span>
-              </td>
-              <td class="num-col">
-                <span class="revenue-value">{{ event.totalRevenue | currency }}</span>
-              </td>
-              <td class="num-col">
-                <span class="commission-value">{{ event.platformCommission | currency }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
+      @if (!loading && events.length > 0) {
+        <div class="table-wrapper">
+          <table class="events-table">
+            <thead>
+              <tr>
+                <th class="rank-col">#</th>
+                <th>Evento</th>
+                <th class="num-col">Tickets</th>
+                <th class="num-col">Revenue</th>
+                <th class="num-col">Comisión</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (event of events; track event; let i = $index) {
+                <tr class="event-row" [class.top-3]="i < 3">
+                  <td class="rank-col">
+                    <span class="rank-badge" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
+                      {{ i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : (i + 1))) }}
+                    </span>
+                  </td>
+                  <td class="event-info">
+                    <p class="event-title">{{ event.eventTitle }}</p>
+                    <p class="event-organizer">{{ event.organizer }}</p>
+                  </td>
+                  <td class="num-col">
+                    <span class="tickets-count">{{ event.ticketsSold }}</span>
+                  </td>
+                  <td class="num-col">
+                    <span class="revenue-value">{{ event.totalRevenue | currency }}</span>
+                  </td>
+                  <td class="num-col">
+                    <span class="commission-value">{{ event.platformCommission | currency }}</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    
       <!-- Empty State -->
-      <div *ngIf="!loading && events.length === 0" class="empty-state">
-        <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-        <p>No hay eventos con ventas registradas</p>
+      @if (!loading && events.length === 0) {
+        <div class="empty-state">
+          <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <p>No hay eventos con ventas registradas</p>
+          </div>
+        }
       </div>
-    </div>
-  `,
+    `,
     styles: [`
     .top-events-container {
       background: white;
@@ -271,6 +282,7 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
 })
 export class TopEventsTableComponent implements OnInit {
     private adminService = inject(AdminService);
+    private cdr = inject(ChangeDetectorRef);
 
     @Input() dateRange?: DateRange;
     @Input() autoLoad = true;
@@ -299,10 +311,12 @@ export class TopEventsTableComponent implements OnInit {
                     this.events = response.data;
                 }
                 this.loading = false;
+                this.cdr.markForCheck();
             },
             error: (err) => {
                 console.error('Error loading top events:', err);
                 this.loading = false;
+                this.cdr.markForCheck();
             }
         });
     }

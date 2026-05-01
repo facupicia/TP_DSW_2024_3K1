@@ -9,11 +9,10 @@ import { EventService } from '../../services/event.service';
 import { Promoter, CreatePromoterRequest, PromoterEventAssignment } from '../../interfaces/promoter';
 
 @Component({
-  selector: 'app-promoter-management',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HeaderComponent],
-  templateUrl: './promoter-management.component.html',
-  styleUrls: ['./promoter-management.component.css']
+    selector: 'app-promoter-management',
+    imports: [CommonModule, FormsModule, RouterModule, HeaderComponent],
+    templateUrl: './promoter-management.component.html',
+    styleUrls: ['./promoter-management.component.css']
 })
 export class PromoterManagementComponent implements OnInit {
   private promoterService = inject(PromoterService);

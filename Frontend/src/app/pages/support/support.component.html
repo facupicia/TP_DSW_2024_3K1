@@ -26,10 +26,12 @@
         </aside>
 
         <section class="faq-list" aria-label="Preguntas frecuentes">
-          <details *ngFor="let faq of faqs; let first = first" class="faq-item" [open]="first">
-            <summary>{{ faq.question }}</summary>
-            <p>{{ faq.answer }}</p>
-          </details>
+          @for (faq of faqs; track faq; let first = $first) {
+            <details class="faq-item" [open]="first">
+              <summary>{{ faq.question }}</summary>
+              <p>{{ faq.answer }}</p>
+            </details>
+          }
         </section>
       </div>
     </div>

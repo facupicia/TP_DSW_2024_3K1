@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OverviewResponse } from '../../services/admin.service';
 import { KpiCardComponent, KpiCardData } from '../kpi-card/kpi-card.component';
@@ -7,149 +7,159 @@ import { TopEventsTableComponent } from '../top-events-table/top-events-table.co
 import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
 
 @Component({
-  selector: 'app-dashboard-overview',
-  standalone: true,
-  imports: [
-    CommonModule,
-    KpiCardComponent,
-    TrendChartComponent,
-    TopEventsTableComponent,
-    CurrencyFormatterPipe,
-    PercentFormatterPipe
-  ],
-  template: `
-    <div *ngIf="loading" class="kpi-grid">
-      <div *ngFor="let i of [1,2,3,4,5,6]" class="kpi-card">
-        <div class="h-24 bg-gray-100 animate-pulse rounded-xl"></div>
-      </div>
-    </div>
-
-    <div *ngIf="!loading && overview">
-      <!-- Executive Metrics -->
+    selector: 'app-dashboard-overview',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [
+        CommonModule,
+        KpiCardComponent,
+        TrendChartComponent,
+        TopEventsTableComponent,
+        CurrencyFormatterPipe
+    ],
+    template: `
+    @if (loading) {
       <div class="kpi-grid">
-        <app-kpi-card *ngFor="let card of kpiCards" [data]="card"></app-kpi-card>
-      </div>
-
-      <!-- Revenue Trend Chart -->
-      <app-trend-chart 
-        [config]="{ title: '📈 Tendencias de Ingresos', showSelector: true, height: 320, showLegend: true }">
-      </app-trend-chart>
-
-      <!-- Quick Stats Grid -->
-      <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Top Organizers -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h3 class="text-lg font-bold text-gray-900 mb-4">🏆 Top Organizadores (Comisiones)</h3>
-          <div class="space-y-3">
-            <div *ngFor="let org of overview.commissions.topOrganizers.slice(0, 5); let i = index" 
-                 class="flex items-center justify-between p-3 rounded-xl transition-all"
-                 [class.bg-gradient-to-r]="i < 3"
-                 [class.from-yellow-50]="i === 0"
-                 [class.to-amber-50]="i === 0"
-                 [class.from-gray-50]="i === 1"
-                 [class.to-slate-50]="i === 1"
-                 [class.from-orange-50]="i === 2"
-                 [class.to-amber-50]="i === 2"
-                 [class.bg-gray-50]="i >= 3">
-              <div class="flex items-center gap-3">
-                <span class="text-xl" *ngIf="i < 3">{{ i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉') }}</span>
-                <span class="text-gray-400 font-mono text-sm" *ngIf="i >= 3">#{{ i + 1 }}</span>
-                <div class="flex-1">
-                  <p class="font-bold text-gray-900 text-sm">{{ org.organizerName }}</p>
-                  <p class="text-xs text-gray-500">{{ org.salesCount }} ventas</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p class="font-bold text-green-600">{{ org.totalCommission | currency }}</p>
-                <p class="text-xs text-gray-500">GMV: {{ org.totalGmv | currency }}</p>
-              </div>
-            </div>
-            <p *ngIf="overview.commissions.topOrganizers.length === 0" 
-               class="text-gray-400 text-sm text-center py-4">
-              No hay datos disponibles
-            </p>
+        @for (i of [1,2,3,4,5,6]; track i) {
+          <div class="kpi-card">
+            <div class="h-24 bg-gray-100 animate-pulse rounded-xl"></div>
           </div>
+        }
+      </div>
+    }
+    
+    @if (!loading && overview) {
+      <div>
+        <!-- Executive Metrics -->
+        <div class="kpi-grid">
+          @for (card of kpiCards; track card) {
+            <app-kpi-card [data]="card"></app-kpi-card>
+          }
         </div>
-
-        <!-- Subscription Breakdown - Enhanced -->
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <h3 class="text-lg font-bold text-gray-900 mb-4">📊 Estado de la Plataforma</h3>
-          
-          <!-- Subscription Plans -->
-          <div class="space-y-3 mb-6">
-            <div *ngFor="let plan of overview.subscriptions.activeSubscriptions.byPlan" 
-                 class="flex items-center justify-between p-3 rounded-xl"
-                 [class.bg-purple-50]="plan.planName === 'PRO'"
-                 [class.bg-gray-50]="plan.planName !== 'PRO'">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full flex items-center justify-center"
-                  [class.bg-purple-500]="plan.planName === 'PRO'"
-                  [class.text-white]="plan.planName === 'PRO'"
-                  [class.bg-gray-200]="plan.planName === 'FREE'"
-                  [class.text-gray-600]="plan.planName === 'FREE'">
-                  <span class="font-bold text-sm">{{ plan.planName.charAt(0) }}</span>
+        <!-- Revenue Trend Chart -->
+        <app-trend-chart
+          [config]="{ title: '📈 Tendencias de Ingresos', showSelector: true, height: 320, showLegend: true }">
+        </app-trend-chart>
+        <!-- Quick Stats Grid -->
+        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Top Organizers -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🏆 Top Organizadores (Comisiones)</h3>
+            <div class="space-y-3">
+              @for (org of overview.commissions.topOrganizers.slice(0, 5); track org; let i = $index) {
+                <div
+                  class="flex items-center justify-between p-3 rounded-xl transition-all"
+                  [class.bg-gradient-to-r]="i < 3"
+                  [class.from-yellow-50]="i === 0"
+                  [class.to-amber-50]="i === 0"
+                  [class.from-gray-50]="i === 1"
+                  [class.to-slate-50]="i === 1"
+                  [class.from-orange-50]="i === 2"
+                  [class.to-amber-50]="i === 2"
+                  [class.bg-gray-50]="i >= 3">
+                  <div class="flex items-center gap-3">
+                    @if (i < 3) {
+                      <span class="text-xl">{{ i === 0 ? '🥇' : (i === 1 ? '🥈' : '🥉') }}</span>
+                    }
+                    @if (i >= 3) {
+                      <span class="text-gray-400 font-mono text-sm">#{{ i + 1 }}</span>
+                    }
+                    <div class="flex-1">
+                      <p class="font-bold text-gray-900 text-sm">{{ org.organizerName }}</p>
+                      <p class="text-xs text-gray-500">{{ org.salesCount }} ventas</p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold text-green-600">{{ org.totalCommission | currency }}</p>
+                    <p class="text-xs text-gray-500">GMV: {{ org.totalGmv | currency }}</p>
+                  </div>
                 </div>
-                <div>
-                  <p class="font-bold text-gray-900 text-sm">{{ plan.displayName || plan.planName }}</p>
-                  <p class="text-xs text-gray-500">
-                    {{ ((plan.count / overview.subscriptions.activeSubscriptions.total) * 100).toFixed(1) }}%
-                  </p>
-                </div>
-              </div>
-              <p class="text-2xl font-bold" [class.text-purple-600]="plan.planName === 'PRO'" [class.text-gray-600]="plan.planName !== 'PRO'">{{ plan.count }}</p>
+              }
+              @if (overview.commissions.topOrganizers.length === 0) {
+                <p
+                  class="text-gray-400 text-sm text-center py-4">
+                  No hay datos disponibles
+                </p>
+              }
             </div>
           </div>
-
-          <!-- Platform Metrics -->
-          <div class="grid grid-cols-2 gap-4">
-            <div class="p-4 bg-green-50 rounded-xl">
-              <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">MRR</p>
-              <p class="text-xl font-bold text-green-700">{{ overview.subscriptions.mrr | currency }}</p>
+          <!-- Subscription Breakdown - Enhanced -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📊 Estado de la Plataforma</h3>
+            <!-- Subscription Plans -->
+            <div class="space-y-3 mb-6">
+              @for (plan of overview.subscriptions.activeSubscriptions.byPlan; track plan) {
+                <div
+                  class="flex items-center justify-between p-3 rounded-xl"
+                  [class.bg-purple-50]="plan.planName === 'PRO'"
+                  [class.bg-gray-50]="plan.planName !== 'PRO'">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                      [class.bg-purple-500]="plan.planName === 'PRO'"
+                      [class.text-white]="plan.planName === 'PRO'"
+                      [class.bg-gray-200]="plan.planName === 'FREE'"
+                      [class.text-gray-600]="plan.planName === 'FREE'">
+                      <span class="font-bold text-sm">{{ plan.planName.charAt(0) }}</span>
+                    </div>
+                    <div>
+                      <p class="font-bold text-gray-900 text-sm">{{ plan.displayName || plan.planName }}</p>
+                      <p class="text-xs text-gray-500">
+                        {{ ((plan.count / overview.subscriptions.activeSubscriptions.total) * 100).toFixed(1) }}%
+                      </p>
+                    </div>
+                  </div>
+                  <p class="text-2xl font-bold" [class.text-purple-600]="plan.planName === 'PRO'" [class.text-gray-600]="plan.planName !== 'PRO'">{{ plan.count }}</p>
+                </div>
+              }
             </div>
-            <div class="p-4 rounded-xl" 
-                 [class.bg-green-50]="overview.subscriptions.churnRate < 5"
-                 [class.bg-yellow-50]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
-                 [class.bg-red-50]="overview.subscriptions.churnRate >= 10">
-              <p class="text-xs font-bold uppercase tracking-wider mb-1"
-                 [class.text-green-600]="overview.subscriptions.churnRate < 5"
-                 [class.text-yellow-600]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
-                 [class.text-red-600]="overview.subscriptions.churnRate >= 10">Churn</p>
-              <p class="text-xl font-bold"
-                 [class.text-green-700]="overview.subscriptions.churnRate < 5"
-                 [class.text-yellow-700]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
-                 [class.text-red-700]="overview.subscriptions.churnRate >= 10">{{ overview.subscriptions.churnRate.toFixed(1) }}%</p>
+            <!-- Platform Metrics -->
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-4 bg-green-50 rounded-xl">
+                <p class="text-xs font-bold text-green-600 uppercase tracking-wider mb-1">MRR</p>
+                <p class="text-xl font-bold text-green-700">{{ overview.subscriptions.mrr | currency }}</p>
+              </div>
+              <div class="p-4 rounded-xl"
+                [class.bg-green-50]="overview.subscriptions.churnRate < 5"
+                [class.bg-yellow-50]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                [class.bg-red-50]="overview.subscriptions.churnRate >= 10">
+                <p class="text-xs font-bold uppercase tracking-wider mb-1"
+                  [class.text-green-600]="overview.subscriptions.churnRate < 5"
+                  [class.text-yellow-600]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                [class.text-red-600]="overview.subscriptions.churnRate >= 10">Churn</p>
+                <p class="text-xl font-bold"
+                  [class.text-green-700]="overview.subscriptions.churnRate < 5"
+                  [class.text-yellow-700]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                [class.text-red-700]="overview.subscriptions.churnRate >= 10">{{ overview.subscriptions.churnRate.toFixed(1) }}%</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Top Events Table -->
-      <div class="mt-8">
-        <app-top-events-table></app-top-events-table>
-      </div>
-
-      <!-- Event Stats Summary -->
-      <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-          <p class="text-2xl font-bold text-gray-900">{{ overview.events.totalEvents }}</p>
-          <p class="text-xs text-gray-500 font-medium uppercase">Total Eventos</p>
+        <!-- Top Events Table -->
+        <div class="mt-8">
+          <app-top-events-table></app-top-events-table>
         </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-          <p class="text-2xl font-bold text-green-600">{{ overview.events.upcomingEvents }}</p>
-          <p class="text-xs text-gray-500 font-medium uppercase">Próximos</p>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-          <p class="text-2xl font-bold text-purple-600">{{ overview.events.featuredEvents }}</p>
-          <p class="text-xs text-gray-500 font-medium uppercase">Destacados</p>
-        </div>
-        <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
-          <p class="text-2xl font-bold text-blue-600">{{ overview.events.averageCapacityUtilization.toFixed(0) }}%</p>
-          <p class="text-xs text-gray-500 font-medium uppercase">Uso Capacidad</p>
+        <!-- Event Stats Summary -->
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
+            <p class="text-2xl font-bold text-gray-900">{{ overview.events.totalEvents }}</p>
+            <p class="text-xs text-gray-500 font-medium uppercase">Total Eventos</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
+            <p class="text-2xl font-bold text-green-600">{{ overview.events.upcomingEvents }}</p>
+            <p class="text-xs text-gray-500 font-medium uppercase">Próximos</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
+            <p class="text-2xl font-bold text-purple-600">{{ overview.events.featuredEvents }}</p>
+            <p class="text-xs text-gray-500 font-medium uppercase">Destacados</p>
+          </div>
+          <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
+            <p class="text-2xl font-bold text-blue-600">{{ overview.events.averageCapacityUtilization.toFixed(0) }}%</p>
+            <p class="text-xs text-gray-500 font-medium uppercase">Uso Capacidad</p>
+          </div>
         </div>
       </div>
-    </div>
-  `,
-  styles: [`
+    }
+    `,
+    styles: [`
     .kpi-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

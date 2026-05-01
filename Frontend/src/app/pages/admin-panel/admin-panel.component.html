@@ -46,579 +46,634 @@
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-        <span>Dashboard</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>Ingresos</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'subscriptions'"
-        (click)="cambiarTab('subscriptions'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-        </svg>
-        <span>Suscripciones</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'marketplace'"
-        (click)="cambiarTab('marketplace'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-        </svg>
-        <span>Marketplace</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'commissions'"
-        (click)="cambiarTab('commissions'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-        <span>Comisiones</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        <span>Usuarios</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'categories'"
-        (click)="cambiarTab('categories'); toggleMobileNav()">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-        </svg>
-        <span>Categorías</span>
-      </div>
-    </nav>
-
-    <div class="mt-auto pt-6 border-t border-gray-200">
-      <a href="/" class="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition-colors px-2">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-        <span>Salir al Sitio</span>
-      </a>
-    </div>
-  </aside>
-
-  <!-- Desktop Sidebar (hidden on mobile) -->
-  <aside class="sidebar desktop-only">
-    <div class="mb-10 flex items-center gap-3 px-2">
-      <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-        <span class="text-white font-bold text-lg">E</span>
-      </div>
-      <h1 class="font-bold text-xl tracking-tight">Admin Panel</h1>
-    </div>
-
-    <nav class="flex-1">
-      <div class="nav-item" [class.active]="activeTab === 'dashboard'" (click)="cambiarTab('dashboard')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-        <span>Dashboard</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>Ingresos</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'subscriptions'" (click)="cambiarTab('subscriptions')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-        </svg>
-        <span>Suscripciones</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'marketplace'" (click)="cambiarTab('marketplace')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-        </svg>
-        <span>Marketplace</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'commissions'" (click)="cambiarTab('commissions')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-        <span>Comisiones</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        <span>Usuarios</span>
-      </div>
-
-      <div class="nav-item" [class.active]="activeTab === 'categories'" (click)="cambiarTab('categories')">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-        </svg>
-        <span>Categorías</span>
-      </div>
-    </nav>
-
-    <div class="mt-auto pt-6 border-t border-gray-200">
-      <a href="/" class="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition-colors px-2">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-        </svg>
-        <span>Salir al Sitio</span>
-      </a>
-    </div>
-  </aside>
-
-  <main class="main-content">
-
-    <header class="flex justify-between items-center mb-8 flex-wrap gap-4">
-      <div>
-        <h2 class="text-2xl font-bold text-gray-900">
-          {{ activeTab === 'dashboard' ? 'Resumen Ejecutivo' :
-          (activeTab === 'revenue' ? 'Ingresos y Ganancias' :
-          (activeTab === 'subscriptions' ? 'Suscripciones' :
-          (activeTab === 'marketplace' ? 'Marketplace' :
-          (activeTab === 'commissions' ? 'Comisiones' :
-          (activeTab === 'users' ? 'Gestión de Usuarios' : 'Categorías')))))}}
-        </h2>
-        <p class="text-gray-500 text-sm">Panel de administración del propietario</p>
-      </div>
-
-      <!-- Date Range Filter -->
-      <div class="flex items-center gap-3"
-        *ngIf="['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)">
-        <div class="date-preset-selector">
-          <button *ngFor="let preset of datePresets" [class.active]="selectedDatePreset === preset.value"
-            (click)="setDatePreset(preset.value)" class="preset-btn">
-            {{ preset.label }}
-          </button>
+          </svg>
+          <span>Dashboard</span>
         </div>
-        <div class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
-          <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
-        </div>
-      </div>
 
-      <div *ngIf="!['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)"
-        class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
-        <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
-      </div>
-    </header>
+        <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue'); toggleMobileNav()">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Ingresos</span>
+          </div>
 
-    <div [ngSwitch]="activeTab">
+          <div class="nav-item" [class.active]="activeTab === 'subscriptions'"
+            (click)="cambiarTab('subscriptions'); toggleMobileNav()">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <span>Suscripciones</span>
+            </div>
 
-      <!-- Dashboard Tab - Now using modular component -->
-      <div *ngSwitchCase="'dashboard'" class="animate-fade-in-up">
-        <app-dashboard-overview [overview]="overview" [loading]="loadingMetrics"></app-dashboard-overview>
-      </div>
-
-      <!-- Revenue Tab - Using modular component -->
-      <div *ngSwitchCase="'revenue'" class="animate-fade-in-up">
-        <app-revenue-view [overview]="overview" [loading]="loadingMetrics"></app-revenue-view>
-      </div>
-
-      <!-- Revenue Tab -->
-
-      <div *ngSwitchCase="'subscriptions'" class="animate-fade-in-up">
-        <div *ngIf="loadingMetrics" class="p-8 text-center">
-          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
-        </div>
-        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
-          <!-- Summary Cards Row -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">👥</span>
-                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Activas</p>
+            <div class="nav-item" [class.active]="activeTab === 'marketplace'"
+              (click)="cambiarTab('marketplace'); toggleMobileNav()">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                </svg>
+                <span>Marketplace</span>
               </div>
-              <p class="text-3xl font-bold text-gray-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-purple-500">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">⭐</span>
-                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Usuarios PRO</p>
-              </div>
-              <p class="text-3xl font-bold text-purple-600">{{ overview.subscriptions.proUsers }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-green-500">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">💰</span>
-                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">MRR</p>
-              </div>
-              <p class="text-3xl font-bold text-green-600">{{ overview.subscriptions.mrr | currency }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6" [class.border-l-4]="true"
-              [class.border-l-green-500]="overview.subscriptions.churnRate < 5"
-              [class.border-l-yellow-500]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
-              [class.border-l-red-500]="overview.subscriptions.churnRate >= 10">
-              <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">📉</span>
-                <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Churn Rate</p>
-              </div>
-              <p class="text-3xl font-bold" [class.text-green-600]="overview.subscriptions.churnRate < 5"
-                [class.text-yellow-600]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
-                [class.text-red-600]="overview.subscriptions.churnRate >= 10">
-                {{ overview.subscriptions.churnRate.toFixed(1) }}%
-              </p>
-            </div>
-          </div>
 
-          <!-- Charts Section using new component -->
-          <app-subscription-chart [metrics]="overview.subscriptions"></app-subscription-chart>
-        </div>
-      </div>
+              <div class="nav-item" [class.active]="activeTab === 'commissions'"
+                (click)="cambiarTab('commissions'); toggleMobileNav()">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  <span>Comisiones</span>
+                </div>
 
-      <!-- Marketplace Tab -->
-      <div *ngSwitchCase="'marketplace'" class="animate-fade-in-up">
-        <div *ngIf="loadingMetrics" class="p-8 text-center">
-          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
-        </div>
-        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
-              <p class="text-3xl font-bold text-gray-900">{{ overview.marketplace.grossRevenue | currency }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
-              <p class="text-3xl font-bold text-blue-600">{{ overview.marketplace.ticketsSold }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
-              <p class="text-3xl font-bold text-purple-600">{{ overview.marketplace.averageTicketPrice | currency }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
-              <p class="text-3xl font-bold text-green-600">{{ overview.marketplace.totalTransactions }}</p>
-            </div>
-          </div>
-
-          <!-- Payment Status -->
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-4">Estado de Pagos</h3>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="p-4 bg-green-50 rounded-xl">
-                <p class="text-sm text-green-600 font-bold mb-1">Exitosos</p>
-                <p class="text-2xl font-bold text-green-700">{{ overview.marketplace.successfulPayments }}</p>
-              </div>
-              <div class="p-4 bg-red-50 rounded-xl">
-                <p class="text-sm text-red-600 font-bold mb-1">Fallidos</p>
-                <p class="text-2xl font-bold text-red-700">{{ overview.marketplace.failedPayments }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Commissions Tab -->
-      <div *ngSwitchCase="'commissions'" class="animate-fade-in-up">
-        <div *ngIf="loadingMetrics" class="p-8 text-center">
-          <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
-        </div>
-        <div *ngIf="!loadingMetrics && overview" class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Total</p>
-              <p class="text-3xl font-bold text-gray-900">{{ overview.commissions.totalCommission | currency }}</p>
-            </div>
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Promedio</p>
-              <p class="text-3xl font-bold text-blue-600">{{ overview.commissions.averageCommissionPercent | percent }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Top Organizers Table -->
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="p-6 border-b border-gray-100">
-              <h3 class="text-lg font-bold text-gray-900">Top Organizadores por Comisiones</h3>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse">
-                <thead>
-                  <tr class="bg-gray-50">
-                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Organizador</th>
-                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ventas</th>
-                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">GMV</th>
-                    <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Comisión</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let org of overview.commissions.topOrganizers"
-                    class="border-b border-gray-50 hover:bg-gray-50">
-                    <td class="p-4 font-bold text-gray-900">{{ org.organizerName }}</td>
-                    <td class="p-4 text-right text-gray-600">{{ org.salesCount }}</td>
-                    <td class="p-4 text-right font-bold text-gray-900">{{ org.totalGmv | currency }}</td>
-                    <td class="p-4 text-right font-bold text-green-600">{{ org.totalCommission | currency }}</td>
-                  </tr>
-                  <tr *ngIf="overview.commissions.topOrganizers.length === 0">
-                    <td colspan="4" class="p-8 text-center text-gray-400">No hay datos disponibles</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Users Tab (existing) -->
-
-      <div *ngSwitchCase="'users'" class="animate-fade-in-up">
-        <div class="users-toolbar">
-          <div class="users-toolbar__filters">
-            <input
-              type="text"
-              [(ngModel)]="userSearchInput"
-              (keyup.enter)="applyUserFilters()"
-              placeholder="Buscar por email, nombre o ID"
-              class="modern-input users-search-input">
-
-            <select [(ngModel)]="userRoleFilter" class="modern-select" (change)="applyUserFilters()">
-              <option value="">Todos los roles</option>
-              <option *ngFor="let r of availableRoles" [value]="r">{{ r }}</option>
-            </select>
-
-            <select [(ngModel)]="userActiveFilter" class="modern-select" (change)="applyUserFilters()">
-              <option value="all">Todos los estados</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
-          </div>
-
-          <div class="users-toolbar__actions">
-            <select
-              [ngModel]="userLimit"
-              (ngModelChange)="onUserPageSizeChange($event)"
-              class="modern-select modern-select--compact">
-              <option *ngFor="let size of userPageSizeOptions" [ngValue]="size">{{ size }} por página</option>
-            </select>
-            <button class="toolbar-btn toolbar-btn--secondary" (click)="clearUserFilters()">Limpiar</button>
-            <button class="toolbar-btn toolbar-btn--primary" (click)="applyUserFilters()" [disabled]="!canSearchUsers">
-              Buscar
-            </button>
-          </div>
-        </div>
-
-        <div
-          class="glass-table-container overflow-hidden border border-gray-100 rounded-[24px] md:rounded-[32px] bg-white shadow-sm">
-
-          <div class="users-summary" *ngIf="!loadingUsers && hasLoadedUsers">
-            <span>{{ userRangeStart }}-{{ userRangeEnd }} de {{ userTotal }} usuarios</span>
-            <span *ngIf="userSearch || userRoleFilter || userActiveFilter !== 'all'">Filtros activos</span>
-          </div>
-
-          <div *ngIf="loadingUsers" class="p-6 space-y-4">
-            <div *ngFor="let i of [1,2,3,4]" class="h-20 bg-gray-50 animate-pulse rounded-2xl"></div>
-          </div>
-
-          <div *ngIf="!loadingUsers">
-            <div *ngIf="!hasLoadedUsers" class="users-empty-state">
-              <h3>Buscar usuario</h3>
-              <p>{{ userQueryMessage }}</p>
-            </div>
-
-            <div *ngIf="hasLoadedUsers && usuarios.length === 0" class="users-empty-state">
-              <h3>No se encontraron usuarios</h3>
-              <p>{{ userQueryMessage || 'Ajustá los filtros o cambiá la búsqueda para ver otros resultados.' }}</p>
-            </div>
-
-            <div class="block md:hidden" *ngIf="usuarios.length > 0">
-              <div *ngFor="let u of usuarios; trackBy: trackUser" class="p-5 border-b border-gray-50 last:border-0">
-
-                <div class="flex items-center justify-between mb-4">
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
-                      {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
-                    </div>
-                    <div class="flex flex-col">
-                      <span class="font-bold text-gray-900 leading-tight">{{ u.firstname }} {{ u.lastname }}</span>
-                      <span class="text-xs font-bold text-blue-500 uppercase">{{ getUserRolesDisplay(u) }}</span>
-                    </div>
+                <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users'); toggleMobileNav()">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>Usuarios</span>
                   </div>
 
-                  <button (click)="eliminarUsuario(u.id)"
-                    class="p-2 text-gray-400 hover:text-red-500 active:bg-red-50 rounded-full transition-colors">
+                  <div class="nav-item" [class.active]="activeTab === 'categories'"
+                    (click)="cambiarTab('categories'); toggleMobileNav()">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <span>Categorías</span>
+                    </div>
+                  </nav>
 
-                <div class="space-y-3">
-                  <div class="text-sm font-medium text-gray-700 mb-2">Roles:</div>
-                  <div class="flex flex-wrap gap-2">
-                    <label *ngFor="let r of availableRoles" 
-                           class="inline-flex items-center px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                      <input type="checkbox" 
-                             [checked]="hasRoleSelected(u.id!, r)"
-                             (change)="toggleRole(u.id!, r)"
-                             [disabled]="updatingRole[u.id!]"
-                             class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
-                      <span class="ml-2 text-xs font-medium uppercase">{{ r }}</span>
-                    </label>
-                  </div>
+                  <div class="mt-auto pt-6 border-t border-gray-200">
+                    <a href="/" class="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition-colors px-2">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <span>Salir al Sitio</span>
+                      </a>
+                    </div>
+                  </aside>
 
-                  <button (click)="cambiarRolConfirm(u)"
-                    [disabled]="updatingRole[u.id!]"
-                    class="w-full py-3 bg-black text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-30">
-                    {{ updatingRole[u.id!] ? 'Actualizando...' : 'Guardar Roles' }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="hidden md:block overflow-x-auto" *ngIf="usuarios.length > 0">
-              <table class="w-full text-left border-collapse">
-                <thead>
-                  <tr class="bg-gray-50/50">
-                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Usuario</th>
-                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Rol</th>
-                    <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let u of usuarios; trackBy: trackUser"
-                    class="hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-0">
-                    <td class="p-6">
-                      <div class="flex items-center gap-3">
-                        <div
-                          class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                          {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
-                        </div>
-                        <span class="font-bold text-gray-900">{{ u.firstname }} {{ u.lastname }}</span>
+                  <!-- Desktop Sidebar (hidden on mobile) -->
+                  <aside class="sidebar desktop-only">
+                    <div class="mb-10 flex items-center gap-3 px-2">
+                      <div class="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">E</span>
                       </div>
-                    </td>
+                      <h1 class="font-bold text-xl tracking-tight">Admin Panel</h1>
+                    </div>
 
-                    <td class="p-6">
-                      <div class="flex flex-col gap-2">
-                        <span class="text-xs text-gray-500">Actual: {{ getUserRolesDisplay(u) }}</span>
-                        <div class="flex flex-wrap gap-2">
-                          <label *ngFor="let r of availableRoles" 
-                                 class="inline-flex items-center px-2 py-1 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
-                            <input type="checkbox" 
-                                   [checked]="hasRoleSelected(u.id!, r)"
-                                   (change)="toggleRole(u.id!, r)"
-                                   [disabled]="updatingRole[u.id!]"
-                                   class="w-3 h-3 text-blue-600 rounded border-gray-300">
-                            <span class="ml-1 text-[10px] font-medium uppercase">{{ r }}</span>
-                          </label>
+                    <nav class="flex-1">
+                      <div class="nav-item" [class.active]="activeTab === 'dashboard'" (click)="cambiarTab('dashboard')">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                          </svg>
+                          <span>Dashboard</span>
                         </div>
-                      </div>
-                    </td>
 
-                    <td class="p-6">
-                      <div class="flex items-center justify-end gap-2">
-                        <button (click)="cambiarRolConfirm(u)"
-                          [disabled]="updatingRole[u.id!]"
-                          class="px-4 py-2 bg-black text-white rounded-xl text-xs font-bold transition-all hover:bg-gray-800 disabled:opacity-50">
-                          {{ updatingRole[u.id!] ? '...' : 'Guardar' }}
-                        </button>
-                        <button (click)="eliminarUsuario(u.id)"
-                          class="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                        <div class="nav-item" [class.active]="activeTab === 'revenue'" (click)="cambiarTab('revenue')">
                           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Ingresos</span>
+                          </div>
 
-            <div class="pagination-bar" *ngIf="userTotalPages > 1">
-              <button
-                class="pagination-btn"
-                (click)="changeUserPage(userPage - 1)"
-                [disabled]="userPage === 1 || loadingUsers">
-                Anterior
-              </button>
+                          <div class="nav-item" [class.active]="activeTab === 'subscriptions'" (click)="cambiarTab('subscriptions')">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                              </svg>
+                              <span>Suscripciones</span>
+                            </div>
 
-              <div class="pagination-meta">
-                <span>Página {{ userPage }} de {{ userTotalPages }}</span>
-              </div>
+                            <div class="nav-item" [class.active]="activeTab === 'marketplace'" (click)="cambiarTab('marketplace')">
+                              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                                </svg>
+                                <span>Marketplace</span>
+                              </div>
 
-              <button
-                class="pagination-btn"
-                (click)="changeUserPage(userPage + 1)"
-                [disabled]="userPage === userTotalPages || loadingUsers">
-                Siguiente
-              </button>
-            </div>
+                              <div class="nav-item" [class.active]="activeTab === 'commissions'" (click)="cambiarTab('commissions')">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                  <span>Comisiones</span>
+                                </div>
 
-          </div>
-        </div>
-      </div>
+                                <div class="nav-item" [class.active]="activeTab === 'users'" (click)="cambiarTab('users')">
+                                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                    <span>Usuarios</span>
+                                  </div>
 
-      <div *ngSwitchCase="'categories'" class="animate-fade-in-up">
+                                  <div class="nav-item" [class.active]="activeTab === 'categories'" (click)="cambiarTab('categories')">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                      </svg>
+                                      <span>Categorías</span>
+                                    </div>
+                                  </nav>
 
-        <div class="mb-8 p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm flex items-end gap-4">
-          <div class="flex-1 space-y-2">
-            <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">Nueva Categoría</label>
-            <form [formGroup]="formCategory" (ngSubmit)="crearCategoria()">
-              <input type="text" formControlName="name" placeholder="Ej: Festivales, Tecnología..."
-                class="modern-input">
-            </form>
-          </div>
-          <button (click)="crearCategoria()" [disabled]="formCategory.invalid"
-            class="tap-target px-6 py-3 bg-black text-white rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-            Agregar
-          </button>
-        </div>
+                                  <div class="mt-auto pt-6 border-t border-gray-200">
+                                    <a href="/" class="flex items-center gap-3 text-sm text-gray-500 hover:text-black transition-colors px-2">
+                                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        <span>Salir al Sitio</span>
+                                      </a>
+                                    </div>
+                                  </aside>
 
-        <div class="glass-table-container">
-          <div *ngIf="loadingCategories" class="skeleton-list">
-            <div class="skeleton-item" *ngFor="let i of [1,2,3,4]"></div>
-          </div>
-          <table class="custom-table" *ngIf="!loadingCategories">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Nombre</th>
-                <th class="text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let c of categorias; trackBy: trackCategory">
-                <td class="font-mono text-gray-400 text-xs">#{{ c.id }}</td>
-                <td class="font-bold text-gray-900 text-lg">{{ c.name }}</td>
-                <td class="text-right">
-                  <button (click)="eliminarCategoria(c.id)"
-                    class="tap-target px-4 py-2 bg-white border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-200 rounded-xl text-sm font-bold transition-all shadow-sm">
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+                                  <main class="main-content">
 
-    </div>
-  </main>
-</div>
+                                    <header class="flex justify-between items-center mb-8 flex-wrap gap-4">
+                                      <div>
+                                        <h2 class="text-2xl font-bold text-gray-900">
+                                          {{ activeTab === 'dashboard' ? 'Resumen Ejecutivo' :
+                                          (activeTab === 'revenue' ? 'Ingresos y Ganancias' :
+                                          (activeTab === 'subscriptions' ? 'Suscripciones' :
+                                          (activeTab === 'marketplace' ? 'Marketplace' :
+                                          (activeTab === 'commissions' ? 'Comisiones' :
+                                          (activeTab === 'users' ? 'Gestión de Usuarios' : 'Categorías')))))}}
+                                        </h2>
+                                        <p class="text-gray-500 text-sm">Panel de administración del propietario</p>
+                                      </div>
+
+                                      <!-- Date Range Filter -->
+                                      @if (['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)) {
+                                        <div class="flex items-center gap-3"
+                                          >
+                                          <div class="date-preset-selector">
+                                            @for (preset of datePresets; track preset) {
+                                              <button [class.active]="selectedDatePreset === preset.value"
+                                                (click)="setDatePreset(preset.value)" class="preset-btn">
+                                                {{ preset.label }}
+                                              </button>
+                                            }
+                                          </div>
+                                          <div class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
+                                            <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
+                                          </div>
+                                        </div>
+                                      }
+
+                                      @if (!['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(activeTab)) {
+                                        <div
+                                          class="w-10 h-10 rounded-full bg-gray-200 border border-white shadow-sm overflow-hidden">
+                                          <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="Admin">
+                                        </div>
+                                      }
+                                    </header>
+
+                                    <div>
+                                      @switch (activeTab) {
+                                        <!-- Dashboard Tab - Now using modular component -->
+                                        @case ('dashboard') {
+                                          <div class="animate-fade-in-up">
+                                            @defer (on viewport) {
+                                              <app-dashboard-overview [overview]="overview" [loading]="loadingMetrics"></app-dashboard-overview>
+                                            } @placeholder {
+                                              <div class="h-64 bg-white/70 border border-gray-100 rounded-2xl animate-pulse"></div>
+                                            }
+                                          </div>
+                                        }
+                                        <!-- Revenue Tab - Using modular component -->
+                                        @case ('revenue') {
+                                          <div class="animate-fade-in-up">
+                                            @defer (on viewport) {
+                                              <app-revenue-view [overview]="overview" [loading]="loadingMetrics"></app-revenue-view>
+                                            } @placeholder {
+                                              <div class="h-64 bg-white/70 border border-gray-100 rounded-2xl animate-pulse"></div>
+                                            }
+                                          </div>
+                                        }
+                                        <!-- Revenue Tab -->
+                                        @case ('subscriptions') {
+                                          <div class="animate-fade-in-up">
+                                            @if (loadingMetrics) {
+                                              <div class="p-8 text-center">
+                                                <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+                                              </div>
+                                            }
+                                            @if (!loadingMetrics && overview) {
+                                              <div class="space-y-6">
+                                                <!-- Summary Cards Row -->
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <div class="flex items-center gap-3 mb-2">
+                                                      <span class="text-2xl">👥</span>
+                                                      <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Activas</p>
+                                                    </div>
+                                                    <p class="text-3xl font-bold text-gray-900">{{ overview.subscriptions.activeSubscriptions.total }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-purple-500">
+                                                    <div class="flex items-center gap-3 mb-2">
+                                                      <span class="text-2xl">⭐</span>
+                                                      <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Usuarios PRO</p>
+                                                    </div>
+                                                    <p class="text-3xl font-bold text-purple-600">{{ overview.subscriptions.proUsers }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-green-500">
+                                                    <div class="flex items-center gap-3 mb-2">
+                                                      <span class="text-2xl">💰</span>
+                                                      <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">MRR</p>
+                                                    </div>
+                                                    <p class="text-3xl font-bold text-green-600">{{ overview.subscriptions.mrr | currency }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6" [class.border-l-4]="true"
+                                                    [class.border-l-green-500]="overview.subscriptions.churnRate < 5"
+                                                    [class.border-l-yellow-500]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                                                    [class.border-l-red-500]="overview.subscriptions.churnRate >= 10">
+                                                    <div class="flex items-center gap-3 mb-2">
+                                                      <span class="text-2xl">📉</span>
+                                                      <p class="text-sm text-gray-500 uppercase font-bold tracking-wider">Churn Rate</p>
+                                                    </div>
+                                                    <p class="text-3xl font-bold" [class.text-green-600]="overview.subscriptions.churnRate < 5"
+                                                      [class.text-yellow-600]="overview.subscriptions.churnRate >= 5 && overview.subscriptions.churnRate < 10"
+                                                      [class.text-red-600]="overview.subscriptions.churnRate >= 10">
+                                                      {{ overview.subscriptions.churnRate.toFixed(1) }}%
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <!-- Charts Section using new component -->
+                                                @defer (on viewport) {
+                                                  <app-subscription-chart [metrics]="overview.subscriptions"></app-subscription-chart>
+                                                } @placeholder {
+                                                  <div class="h-64 bg-white/70 border border-gray-100 rounded-2xl animate-pulse"></div>
+                                                }
+                                              </div>
+                                            }
+                                          </div>
+                                        }
+                                        <!-- Marketplace Tab -->
+                                        @case ('marketplace') {
+                                          <div class="animate-fade-in-up">
+                                            @if (loadingMetrics) {
+                                              <div class="p-8 text-center">
+                                                <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+                                              </div>
+                                            }
+                                            @if (!loadingMetrics && overview) {
+                                              <div class="space-y-6">
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
+                                                    <p class="text-3xl font-bold text-gray-900">{{ overview.marketplace.grossRevenue | currency }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
+                                                    <p class="text-3xl font-bold text-blue-600">{{ overview.marketplace.ticketsSold }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
+                                                    <p class="text-3xl font-bold text-purple-600">{{ overview.marketplace.averageTicketPrice | currency }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
+                                                    <p class="text-3xl font-bold text-green-600">{{ overview.marketplace.totalTransactions }}</p>
+                                                  </div>
+                                                </div>
+                                                <!-- Payment Status -->
+                                                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                  <h3 class="text-lg font-bold text-gray-900 mb-4">Estado de Pagos</h3>
+                                                  <div class="grid grid-cols-2 gap-4">
+                                                    <div class="p-4 bg-green-50 rounded-xl">
+                                                      <p class="text-sm text-green-600 font-bold mb-1">Exitosos</p>
+                                                      <p class="text-2xl font-bold text-green-700">{{ overview.marketplace.successfulPayments }}</p>
+                                                    </div>
+                                                    <div class="p-4 bg-red-50 rounded-xl">
+                                                      <p class="text-sm text-red-600 font-bold mb-1">Fallidos</p>
+                                                      <p class="text-2xl font-bold text-red-700">{{ overview.marketplace.failedPayments }}</p>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            }
+                                          </div>
+                                        }
+                                        <!-- Commissions Tab -->
+                                        @case ('commissions') {
+                                          <div class="animate-fade-in-up">
+                                            @if (loadingMetrics) {
+                                              <div class="p-8 text-center">
+                                                <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+                                              </div>
+                                            }
+                                            @if (!loadingMetrics && overview) {
+                                              <div class="space-y-6">
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Total</p>
+                                                    <p class="text-3xl font-bold text-gray-900">{{ overview.commissions.totalCommission | currency }}</p>
+                                                  </div>
+                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Comisión Promedio</p>
+                                                    <p class="text-3xl font-bold text-blue-600">{{ overview.commissions.averageCommissionPercent | percent }}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <!-- Top Organizers Table -->
+                                                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                                                  <div class="p-6 border-b border-gray-100">
+                                                    <h3 class="text-lg font-bold text-gray-900">Top Organizadores por Comisiones</h3>
+                                                  </div>
+                                                  <div class="overflow-x-auto">
+                                                    <table class="w-full text-left border-collapse">
+                                                      <thead>
+                                                        <tr class="bg-gray-50">
+                                                          <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Organizador</th>
+                                                          <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ventas</th>
+                                                          <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">GMV</th>
+                                                          <th class="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Comisión</th>
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody>
+                                                        @for (org of overview.commissions.topOrganizers; track org) {
+                                                          <tr
+                                                            class="border-b border-gray-50 hover:bg-gray-50">
+                                                            <td class="p-4 font-bold text-gray-900">{{ org.organizerName }}</td>
+                                                            <td class="p-4 text-right text-gray-600">{{ org.salesCount }}</td>
+                                                            <td class="p-4 text-right font-bold text-gray-900">{{ org.totalGmv | currency }}</td>
+                                                            <td class="p-4 text-right font-bold text-green-600">{{ org.totalCommission | currency }}</td>
+                                                          </tr>
+                                                        }
+                                                        @if (overview.commissions.topOrganizers.length === 0) {
+                                                          <tr>
+                                                            <td colspan="4" class="p-8 text-center text-gray-400">No hay datos disponibles</td>
+                                                          </tr>
+                                                        }
+                                                      </tbody>
+                                                    </table>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            }
+                                          </div>
+                                        }
+                                        <!-- Users Tab (existing) -->
+                                        @case ('users') {
+                                          <div class="animate-fade-in-up">
+                                            <div class="users-toolbar">
+                                              <div class="users-toolbar__filters">
+                                                <input
+                                                  type="text"
+                                                  [(ngModel)]="userSearchInput"
+                                                  (keyup.enter)="applyUserFilters()"
+                                                  placeholder="Buscar por email, nombre o ID"
+                                                  class="modern-input users-search-input">
+                                                <select [(ngModel)]="userRoleFilter" class="modern-select" (change)="applyUserFilters()">
+                                                  <option value="">Todos los roles</option>
+                                                  @for (r of availableRoles; track r) {
+                                                    <option [value]="r">{{ r }}</option>
+                                                  }
+                                                </select>
+                                                <select [(ngModel)]="userActiveFilter" class="modern-select" (change)="applyUserFilters()">
+                                                  <option value="all">Todos los estados</option>
+                                                  <option value="active">Activos</option>
+                                                  <option value="inactive">Inactivos</option>
+                                                </select>
+                                              </div>
+                                              <div class="users-toolbar__actions">
+                                                <select
+                                                  [ngModel]="userLimit"
+                                                  (ngModelChange)="onUserPageSizeChange($event)"
+                                                  class="modern-select modern-select--compact">
+                                                  @for (size of userPageSizeOptions; track size) {
+                                                    <option [ngValue]="size">{{ size }} por página</option>
+                                                  }
+                                                </select>
+                                                <button class="toolbar-btn toolbar-btn--secondary" (click)="clearUserFilters()">Limpiar</button>
+                                                <button class="toolbar-btn toolbar-btn--primary" (click)="applyUserFilters()" [disabled]="!canSearchUsers">
+                                                  Buscar
+                                                </button>
+                                              </div>
+                                            </div>
+                                            <div
+                                              class="glass-table-container overflow-hidden border border-gray-100 rounded-[24px] md:rounded-[32px] bg-white shadow-sm">
+                                              @if (!loadingUsers && hasLoadedUsers) {
+                                                <div class="users-summary">
+                                                  <span>{{ userRangeStart }}-{{ userRangeEnd }} de {{ userTotal }} usuarios</span>
+                                                  @if (userSearch || userRoleFilter || userActiveFilter !== 'all') {
+                                                    <span>Filtros activos</span>
+                                                  }
+                                                </div>
+                                              }
+                                              @if (loadingUsers) {
+                                                <div class="p-6 space-y-4">
+                                                  @for (i of [1,2,3,4]; track i) {
+                                                    <div class="h-20 bg-gray-50 animate-pulse rounded-2xl"></div>
+                                                  }
+                                                </div>
+                                              }
+                                              @if (!loadingUsers) {
+                                                <div>
+                                                  @if (!hasLoadedUsers) {
+                                                    <div class="users-empty-state">
+                                                      <h3>Buscar usuario</h3>
+                                                      <p>{{ userQueryMessage }}</p>
+                                                    </div>
+                                                  }
+                                                  @if (hasLoadedUsers && usuarios.length === 0) {
+                                                    <div class="users-empty-state">
+                                                      <h3>No se encontraron usuarios</h3>
+                                                      <p>{{ userQueryMessage || 'Ajustá los filtros o cambiá la búsqueda para ver otros resultados.' }}</p>
+                                                    </div>
+                                                  }
+                                                  @if (usuarios.length > 0) {
+                                                    <div class="block md:hidden">
+                                                      @for (u of usuarios; track trackUser($index, u)) {
+                                                        <div class="p-5 border-b border-gray-50 last:border-0">
+                                                          <div class="flex items-center justify-between mb-4">
+                                                            <div class="flex items-center gap-3">
+                                                              <div
+                                                                class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-600">
+                                                                {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
+                                                              </div>
+                                                              <div class="flex flex-col">
+                                                                <span class="font-bold text-gray-900 leading-tight">{{ u.firstname }} {{ u.lastname }}</span>
+                                                                <span class="text-xs font-bold text-blue-500 uppercase">{{ getUserRolesDisplay(u) }}</span>
+                                                              </div>
+                                                            </div>
+                                                            <button (click)="eliminarUsuario(u.id)"
+                                                              class="p-2 text-gray-400 hover:text-red-500 active:bg-red-50 rounded-full transition-colors">
+                                                              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                </svg>
+                                                              </button>
+                                                            </div>
+                                                            <div class="space-y-3">
+                                                              <div class="text-sm font-medium text-gray-700 mb-2">Roles:</div>
+                                                              <div class="flex flex-wrap gap-2">
+                                                                @for (r of availableRoles; track r) {
+                                                                  <label
+                                                                    class="inline-flex items-center px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                                                                    <input type="checkbox"
+                                                                      [checked]="hasRoleSelected(u.id!, r)"
+                                                                      (change)="toggleRole(u.id!, r)"
+                                                                      [disabled]="updatingRole[u.id!]"
+                                                                      class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                                                                      <span class="ml-2 text-xs font-medium uppercase">{{ r }}</span>
+                                                                    </label>
+                                                                  }
+                                                                </div>
+                                                                <button (click)="cambiarRolConfirm(u)"
+                                                                  [disabled]="updatingRole[u.id!]"
+                                                                  class="w-full py-3 bg-black text-white rounded-xl text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-30">
+                                                                  {{ updatingRole[u.id!] ? 'Actualizando...' : 'Guardar Roles' }}
+                                                                </button>
+                                                              </div>
+                                                            </div>
+                                                          }
+                                                        </div>
+                                                      }
+                                                      @if (usuarios.length > 0) {
+                                                        <div class="hidden md:block overflow-x-auto">
+                                                          <table class="w-full text-left border-collapse">
+                                                            <thead>
+                                                              <tr class="bg-gray-50/50">
+                                                                <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Usuario</th>
+                                                                <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider">Rol</th>
+                                                                <th class="p-6 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Acciones</th>
+                                                              </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                              @for (u of usuarios; track trackUser($index, u)) {
+                                                                <tr
+                                                                  class="hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-0">
+                                                                  <td class="p-6">
+                                                                    <div class="flex items-center gap-3">
+                                                                      <div
+                                                                        class="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                                                                        {{ u.firstname.charAt(0) }}{{ u.lastname.charAt(0) }}
+                                                                      </div>
+                                                                      <span class="font-bold text-gray-900">{{ u.firstname }} {{ u.lastname }}</span>
+                                                                    </div>
+                                                                  </td>
+                                                                  <td class="p-6">
+                                                                    <div class="flex flex-col gap-2">
+                                                                      <span class="text-xs text-gray-500">Actual: {{ getUserRolesDisplay(u) }}</span>
+                                                                      <div class="flex flex-wrap gap-2">
+                                                                        @for (r of availableRoles; track r) {
+                                                                          <label
+                                                                            class="inline-flex items-center px-2 py-1 bg-gray-50 rounded cursor-pointer hover:bg-gray-100">
+                                                                            <input type="checkbox"
+                                                                              [checked]="hasRoleSelected(u.id!, r)"
+                                                                              (change)="toggleRole(u.id!, r)"
+                                                                              [disabled]="updatingRole[u.id!]"
+                                                                              class="w-3 h-3 text-blue-600 rounded border-gray-300">
+                                                                              <span class="ml-1 text-[10px] font-medium uppercase">{{ r }}</span>
+                                                                            </label>
+                                                                          }
+                                                                        </div>
+                                                                      </div>
+                                                                    </td>
+                                                                    <td class="p-6">
+                                                                      <div class="flex items-center justify-end gap-2">
+                                                                        <button (click)="cambiarRolConfirm(u)"
+                                                                          [disabled]="updatingRole[u.id!]"
+                                                                          class="px-4 py-2 bg-black text-white rounded-xl text-xs font-bold transition-all hover:bg-gray-800 disabled:opacity-50">
+                                                                          {{ updatingRole[u.id!] ? '...' : 'Guardar' }}
+                                                                        </button>
+                                                                        <button (click)="eliminarUsuario(u.id)"
+                                                                          class="p-2 text-gray-400 hover:text-red-500 rounded-lg transition-colors">
+                                                                          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                            </svg>
+                                                                          </button>
+                                                                        </div>
+                                                                      </td>
+                                                                    </tr>
+                                                                  }
+                                                                </tbody>
+                                                              </table>
+                                                            </div>
+                                                          }
+                                                          @if (userTotalPages > 1) {
+                                                            <div class="pagination-bar">
+                                                              <button
+                                                                class="pagination-btn"
+                                                                (click)="changeUserPage(userPage - 1)"
+                                                                [disabled]="userPage === 1 || loadingUsers">
+                                                              Anterior
+                                                            </button>
+                                                            <div class="pagination-meta">
+                                                              <span>Página {{ userPage }} de {{ userTotalPages }}</span>
+                                                            </div>
+                                                            <button
+                                                              class="pagination-btn"
+                                                              (click)="changeUserPage(userPage + 1)"
+                                                              [disabled]="userPage === userTotalPages || loadingUsers">
+                                                              Siguiente
+                                                            </button>
+                                                          </div>
+                                                        }
+                                                      </div>
+                                                    }
+                                                  </div>
+                                                </div>
+                                              }
+                                              @case ('categories') {
+                                                <div class="animate-fade-in-up">
+                                                  <div class="mb-8 p-6 bg-white rounded-[24px] border border-gray-100 shadow-sm flex items-end gap-4">
+                                                    <div class="flex-1 space-y-2">
+                                                      <label class="text-xs font-bold text-gray-400 uppercase tracking-wider">Nueva Categoría</label>
+                                                      <form [formGroup]="formCategory" (ngSubmit)="crearCategoria()">
+                                                        <input type="text" formControlName="name" placeholder="Ej: Festivales, Tecnología..."
+                                                          class="modern-input">
+                                                        </form>
+                                                      </div>
+                                                      <button (click)="crearCategoria()" [disabled]="formCategory.invalid"
+                                                        class="tap-target px-6 py-3 bg-black text-white rounded-2xl font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                                        Agregar
+                                                      </button>
+                                                    </div>
+                                                    <div class="glass-table-container">
+                                                      @if (loadingCategories) {
+                                                        <div class="skeleton-list">
+                                                          @for (i of [1,2,3,4]; track i) {
+                                                            <div class="skeleton-item"></div>
+                                                          }
+                                                        </div>
+                                                      }
+                                                      @if (!loadingCategories) {
+                                                        <table class="custom-table">
+                                                          <thead>
+                                                            <tr>
+                                                              <th>ID</th>
+                                                              <th>Nombre</th>
+                                                              <th class="text-right">Acciones</th>
+                                                            </tr>
+                                                          </thead>
+                                                          <tbody>
+                                                            @for (c of categorias; track trackCategory($index, c)) {
+                                                              <tr>
+                                                                <td class="font-mono text-gray-400 text-xs">#{{ c.id }}</td>
+                                                                <td class="font-bold text-gray-900 text-lg">{{ c.name }}</td>
+                                                                <td class="text-right">
+                                                                  <button (click)="eliminarCategoria(c.id)"
+                                                                    class="tap-target px-4 py-2 bg-white border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-200 rounded-xl text-sm font-bold transition-all shadow-sm">
+                                                                    Eliminar
+                                                                  </button>
+                                                                </td>
+                                                              </tr>
+                                                            }
+                                                          </tbody>
+                                                        </table>
+                                                      }
+                                                    </div>
+                                                  </div>
+                                                }
+                                              }
+                                            </div>
+                                          </main>
+                                        </div>

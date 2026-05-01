@@ -12,211 +12,213 @@
       </div>
 
       <div class="hidden md:flex items-center space-x-8">
-        <ng-container *ngIf="user$ | async as user">
+        @if (user$ | async; as user) {
           <button (click)="router.navigate(['/events'])"
-            class="text-sm font-bold text-gray-500 hover:text-black transition-colors">Explorar</button>
+          class="text-sm font-bold text-gray-500 hover:text-black transition-colors">Explorar</button>
           <button (click)="crearEvento()"
-            class="text-sm font-bold text-gray-500 hover:text-black transition-colors">Crear Evento</button>
-          <button *ngIf="hasOrganizerLevel(user)" (click)="router.navigate(['/my-events'])"
+          class="text-sm font-bold text-gray-500 hover:text-black transition-colors">Crear Evento</button>
+          @if (hasOrganizerLevel(user)) {
+            <button (click)="router.navigate(['/my-events'])"
             class="text-sm font-bold text-gray-500 hover:text-black transition-colors">Mis Eventos</button>
-
-          <button *ngIf="isRrpp(user)" (click)="router.navigate(['/promoter/dashboard'])"
+          }
+          @if (isRrpp(user)) {
+            <button (click)="router.navigate(['/promoter/dashboard'])"
             class="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition-colors">Mi Panel</button>
-        </ng-container>
+          }
+        }
 
-        <ng-container *ngIf="(user$ | async) === null">
+        @if ((user$ | async) === null) {
           <!-- Botón Iniciar Sesión destacado -->
           <button routerLink="/login"
             class="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold px-6 py-2.5 rounded-full hover:scale-105 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            Iniciar Sesión
-          </button>
-          <button routerLink="/register"
-            class="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors px-4">
-            Registrarse
-          </button>
-        </ng-container>
+              </svg>
+              Iniciar Sesión
+            </button>
+            <button routerLink="/register"
+              class="text-sm font-bold text-gray-900 hover:text-blue-600 transition-colors px-4">
+              Registrarse
+            </button>
+          }
 
-        <ng-container *ngIf="user$ | async as user">
-          <div class="flex items-center gap-2 pl-2">
-            <div class="relative group cursor-pointer" (click)="redirectToProfile()">
-              <!-- Avatar con imagen o iniciales -->
-              <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else initialsAvatar">
-                <img [src]="user.imgPerfil"
-                  class="h-9 w-9 rounded-full object-cover border-2 border-gray-200 group-hover:border-blue-400 transition-all">
-              </ng-container>
-              <!-- Avatar con iniciales -->
-              <ng-template #initialsAvatar>
-                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold border-2 border-white shadow-md group-hover:shadow-lg transition-all">
-                  {{ getInitials(user) }}
+          @if (user$ | async; as user) {
+            <div class="flex items-center gap-2 pl-2">
+              <div class="relative group cursor-pointer" (click)="redirectToProfile()">
+                <!-- Avatar con imagen o iniciales -->
+                @if (user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png') {
+                  <img [src]="user.imgPerfil"
+                    class="h-9 w-9 rounded-full object-cover border-2 border-gray-200 group-hover:border-blue-400 transition-all">
+                  } @else {
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold border-2 border-white shadow-md group-hover:shadow-lg transition-all">
+                      {{ getInitials(user) }}
+                    </div>
+                  }
+                  <!-- Avatar con iniciales -->
+                  @if (isPro) {
+                    <span
+                      class="absolute -bottom-1 -right-1 px-1.5 py-0.5 text-[8px] font-black rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border border-white">
+                      PRO
+                    </span>
+                  }
                 </div>
-              </ng-template>
-              <span *ngIf="isPro"
-                class="absolute -bottom-1 -right-1 px-1.5 py-0.5 text-[8px] font-black rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border border-white">
-                PRO
-              </span>
+              </div>
+            }
+          </div>
+
+          <div class="flex items-center gap-2 md:hidden z-[1002]">
+
+            <!-- MOBILE: Botón Login destacado cuando NO está autenticado -->
+            @if ((user$ | async) === null) {
+              <button routerLink="/login"
+                class="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-full hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  Entrar
+                </button>
+              }
+
+              <!-- MOBILE: Avatar cuando está autenticado -->
+              @if (user$ | async; as user) {
+                <button (click)="redirectToProfile()"
+                  class="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 active:scale-95 transition-transform mr-1 focus:outline-none hover:border-blue-400">
+                  @if (user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png') {
+                    <img [src]="user.imgPerfil" class="w-full h-full object-cover">
+                  } @else {
+                    <div class="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                      {{ getInitials(user) }}
+                    </div>
+                  }
+                </button>
+              }
+
+              <button type="button" (click)="toggleMenu()"
+                class="w-10 h-10 flex flex-col justify-center items-center gap-[5px] rounded-full hover:bg-black/5 active:bg-black/10 transition-colors focus:outline-none">
+                <span class="sr-only">Menú</span>
+
+                <span class="block w-5 h-[2.5px] bg-slate-900 rounded-full transition-all duration-300 origin-center"
+                [ngClass]="isMenuOpen ? 'rotate-45 translate-y-[3.5px] w-6' : ''"></span>
+
+                <span class="block w-5 h-[2.5px] bg-slate-900 rounded-full transition-all duration-300 origin-center"
+                [ngClass]="isMenuOpen ? '-rotate-45 -translate-y-[4px] w-6' : ''"></span>
+              </button>
+
             </div>
           </div>
-        </ng-container>
-      </div>
-
-      <div class="flex items-center gap-2 md:hidden z-[1002]">
-
-        <!-- MOBILE: Botón Login destacado cuando NO está autenticado -->
-        <ng-container *ngIf="(user$ | async) === null">
-          <button routerLink="/login"
-            class="flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-full hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            Entrar
-          </button>
-        </ng-container>
-
-        <!-- MOBILE: Avatar cuando está autenticado -->
-        <ng-container *ngIf="user$ | async as user">
-          <button (click)="redirectToProfile()"
-            class="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 active:scale-95 transition-transform mr-1 focus:outline-none hover:border-blue-400">
-            <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else mobileInitials">
-              <img [src]="user.imgPerfil" class="w-full h-full object-cover">
-            </ng-container>
-            <ng-template #mobileInitials>
-              <div class="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-                {{ getInitials(user) }}
-              </div>
-            </ng-template>
-          </button>
-        </ng-container>
-
-        <button type="button" (click)="toggleMenu()"
-          class="w-10 h-10 flex flex-col justify-center items-center gap-[5px] rounded-full hover:bg-black/5 active:bg-black/10 transition-colors focus:outline-none">
-          <span class="sr-only">Menú</span>
-
-          <span class="block w-5 h-[2.5px] bg-slate-900 rounded-full transition-all duration-300 origin-center"
-            [ngClass]="isMenuOpen ? 'rotate-45 translate-y-[3.5px] w-6' : ''"></span>
-
-          <span class="block w-5 h-[2.5px] bg-slate-900 rounded-full transition-all duration-300 origin-center"
-            [ngClass]="isMenuOpen ? '-rotate-45 -translate-y-[4px] w-6' : ''"></span>
-        </button>
-
-      </div>
-    </div>
-  </div>
-</nav>
-
-<div class="md:hidden fixed inset-0 z-[1000]" [class.pointer-events-none]="!isMenuOpen" [style.top]="topOffset">
-
-  <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
-    [class.opacity-0]="!isMenuOpen" (click)="toggleMenu()"></div>
-
-  <div
-    class="absolute top-0 right-0 w-[80%] max-w-[300px] h-full bg-white/90 backdrop-blur-2xl border-l border-white/40 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col pt-24 px-6"
-    [class.translate-x-full]="!isMenuOpen">
-
-    <div *ngIf="user$ | async as user" class="mb-8 flex flex-col items-center text-center animate-fade-in-up">
-      <div class="relative mb-3">
-        <!-- Avatar grande con imagen o iniciales -->
-        <ng-container *ngIf="user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png'; else menuInitials">
-          <img [src]="user.imgPerfil"
-            class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
-        </ng-container>
-        <ng-template #menuInitials>
-          <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
-            {{ getInitials(user) }}
-          </div>
-        </ng-template>
-        <span *ngIf="isPro"
-          class="absolute bottom-0 right-0 px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border-2 border-white">
-          PRO
-        </span>
-      </div>
-      <h3 class="font-bold text-xl text-slate-900">{{ user.firstname }} {{ user.lastname }}</h3>
-      <p class="text-sm text-slate-500 font-medium">{{ user.email }}</p>
-    </div>
-
-    <nav class="flex flex-col gap-2 w-full">
-      <ng-container *ngIf="user$ | async as user; else guestLinks">
-
-        <button (click)="navigateMobile('/events')"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
-          <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
-          Explorar
-        </button>
-
-        <button (click)="crearEvento()"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
-          <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-          </svg>
-          Crear Evento
-        </button>
-
-        <button *ngIf="hasOrganizerLevel(user)" (click)="navigateMobile('/my-events')"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
-          <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          Mis Eventos
-        </button>
-
-
-
-        <button *ngIf="isScanner(user)" (click)="navigateMobile('/scanner')"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
-          <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z">
-            </path>
-          </svg>
-          Escanear
-        </button>
-
-        <button *ngIf="isRrpp(user)" (click)="navigateMobile('/promoter/dashboard')"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 active:scale-[0.98] transition-all shadow-sm">
-          <svg class="w-5 h-5 mr-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          Mi Panel
-        </button>
-
-        <div class="h-px bg-gray-200 my-2 w-full"></div>
-
-        <button (click)="redirectToLogout()"
-          class="flex items-center w-full text-left p-4 rounded-2xl text-red-600 font-bold hover:bg-red-50 active:scale-[0.98] transition-all">
-          <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-          </svg>
-          Cerrar Sesión
-        </button>
-      </ng-container>
-
-      <ng-template #guestLinks>
-        <div class="space-y-3 mt-4">
-          <!-- Botón Iniciar Sesión destacado en móvil -->
-          <button (click)="navigateMobile('/login')"
-            class="w-full py-4 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            Iniciar Sesión
-          </button>
-          <button (click)="navigateMobile('/register')"
-            class="w-full py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors">
-            Registrarse
-          </button>
         </div>
-      </ng-template>
-    </nav>
-  </div>
-</div>
+      </nav>
+
+      <div class="md:hidden fixed inset-0 z-[1000]" [class.pointer-events-none]="!isMenuOpen" [style.top]="topOffset">
+
+        <div class="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+        [class.opacity-0]="!isMenuOpen" (click)="toggleMenu()"></div>
+
+        <div
+          class="absolute top-0 right-0 w-[80%] max-w-[300px] h-full bg-white/90 backdrop-blur-2xl border-l border-white/40 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col pt-24 px-6"
+          [class.translate-x-full]="!isMenuOpen">
+
+          @if (user$ | async; as user) {
+            <div class="mb-8 flex flex-col items-center text-center animate-fade-in-up">
+              <div class="relative mb-3">
+                <!-- Avatar grande con imagen o iniciales -->
+                @if (user?.imgPerfil && user.imgPerfil !== 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png') {
+                  <img [src]="user.imgPerfil"
+                    class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg">
+                  } @else {
+                    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold border-4 border-white shadow-lg">
+                      {{ getInitials(user) }}
+                    </div>
+                  }
+                  @if (isPro) {
+                    <span
+                      class="absolute bottom-0 right-0 px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border-2 border-white">
+                      PRO
+                    </span>
+                  }
+                </div>
+                <h3 class="font-bold text-xl text-slate-900">{{ user.firstname }} {{ user.lastname }}</h3>
+                <p class="text-sm text-slate-500 font-medium">{{ user.email }}</p>
+              </div>
+            }
+
+            <nav class="flex flex-col gap-2 w-full">
+              @if (user$ | async; as user) {
+                <button (click)="navigateMobile('/events')"
+                  class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
+                  <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                  Explorar
+                </button>
+                <button (click)="crearEvento()"
+                  class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
+                  <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                  </svg>
+                  Crear Evento
+                </button>
+                @if (hasOrganizerLevel(user)) {
+                  <button (click)="navigateMobile('/my-events')"
+                    class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
+                    <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Mis Eventos
+                  </button>
+                }
+                @if (isScanner(user)) {
+                  <button (click)="navigateMobile('/scanner')"
+                    class="flex items-center w-full text-left p-4 rounded-2xl text-slate-700 font-bold bg-white/50 border border-white/50 hover:bg-white active:scale-[0.98] transition-all shadow-sm">
+                    <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z">
+                      </path>
+                    </svg>
+                    Escanear
+                  </button>
+                }
+                @if (isRrpp(user)) {
+                  <button (click)="navigateMobile('/promoter/dashboard')"
+                    class="flex items-center w-full text-left p-4 rounded-2xl text-indigo-700 font-bold bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 active:scale-[0.98] transition-all shadow-sm">
+                    <svg class="w-5 h-5 mr-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      Mi Panel
+                    </button>
+                  }
+                  <div class="h-px bg-gray-200 my-2 w-full"></div>
+                  <button (click)="redirectToLogout()"
+                    class="flex items-center w-full text-left p-4 rounded-2xl text-red-600 font-bold hover:bg-red-50 active:scale-[0.98] transition-all">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                    </svg>
+                    Cerrar Sesión
+                  </button>
+                } @else {
+                  <div class="space-y-3 mt-4">
+                    <!-- Botón Iniciar Sesión destacado en móvil -->
+                    <button (click)="navigateMobile('/login')"
+                      class="w-full py-4 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        Iniciar Sesión
+                      </button>
+                      <button (click)="navigateMobile('/register')"
+                        class="w-full py-4 px-4 bg-gray-100 text-gray-900 rounded-2xl font-bold hover:bg-gray-200 transition-colors">
+                        Registrarse
+                      </button>
+                    </div>
+                  }
+
+                </nav>
+              </div>
+            </div>

@@ -10,11 +10,10 @@ import { HeaderComponent } from '../../components/header/header.component';
 import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 
 @Component({
-  selector: 'app-event-stats',
-  standalone: true,
-  imports: [CommonModule, FormsModule, NgApexchartsModule, RouterModule, HeaderComponent, UpgradeButtonComponent],
-  templateUrl: './event-stats.component.html',
-  styleUrls: ['./event-stats.component.css']
+    selector: 'app-event-stats',
+    imports: [CommonModule, FormsModule, NgApexchartsModule, RouterModule, HeaderComponent, UpgradeButtonComponent],
+    templateUrl: './event-stats.component.html',
+    styleUrls: ['./event-stats.component.css']
 })
 export class EventStatsComponent implements OnInit, OnDestroy {
   @ViewChild('chart') chart!: ChartComponent;

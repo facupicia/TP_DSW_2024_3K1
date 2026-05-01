@@ -18,21 +18,20 @@ type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'comm
 type DatePreset = 'today' | '7days' | '30days' | '90days' | 'all';
 
 @Component({
-  selector: 'app-admin-panel',
-  standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    FormsModule,
-    CommonModule,
-    DashboardOverviewComponent,
-    RevenueViewComponent,
-    SubscriptionChartComponent,
-    CurrencyFormatterPipe,
-    PercentFormatterPipe
-  ],
-  templateUrl: './admin-panel.component.html',
-  styleUrls: ['./admin-panel.component.css'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+    selector: 'app-admin-panel',
+    imports: [
+        ReactiveFormsModule,
+        FormsModule,
+        CommonModule,
+        DashboardOverviewComponent,
+        RevenueViewComponent,
+        SubscriptionChartComponent,
+        CurrencyFormatterPipe,
+        PercentFormatterPipe
+    ],
+    templateUrl: './admin-panel.component.html',
+    styleUrls: ['./admin-panel.component.css'],
+    changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AdminPanelComponent implements OnInit {
 

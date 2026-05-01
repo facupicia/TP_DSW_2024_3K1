@@ -9,11 +9,10 @@ import { hasRoleLevel, hasExactRole } from '../../interfaces/Usuario';
 import { Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-header',
-  standalone: true,
-  imports: [CommonModule, RouterModule],
-  templateUrl: './header.component.html',
-  styleUrl: './header.component.css'
+    selector: 'app-header',
+    imports: [CommonModule, RouterModule],
+    templateUrl: './header.component.html',
+    styleUrl: './header.component.css'
 })
 export class HeaderComponent implements OnInit, OnDestroy {
   router = inject(Router);

@@ -1,11 +1,10 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 
 @Component({
     selector: 'app-landing-venta',
-    standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
 <section class="px-4 max-w-6xl mx-auto py-24 relative overflow-hidden">
   <div class="absolute top-0 right-0 -translate-y-1/2 translate-x-1/3 w-96 h-96 bg-blue-50 rounded-full blur-3xl -z-10"></div>

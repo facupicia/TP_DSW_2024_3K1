@@ -1,250 +1,282 @@
 <main class="min-h-screen bg-[#F8FAFC] pb-20 pt-28 relative overflow-hidden font-sans">
-    <app-header></app-header>
+  <app-header></app-header>
 
-    <div
-        class="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50 to-transparent pointer-events-none">
-    </div>
+  <div
+    class="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50 to-transparent pointer-events-none">
+  </div>
 
-    <div class="fixed bottom-4 right-4 z-50">
-        <app-upgrade-button [isPro]="isPro"
-            buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
-        </app-upgrade-button>
-    </div>
+  <div class="fixed bottom-4 right-4 z-50">
+    <app-upgrade-button [isPro]="isPro"
+      buttonClass="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-sm font-bold rounded-lg hover:shadow-lg transition-all">
+    </app-upgrade-button>
+  </div>
 
-    <div class="relative z-10 max-w-[1400px] mx-auto px-6 space-y-8 animate-fade-in-up">
+  <div class="relative z-10 max-w-[1400px] mx-auto px-6 space-y-8 animate-fade-in-up">
 
-        <div class="flex flex-col md:flex-row justify-between items-end gap-4">
+    <div class="flex flex-col md:flex-row justify-between items-end gap-4">
 
-            <div class="flex items-center gap-2">
-                <a [routerLink]="['/profile']"
-                    class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="m15 18-6-6 6-6" />
-                    </svg>
-                </a>
-                <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard General</h1>
-                <p class="text-slate-500">Rendimiento de tu negocio en tiempo real.</p>
+      <div class="flex items-center gap-2">
+        <a [routerLink]="['/profile']"
+          class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </a>
+        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Dashboard General</h1>
+        <p class="text-slate-500">Rendimiento de tu negocio en tiempo real.</p>
+      </div>
+
+      <div class="flex items-center bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+        <select [(ngModel)]="period" (change)="onPeriodChange()"
+          class="bg-transparent text-sm font-semibold text-slate-700 py-2 pl-3 pr-8 rounded-lg outline-none cursor-pointer hover:bg-slate-50 border-none focus:ring-0">
+          <option value="mensual">Este Mes</option>
+          <option value="anual">Este Año</option>
+          <option value="">Histórico</option>
+        </select>
+        <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+        <!-- Botón exportar - Solo PRO -->
+        @if (isPro) {
+          <button (click)="exportPdf()"
+            class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Descargar PDF">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </button>
+          }
+
+
+
+          <button class="p-2 text-slate-300 hover:text-purple-500 transition-colors relative group">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span
+                class="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clip-rule="evenodd" />
+                  </svg>
+                </span>
+              </button>
             </div>
+          </div>
 
-            <div class="flex items-center bg-white p-1 rounded-xl shadow-sm border border-slate-200">
-                <select [(ngModel)]="period" (change)="onPeriodChange()"
-                    class="bg-transparent text-sm font-semibold text-slate-700 py-2 pl-3 pr-8 rounded-lg outline-none cursor-pointer hover:bg-slate-50 border-none focus:ring-0">
-                    <option value="mensual">Este Mes</option>
-                    <option value="anual">Este Año</option>
-                    <option value="">Histórico</option>
-                </select>
-                <div class="w-px h-6 bg-slate-200 mx-1"></div>
-
-                <!-- Botón exportar - Solo PRO -->
-                <button *ngIf="isPro" (click)="exportPdf()"
-                    class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Descargar PDF">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                </button>
-
-
-
-                <button class="p-2 text-slate-300 hover:text-purple-500 transition-colors relative group">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    <span
-                        class="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                        <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd"
-                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                clip-rule="evenodd" />
-                        </svg>
-                    </span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Empty State -->
-        <div *ngIf="!isLoading && comparative.length === 0" 
-             class="bg-white rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 p-12 text-center">
-            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-            </div>
-            <h3 class="text-lg font-bold text-slate-900 mb-2">No hay datos disponibles</h3>
-            <p class="text-slate-500 max-w-md mx-auto">
-                Aún no tienes eventos con ventas registradas. Crea tu primer evento y comienza a vender entradas para ver las estadísticas.
-            </p>
-            <a routerLink="/events/new" 
-               class="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                Crear mi primer evento
-            </a>
-        </div>
-
-        <!-- Stats Grid -->
-        <div *ngIf="!isLoading && comparative.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Empty State -->
+          @if (!isLoading && comparative.length === 0) {
             <div
-                class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden group">
-                <div class="relative z-10">
+              class="bg-white rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 p-12 text-center">
+              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">No hay datos disponibles</h3>
+                <p class="text-slate-500 max-w-md mx-auto">
+                  Aún no tienes eventos con ventas registradas. Crea tu primer evento y comienza a vender entradas para ver las estadísticas.
+                </p>
+                <a routerLink="/events/new"
+                  class="inline-flex items-center gap-2 mt-4 px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors">
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Crear mi primer evento
+                </a>
+              </div>
+            }
+
+            <!-- Stats Grid -->
+            @if (!isLoading && comparative.length > 0) {
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div
+                  class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden group">
+                  <div class="relative z-10">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ingresos Totales</p>
                     <h3 class="text-3xl font-black text-slate-900">{{ totalRevenue | currency:'USD':'symbol':'1.0-0' }}
                     </h3>
-                    <div *ngIf="metrics.revenueGrowth !== 0" class="flex items-center gap-1 mt-2">
+                    @if (metrics.revenueGrowth !== 0) {
+                      <div class="flex items-center gap-1 mt-2">
                         <span class="text-xs font-bold px-2 py-0.5 rounded-full"
-                              [class.bg-green-100]="metrics.revenueGrowth > 0"
-                              [class.text-green-700]="metrics.revenueGrowth > 0"
-                              [class.bg-red-100]="metrics.revenueGrowth < 0"
-                              [class.text-red-700]="metrics.revenueGrowth < 0">
-                            {{ metrics.revenueGrowth > 0 ? '+' : '' }}{{ metrics.revenueGrowth }}%
+                          [class.bg-green-100]="metrics.revenueGrowth > 0"
+                          [class.text-green-700]="metrics.revenueGrowth > 0"
+                          [class.bg-red-100]="metrics.revenueGrowth < 0"
+                          [class.text-red-700]="metrics.revenueGrowth < 0">
+                          {{ metrics.revenueGrowth > 0 ? '+' : '' }}{{ metrics.revenueGrowth }}%
                         </span>
                         <span class="text-xs text-slate-400">vs período anterior</span>
-                    </div>
-                </div>
-                <div
+                      </div>
+                    }
+                  </div>
+                  <div
                     class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-blue-500/5 rounded-full group-hover:scale-125 transition-transform">
+                  </div>
                 </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tickets Vendidos</p>
-                <h3 class="text-3xl font-black text-slate-900">{{ totalTicketsSold }}</h3>
-                <div *ngIf="metrics.ticketsGrowth !== 0" class="flex items-center gap-1 mt-2">
-                    <span class="text-xs font-bold px-2 py-0.5 rounded-full"
-                          [class.bg-green-100]="metrics.ticketsGrowth > 0"
-                          [class.text-green-700]="metrics.ticketsGrowth > 0"
-                          [class.bg-red-100]="metrics.ticketsGrowth < 0"
-                          [class.text-red-700]="metrics.ticketsGrowth < 0">
+                <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
+                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tickets Vendidos</p>
+                  <h3 class="text-3xl font-black text-slate-900">{{ totalTicketsSold }}</h3>
+                  @if (metrics.ticketsGrowth !== 0) {
+                    <div class="flex items-center gap-1 mt-2">
+                      <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                        [class.bg-green-100]="metrics.ticketsGrowth > 0"
+                        [class.text-green-700]="metrics.ticketsGrowth > 0"
+                        [class.bg-red-100]="metrics.ticketsGrowth < 0"
+                        [class.text-red-700]="metrics.ticketsGrowth < 0">
                         {{ metrics.ticketsGrowth > 0 ? '+' : '' }}{{ metrics.ticketsGrowth }}%
-                    </span>
-                    <span class="text-xs text-slate-400">vs período anterior</span>
+                      </span>
+                      <span class="text-xs text-slate-400">vs período anterior</span>
+                    </div>
+                  }
                 </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ticket Promedio</p>
-                <h3 class="text-3xl font-black text-slate-900">{{ avgTicketPrice | currency:'USD':'symbol':'1.0-0' }}
-                </h3>
-                <div class="flex items-center gap-2 mt-2">
+                <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
+                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ticket Promedio</p>
+                  <h3 class="text-3xl font-black text-slate-900">{{ avgTicketPrice | currency:'USD':'symbol':'1.0-0' }}
+                  </h3>
+                  <div class="flex items-center gap-2 mt-2">
                     <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                        {{ metrics.totalEvents }} eventos
+                      {{ metrics.totalEvents }} eventos
                     </span>
+                  </div>
                 </div>
-            </div>
-        </div>
+              </div>
+            }
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Gráfico Eficiencia de Venta - PRO -->
-            <div
+              <!-- Gráfico Eficiencia de Venta - PRO -->
+              <div
                 class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 flex flex-col justify-center items-center relative overflow-hidden">
                 <!-- Overlay FREE -->
-                <div *ngIf="!isPro"
+                @if (!isPro) {
+                  <div
                     class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
                     <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Función PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Desbloquea análisis avanzados</p>
-                </div>
+                  </div>
+                }
                 <h3 class="text-slate-900 font-bold mb-4 w-full text-left">Eficiencia de Venta</h3>
-                <apx-chart [series]="retentionChartOptions.series" [chart]="retentionChartOptions.chart"
+                @defer (on viewport) {
+                  <apx-chart [series]="retentionChartOptions.series" [chart]="retentionChartOptions.chart"
                     [plotOptions]="retentionChartOptions.plotOptions" [labels]="retentionChartOptions.labels"
-                    [stroke]="retentionChartOptions.stroke" [colors]="retentionChartOptions.colors"></apx-chart>
+                  [stroke]="retentionChartOptions.stroke" [colors]="retentionChartOptions.colors"></apx-chart>
+                } @placeholder {
+                  <div class="h-48 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                }
                 <p class="text-center text-sm text-slate-400 mt-[-20px] px-4">
-                    Porcentaje promedio de entradas vendidas sobre la capacidad total.
+                  Porcentaje promedio de entradas vendidas sobre la capacidad total.
                 </p>
-            </div>
+              </div>
 
-            <!-- Gráfico Evolución de Ingresos - PRO -->
-            <div
+              <!-- Gráfico Evolución de Ingresos - PRO -->
+              <div
                 class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden">
                 <!-- Overlay FREE -->
-                <div *ngIf="!isPro"
+                @if (!isPro) {
+                  <div
                     class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
                     <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Análisis de Ingresos PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Visualiza tendencias de tu negocio</p>
-                </div>
+                  </div>
+                }
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-slate-900 font-bold">Evolución de Ingresos</h3>
-                    <button class="text-slate-400 hover:text-blue-600"><i class="fas fa-ellipsis-h"></i></button>
+                  <h3 class="text-slate-900 font-bold">Evolución de Ingresos</h3>
+                  <button class="text-slate-400 hover:text-blue-600"><i class="fas fa-ellipsis-h"></i></button>
                 </div>
-                <apx-chart [series]="revenueChartOptions.series" [chart]="revenueChartOptions.chart"
+                @defer (on viewport) {
+                  <apx-chart [series]="revenueChartOptions.series" [chart]="revenueChartOptions.chart"
                     [xaxis]="revenueChartOptions.xaxis" [stroke]="revenueChartOptions.stroke"
                     [tooltip]="revenueChartOptions.tooltip" [dataLabels]="revenueChartOptions.dataLabels"
                     [fill]="revenueChartOptions.fill" [colors]="revenueChartOptions.colors"
-                    [grid]="revenueChartOptions.grid"></apx-chart>
+                  [grid]="revenueChartOptions.grid"></apx-chart>
+                } @placeholder {
+                  <div class="h-64 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                }
+              </div>
             </div>
-        </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Top Eventos - PRO -->
-            <div
+              <!-- Top Eventos - PRO -->
+              <div
                 class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden">
                 <!-- Overlay FREE -->
-                <div *ngIf="!isPro"
+                @if (!isPro) {
+                  <div
                     class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
                     <span class="text-3xl mb-2">🔒</span>
                     <p class="font-bold text-slate-700 text-center">Ranking PRO</p>
                     <p class="text-xs text-slate-500 mb-3 text-center px-4">Ve tu top de eventos</p>
-                </div>
+                  </div>
+                }
                 <h3 class="text-slate-900 font-bold mb-4">Top Eventos (Tickets)</h3>
-                <apx-chart [series]="topEventsChartOptions.series" [chart]="topEventsChartOptions.chart"
+                @defer (on viewport) {
+                  <apx-chart [series]="topEventsChartOptions.series" [chart]="topEventsChartOptions.chart"
                     [plotOptions]="topEventsChartOptions.plotOptions" [xaxis]="topEventsChartOptions.xaxis"
-                    [colors]="topEventsChartOptions.colors" [dataLabels]="topEventsChartOptions.dataLabels"></apx-chart>
-            </div>
+                  [colors]="topEventsChartOptions.colors" [dataLabels]="topEventsChartOptions.dataLabels"></apx-chart>
+                } @placeholder {
+                  <div class="h-56 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                }
+              </div>
 
-            <!-- Detalle Reciente - Limitado para FREE -->
-            <div
+              <!-- Detalle Reciente - Limitado para FREE -->
+              <div
                 class="lg:col-span-2 bg-white rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 overflow-hidden flex flex-col relative">
                 <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                    <h3 class="text-slate-900 font-bold">Detalle Reciente</h3>
-                    <span *ngIf="!isPro" class="text-xs text-purple-600 font-bold">Vista limitada</span>
+                  <h3 class="text-slate-900 font-bold">Detalle Reciente</h3>
+                  @if (!isPro) {
+                    <span class="text-xs text-purple-600 font-bold">Vista limitada</span>
+                  }
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="p-4 text-xs font-bold text-slate-400 uppercase">Evento</th>
-                                <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Tickets</th>
-                                <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Ingresos</th>
-                                <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-50">
-                            <!-- FREE: Solo 2 filas, PRO: 5 filas -->
-                            <tr *ngFor="let row of comparative.slice(0, isPro ? 5 : 2)"
-                                class="hover:bg-slate-50/50 transition-colors">
-                                <td class="p-4 font-bold text-slate-700">{{ row.title }}</td>
-                                <td class="p-4 text-right text-slate-600">{{ row.participants }}</td>
-                                <td class="p-4 text-right font-mono text-slate-900">{{ row.revenue |
-                                    currency:'USD':'symbol':'1.0-0' }}</td>
-                                <td class="p-4 text-right">
+                  <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50">
+                      <tr>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase">Evento</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Tickets</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Ingresos</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                      <!-- FREE: Solo 2 filas, PRO: 5 filas -->
+                      @for (row of comparative.slice(0, isPro ? 5 : 2); track row) {
+                        <tr
+                          class="hover:bg-slate-50/50 transition-colors">
+                          <td class="p-4 font-bold text-slate-700">{{ row.title }}</td>
+                          <td class="p-4 text-right text-slate-600">{{ row.participants }}</td>
+                          <td class="p-4 text-right font-mono text-slate-900">{{ row.revenue |
+                          currency:'USD':'symbol':'1.0-0' }}</td>
+                          <td class="p-4 text-right">
                                     <span class="px-2 py-1 rounded-full text-xs font-bold" [ngClass]="{
                                             'bg-green-100 text-green-700': row.attendanceRate > 0.8,
                                             'bg-yellow-100 text-yellow-700': row.attendanceRate <= 0.8
                                         }">
-                                        {{ row.attendanceRate | percent:'1.0-0' }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <!-- Fila bloqueada para FREE -->
-                            <tr *ngIf="!isPro && comparative.length > 2" class="bg-slate-50/80">
-                                <td colspan="4" class="p-4 text-center">
-                                    <app-upgrade-button [isPro]="isPro"
-                                        buttonClass="text-sm text-purple-600 font-bold hover:text-purple-700">
-                                        🔒 Ver más eventos con PRO →
-                                    </app-upgrade-button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                              {{ row.attendanceRate | percent:'1.0-0' }}
+                            </span>
+                          </td>
+                        </tr>
+                      }
+                      <!-- Fila bloqueada para FREE -->
+                      @if (!isPro && comparative.length > 2) {
+                        <tr class="bg-slate-50/80">
+                          <td colspan="4" class="p-4 text-center">
+                            <app-upgrade-button [isPro]="isPro"
+                              buttonClass="text-sm text-purple-600 font-bold hover:text-purple-700">
+                              🔒 Ver más eventos con PRO →
+                            </app-upgrade-button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
                 </div>
+              </div>
             </div>
-        </div>
-    </div>
-</main>
+          </div>
+        </main>

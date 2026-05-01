@@ -2,7 +2,6 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
-import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 import { AuthService } from '../../services/auth.service';
 import { EventService } from '../../services/event.service';
 import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../services/subscription.service';
@@ -12,11 +11,10 @@ import { ToastService } from '../../services/toast.service';
 import { hasExactRole, hasRoleLevel } from '../../interfaces/Usuario';
 
 @Component({
-  selector: 'app-perfil',
-  standalone: true,
-  imports: [HeaderComponent, CommonModule, UpgradeButtonComponent],
-  templateUrl: './perfil.component.html',
-  styleUrl: './perfil.component.css'
+    selector: 'app-perfil',
+    imports: [HeaderComponent, CommonModule],
+    templateUrl: './perfil.component.html',
+    styleUrl: './perfil.component.css'
 })
 export class PerfilComponent implements OnInit {
   // Inyecciones

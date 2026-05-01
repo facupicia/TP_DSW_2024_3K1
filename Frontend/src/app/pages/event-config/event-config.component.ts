@@ -11,7 +11,6 @@ import { Evento, TicketType } from '../../interfaces/event';
 
 @Component({
     selector: 'app-event-config',
-    standalone: true,
     imports: [CommonModule, FormsModule, RouterModule, HeaderComponent],
     templateUrl: './event-config.component.html',
     styleUrls: ['./event-config.component.css']

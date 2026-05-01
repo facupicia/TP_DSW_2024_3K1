@@ -4,15 +4,14 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { Router, RouterLink } from '@angular/router';
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
-import { CommonModule } from '@angular/common';
+
 import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
-  selector: 'app-prefil-edit',
-  standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, HeaderComponent, RouterLink], // <--- Lo agregamos aquí
-  templateUrl: './prefil-edit.component.html',
-  styleUrl: './prefil-edit.component.css'
+    selector: 'app-prefil-edit',
+    imports: [ReactiveFormsModule, HeaderComponent, RouterLink], // <--- Lo agregamos aquí
+    templateUrl: './prefil-edit.component.html',
+    styleUrl: './prefil-edit.component.css'
 })
 export class PrefilEditComponent implements OnInit {
   private AccesService = inject(AuthService);

@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
@@ -9,8 +9,7 @@ import { environment } from '../../../environments/environment';
 
 @Component({
     selector: 'app-checkout-success',
-    standalone: true,
-    imports: [CommonModule, RouterModule],
+    imports: [RouterModule],
     templateUrl: './success.component.html'
 })
 export class CheckoutSuccessComponent implements OnInit, OnDestroy {

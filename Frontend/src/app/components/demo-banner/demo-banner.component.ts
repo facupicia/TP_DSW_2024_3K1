@@ -1,27 +1,30 @@
 import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 @Component({
-  selector: 'app-demo-banner',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-demo-banner',
+    imports: [],
+    template: `
     <div class="demo-banner-container">
       <div class="demo-track">
         <div class="demo-content">
-          <span *ngFor="let i of [1,2,3,4]">
-            ⚠️ PROYECTO DEMOSTRATIVO — NO REALIZAR COMPRAS REALES — LOS EVENTOS SON FICTICIOS ⚠️
-          </span>
+          @for (i of [1,2,3,4]; track i) {
+            <span>
+              ⚠️ PROYECTO DEMOSTRATIVO — NO REALIZAR COMPRAS REALES — LOS EVENTOS SON FICTICIOS ⚠️
+            </span>
+          }
         </div>
         <div class="demo-content">
-          <span *ngFor="let i of [1,2,3,4]">
-            ⚠️ PROYECTO DEMOSTRATIVO — NO REALIZAR COMPRAS REALES — LOS EVENTOS SON FICTICIOS ⚠️
-          </span>
+          @for (i of [1,2,3,4]; track i) {
+            <span>
+              ⚠️ PROYECTO DEMOSTRATIVO — NO REALIZAR COMPRAS REALES — LOS EVENTOS SON FICTICIOS ⚠️
+            </span>
+          }
         </div>
       </div>
     </div>
-  `,
-  styles: [`
+    `,
+    styles: [`
     .demo-banner-container {
       position: fixed;
       top: 0;

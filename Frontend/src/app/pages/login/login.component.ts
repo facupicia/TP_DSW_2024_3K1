@@ -9,11 +9,10 @@ import { environment } from '../../../environments/environment';
 import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
-  selector: 'app-login',
-  standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterLink, HeaderComponent], // Importante: RouterLink
-  templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css'],
+    selector: 'app-login',
+    imports: [ReactiveFormsModule, CommonModule, RouterLink, HeaderComponent], // Importante: RouterLink
+    templateUrl: './login.component.html',
+    styleUrls: ['./login.component.css']
 })
 export class LoginComponent implements OnInit, OnDestroy {
   declare google: any;

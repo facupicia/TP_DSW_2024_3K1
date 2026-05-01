@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { SubscriptionMetrics } from '../../services/admin.service';
@@ -6,95 +6,97 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
 
 @Component({
     selector: 'app-subscription-chart',
-    standalone: true,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [CommonModule, NgApexchartsModule, CurrencyFormatterPipe],
     template: `
-    <div class="charts-grid" *ngIf="metrics">
-      <!-- Donut Chart - Plan Distribution -->
-      <div class="chart-card">
-        <h3 class="chart-card-title">
-          <span class="title-icon">📊</span>
-          Distribución de Planes
-        </h3>
-        <div class="donut-wrapper">
-          <apx-chart
-            *ngIf="donutOptions"
-            [series]="donutOptions.series"
-            [chart]="donutOptions.chart"
-            [labels]="donutOptions.labels"
-            [colors]="donutOptions.colors"
-            [plotOptions]="donutOptions.plotOptions"
-            [legend]="donutOptions.legend"
-            [dataLabels]="donutOptions.dataLabels"
-            [responsive]="donutOptions.responsive">
-          </apx-chart>
+    @if (metrics) {
+      <div class="charts-grid">
+        <!-- Donut Chart - Plan Distribution -->
+        <div class="chart-card">
+          <h3 class="chart-card-title">
+            <span class="title-icon">📊</span>
+            Distribución de Planes
+          </h3>
+          <div class="donut-wrapper">
+            @if (donutOptions) {
+              <apx-chart
+                [series]="donutOptions.series"
+                [chart]="donutOptions.chart"
+                [labels]="donutOptions.labels"
+                [colors]="donutOptions.colors"
+                [plotOptions]="donutOptions.plotOptions"
+                [legend]="donutOptions.legend"
+                [dataLabels]="donutOptions.dataLabels"
+                [responsive]="donutOptions.responsive">
+              </apx-chart>
+            }
+          </div>
+          <div class="plan-stats">
+            @for (plan of metrics.activeSubscriptions.byPlan; track plan) {
+              <div class="plan-stat">
+                <div class="plan-dot" [class.pro]="plan.planName === 'PRO'" [class.free]="plan.planName === 'FREE'"></div>
+                <span class="plan-name">{{ plan.displayName || plan.planName }}</span>
+                <span class="plan-count">{{ plan.count }}</span>
+              </div>
+            }
+          </div>
         </div>
-        <div class="plan-stats">
-          <div *ngFor="let plan of metrics.activeSubscriptions.byPlan" class="plan-stat">
-            <div class="plan-dot" [class.pro]="plan.planName === 'PRO'" [class.free]="plan.planName === 'FREE'"></div>
-            <span class="plan-name">{{ plan.displayName || plan.planName }}</span>
-            <span class="plan-count">{{ plan.count }}</span>
+        <!-- MRR & Churn Stats -->
+        <div class="chart-card metrics-card">
+          <h3 class="chart-card-title">
+            <span class="title-icon">💰</span>
+            Métricas Clave
+          </h3>
+          <div class="metric-block">
+            <div class="metric-header">
+              <span class="metric-label">MRR (Ingresos Recurrentes)</span>
+              <span class="metric-badge mrr">Mensual</span>
+            </div>
+            <p class="metric-value mrr-value">{{ metrics.mrr | currency }}</p>
+            <div class="metric-bar">
+              <div class="metric-bar-fill mrr-bar" [style.width.%]="100"></div>
+            </div>
+          </div>
+          <div class="metric-block">
+            <div class="metric-header">
+              <span class="metric-label">Tasa de Churn</span>
+              <span class="metric-badge" [class.good]="metrics.churnRate < 5" [class.warning]="metrics.churnRate >= 5 && metrics.churnRate < 10" [class.bad]="metrics.churnRate >= 10">
+                {{ metrics.churnRate < 5 ? 'Saludable' : (metrics.churnRate < 10 ? 'Atención' : 'Crítico') }}
+              </span>
+            </div>
+            <p class="metric-value" [class.good-text]="metrics.churnRate < 5" [class.warning-text]="metrics.churnRate >= 5 && metrics.churnRate < 10" [class.bad-text]="metrics.churnRate >= 10">
+              {{ metrics.churnRate.toFixed(1) }}%
+            </p>
+            <div class="churn-gauge">
+              @if (gaugeOptions) {
+                <apx-chart
+                  [series]="gaugeOptions.series"
+                  [chart]="gaugeOptions.chart"
+                  [plotOptions]="gaugeOptions.plotOptions"
+                  [colors]="gaugeOptions.colors"
+                  [labels]="gaugeOptions.labels">
+                </apx-chart>
+              }
+            </div>
+          </div>
+          <div class="conversion-stats">
+            <div class="conversion-item">
+              <span class="conversion-label">Usuarios PRO</span>
+              <span class="conversion-value pro">{{ metrics.proUsers }}</span>
+            </div>
+            <div class="conversion-item">
+              <span class="conversion-label">Usuarios FREE</span>
+              <span class="conversion-value free">{{ metrics.freeUsers }}</span>
+            </div>
+            <div class="conversion-item">
+              <span class="conversion-label">Tasa Conversión</span>
+              <span class="conversion-value">{{ getConversionRate() }}%</span>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- MRR & Churn Stats -->
-      <div class="chart-card metrics-card">
-        <h3 class="chart-card-title">
-          <span class="title-icon">💰</span>
-          Métricas Clave
-        </h3>
-
-        <div class="metric-block">
-          <div class="metric-header">
-            <span class="metric-label">MRR (Ingresos Recurrentes)</span>
-            <span class="metric-badge mrr">Mensual</span>
-          </div>
-          <p class="metric-value mrr-value">{{ metrics.mrr | currency }}</p>
-          <div class="metric-bar">
-            <div class="metric-bar-fill mrr-bar" [style.width.%]="100"></div>
-          </div>
-        </div>
-
-        <div class="metric-block">
-          <div class="metric-header">
-            <span class="metric-label">Tasa de Churn</span>
-            <span class="metric-badge" [class.good]="metrics.churnRate < 5" [class.warning]="metrics.churnRate >= 5 && metrics.churnRate < 10" [class.bad]="metrics.churnRate >= 10">
-              {{ metrics.churnRate < 5 ? 'Saludable' : (metrics.churnRate < 10 ? 'Atención' : 'Crítico') }}
-            </span>
-          </div>
-          <p class="metric-value" [class.good-text]="metrics.churnRate < 5" [class.warning-text]="metrics.churnRate >= 5 && metrics.churnRate < 10" [class.bad-text]="metrics.churnRate >= 10">
-            {{ metrics.churnRate.toFixed(1) }}%
-          </p>
-          <div class="churn-gauge">
-            <apx-chart
-              *ngIf="gaugeOptions"
-              [series]="gaugeOptions.series"
-              [chart]="gaugeOptions.chart"
-              [plotOptions]="gaugeOptions.plotOptions"
-              [colors]="gaugeOptions.colors"
-              [labels]="gaugeOptions.labels">
-            </apx-chart>
-          </div>
-        </div>
-
-        <div class="conversion-stats">
-          <div class="conversion-item">
-            <span class="conversion-label">Usuarios PRO</span>
-            <span class="conversion-value pro">{{ metrics.proUsers }}</span>
-          </div>
-          <div class="conversion-item">
-            <span class="conversion-label">Usuarios FREE</span>
-            <span class="conversion-value free">{{ metrics.freeUsers }}</span>
-          </div>
-          <div class="conversion-item">
-            <span class="conversion-label">Tasa Conversión</span>
-            <span class="conversion-value">{{ getConversionRate() }}%</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
+    }
+    `,
     styles: [`
     .charts-grid {
       display: grid;

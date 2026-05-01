@@ -1,5 +1,5 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -10,11 +10,10 @@ import { PromoterStats, PromoterStatsDetail, EventPromoterStats } from '../../in
 import { Evento } from '../../interfaces/event';
 
 @Component({
-  selector: 'app-promoter-stats',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HeaderComponent],
-  templateUrl: './promoter-stats.component.html',
-  styleUrls: ['./promoter-stats.component.css']
+    selector: 'app-promoter-stats',
+    imports: [FormsModule, RouterModule, HeaderComponent],
+    templateUrl: './promoter-stats.component.html',
+    styleUrls: ['./promoter-stats.component.css']
 })
 export class PromoterStatsComponent implements OnInit {
   private promoterService = inject(PromoterService);

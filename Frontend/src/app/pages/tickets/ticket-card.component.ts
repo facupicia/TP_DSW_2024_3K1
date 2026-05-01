@@ -2,11 +2,10 @@ import { Component, ElementRef, Input, ViewChild, HostListener,EventEmitter, Out
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-ticket-card',
-  standalone: true,
-  imports: [CommonModule],
-  templateUrl: './ticket-card.component.html',
-  styleUrls: ['./ticket-card.component.css']
+    selector: 'app-ticket-card',
+    imports: [CommonModule],
+    templateUrl: './ticket-card.component.html',
+    styleUrls: ['./ticket-card.component.css']
 })
 export class TicketCardComponent {
   @Input() ticket: any;

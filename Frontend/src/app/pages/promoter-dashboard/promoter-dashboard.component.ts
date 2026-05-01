@@ -1,5 +1,5 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -8,11 +8,10 @@ import { ToastService } from '../../services/toast.service';
 import { PromoterProfile, MyPromoterStats, MyAssignedEvents, AssignedEvent } from '../../interfaces/promoter';
 
 @Component({
-  selector: 'app-promoter-dashboard',
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, HeaderComponent],
-  templateUrl: './promoter-dashboard.component.html',
-  styleUrls: ['./promoter-dashboard.component.css']
+    selector: 'app-promoter-dashboard',
+    imports: [FormsModule, RouterModule, HeaderComponent],
+    templateUrl: './promoter-dashboard.component.html',
+    styleUrls: ['./promoter-dashboard.component.css']
 })
 export class PromoterDashboardComponent implements OnInit {
   private promoterService = inject(PromoterService);

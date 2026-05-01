@@ -1,5 +1,5 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges, inject, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit, OnChanges, SimpleChanges, inject, Output, EventEmitter } from '@angular/core';
+
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { AdminService, TrendDataPoint } from '../../services/admin.service';
 
@@ -14,56 +14,69 @@ export interface TrendChartConfig {
 
 @Component({
     selector: 'app-trend-chart',
-    standalone: true,
-    imports: [CommonModule, NgApexchartsModule],
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [NgApexchartsModule],
     template: `
     <div class="trend-chart-container">
       <!-- Header -->
-      <div class="chart-header" *ngIf="config.title || config.showSelector">
-        <h3 class="chart-title" *ngIf="config.title">{{ config.title }}</h3>
-        <div class="period-selector" *ngIf="config.showSelector">
-          <button 
-            *ngFor="let p of periods" 
-            [class.active]="selectedPeriod === p.value"
-            (click)="changePeriod(p.value)"
-            class="period-btn">
-            {{ p.label }}
-          </button>
+      @if (config.title || config.showSelector) {
+        <div class="chart-header">
+          @if (config.title) {
+            <h3 class="chart-title">{{ config.title }}</h3>
+          }
+          @if (config.showSelector) {
+            <div class="period-selector">
+              @for (p of periods; track p) {
+                <button
+                  [class.active]="selectedPeriod === p.value"
+                  (click)="changePeriod(p.value)"
+                  class="period-btn">
+                  {{ p.label }}
+                </button>
+              }
+            </div>
+          }
         </div>
-      </div>
-
+      }
+    
       <!-- Loading State -->
-      <div *ngIf="loading" class="chart-loading">
-        <div class="loading-shimmer"></div>
-      </div>
-
+      @if (loading) {
+        <div class="chart-loading">
+          <div class="loading-shimmer"></div>
+        </div>
+      }
+    
       <!-- Chart -->
-      <div *ngIf="!loading && chartOptions" class="chart-wrapper">
-        <apx-chart
-          [series]="chartOptions.series"
-          [chart]="chartOptions.chart"
-          [xaxis]="chartOptions.xaxis"
-          [yaxis]="chartOptions.yaxis"
-          [stroke]="chartOptions.stroke"
-          [fill]="chartOptions.fill"
-          [colors]="chartOptions.colors"
-          [tooltip]="chartOptions.tooltip"
-          [legend]="chartOptions.legend"
-          [grid]="chartOptions.grid"
-          [dataLabels]="chartOptions.dataLabels">
-        </apx-chart>
-      </div>
-
+      @if (!loading && chartOptions) {
+        <div class="chart-wrapper">
+          <apx-chart
+            [series]="chartOptions.series"
+            [chart]="chartOptions.chart"
+            [xaxis]="chartOptions.xaxis"
+            [yaxis]="chartOptions.yaxis"
+            [stroke]="chartOptions.stroke"
+            [fill]="chartOptions.fill"
+            [colors]="chartOptions.colors"
+            [tooltip]="chartOptions.tooltip"
+            [legend]="chartOptions.legend"
+            [grid]="chartOptions.grid"
+            [dataLabels]="chartOptions.dataLabels">
+          </apx-chart>
+        </div>
+      }
+    
       <!-- Empty State -->
-      <div *ngIf="!loading && (!trendData || trendData.length === 0)" class="chart-empty">
-        <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" 
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        <p>No hay datos disponibles para el período seleccionado</p>
+      @if (!loading && (!trendData || trendData.length === 0)) {
+        <div class="chart-empty">
+          <svg class="empty-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p>No hay datos disponibles para el período seleccionado</p>
+          </div>
+        }
       </div>
-    </div>
-  `,
+    `,
     styles: [`
     .trend-chart-container {
       background: white;
@@ -165,6 +178,7 @@ export interface TrendChartConfig {
 })
 export class TrendChartComponent implements OnInit, OnChanges {
     private adminService = inject(AdminService);
+    private cdr = inject(ChangeDetectorRef);
 
     @Input() config: TrendChartConfig = {
         title: 'Tendencias de Ingresos',
@@ -219,10 +233,12 @@ export class TrendChartComponent implements OnInit, OnChanges {
                     this.buildChart();
                 }
                 this.loading = false;
+                this.cdr.markForCheck();
             },
             error: (err) => {
                 console.error('Error loading trend data:', err);
                 this.loading = false;
+                this.cdr.markForCheck();
             }
         });
     }

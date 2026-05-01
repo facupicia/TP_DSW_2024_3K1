@@ -3,7 +3,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } fr
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento, TicketType } from '../../interfaces/event';
-import { CommonModule } from '@angular/common';
+
 import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
 import { Categoria } from '../../interfaces/categoria';
@@ -13,11 +13,10 @@ import { SubscriptionService, SubscriptionLimits } from '../../services/subscrip
 import { PaymentService, MpStatus } from '../../services/payment.service';
 
 @Component({
-  selector: 'app-registrar-evento',
-  standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, HeaderComponent, RouterLink],
-  templateUrl: './registrar-evento.component.html',
-  styleUrls: ['./registrar-evento.component.css']
+    selector: 'app-registrar-evento',
+    imports: [ReactiveFormsModule, HeaderComponent, RouterLink],
+    templateUrl: './registrar-evento.component.html',
+    styleUrls: ['./registrar-evento.component.css']
 })
 export class RegistrarEventoComponent implements OnInit {
   private eventService = inject(EventService);

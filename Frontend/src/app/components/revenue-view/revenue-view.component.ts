@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { OverviewResponse } from '../../services/admin.service';
@@ -6,128 +6,129 @@ import { TrendChartComponent } from '../trend-chart/trend-chart.component';
 import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
 
 @Component({
-  selector: 'app-revenue-view',
-  standalone: true,
-  imports: [CommonModule, NgApexchartsModule, TrendChartComponent, CurrencyFormatterPipe],
-  template: `
-    <div *ngIf="loading" class="p-8 text-center">
-      <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
-    </div>
+    selector: 'app-revenue-view',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    imports: [CommonModule, NgApexchartsModule, TrendChartComponent, CurrencyFormatterPipe],
+    template: `
+    @if (loading) {
+      <div class="p-8 text-center">
+        <div class="h-32 bg-gray-100 animate-pulse rounded-xl"></div>
+      </div>
+    }
     
-    <div *ngIf="!loading && overview" class="space-y-6">
-      <!-- Revenue Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div class="revenue-card total">
-          <div class="card-icon">💰</div>
-          <div class="card-content">
-            <p class="card-label">Ingresos Totales</p>
-            <p class="card-value">{{ overview.revenue.totalRevenue | currency }}</p>
-            <p class="card-subtitle">Todas las fuentes</p>
+    @if (!loading && overview) {
+      <div class="space-y-6">
+        <!-- Revenue Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div class="revenue-card total">
+            <div class="card-icon">💰</div>
+            <div class="card-content">
+              <p class="card-label">Ingresos Totales</p>
+              <p class="card-value">{{ overview.revenue.totalRevenue | currency }}</p>
+              <p class="card-subtitle">Todas las fuentes</p>
+            </div>
+          </div>
+          <div class="revenue-card commission">
+            <div class="card-icon">📊</div>
+            <div class="card-content">
+              <p class="card-label">Comisiones</p>
+              <p class="card-value">{{ overview.revenue.commissionRevenue | currency }}</p>
+              <p class="card-subtitle">{{ getCommissionPercentage() }}% de ingresos</p>
+            </div>
+          </div>
+          <div class="revenue-card subscription">
+            <div class="card-icon">⭐</div>
+            <div class="card-content">
+              <p class="card-label">MRR Suscripciones</p>
+              <p class="card-value">{{ overview.revenue.subscriptionRevenue | currency }}</p>
+              <p class="card-subtitle">{{ getSubscriptionPercentage() }}% de ingresos</p>
+            </div>
+          </div>
+          <div class="revenue-card gmv">
+            <div class="card-icon">🎫</div>
+            <div class="card-content">
+              <p class="card-label">GMV Total</p>
+              <p class="card-value">{{ overview.revenue.gmv | currency }}</p>
+              <p class="card-subtitle">Valor bruto mercancía</p>
+            </div>
           </div>
         </div>
-        <div class="revenue-card commission">
-          <div class="card-icon">📊</div>
-          <div class="card-content">
-            <p class="card-label">Comisiones</p>
-            <p class="card-value">{{ overview.revenue.commissionRevenue | currency }}</p>
-            <p class="card-subtitle">{{ getCommissionPercentage() }}% de ingresos</p>
+        <!-- Revenue Trend Chart -->
+        <app-trend-chart
+          [config]="{ title: '📈 Evolución de Ingresos', showSelector: true, height: 350, showLegend: true }">
+        </app-trend-chart>
+        <!-- Breakdown Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Revenue Breakdown Donut -->
+          <div class="breakdown-card">
+            <h3 class="breakdown-title">💡 Desglose de Ingresos</h3>
+            <div class="donut-container">
+              @if (breakdownDonutOptions) {
+                <apx-chart
+                  [series]="breakdownDonutOptions.series"
+                  [chart]="breakdownDonutOptions.chart"
+                  [labels]="breakdownDonutOptions.labels"
+                  [colors]="breakdownDonutOptions.colors"
+                  [plotOptions]="breakdownDonutOptions.plotOptions"
+                  [legend]="breakdownDonutOptions.legend"
+                  [dataLabels]="breakdownDonutOptions.dataLabels">
+                </apx-chart>
+              }
+            </div>
+            <div class="breakdown-legend">
+              <div class="legend-item">
+                <span class="legend-dot commission"></span>
+                <span class="legend-label">Comisiones</span>
+                <span class="legend-value">{{ overview.revenue.commissionRevenue | currency }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot subscription"></span>
+                <span class="legend-label">Suscripciones</span>
+                <span class="legend-value">{{ overview.revenue.subscriptionRevenue | currency }}</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="revenue-card subscription">
-          <div class="card-icon">⭐</div>
-          <div class="card-content">
-            <p class="card-label">MRR Suscripciones</p>
-            <p class="card-value">{{ overview.revenue.subscriptionRevenue | currency }}</p>
-            <p class="card-subtitle">{{ getSubscriptionPercentage() }}% de ingresos</p>
-          </div>
-        </div>
-        <div class="revenue-card gmv">
-          <div class="card-icon">🎫</div>
-          <div class="card-content">
-            <p class="card-label">GMV Total</p>
-            <p class="card-value">{{ overview.revenue.gmv | currency }}</p>
-            <p class="card-subtitle">Valor bruto mercancía</p>
+          <!-- Key Metrics -->
+          <div class="breakdown-card">
+            <h3 class="breakdown-title">🎯 Métricas Clave del Marketplace</h3>
+            <div class="metrics-grid">
+              <div class="metric-item">
+                <p class="metric-value blue">{{ overview.marketplace.ticketsSold }}</p>
+                <p class="metric-label">Tickets Vendidos</p>
+              </div>
+              <div class="metric-item">
+                <p class="metric-value purple">{{ overview.marketplace.totalTransactions }}</p>
+                <p class="metric-label">Transacciones</p>
+              </div>
+              <div class="metric-item">
+                <p class="metric-value green">{{ overview.marketplace.averageTicketPrice | currency }}</p>
+                <p class="metric-label">Precio Promedio</p>
+              </div>
+              <div class="metric-item">
+                <p class="metric-value amber">{{ getCommissionRate() }}%</p>
+                <p class="metric-label">Tasa Comisión</p>
+              </div>
+            </div>
+            <!-- Success Rate Bar -->
+            <div class="success-rate-section">
+              <div class="success-header">
+                <span class="success-label">Tasa de Éxito de Pagos</span>
+                <span class="success-value">{{ getSuccessRate() }}%</span>
+              </div>
+              <div class="success-bar">
+                <div class="success-bar-fill" [style.width.%]="getSuccessRate()"></div>
+              </div>
+              <div class="success-stats">
+                <span class="success-stat positive">✓ {{ overview.marketplace.successfulPayments }} exitosos</span>
+                <span class="success-stat negative">✗ {{ overview.marketplace.failedPayments }} fallidos</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- Revenue Trend Chart -->
-      <app-trend-chart 
-        [config]="{ title: '📈 Evolución de Ingresos', showSelector: true, height: 350, showLegend: true }">
-      </app-trend-chart>
-
-      <!-- Breakdown Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Revenue Breakdown Donut -->
-        <div class="breakdown-card">
-          <h3 class="breakdown-title">💡 Desglose de Ingresos</h3>
-          <div class="donut-container">
-            <apx-chart
-              *ngIf="breakdownDonutOptions"
-              [series]="breakdownDonutOptions.series"
-              [chart]="breakdownDonutOptions.chart"
-              [labels]="breakdownDonutOptions.labels"
-              [colors]="breakdownDonutOptions.colors"
-              [plotOptions]="breakdownDonutOptions.plotOptions"
-              [legend]="breakdownDonutOptions.legend"
-              [dataLabels]="breakdownDonutOptions.dataLabels">
-            </apx-chart>
-          </div>
-          <div class="breakdown-legend">
-            <div class="legend-item">
-              <span class="legend-dot commission"></span>
-              <span class="legend-label">Comisiones</span>
-              <span class="legend-value">{{ overview.revenue.commissionRevenue | currency }}</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-dot subscription"></span>
-              <span class="legend-label">Suscripciones</span>
-              <span class="legend-value">{{ overview.revenue.subscriptionRevenue | currency }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Key Metrics -->
-        <div class="breakdown-card">
-          <h3 class="breakdown-title">🎯 Métricas Clave del Marketplace</h3>
-          <div class="metrics-grid">
-            <div class="metric-item">
-              <p class="metric-value blue">{{ overview.marketplace.ticketsSold }}</p>
-              <p class="metric-label">Tickets Vendidos</p>
-            </div>
-            <div class="metric-item">
-              <p class="metric-value purple">{{ overview.marketplace.totalTransactions }}</p>
-              <p class="metric-label">Transacciones</p>
-            </div>
-            <div class="metric-item">
-              <p class="metric-value green">{{ overview.marketplace.averageTicketPrice | currency }}</p>
-              <p class="metric-label">Precio Promedio</p>
-            </div>
-            <div class="metric-item">
-              <p class="metric-value amber">{{ getCommissionRate() }}%</p>
-              <p class="metric-label">Tasa Comisión</p>
-            </div>
-          </div>
-
-          <!-- Success Rate Bar -->
-          <div class="success-rate-section">
-            <div class="success-header">
-              <span class="success-label">Tasa de Éxito de Pagos</span>
-              <span class="success-value">{{ getSuccessRate() }}%</span>
-            </div>
-            <div class="success-bar">
-              <div class="success-bar-fill" [style.width.%]="getSuccessRate()"></div>
-            </div>
-            <div class="success-stats">
-              <span class="success-stat positive">✓ {{ overview.marketplace.successfulPayments }} exitosos</span>
-              <span class="success-stat negative">✗ {{ overview.marketplace.failedPayments }} fallidos</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `,
-  styles: [`
+    }
+    `,
+    styles: [`
     .revenue-card {
       background: white;
       border-radius: 1.5rem;

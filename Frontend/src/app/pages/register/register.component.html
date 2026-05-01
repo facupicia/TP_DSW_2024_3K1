@@ -23,133 +23,147 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div class="group">
           <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Nombre</label>
+          class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Nombre</label>
           <input type="text" formControlName="firstname" placeholder="Ej: Juan"
             class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
             [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('firstname')?.invalid && formRegistro.get('firstname')?.touched}">
-        </div>
-
-        <div class="group">
-          <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Apellido</label>
-          <input type="text" formControlName="lastname" placeholder="Ej: Pérez"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="group">
-          <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
-          <input type="email" formControlName="email" placeholder="hola@ejemplo.com"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
-          <p *ngIf="formRegistro.get('email')?.hasError('email') && formRegistro.get('email')?.touched"
-            class="text-red-500 text-xs mt-1 ml-1">Email inválido</p>
-        </div>
-
-        <div class="group">
-          <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Teléfono</label>
-          <input type="text" formControlName="phone" (input)="formatPhoneNumber($event)" placeholder="0000-000000"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-        <div class="group relative">
-          <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">
-            Ciudad
-          </label>
-
-          <input type="text" formControlName="ciudad" placeholder="Escribe tu ciudad..."
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched}">
-
-          <p *ngIf="formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched"
-            class="text-red-500 text-xs mt-1 ml-1">
-            Ingresa una ciudad
-          </p>
-        </div>
-
-        <div class="group">
-          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">País</label>
-          <input type="text" formControlName="pais" placeholder="Argentina"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
-        </div>
-
-        <div class="group">
-          <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Provincia</label>
-          <input type="text" formControlName="provincia" placeholder="Córdoba"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
-        </div>
-
-        <div class="group">
-          <label
-            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">
-            Dirección
-          </label>
-          <input type="text" formControlName="address" placeholder="Calle y número"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('address')?.invalid && formRegistro.get('address')?.touched}">
-        </div>
-
-      </div>
-
-      <div class="group">
-        <label
-          class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Fecha
-          de Nacimiento</label>
-        <input type="date" formControlName="birth"
-          class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-          [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
-      </div>
-
-      <div class="group">
-        <label
-          class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Contraseña</label>
-        <div class="relative">
-          <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
-            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 pr-12 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
-            [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
-          <button type="button" (click)="showPassword = !showPassword"
-            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-            <svg *ngIf="!showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
-              viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            <svg *ngIf="showPassword" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-              stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-            </svg>
-          </button>
-        </div>
-        <p *ngIf="formRegistro.get('password')?.hasError('minlength') && formRegistro.get('password')?.touched"
-          class="text-red-500 text-xs mt-1 ml-1">Mínimo 6 caracteres</p>
-      </div>
-
-      <div class="pt-4">
-        <button type="submit" [disabled]="formRegistro.invalid || isLoading"
-          class="w-full bg-black text-white h-14 rounded-full font-bold text-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
-          <span *ngIf="!isLoading">Crear Cuenta</span>
-          <div *ngIf="isLoading" class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin">
           </div>
-        </button>
-      </div>
 
-      <p class="text-center text-gray-500 text-sm">
-        ¿Ya tienes cuenta?
-        <a routerLink="/login" class="text-black font-bold hover:underline">Inicia Sesión</a>
-      </p>
+          <div class="group">
+            <label
+            class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Apellido</label>
+            <input type="text" formControlName="lastname" placeholder="Ej: Pérez"
+              class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+              [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('lastname')?.invalid && formRegistro.get('lastname')?.touched}">
+            </div>
+          </div>
 
-    </form>
-  </div>
-</main>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="group">
+              <label
+              class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
+              <input type="email" formControlName="email" placeholder="hola@ejemplo.com"
+                class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('email')?.invalid && formRegistro.get('email')?.touched}">
+                @if (formRegistro.get('email')?.hasError('email') && formRegistro.get('email')?.touched) {
+                  <p
+                  class="text-red-500 text-xs mt-1 ml-1">Email inválido</p>
+                }
+              </div>
+
+              <div class="group">
+                <label
+                class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Teléfono</label>
+                <input type="text" formControlName="phone" (input)="formatPhoneNumber($event)" placeholder="0000-000000"
+                  class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                  [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                <div class="group relative">
+                  <label
+                    class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">
+                  Ciudad
+                </label>
+
+                <input type="text" formControlName="ciudad" placeholder="Escribe tu ciudad..."
+                  class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                  [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched}">
+
+                @if (formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched) {
+                  <p
+                    class="text-red-500 text-xs mt-1 ml-1">
+                    Ingresa una ciudad
+                  </p>
+                }
+              </div>
+
+              <div class="group">
+                <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">País</label>
+                <input type="text" formControlName="pais" placeholder="Argentina"
+                  class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
+                </div>
+
+                <div class="group">
+                  <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Provincia</label>
+                  <input type="text" formControlName="provincia" placeholder="Córdoba"
+                    class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
+                  </div>
+
+                  <div class="group">
+                    <label
+                      class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">
+                      Dirección
+                    </label>
+                    <input type="text" formControlName="address" placeholder="Calle y número"
+                      class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                      [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('address')?.invalid && formRegistro.get('address')?.touched}">
+                    </div>
+
+                  </div>
+
+                  <div class="group">
+                    <label
+                      class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Fecha
+                    de Nacimiento</label>
+                    <input type="date" formControlName="birth"
+                      class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                      [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('birth')?.invalid && formRegistro.get('birth')?.touched}">
+                    </div>
+
+                    <div class="group">
+                      <label
+                      class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Contraseña</label>
+                      <div class="relative">
+                        <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                          class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 pr-12 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
+                          [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('password')?.invalid && formRegistro.get('password')?.touched}">
+                          <button type="button" (click)="showPassword = !showPassword"
+                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                            @if (!showPassword) {
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                  </svg>
+                                }
+                                @if (showPassword) {
+                                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                                    </svg>
+                                  }
+                                </button>
+                              </div>
+                              @if (formRegistro.get('password')?.hasError('minlength') && formRegistro.get('password')?.touched) {
+                                <p
+                                class="text-red-500 text-xs mt-1 ml-1">Mínimo 6 caracteres</p>
+                              }
+                            </div>
+
+                            <div class="pt-4">
+                              <button type="submit" [disabled]="formRegistro.invalid || isLoading"
+                                class="w-full bg-black text-white h-14 rounded-full font-bold text-lg hover:bg-gray-800 active:scale-[0.98] transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                                @if (!isLoading) {
+                                  <span>Crear Cuenta</span>
+                                }
+                                @if (isLoading) {
+                                  <div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin">
+                                  </div>
+                                }
+                              </button>
+                            </div>
+
+                            <p class="text-center text-gray-500 text-sm">
+                              ¿Ya tienes cuenta?
+                              <a routerLink="/login" class="text-black font-bold hover:underline">Inicia Sesión</a>
+                            </p>
+
+                          </form>
+                        </div>
+                      </main>

@@ -19,11 +19,10 @@ interface EventGroup {
 }
 
 @Component({
-  selector: 'app-tickets',
-  standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink],
-  templateUrl: './tickets.component.html',
-  styleUrl: './tickets.component.css'
+    selector: 'app-tickets',
+    imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink],
+    templateUrl: './tickets.component.html',
+    styleUrl: './tickets.component.css'
 })
 export class TicketsComponent implements OnInit {
   private tickService = inject(TicketService);

@@ -8,7 +8,6 @@ import { RouterLink } from '@angular/router';
 
 @Component({
     selector: 'app-scanner',
-    standalone: true,
     imports: [CommonModule, ZXingScannerModule, RouterLink],
     templateUrl: './scanner.component.html',
     styleUrls: ['./scanner.component.css']

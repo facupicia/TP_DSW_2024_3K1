@@ -1,5 +1,5 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 import { Router, ActivatedRoute } from '@angular/router';
 import { SubscriptionService } from '../../services/subscription.service';
 import { ToastService } from '../../services/toast.service';
@@ -7,47 +7,54 @@ import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-subscription-callback',
-    standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
         <div class="callback-page">
-            <div class="card">
-                <!-- Loading state -->
-                <div *ngIf="loading" class="loading">
-                    <div class="spinner"></div>
-                    <h2>Verificando tu suscripción...</h2>
-                    <p>Por favor espera mientras confirmamos tu pago</p>
+          <div class="card">
+            <!-- Loading state -->
+            @if (loading) {
+              <div class="loading">
+                <div class="spinner"></div>
+                <h2>Verificando tu suscripción...</h2>
+                <p>Por favor espera mientras confirmamos tu pago</p>
+              </div>
+            }
+        
+            <!-- Not logged in - show generic success -->
+            @if (!loading && !isLoggedIn) {
+              <div class="not-logged-in">
+                <div class="icon">✅</div>
+                <h2>¡Pago Procesado!</h2>
+                <p>Tu suscripción se está activando. Inicia sesión para verificar tu plan PRO.</p>
+                <button class="btn-primary" (click)="goToLogin()">Iniciar Sesión</button>
+              </div>
+            }
+        
+            <!-- Logged in and success -->
+            @if (!loading && isLoggedIn && success) {
+              <div class="success">
+                <div class="icon">✅</div>
+                <h2>¡Suscripción Activada!</h2>
+                <p>Tu plan PRO está listo. Disfruta de eventos ilimitados.</p>
+                <button class="btn-primary" (click)="goToEvents()">Ir a Mis Eventos</button>
+              </div>
+            }
+        
+            <!-- Logged in but verification failed/pending -->
+            @if (!loading && isLoggedIn && !success) {
+              <div class="pending">
+                <div class="icon">⏳</div>
+                <h2>Procesando Pago</h2>
+                <p>{{ errorMessage }}</p>
+                <div class="button-group">
+                  <button class="btn-secondary" (click)="retry()">Reintentar Verificación</button>
+                  <button class="btn-primary" (click)="goToProfile()">Ir a Mi Perfil</button>
                 </div>
-
-                <!-- Not logged in - show generic success -->
-                <div *ngIf="!loading && !isLoggedIn" class="not-logged-in">
-                    <div class="icon">✅</div>
-                    <h2>¡Pago Procesado!</h2>
-                    <p>Tu suscripción se está activando. Inicia sesión para verificar tu plan PRO.</p>
-                    <button class="btn-primary" (click)="goToLogin()">Iniciar Sesión</button>
-                </div>
-
-                <!-- Logged in and success -->
-                <div *ngIf="!loading && isLoggedIn && success" class="success">
-                    <div class="icon">✅</div>
-                    <h2>¡Suscripción Activada!</h2>
-                    <p>Tu plan PRO está listo. Disfruta de eventos ilimitados.</p>
-                    <button class="btn-primary" (click)="goToEvents()">Ir a Mis Eventos</button>
-                </div>
-
-                <!-- Logged in but verification failed/pending -->
-                <div *ngIf="!loading && isLoggedIn && !success" class="pending">
-                    <div class="icon">⏳</div>
-                    <h2>Procesando Pago</h2>
-                    <p>{{ errorMessage }}</p>
-                    <div class="button-group">
-                        <button class="btn-secondary" (click)="retry()">Reintentar Verificación</button>
-                        <button class="btn-primary" (click)="goToProfile()">Ir a Mi Perfil</button>
-                    </div>
-                </div>
-            </div>
+              </div>
+            }
+          </div>
         </div>
-    `,
+        `,
     styles: [`
         .callback-page {
             min-height: 100vh;

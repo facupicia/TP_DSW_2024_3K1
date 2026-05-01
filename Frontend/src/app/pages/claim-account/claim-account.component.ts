@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -6,11 +6,10 @@ import { AuthService, AccountClaimInfo } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 
 @Component({
-  selector: 'app-claim-account',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
-  templateUrl: './claim-account.component.html',
-  styleUrl: './claim-account.component.css'
+    selector: 'app-claim-account',
+    imports: [ReactiveFormsModule, RouterLink],
+    templateUrl: './claim-account.component.html',
+    styleUrl: './claim-account.component.css'
 })
 export class ClaimAccountComponent implements OnInit {
   private route = inject(ActivatedRoute);

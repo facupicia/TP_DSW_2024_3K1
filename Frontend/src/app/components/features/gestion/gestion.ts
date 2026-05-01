@@ -1,11 +1,10 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 
 @Component({
     selector: 'app-landing-gestion',
-    standalone: true,
-    imports: [CommonModule],
+    imports: [],
     template: `
     <section class="px-4 max-w-6xl mx-auto py-24 relative">
   <div class="flex flex-col md:flex-row-reverse items-center justify-between gap-16">

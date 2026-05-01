@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 import { AuthService } from '../../services/auth.service';
@@ -10,8 +10,7 @@ import { ToastService } from '../../services/toast.service';
 
 @Component({
     selector: 'app-settings',
-    standalone: true,
-    imports: [HeaderComponent, CommonModule, RouterLink, UpgradeButtonComponent],
+    imports: [HeaderComponent, CommonModule, UpgradeButtonComponent],
     templateUrl: './settings.component.html',
     styleUrl: './settings.component.css'
 })

@@ -2,18 +2,17 @@ import { Component, inject, OnInit, DestroyRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
-  selector: 'app-explorador-eventos',
-  standalone: true,
-  imports: [CommonModule, HeaderComponent, FormsModule],
-  templateUrl: './explorador-eventos.component.html',
-  styleUrl: './explorador-eventos.component.css'
+    selector: 'app-explorador-eventos',
+    imports: [CommonModule, HeaderComponent, FormsModule, NgOptimizedImage],
+    templateUrl: './explorador-eventos.component.html',
+    styleUrl: './explorador-eventos.component.css'
 })
 export class ExploradorEventosComponent implements OnInit {
   private router: Router = inject(Router);

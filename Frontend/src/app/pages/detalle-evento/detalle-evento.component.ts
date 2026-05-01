@@ -1,7 +1,7 @@
 import { Component, inject, Input, OnInit, OnDestroy } from '@angular/core';
 import { EventService } from '../../services/event.service';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { Evento } from '../../interfaces/event';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -9,11 +9,10 @@ import { ToastService } from '../../services/toast.service';
 import { interval, Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-detalle-evento',
-  standalone: true,
-  imports: [CommonModule, HeaderComponent],
-  templateUrl: './detalle-evento.component.html',
-  styleUrl: './detalle-evento.component.css'
+    selector: 'app-detalle-evento',
+    imports: [CommonModule, HeaderComponent, NgOptimizedImage],
+    templateUrl: './detalle-evento.component.html',
+    styleUrl: './detalle-evento.component.css'
 })
 export class DetalleEventoComponent implements OnInit, OnDestroy {
 

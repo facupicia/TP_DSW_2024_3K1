@@ -1,12 +1,11 @@
 import { Component, Input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+
 
 
 @Component({
-  selector: 'app-landing-finanzas',
-  standalone: true,
-  imports: [CommonModule],
-  template: `
+    selector: 'app-landing-finanzas',
+    imports: [],
+    template: `
 <section class="px-4 max-w-6xl mx-auto -mt-16 relative z-40 pb-20">
   <div class="flex flex-col items-start justify-start mb-8">
     <span class="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-sm font-bold tracking-wider uppercase">

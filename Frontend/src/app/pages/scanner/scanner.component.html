@@ -1,123 +1,126 @@
 <div class="relative h-screen w-full bg-black overflow-hidden flex flex-col font-sans">
 
-    <div class="absolute inset-0 z-40 pointer-events-none transition-colors duration-300"
+  <div class="absolute inset-0 z-40 pointer-events-none transition-colors duration-300"
          [ngClass]="{
              'bg-green-500/40': flashState === 'success',
              'bg-red-500/40': flashState === 'error',
              'bg-transparent': flashState === 'idle'
          }">
+  </div>
+
+  <div class="absolute inset-0 z-0">
+    <zxing-scanner [enable]="true" [torch]="torchEnabled" [device]="currentDevice"
+      [formats]="allowedFormats" (scanSuccess)="onScanSuccess($event)" (camerasFound)="onCamerasFound($event)"
+      (permissionResponse)="onHasPermission($event)" class="w-full h-full object-cover">
+    </zxing-scanner>
+
+    <div class="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px]">
+      @if (flashState === 'idle') {
+        <div class="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 transition-opacity duration-300">
+          <div class="scan-laser"></div>
+          <div class="corner-border corner-tl"></div>
+          <div class="corner-border corner-tr"></div>
+          <div class="corner-border corner-bl"></div>
+          <div class="corner-border corner-br"></div>
+          <div class="absolute -bottom-16 w-full text-center space-y-2">
+            <p class="text-white font-bold text-lg tracking-tight drop-shadow-md">
+              Listo para escanear
+            </p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="absolute top-0 left-0 right-0 z-30 pt-12 pb-4 px-6 flex justify-between items-center">
+    <a [routerLink]="['/profile']"
+      class="flex items-center justify-center w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/10">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </a>
+
+    <div class="flex gap-3">
+      <button (click)="toggleTorch()"
+        class="w-10 h-10 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition-all"
+        [ngClass]="torchEnabled ? 'bg-yellow-400 text-black' : 'bg-black/40 text-white'">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  @if (flashState !== 'idle' && scanResult) {
+    <div
+      class="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-sm animate-pop-in">
+      <div class="bg-white/90 backdrop-blur-xl rounded-[32px] p-6 shadow-2xl border text-center relative overflow-hidden"
+        [ngClass]="flashState === 'success' ? 'border-green-500/50' : 'border-red-500/50'">
+        <div class="absolute bottom-0 left-0 h-1.5 bg-gray-200 w-full">
+          <div class="h-full transition-all duration-[3000ms] ease-linear w-full"
+            [ngClass]="flashState === 'success' ? 'bg-green-500' : 'bg-red-500'"
+            [style.width]="'0%'">
+          </div>
+        </div>
+        <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 shadow-lg"
+          [ngClass]="flashState === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
+          @if (flashState === 'success') {
+            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+          }
+          @if (flashState === 'error') {
+            <svg class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          }
+        </div>
+        <h2 class="text-3xl font-black mb-2"
+          [ngClass]="flashState === 'success' ? 'text-green-600' : 'text-red-600'">
+          {{ flashState === 'success' ? 'ACCESO OK' : 'DENEGADO' }}
+        </h2>
+        <p class="text-gray-500 font-medium mb-4">{{ scanResult.message }}</p>
+        @if (scanResult.ticket) {
+          <div class="bg-gray-100/50 rounded-2xl p-4 text-left space-y-2">
+            <div class="flex justify-between">
+              <span class="text-xs font-bold text-gray-400 uppercase">Asistente</span>
+              <span class="text-sm font-bold text-gray-900">{{ scanResult.ticket.user?.firstname }} {{ scanResult.ticket.user?.lastname }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-xs font-bold text-gray-400 uppercase">Ticket</span>
+              <span class="text-sm font-bold text-gray-900">{{ scanResult.ticket.type || 'General' }}</span>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="mt-auto z-20 w-full max-h-[40vh] flex flex-col rounded-t-[32px] overflow-hidden border-t border-white/20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl bg-white/90">
+
+    <div class="w-full flex justify-center pt-3 pb-1 bg-transparent shrink-0">
+      <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
     </div>
 
-    <div class="absolute inset-0 z-0">
-        <zxing-scanner [enable]="true" [torch]="torchEnabled" [device]="currentDevice"
-            [formats]="allowedFormats" (scanSuccess)="onScanSuccess($event)" (camerasFound)="onCamerasFound($event)"
-            (permissionResponse)="onHasPermission($event)" class="w-full h-full object-cover">
-        </zxing-scanner>
+    <div class="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2">
+      <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Últimos Escaneos</h3>
 
-        <div class="absolute inset-0 bg-black/40 z-10 backdrop-blur-[1px]">
-            <div *ngIf="flashState === 'idle'" class="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 transition-opacity duration-300">
-                
-                <div class="scan-laser"></div>
-
-                <div class="corner-border corner-tl"></div>
-                <div class="corner-border corner-tr"></div>
-                <div class="corner-border corner-bl"></div>
-                <div class="corner-border corner-br"></div>
-
-                <div class="absolute -bottom-16 w-full text-center space-y-2">
-                     <p class="text-white font-bold text-lg tracking-tight drop-shadow-md">
-                        Listo para escanear
-                    </p>
-                </div>
+      <div class="space-y-3">
+        @for (item of scanHistory; track item) {
+          <div
+            class="flex items-center gap-4 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm animate-fade-in-up">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              [ngClass]="item.status === 'success' || !item.status ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
+              @if (item.status !== 'error') {
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              }
+              @if (item.status === 'error') {
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              }
             </div>
-        </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-gray-900 text-sm truncate">{{ item.user?.firstname || 'Usuario' }} {{ item.user?.lastname }}</p>
+              <p class="text-xs text-gray-500 truncate">{{ item.titleEvent || 'Evento' }}</p>
+            </div>
+            <span class="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
+              {{ item.usedAt | date:'HH:mm:ss' }}
+            </span>
+          </div>
+        }
+      </div>
     </div>
-
-    <div class="absolute top-0 left-0 right-0 z-30 pt-12 pb-4 px-6 flex justify-between items-center">
-        <a [routerLink]="['/profile']" 
-           class="flex items-center justify-center w-10 h-10 rounded-full bg-black/40 backdrop-blur-md text-white border border-white/10">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        </a>
-        
-        <div class="flex gap-3">
-            <button (click)="toggleTorch()" 
-                class="w-10 h-10 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition-all"
-                [ngClass]="torchEnabled ? 'bg-yellow-400 text-black' : 'bg-black/40 text-white'">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            </button>
-        </div>
-    </div>
-
-    <div *ngIf="flashState !== 'idle' && scanResult" 
-         class="absolute top-[35%] left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-sm animate-pop-in">
-        
-        <div class="bg-white/90 backdrop-blur-xl rounded-[32px] p-6 shadow-2xl border text-center relative overflow-hidden"
-             [ngClass]="flashState === 'success' ? 'border-green-500/50' : 'border-red-500/50'">
-            
-            <div class="absolute bottom-0 left-0 h-1.5 bg-gray-200 w-full">
-                <div class="h-full transition-all duration-[3000ms] ease-linear w-full"
-                     [ngClass]="flashState === 'success' ? 'bg-green-500' : 'bg-red-500'"
-                     [style.width]="'0%'">
-                     </div>
-            </div>
-
-            <div class="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 shadow-lg"
-                 [ngClass]="flashState === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
-                <svg *ngIf="flashState === 'success'" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                <svg *ngIf="flashState === 'error'" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </div>
-
-            <h2 class="text-3xl font-black mb-2" 
-                [ngClass]="flashState === 'success' ? 'text-green-600' : 'text-red-600'">
-                {{ flashState === 'success' ? 'ACCESO OK' : 'DENEGADO' }}
-            </h2>
-            
-            <p class="text-gray-500 font-medium mb-4">{{ scanResult.message }}</p>
-
-            <div *ngIf="scanResult.ticket" class="bg-gray-100/50 rounded-2xl p-4 text-left space-y-2">
-                <div class="flex justify-between">
-                    <span class="text-xs font-bold text-gray-400 uppercase">Asistente</span>
-                    <span class="text-sm font-bold text-gray-900">{{ scanResult.ticket.user?.firstname }} {{ scanResult.ticket.user?.lastname }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-xs font-bold text-gray-400 uppercase">Ticket</span>
-                    <span class="text-sm font-bold text-gray-900">{{ scanResult.ticket.type || 'General' }}</span>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-    <div class="mt-auto z-20 w-full max-h-[40vh] flex flex-col rounded-t-[32px] overflow-hidden border-t border-white/20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl bg-white/90">
-        
-        <div class="w-full flex justify-center pt-3 pb-1 bg-transparent shrink-0">
-            <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto hide-scrollbar p-6 pt-2">
-            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Últimos Escaneos</h3>
-            
-            <div class="space-y-3">
-                <div *ngFor="let item of scanHistory"
-                    class="flex items-center gap-4 p-3 bg-white rounded-2xl border border-gray-100 shadow-sm animate-fade-in-up">
-                    
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                         [ngClass]="item.status === 'success' || !item.status ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'">
-                        <svg *ngIf="item.status !== 'error'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        <svg *ngIf="item.status === 'error'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </div>
-                    
-                    <div class="flex-1 min-w-0">
-                        <p class="font-bold text-gray-900 text-sm truncate">{{ item.user?.firstname || 'Usuario' }} {{ item.user?.lastname }}</p>
-                        <p class="text-xs text-gray-500 truncate">{{ item.titleEvent || 'Evento' }}</p>
-                    </div>
-                    
-                    <span class="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-lg">
-                        {{ item.usedAt | date:'HH:mm:ss' }}
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
+  </div>
 
 </div>

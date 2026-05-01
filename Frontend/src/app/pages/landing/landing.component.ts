@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit, inject } from '@angular/core';
-import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common'; // Agregamos DatePipe para las fechas
+import { CommonModule, DatePipe, isPlatformBrowser, NgOptimizedImage } from '@angular/common'; // Agregamos DatePipe para las fechas
 import { Router, RouterLink } from '@angular/router'; // RouterLink es vital para el HTML
 import { PLATFORM_ID } from '@angular/core';
 
@@ -13,20 +13,20 @@ import { LandingVentaComponent } from '../../components/features/venta/venta';
 import { LandingGestionComponent } from '../../components/features/gestion/gestion';
 
 @Component({
-  selector: 'app-landing',
-  standalone: true,
-  imports: [
-    HeaderComponent,
-    CommonModule, // Para *ngFor, *ngIf
-    RouterLink,   // Para routerLink=""
-    DatePipe,     // Para el pipe | date
-    SubscriptionLandingComponent,
-    LandingFinanzasComponent,
-    LandingVentaComponent,
-    LandingGestionComponent
-  ],
-  templateUrl: './landing.component.html',
-  styleUrls: ['./landing.component.css']
+    selector: 'app-landing',
+    imports: [
+        HeaderComponent,
+        CommonModule, // Para *ngFor, *ngIf
+        NgOptimizedImage,
+        RouterLink, // Para routerLink=""
+        DatePipe, // Para el pipe | date
+        SubscriptionLandingComponent,
+        LandingFinanzasComponent,
+        LandingVentaComponent,
+        LandingGestionComponent
+    ],
+    templateUrl: './landing.component.html',
+    styleUrls: ['./landing.component.css']
 })
 export class LandingComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);

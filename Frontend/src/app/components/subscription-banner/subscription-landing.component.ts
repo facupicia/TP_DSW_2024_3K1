@@ -8,7 +8,6 @@ import { AuthService } from '../../services/auth.service'; // Asumo que tienes e
 
 @Component({
     selector: 'app-subscription-landing',
-    standalone: true,
     imports: [CommonModule],
     templateUrl: './subscription-landing.component.html',
     styleUrls: ['./subscription-landing.component.css']

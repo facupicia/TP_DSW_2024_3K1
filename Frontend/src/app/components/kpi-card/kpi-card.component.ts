@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface KpiCardData {
@@ -12,7 +12,7 @@ export interface KpiCardData {
 
 @Component({
     selector: 'app-kpi-card',
-    standalone: true,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     imports: [CommonModule],
     template: `
     <div class="kpi-card" [ngClass]="data.gradient">
@@ -29,11 +29,13 @@ export interface KpiCardData {
       <p class="text-4xl font-bold" [ngClass]="'text-' + data.textColor.replace('600', '900').replace('700', '900')">
         {{ data.value }}
       </p>
-      <p *ngIf="data.subtitle" class="text-sm mt-2" [ngClass]="'text-' + data.textColor">
-        {{ data.subtitle }}
-      </p>
+      @if (data.subtitle) {
+        <p class="text-sm mt-2" [ngClass]="'text-' + data.textColor">
+          {{ data.subtitle }}
+        </p>
+      }
     </div>
-  `,
+    `,
     styles: [`
     .kpi-card {
       @apply bg-white rounded-2xl border border-gray-100 shadow-sm p-6;

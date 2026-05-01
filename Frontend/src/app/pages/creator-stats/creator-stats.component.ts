@@ -104,7 +104,6 @@ const createTopEventsChartOptions = (): ChartOptions => ({
 
 @Component({
     selector: 'app-creator-stats',
-    standalone: true,
     imports: [
         CommonModule,
         FormsModule,

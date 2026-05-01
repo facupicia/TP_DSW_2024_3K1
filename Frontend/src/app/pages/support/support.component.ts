@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -9,11 +9,10 @@ interface FaqItem {
 }
 
 @Component({
-  selector: 'app-support',
-  standalone: true,
-  imports: [CommonModule, HeaderComponent, RouterLink],
-  templateUrl: './support.component.html',
-  styleUrl: './support.component.css'
+    selector: 'app-support',
+    imports: [HeaderComponent, RouterLink],
+    templateUrl: './support.component.html',
+    styleUrl: './support.component.css'
 })
 export class SupportComponent {
   faqs: FaqItem[] = [
