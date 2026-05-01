@@ -90,37 +90,28 @@
                                     class="w-full bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-900 text-sm font-medium focus:ring-2 focus:ring-black/5 focus:bg-white outline-none transition-all">
                             </div>
 
-                            <!-- Ciudad (with search) -->
+                            <!-- Ciudad -->
                             <div class="space-y-1 relative">
                                 <label
                                     class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Ciudad</label>
                                 <input type="text" formControlName="ciudad" placeholder="Escribe tu ciudad..."
-                                    (input)="onInputLocation($event)" (blur)="closeSuggestions()" autocomplete="off"
                                     class="w-full bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-900 text-sm font-medium focus:ring-2 focus:ring-black/5 focus:bg-white outline-none transition-all">
-
-                                <ul *ngIf="showSuggestions && locationSuggestions.length > 0"
-                                    class="absolute z-50 w-full bg-white border border-gray-200 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto">
-                                    <li *ngFor="let item of locationSuggestions" (mousedown)="selectAddress(item)"
-                                        class="px-3 py-2 hover:bg-blue-50 cursor-pointer text-xs text-gray-700 border-b border-gray-100 last:border-none">
-                                        {{ item.display_name }}
-                                    </li>
-                                </ul>
                             </div>
 
-                            <!-- País (readonly) -->
+                            <!-- País -->
                             <div class="space-y-1">
                                 <label
                                     class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">País</label>
-                                <input type="text" formControlName="pais" readonly
-                                    class="w-full bg-gray-200 border-none rounded-xl py-3 px-4 text-gray-700 text-sm font-medium cursor-not-allowed focus:outline-none">
+                                <input type="text" formControlName="pais" placeholder="Argentina"
+                                    class="w-full bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-900 text-sm font-medium focus:ring-2 focus:ring-black/5 focus:bg-white outline-none transition-all">
                             </div>
 
-                            <!-- Provincia (readonly) -->
+                            <!-- Provincia -->
                             <div class="space-y-1">
                                 <label
                                     class="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1">Provincia</label>
-                                <input type="text" formControlName="provincia" readonly
-                                    class="w-full bg-gray-200 border-none rounded-xl py-3 px-4 text-gray-700 text-sm font-medium cursor-not-allowed focus:outline-none">
+                                <input type="text" formControlName="provincia" placeholder="Córdoba"
+                                    class="w-full bg-gray-100 border-none rounded-xl py-3 px-4 text-gray-900 text-sm font-medium focus:ring-2 focus:ring-black/5 focus:bg-white outline-none transition-all">
                             </div>
 
                             <!-- Dirección (editable) -->

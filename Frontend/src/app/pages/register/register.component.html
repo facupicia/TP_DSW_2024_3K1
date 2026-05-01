@@ -1,3 +1,5 @@
+<app-header></app-header>
+
 <main
   class="min-h-screen w-full flex items-center justify-center bg-[#F5F5F7] p-4 font-sans relative overflow-hidden py-20">
 
@@ -7,12 +9,6 @@
   <div
     class="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-200/40 rounded-full blur-[100px] pointer-events-none">
   </div>
-
-  <nav class="absolute top-0 left-0 w-full p-8 z-50">
-    <a routerLink="/" class="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-      EventLife
-    </a>
-  </nav>
 
   <div
     class="w-full max-w-3xl bg-white rounded-[40px] shadow-2xl shadow-black/5 p-8 md:p-12 animate-fade-in-up relative z-10">
@@ -71,34 +67,25 @@
           </label>
 
           <input type="text" formControlName="ciudad" placeholder="Escribe tu ciudad..."
-            (input)="onInputLocation($event)" (blur)="closeSuggestions()" autocomplete="off"
             class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
             [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched}">
 
-          <ul *ngIf="showSuggestions && locationSuggestions.length > 0"
-            class="absolute z-50 w-full bg-white border border-gray-200 rounded-2xl mt-2 shadow-xl max-h-60 overflow-y-auto">
-            <li *ngFor="let item of locationSuggestions" (mousedown)="selectAddress(item)"
-              class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 border-b border-gray-100 last:border-none">
-              {{ item.display_name }}
-            </li>
-          </ul>
-
           <p *ngIf="formRegistro.get('ciudad')?.invalid && formRegistro.get('ciudad')?.touched"
             class="text-red-500 text-xs mt-1 ml-1">
-            Selecciona una ciudad válida
+            Ingresa una ciudad
           </p>
         </div>
 
         <div class="group">
           <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">País</label>
-          <input type="text" formControlName="pais" readonly
-            class="w-full bg-gray-100 text-gray-700 rounded-2xl border-none px-5 py-4 font-medium cursor-not-allowed focus:outline-none">
+          <input type="text" formControlName="pais" placeholder="Argentina"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
         </div>
 
         <div class="group">
           <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Provincia</label>
-          <input type="text" formControlName="provincia" readonly
-            class="w-full bg-gray-100 text-gray-700 rounded-2xl border-none px-5 py-4 font-medium cursor-not-allowed focus:outline-none">
+          <input type="text" formControlName="provincia" placeholder="Córdoba"
+            class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner">
         </div>
 
         <div class="group">

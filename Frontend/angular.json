@@ -26,7 +26,6 @@
             ],
             "styles": [
               "./node_modules/ngx-toastr/toastr.css",
-              "./node_modules/leaflet/dist/leaflet.css",
               "src/styles.css"
             ],
             "scripts": [
@@ -37,9 +36,7 @@
             "ssr": {
               "entry": "server.ts"
             },
-            "allowedCommonJsDependencies": [
-              "leaflet"
-            ]
+            "allowedCommonJsDependencies": []
           },
           "configurations": {
             "production": {
@@ -102,8 +99,7 @@
               "src/assets"
             ],
             "styles": [
-              "src/styles.css",
-              "node_modules/leaflet/dist/leaflet.css"
+              "src/styles.css"
             ],
             "scripts": []
           }

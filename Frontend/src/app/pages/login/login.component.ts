@@ -6,11 +6,12 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Login } from '../../interfaces/Login';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
+import { HeaderComponent } from '../../components/header/header.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule, RouterLink], // Importante: RouterLink
+  imports: [ReactiveFormsModule, CommonModule, RouterLink, HeaderComponent], // Importante: RouterLink
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css'],
 })

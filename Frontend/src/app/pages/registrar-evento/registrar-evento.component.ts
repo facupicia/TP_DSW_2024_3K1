@@ -1,4 +1,4 @@
-import { Component, inject, AfterViewInit, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EventService } from '../../services/event.service';
@@ -8,9 +8,6 @@ import { HeaderComponent } from '../../components/header/header.component';
 import { CategoryService } from '../../services/category.service';
 import { Categoria } from '../../interfaces/categoria';
 import { AuthService } from '../../services/auth.service';
-import { HttpClient } from '@angular/common/http';
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
-import { of, Subject } from 'rxjs';
 import { ToastService } from '../../services/toast.service';
 import { SubscriptionService, SubscriptionLimits } from '../../services/subscription.service';
 import { PaymentService, MpStatus } from '../../services/payment.service';
@@ -22,13 +19,12 @@ import { PaymentService, MpStatus } from '../../services/payment.service';
   templateUrl: './registrar-evento.component.html',
   styleUrls: ['./registrar-evento.component.css']
 })
-export class RegistrarEventoComponent implements OnInit, AfterViewInit {
+export class RegistrarEventoComponent implements OnInit {
   private eventService = inject(EventService);
   private categoryService = inject(CategoryService);
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute); // Inyección para leer URL
-  private http = inject(HttpClient);
   public formBuild = inject(FormBuilder);
   private toastService = inject(ToastService);
   private subscriptionService = inject(SubscriptionService);
@@ -54,14 +50,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
   public showMpModal: boolean = false;
   public mpLoading: boolean = false;
   public isFreePlan: boolean = true;
-
-  // Variables para mapa y autocompletado
-  public locationSuggestions: any[] = [];
-  public showSuggestions: boolean = false;
-  private locationSearch$ = new Subject<string>();
-  private map: any;
-  private marker: any;
-  private leaflet: any;
 
   public formRegistroEvento: FormGroup = this.formBuild.group({
     category: ['', Validators.required],
@@ -139,8 +127,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       }
     });
 
-    // 4. Lógica de Autocompletado de Mapa
-    this.setupLocationSearch();
   }
 
   addTicketType(data?: TicketType) {
@@ -203,8 +189,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
           } as TicketType);
         }
 
-        // Si quisieras centrar el mapa en la ubicación guardada, podrías llamar a una función aquí
-        // this.geocodeAndSetMap(evento.location);
       },
       error: () => {
         // Error message handled by interceptor
@@ -212,133 +196,6 @@ export class RegistrarEventoComponent implements OnInit, AfterViewInit {
       }
     });
   }
-
-  // Modifica setupLocationSearch
-  setupLocationSearch() {
-    this.locationSearch$.pipe(
-      debounceTime(1000), // AUMENTA ESTO: Nominatim pide máximo 1 petición por segundo
-      distinctUntilChanged(),
-      switchMap(query => {
-        const normalizedQuery = query.trim();
-        if (normalizedQuery.length > 3 && this.showSuggestions) {
-          // AGREGA &email=tu@email.com
-          return this.http.get<any[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(normalizedQuery)}&limit=5&addressdetails=1&email=tu_contacto@tudominio.com`).pipe(
-            catchError(() => of([]))
-          );
-        }
-        return of([]);
-      })
-    ).subscribe(results => {
-      this.locationSuggestions = results;
-    });
-  }
-
-  onInputLocation(event: Event) {
-    this.showSuggestions = true;
-    const input = event.target as HTMLInputElement;
-    this.locationSearch$.next(input.value);
-  }
-
-  // Modifica getAddress (Geocodificación inversa)
-  private getAddress(lat: number, lng: number) {
-    this.http.get<any>(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&email=tu_contacto@tudominio.com`)
-      .subscribe({
-        next: (data) => {
-          if (data && data.address) {
-            const addr = data.address;
-            this.formRegistroEvento.patchValue({
-              pais: this.getCountry(addr),
-              provincia: this.getProvince(addr),
-              ciudad: this.getCity(addr),
-              direccion: this.getStreetAddress(addr, data.display_name)
-            }, { emitEvent: false });
-          }
-        }
-      });
-  }
-
-  // --- LOGICA DE MAPA (Leaflet) ---
-  ngAfterViewInit(): void {
-    if (typeof window !== 'undefined') {
-      import('leaflet').then((module) => {
-        // SOLUCIÓN: Leaflet a veces viene encapsulado en 'default'
-        const L = module.default || module;
-        this.initMap(L);
-      });
-    }
-  }
-
-  private initMap(L: any): void {
-    this.leaflet = L;
-
-    // 1. CORRECCIÓN DE ICONOS PARA PRODUCCIÓN
-    // Definimos los iconos manualmente para evitar que salgan rotos al compilar
-    const iconDefault = L.icon({
-      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-
-    // Forzamos al prototipo de Marker a usar este icono
-    L.Marker.prototype.options.icon = iconDefault;
-
-    // 2. INICIALIZAR MAPA
-    this.map = L.map('map').setView([-31.4161, -64.1867], 13);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(this.map);
-
-    this.map.on('click', (e: any) => {
-      const { lat, lng } = e.latlng;
-      if (this.marker) this.marker.setLatLng([lat, lng]);
-      else this.marker = L.marker([lat, lng]).addTo(this.map);
-      this.getAddress(lat, lng);
-    });
-  }
-  closeSuggestions() { setTimeout(() => { this.showSuggestions = false; }, 200); }
-
-  selectAddress(item: any) {
-    this.showSuggestions = false;
-    const addr = item.address || {};
-    this.formRegistroEvento.patchValue({
-      pais: this.getCountry(addr),
-      provincia: this.getProvince(addr),
-      ciudad: this.getCity(addr),
-      direccion: this.getStreetAddress(addr, item.display_name)
-    }, { emitEvent: false });
-    const lat = parseFloat(item.lat);
-    const lng = parseFloat(item.lon);
-
-    if (this.map) {
-      this.map.setView([lat, lng], 16);
-      if (this.marker) this.marker.setLatLng([lat, lng]);
-      else if (this.leaflet) this.marker = this.leaflet.marker([lat, lng]).addTo(this.map);
-    }
-  }
-
-  private getCountry(addr: any): string {
-    return addr.country || '';
-  }
-
-  private getProvince(addr: any): string {
-    return addr.state || addr.province || addr.region || addr.state_district || '';
-  }
-
-  private getCity(addr: any): string {
-    return addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.city_district || addr.suburb || '';
-  }
-
-  private getStreetAddress(addr: any, fallback = ''): string {
-    const street = addr.road || addr.pedestrian || addr.footway || addr.path || addr.neighbourhood || addr.suburb || '';
-    return [street, addr.house_number].filter(Boolean).join(' ') || fallback;
-  }
-
 
   // --- SUBMIT (Crear o Editar) ---
   onSubmit() {

@@ -1,0 +1,39 @@
+<main class="min-h-screen bg-slate-50 text-slate-900">
+  <app-header></app-header>
+
+  <section class="pt-28 pb-16 px-4">
+    <div class="max-w-5xl mx-auto">
+      <a routerLink="/" class="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors mb-8">
+        <span aria-hidden="true">&larr;</span>
+        Volver al inicio
+      </a>
+
+      <div class="grid lg:grid-cols-[0.85fr_1.15fr] gap-10 items-start">
+        <aside class="support-intro">
+          <p class="text-sm font-black uppercase tracking-[0.2em] text-blue-600 mb-3">Soporte</p>
+          <h1 class="text-4xl md:text-6xl font-black tracking-tight text-slate-950 mb-5">Preguntas frecuentes</h1>
+          <p class="text-lg text-slate-600 leading-relaxed">
+            Respuestas rápidas para comprar entradas, crear eventos, cobrar con Mercado Pago,
+            validar QR y administrar tu cuenta.
+          </p>
+          <div class="mt-8 rounded-2xl bg-slate-900 text-white p-6">
+            <h2 class="text-lg font-bold mb-2">Necesitás más ayuda?</h2>
+            <p class="text-sm text-slate-300 leading-relaxed">
+              Si una operación de pago o una entrada no se actualiza, guardá el email de tu cuenta,
+              el nombre del evento y el comprobante de Mercado Pago para agilizar la revisión.
+            </p>
+          </div>
+        </aside>
+
+        <section class="faq-list" aria-label="Preguntas frecuentes">
+          <details *ngFor="let faq of faqs; let first = first" class="faq-item" [open]="first">
+            <summary>{{ faq.question }}</summary>
+            <p>{{ faq.answer }}</p>
+          </details>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <app-footer></app-footer>
+</main>
