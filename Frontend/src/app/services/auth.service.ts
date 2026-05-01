@@ -128,9 +128,11 @@ export class AuthService {
         this.currentUserSubject.next(profile); // Actualiza el estado reactivo
       }),
       catchError(err => {
-        // Si falla el perfil (ej. token inválido), limpiamos la sesión
+        // Si falla el perfil por auth, limpiamos la sesión. Errores temporales no deben cerrar sesión.
         console.error('Error obteniendo perfil:', err);
-        this.logout();
+        if (err?.status === 401 || err?.status === 403) {
+          this.logout();
+        }
         return throwError(() => err);
       })
     );

@@ -16,7 +16,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideClientHydration(),
-    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]), withFetch()),
+    provideHttpClient(withInterceptors([errorInterceptor, authInterceptor]), withFetch()),
     provideAnimations(), // Required by Toastr
     provideToastr(), // Toastr providers
     importProvidersFrom(FormsModule) // Añadir FormsModule aquí

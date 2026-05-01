@@ -1,7 +1,9 @@
 import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, switchMap, tap, throwError } from 'rxjs';
+import { catchError, finalize, Observable, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+
+let refreshRequest$: Observable<{ token: string }> | null = null;
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
     const http = inject(HttpClient);
@@ -25,12 +27,21 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 return throwError(() => error);
             }
 
-            return http.post<{ token: string }>(`${environment.apiUrl}/user/refresh`, {}, { withCredentials: true }).pipe(
-                tap((resp) => {
-                    if (resp?.token) {
-                        localStorage.setItem('token', resp.token);
-                    }
-                }),
+            if (!refreshRequest$) {
+                refreshRequest$ = http.post<{ token: string }>(`${environment.apiUrl}/user/refresh`, {}, { withCredentials: true }).pipe(
+                    tap((resp) => {
+                        if (resp?.token) {
+                            localStorage.setItem('token', resp.token);
+                        }
+                    }),
+                    finalize(() => {
+                        refreshRequest$ = null;
+                    }),
+                    shareReplay({ bufferSize: 1, refCount: false })
+                );
+            }
+
+            return refreshRequest$.pipe(
                 switchMap((resp) => next(req.clone({
                     withCredentials: true,
                     ...(resp?.token ? { setHeaders: { Authorization: `Bearer ${resp.token}` } } : {})
