@@ -1,5 +1,34 @@
 /* Utilidades para ocultar Scrollbar pero mantener funcionalidad */
 
+:host {
+  display: block;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.landing-root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.home-scroll-nav {
+  display: none;
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 180ms ease;
+}
+
+.home-scroll-nav.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (min-width: 1280px) {
+  .home-scroll-nav {
+    display: flex;
+  }
+}
+
 /* Chrome, Safari and Opera */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

@@ -1,8 +1,10 @@
-<main class="w-full bg-white text-gray-900 overflow-x-hidden font-sans">
+<main class="landing-root w-full bg-white text-gray-900 overflow-x-hidden font-sans">
   <app-header></app-header>
 
   <nav
-    class="fixed left-6 top-1/2 -translate-y-1/2 z-[100] hidden lg:flex flex-col items-center"
+    aria-label="Secciones de la landing"
+    class="home-scroll-nav fixed left-6 top-1/2 -translate-y-1/2 z-[100] flex-col items-center"
+    [class.is-hidden]="!showSectionNav"
     >
     <div class="absolute w-[2px] h-full bg-gray-100 -z-10 rounded-full">
       <div

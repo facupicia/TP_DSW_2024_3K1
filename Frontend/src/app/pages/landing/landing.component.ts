@@ -34,10 +34,11 @@ export class LandingComponent implements OnInit {
 
   activeSection: string = 'inicio';
   scrollProgress: number = 0;
+  showSectionNav = true;
 
   @HostListener('window:scroll', [])
   onWindowScroll() {
-    const sections = ['inicio', 'servicios', 'tendencias', 'ventajas'];
+    const sections = ['inicio', 'tendencias', 'planes', 'ventajas'];
     const scrollPosition = window.pageYOffset + window.innerHeight / 2;
 
     // Actualizar sección activa
@@ -58,6 +59,10 @@ export class LandingComponent implements OnInit {
     const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
     const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
     this.scrollProgress = (winScroll / height) * 100;
+
+    const footer = document.querySelector('app-footer');
+    const footerTop = footer?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+    this.showSectionNav = footerTop > window.innerHeight * 0.85;
   }
 
   // Función para scroll suave manual
