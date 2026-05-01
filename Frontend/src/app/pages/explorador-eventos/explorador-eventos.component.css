@@ -111,8 +111,21 @@
     animation: scrollRight 70s linear infinite; /* Diferente tiempo = Destiempo */
 }
 
+.featured-scroll-left {
+    width: 100%;
+}
+
+@media (min-width: 768px) {
+    .featured-scroll-left {
+        display: flex;
+        width: max-content;
+        animation: scrollLeft 60s linear infinite;
+    }
+}
+
 /* Pausar al pasar el mouse para poder hacer click */
 .animate-scroll-left:hover, 
-.animate-scroll-right:hover {
+.animate-scroll-right:hover,
+.featured-scroll-left:hover {
     animation-play-state: paused;
 }
