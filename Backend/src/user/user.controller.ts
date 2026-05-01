@@ -571,8 +571,10 @@ export const googleSignin = async (req: Request, res: Response) => {
     }
     const repo = dataSource.getRepository(User);
     let user = await repo.findOne({ where: { email } });
+    let isNewUser = false;
 
     if (!user) {
+      isNewUser = true;
       // New user - try to get location from IP
       const { getClientIP, getReadableLocationFromIP } = await import("../common/services/geolocation");
       const clientIP = getClientIP(req);
@@ -607,7 +609,7 @@ export const googleSignin = async (req: Request, res: Response) => {
     }
     const tokenSession = await tokenSing(user);
     await issueRefreshToken(res, user);
-    return res.status(200).json({ token: tokenSession });
+    return res.status(200).json({ token: tokenSession, isNewUser });
   } catch (error: any) {
     return res.status(500).json({ code: "GOOGLE_AUTH_ERROR", message: error.message || "Error interno" });
   }
