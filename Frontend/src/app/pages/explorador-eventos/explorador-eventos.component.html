@@ -62,7 +62,7 @@
                         md:hover:scale-[0.98]
                       ">
                     <!-- Imagen -->
-                                    <img [ngSrc]="evento.image" alt="Evento destacado" fill sizes="(max-width: 768px) 88vw, 600px" class="
+                                    <img appEventImageFallback [src]="evento.image" alt="Evento destacado" class="absolute inset-0 h-full w-full
                           object-cover
                           transition-transform duration-700 ease-out
                           md:group-hover:scale-110
@@ -116,7 +116,7 @@
                         shadow-lg transition-transform duration-300
                         hover:scale-[0.98]
                       ">
-                                    <img [ngSrc]="evento.image" [alt]="evento.title" fill sizes="420px" class="
+                                    <img appEventImageFallback [src]="evento.image" [alt]="evento.title" class="absolute inset-0 h-full w-full
                           object-cover
                           opacity-80 transition-transform duration-700
                           group-hover:scale-110 group-hover:opacity-60
@@ -203,8 +203,8 @@
                     <div (click)="verEvento(evento.id!)"
                       class="group border border-gray-300 bg-gray-50 rounded-3xl overflow-hidden hover:bg-white hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 animate-fade-in-up">
                       <div class="relative h-48 overflow-hidden">
-                        <img [ngSrc]="evento.image" [alt]="evento.title" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 33vw, 25vw"
-                          class="object-cover transition-transform duration-500 group-hover:scale-105">
+                        <img appEventImageFallback [src]="evento.image" [alt]="evento.title"
+                          class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105">
                           <div
                             class="absolute top-3 right-3 bg-white/90 backdrop-blur text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
                             {{ evento.categoria_name }}

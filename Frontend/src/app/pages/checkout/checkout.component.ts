@@ -1,7 +1,7 @@
 import { Component, inject, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
-import { CommonModule, NgOptimizedImage } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TicketService } from '../../services/ticket.service';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -12,10 +12,11 @@ import { DemoBannerComponent } from '../../components/demo-banner/demo-banner.co
 import { CouponService } from '../../services/coupon.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
 
 @Component({
     selector: 'app-checkout',
-    imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, NgOptimizedImage],
+    imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, EventImageFallbackDirective],
     templateUrl: './checkout.component.html',
     styleUrls: ['./checkout.component.css']
 })

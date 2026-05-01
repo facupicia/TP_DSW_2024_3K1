@@ -7,10 +7,11 @@ import { Evento } from '../../interfaces/event';
 import { HeaderComponent } from '../../components/header/header.component';
 import { ToastService } from '../../services/toast.service';
 import { interval, Subscription } from 'rxjs';
+import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
 
 @Component({
     selector: 'app-detalle-evento',
-    imports: [CommonModule, HeaderComponent, NgOptimizedImage],
+    imports: [CommonModule, HeaderComponent, NgOptimizedImage, EventImageFallbackDirective],
     templateUrl: './detalle-evento.component.html',
     styleUrl: './detalle-evento.component.css'
 })

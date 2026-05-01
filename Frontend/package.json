@@ -11,12 +11,11 @@
   },
   "private": true,
   "dependencies": {
-    "@angular/animations": "^21.2.11",
+    "@angular/cdk": "^21.2.9",
     "@angular/common": "^21.2.11",
     "@angular/compiler": "^21.2.11",
     "@angular/core": "^21.2.11",
     "@angular/forms": "^21.2.11",
-    "@angular/cdk": "^21.2.9",
     "@angular/material": "^21.2.9",
     "@angular/platform-browser": "^21.2.11",
     "@angular/platform-browser-dynamic": "^21.2.11",
@@ -33,7 +32,6 @@
     "ng-apexcharts": "2.4.0",
     "ngx-mask": "21.0.1",
     "ngx-toastr": "20.0.5",
-    "or": "^0.2.0",
     "rxjs": "^7.8.2",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.1"

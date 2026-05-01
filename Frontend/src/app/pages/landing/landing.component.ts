@@ -1,5 +1,5 @@
 import { Component, HostListener, OnInit, inject } from '@angular/core';
-import { CommonModule, DatePipe, isPlatformBrowser, NgOptimizedImage } from '@angular/common'; // Agregamos DatePipe para las fechas
+import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common'; // Agregamos DatePipe para las fechas
 import { Router, RouterLink } from '@angular/router'; // RouterLink es vital para el HTML
 import { PLATFORM_ID } from '@angular/core';
 
@@ -11,19 +11,20 @@ import { SubscriptionLandingComponent } from '../../components/subscription-bann
 import { LandingFinanzasComponent } from '../../components/features/finanzas/finanzas';
 import { LandingVentaComponent } from '../../components/features/venta/venta';
 import { LandingGestionComponent } from '../../components/features/gestion/gestion';
+import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
 
 @Component({
     selector: 'app-landing',
     imports: [
         HeaderComponent,
         CommonModule, // Para *ngFor, *ngIf
-        NgOptimizedImage,
         RouterLink, // Para routerLink=""
         DatePipe, // Para el pipe | date
         SubscriptionLandingComponent,
         LandingFinanzasComponent,
         LandingVentaComponent,
-        LandingGestionComponent
+        LandingGestionComponent,
+        EventImageFallbackDirective
     ],
     templateUrl: './landing.component.html',
     styleUrls: ['./landing.component.css']
@@ -80,7 +81,7 @@ export class LandingComponent implements OnInit {
     }
 
     // Carga simple y directa de datos
-    this.eventService.obtenerEventos().subscribe((data) => {
+    this.eventService.obtenerEventos(12).subscribe((data) => {
       this.events = data;
       // ¡Adiós a this.groupEvents()! Ya no se necesita.
     });

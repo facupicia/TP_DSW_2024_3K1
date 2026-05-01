@@ -302,8 +302,8 @@
                                         <div
                                           class="relative w-full bg-white rounded-[32px] shadow-2xl shadow-gray-200 overflow-hidden border border-gray-100 group">
                                           <div class="h-64 relative overflow-hidden">
-                                            <img [ngSrc]="evento.image" [alt]="evento.title" fill sizes="(max-width: 1024px) 100vw, 420px"
-                                              class="object-cover transition-transform duration-700 group-hover:scale-105">
+                                            <img appEventImageFallback [src]="evento.image" [alt]="evento.title"
+                                              class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105">
                                               <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
                                               <div class="absolute top-4 left-4">
                                                 <span

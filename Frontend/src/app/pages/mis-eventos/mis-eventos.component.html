@@ -80,8 +80,8 @@
                     <div
                       class="event-manage-card group bg-white rounded-[24px] overflow-hidden border border-gray-100 shadow-sm relative flex flex-col h-full">
                       <div class="h-48 relative overflow-hidden cursor-pointer group" (click)="verEvento(evento.id!)">
-                        <img [ngSrc]="evento.image" [alt]="evento.title" fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          class="object-cover transition-transform duration-700 group-hover:scale-110">
+                        <img appEventImageFallback [src]="evento.image" [alt]="evento.title"
+                          class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110">
                           <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
                           <div class="absolute top-4 right-4 flex flex-col items-end gap-2">
                             @if (isEventoPasado(evento.date)) {

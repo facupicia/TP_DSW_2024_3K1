@@ -2,7 +2,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Evento } from '../interfaces/event';
-import { Observable, tap, map, timeout, of } from 'rxjs';
+import { Observable, tap, map, timeout, of, shareReplay } from 'rxjs';
+
+const DEFAULT_EVENT_IMAGE = '/assets/event-placeholder.svg';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +14,7 @@ export class EventService {
 
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/event";
+  private eventsCache = new Map<string, Observable<Evento[]>>();
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
@@ -41,11 +44,7 @@ export class EventService {
   obtenerEvento(id: number): Observable<Evento> {
     return this.http.get<Evento>(`${this.urlBase}/${id}`).pipe(
       timeout(10000), // 10 segundos timeout
-      tap(e => {
-        if (e.category && !e.categoria_name) {
-          e.categoria_name = (e.category as any).name;
-        }
-      })
+      map(e => this.normalizeEvent(e))
     );
   }
 
@@ -72,20 +71,24 @@ export class EventService {
     );
   }
 
-  obtenerEventos(): Observable<Evento[]> {
-    const params = new HttpParams().set('limit', '1000');
-    return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`, { params }).pipe(
-      map(response => response.data || []),
-      tap(events => {
-        if (Array.isArray(events)) {
-          events.forEach(e => {
-            if (e.category && !e.categoria_name) {
-              e.categoria_name = (e.category as any).name;
-            }
-          });
-        }
-      })
+  obtenerEventos(limit = 50, page = 1, forceRefresh = false): Observable<Evento[]> {
+    const cacheKey = `${page}:${limit}`;
+
+    if (!forceRefresh && this.eventsCache.has(cacheKey)) {
+      return this.eventsCache.get(cacheKey)!;
+    }
+
+    const params = new HttpParams()
+      .set('limit', String(limit))
+      .set('page', String(page));
+
+    const request$ = this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`, { params }).pipe(
+      map(response => (response.data || []).map(event => this.normalizeEvent(event))),
+      shareReplay({ bufferSize: 1, refCount: false })
     );
+
+    this.eventsCache.set(cacheKey, request$);
+    return request$;
   }
 
   getEventsNumber(): Observable<number> {
@@ -94,6 +97,32 @@ export class EventService {
     );
   }
 
+  private normalizeEvent(event: Evento): Evento {
+    return {
+      ...event,
+      title: this.normalizeTitle(event.title),
+      image: this.normalizeImageUrl(event.image),
+      categoria_name: event.categoria_name || event.category?.name || 'Evento'
+    };
+  }
+
+  private normalizeTitle(title?: string): string {
+    return (title || 'Evento').replace(/^\[LOAD\]\s*/i, '').trim();
+  }
+
+  private normalizeImageUrl(image?: string | null): string {
+    const value = image?.trim();
+
+    if (!value) {
+      return DEFAULT_EVENT_IMAGE;
+    }
+
+    if (/^https?:\/\//i.test(value) || value.startsWith('data:image/')) {
+      return value;
+    }
+
+    return DEFAULT_EVENT_IMAGE;
+  }
 
 }
 

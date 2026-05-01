@@ -42,6 +42,7 @@ export const getPlans = async (req: Request, res: Response) => {
             order: { sortOrder: 'ASC' }
         });
         
+        res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
         return res.json({
             success: true,
             plans

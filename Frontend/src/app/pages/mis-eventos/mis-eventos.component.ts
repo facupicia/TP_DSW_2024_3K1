@@ -1,15 +1,16 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
-import { CommonModule, NgOptimizedImage } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms'; // Necesario para el buscador
 import { ToastService } from '../../services/toast.service';
 import { RouterLink } from '@angular/router';
+import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
 @Component({
     selector: 'app-mis-eventos',
-    imports: [CommonModule, HeaderComponent, FormsModule, RouterLink, NgOptimizedImage],
+    imports: [CommonModule, HeaderComponent, FormsModule, RouterLink, EventImageFallbackDirective],
     templateUrl: './mis-eventos.component.html',
     styleUrl: './mis-eventos.component.css'
 })

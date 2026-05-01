@@ -26,6 +26,8 @@ export class SubscriptionLandingComponent implements OnInit {
     selectedPlan: SubscriptionPlan | null = null;
     showBillingModal = false;
     loading = false;
+    loadingPlans = true;
+    plansError = false;
     isLoggedIn = false;
 
     ngOnInit() {
@@ -53,14 +55,15 @@ export class SubscriptionLandingComponent implements OnInit {
     }
 
     loadPlans() {
-        // Limpiar caché para asegurar datos frescos
-        this.subscriptionService.clearPlansCache();
-        
-        this.subscriptionService.getPlans(true).subscribe({
+        this.loadingPlans = true;
+        this.plansError = false;
+
+        this.subscriptionService.getPlans().subscribe({
             next: (plans) => {
 
                 // Ordenamos para que el PRO (o el más caro) quede segundo o destacado
                 this.plans = plans.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+                this.loadingPlans = false;
 
                 
                 if (plans.length === 0) {
@@ -70,6 +73,8 @@ export class SubscriptionLandingComponent implements OnInit {
             error: (err) => {
                 console.error('Error cargando planes:', err);
                 this.plans = []; // Asegurar que planes esté vacío en error
+                this.loadingPlans = false;
+                this.plansError = true;
                 this.toast.error('Error al cargar los planes de suscripción');
             }
         });

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+  <title id="title">EventLife event placeholder</title>
+  <desc id="desc">Decorative fallback image for events without a valid photo.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f172a"/>
+      <stop offset="0.48" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.35" r="0.65">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="800" fill="url(#bg)"/>
+  <rect width="1200" height="800" fill="url(#glow)"/>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3">
+    <path d="M130 530c130-170 270-190 420-60s330 110 520-55"/>
+    <path d="M130 590c130-170 270-190 420-60s330 110 520-55"/>
+  </g>
+  <g transform="translate(430 275)">
+    <rect x="0" y="0" width="340" height="220" rx="36" fill="#ffffff" fill-opacity="0.13" stroke="#ffffff" stroke-opacity="0.28"/>
+    <path d="M84 84h172M84 132h118" stroke="#ffffff" stroke-width="18" stroke-linecap="round" opacity="0.86"/>
+    <circle cx="258" cy="136" r="32" fill="#60a5fa" opacity="0.95"/>
+  </g>
+  <text x="600" y="570" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="56" font-weight="800" fill="#ffffff">EventLife</text>
+</svg>

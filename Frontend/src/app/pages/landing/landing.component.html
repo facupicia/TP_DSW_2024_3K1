@@ -206,11 +206,10 @@
                               class="relative h-[600px] rounded-[32px] overflow-hidden shadow-md hover:shadow-2xl transition-all duration-500 ease-out group/card bg-gray-100 border border-gray-200 transform-gpu z-0 card-mask"
                               >
                               <img
-                                [ngSrc]="event.image"
+                                appEventImageFallback
+                                [src]="event.image"
                                 [alt]="event.title"
-                                fill
-                                sizes="(max-width: 640px) 85vw, 380px"
-                                class="object-cover transition-transform duration-700 group-hover/card:scale-105"
+                                class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/card:scale-105"
                                 />
                                 <div
                                   class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"
@@ -242,11 +241,7 @@
 
                   <section class="bg-white" id="planes">
                     <div class="w-full mx-auto px-4">
-                      @defer (on viewport) {
-                        <app-subscription-landing></app-subscription-landing>
-                      } @placeholder {
-                        <div class="h-96 rounded-3xl bg-gray-100 animate-pulse"></div>
-                      }
+                      <app-subscription-landing></app-subscription-landing>
                     </div>
                   </section>
 

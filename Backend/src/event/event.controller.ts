@@ -429,7 +429,7 @@ export const getEvent = async (req: Request, res: Response) => {
 
 export const getEvents = async (req: Request, res: Response) => {
     try {
-        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 200, 1000);
+        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 200);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -461,7 +461,6 @@ export const getEvents = async (req: Request, res: Response) => {
         const [events, total] = await AppDataSource.getRepository(Event)
             .createQueryBuilder("event")
             .leftJoinAndSelect("event.category", "category")
-            .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
             .where("event.active = :active", { active: baseWhere.active })
             .andWhere("event.isPublic = :isPublic", { isPublic: baseWhere.isPublic })
             .andWhere("event.date >= :today", { today })
@@ -472,15 +471,13 @@ export const getEvents = async (req: Request, res: Response) => {
             .take(take)
             .getManyAndCount();
 
-        const data = events.map(event => {
-            const ticketSales = (event.ticketTypes || []).reduce((sum, tt) => sum + (tt.soldCount || 0), 0);
-            return {
-                ...event,
-                destacado: event.destacado || dynamicFeaturedIds.has(event.id),
-                salesCount: salesByEventId.get(event.id) || ticketSales
-            };
-        });
+        const data = events.map(event => ({
+            ...event,
+            destacado: event.destacado || dynamicFeaturedIds.has(event.id),
+            salesCount: salesByEventId.get(event.id) || 0
+        }));
 
+        res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
         return res.json({
             data,
             total,
