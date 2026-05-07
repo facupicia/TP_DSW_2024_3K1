@@ -2,7 +2,7 @@
  * Stats Cache Service
  * Provides Redis-based caching for statistics endpoints
  */
-import { getRedis } from "../../config/redis";
+import { getRedis } from "./redis";
 
 const DEFAULT_TTL = 300; // 5 minutes in seconds
 const LONG_TTL = 600; // 10 minutes for expensive queries
@@ -38,7 +38,6 @@ export async function getCachedStats<T>(
                 return JSON.parse(cached);
             }
         } catch (err) {
-            // If cache fails, continue to compute
             console.warn('Redis get error:', err);
         }
     }
@@ -59,17 +58,24 @@ export async function getCachedStats<T>(
 }
 
 /**
- * Invalidate stats cache by pattern
+ * Invalidate stats cache by pattern using SCAN instead of KEYS
  */
 export async function invalidateStatsCache(pattern: string): Promise<void> {
     const redis = await getRedis();
     if (!redis) return;
 
     try {
-        // Find all keys matching pattern
-        const keys = await redis.keys(`stats:${pattern}*`);
-        if (keys.length > 0) {
-            await redis.del(keys);
+        const target = `stats:${pattern}*`;
+        const keysToDelete: string[] = [];
+        for await (const key of redis.scanIterator({ MATCH: target, COUNT: 100 })) {
+            keysToDelete.push(key);
+            if (keysToDelete.length >= 1000) {
+                await redis.del(keysToDelete);
+                keysToDelete.length = 0;
+            }
+        }
+        if (keysToDelete.length > 0) {
+            await redis.del(keysToDelete);
         }
     } catch (err) {
         console.warn('Redis invalidate error:', err);
@@ -77,16 +83,23 @@ export async function invalidateStatsCache(pattern: string): Promise<void> {
 }
 
 /**
- * Invalidate all stats cache
+ * Invalidate all stats cache using SCAN instead of KEYS
  */
 export async function invalidateAllStatsCache(): Promise<void> {
     const redis = await getRedis();
     if (!redis) return;
 
     try {
-        const keys = await redis.keys('stats:*');
-        if (keys.length > 0) {
-            await redis.del(keys);
+        const keysToDelete: string[] = [];
+        for await (const key of redis.scanIterator({ MATCH: 'stats:*', COUNT: 100 })) {
+            keysToDelete.push(key);
+            if (keysToDelete.length >= 1000) {
+                await redis.del(keysToDelete);
+                keysToDelete.length = 0;
+            }
+        }
+        if (keysToDelete.length > 0) {
+            await redis.del(keysToDelete);
         }
     } catch (err) {
         console.warn('Redis invalidate all error:', err);

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { createPreference, paymentWebhook, getPaymentStatus, simulatePaymentWebhook } from "./payment.controller";
 import { 
     initiateOAuth, 
@@ -12,6 +13,19 @@ import {
     createValidateMPWebhookSignature 
 } from "./mp-webhook.middleware";
 
+const preferenceRateLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+        res.status(options.statusCode).json({
+            code: "PREFERENCE_RATE_LIMITED",
+            message: "Demasiadas solicitudes de creación de preferencias. Intenta de nuevo en 5 minutos."
+        });
+    }
+});
+
 const router = Router();
 
 /* ==================== PAYMENT ROUTES ==================== */
@@ -22,7 +36,7 @@ const router = Router();
  * Crea una preferencia de pago para comprar tickets.
  * Acepta usuarios autenticados o compradores invitados.
  */
-router.post("/create-preference", optionalAuthToken, createPreference);
+router.post("/create-preference", preferenceRateLimiter, optionalAuthToken, createPreference);
 
 /**
  * GET /api/payment/status

@@ -246,16 +246,19 @@ export class ScannerController {
 
             // --- 2. MEJORA: Validación de Evento (Opcional pero recomendada) ---
             // Verifica que el evento no haya terminado hace días.
-            // Esto asume que tienes una propiedad 'date' en tu entidad Event.
             const event = ticket.ticketType.event;
             const eventDate = getEventDateTime(event);
             const now = new Date();
-            // Ejemplo: Si el evento fue hace más de 24hs, no dejar pasar
             const hoursDiff = (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
 
             if (hoursDiff > 24) {
                 return res.status(409).json({
                     message: `Este ticket es de un evento pasado: ${event.title} (${event.date})`
+                });
+            }
+            if (hoursDiff < -3) {
+                return res.status(409).json({
+                    message: `El evento aún no comenzó. No se puede validar hasta 3 horas antes del inicio.`
                 });
             }
 

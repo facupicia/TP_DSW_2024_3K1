@@ -220,6 +220,16 @@ export function parseSubscriptionExternalRef(
 /**
  * Calcula la fecha de fin del período
  */
+function safeAddMonths(date: Date, months: number): Date {
+    const result = new Date(date);
+    const day = result.getDate();
+    result.setMonth(result.getMonth() + months);
+    if (result.getDate() !== day) {
+        result.setDate(0);
+    }
+    return result;
+}
+
 export function calculatePeriodEnd(
     startDate: Date,
     billingType: 'monthly' | 'yearly',
@@ -231,13 +241,10 @@ export function calculatePeriodEnd(
     }
     
     // Fallback: calcular manualmente
-    const endDate = new Date(startDate);
     if (billingType === 'yearly') {
-        endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-        endDate.setMonth(endDate.getMonth() + 1);
+        return safeAddMonths(startDate, 12);
     }
-    return endDate;
+    return safeAddMonths(startDate, 1);
 }
 
 /**
@@ -250,56 +257,70 @@ export async function activateSubscription(
     billingType: 'monthly' | 'yearly',
     nextPaymentDate?: Date | null
 ): Promise<UserSubscription> {
-    const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
-    const planRepo = AppDataSource.getRepository(SubscriptionPlan);
-    
-    const plan = await planRepo.findOne({ where: { id: planId } });
-    if (!plan) {
-        throw new Error(`Plan not found: ${planId}`);
-    }
-    
-    // Desactivar suscripción activa actual
-    await subscriptionRepo.update(
-        { userId, status: SubscriptionStatus.ACTIVE },
-        { status: SubscriptionStatus.EXPIRED }
-    );
-    
-    // Buscar si ya existe esta suscripción externa
-    let userSub = await subscriptionRepo.findOne({
-        where: { externalSubscriptionId }
-    });
-    
-    const now = new Date();
-    const periodEnd = calculatePeriodEnd(now, billingType, nextPaymentDate);
-    
-    if (userSub) {
-        // Actualizar existente
-        userSub.status = SubscriptionStatus.ACTIVE;
-        userSub.currentPeriodEnd = periodEnd;
-        userSub.planId = planId;
-        userSub.currentPeriodStart = now;
-    } else {
-        // Crear nueva
-        userSub = subscriptionRepo.create({
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const subscriptionRepo = queryRunner.manager.getRepository(UserSubscription);
+        const planRepo = queryRunner.manager.getRepository(SubscriptionPlan);
+        
+        const plan = await planRepo.findOne({ where: { id: planId } });
+        if (!plan) {
+            throw new Error(`Plan not found: ${planId}`);
+        }
+        
+        // Desactivar suscripción activa actual
+        await subscriptionRepo.update(
+            { userId, status: SubscriptionStatus.ACTIVE },
+            { status: SubscriptionStatus.EXPIRED }
+        );
+        
+        // Buscar si ya existe esta suscripción externa
+        let userSub = await subscriptionRepo.findOne({
+            where: { externalSubscriptionId }
+        });
+        
+        const now = new Date();
+        const periodEnd = calculatePeriodEnd(now, billingType, nextPaymentDate);
+        
+        if (userSub) {
+            // Actualizar existente
+            userSub.status = SubscriptionStatus.ACTIVE;
+            userSub.currentPeriodEnd = periodEnd;
+            userSub.planId = planId;
+            userSub.currentPeriodStart = now;
+        } else {
+            // Crear nueva
+            userSub = subscriptionRepo.create({
+                userId,
+                planId,
+                status: SubscriptionStatus.ACTIVE,
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd,
+                externalSubscriptionId
+            });
+        }
+        
+        await subscriptionRepo.save(userSub);
+        await queryRunner.commitTransaction();
+        
+        logger.info('SUBSCRIPTION_ACTIVATED', {
             userId,
             planId,
-            status: SubscriptionStatus.ACTIVE,
-            currentPeriodStart: now,
-            currentPeriodEnd: periodEnd,
-            externalSubscriptionId
+            externalSubscriptionId,
+            expiresAt: periodEnd.toISOString()
         });
+        
+        return userSub;
+    } catch (error) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        throw error;
+    } finally {
+        await queryRunner.release();
     }
-    
-    await subscriptionRepo.save(userSub);
-    
-    logger.info('SUBSCRIPTION_ACTIVATED', {
-        userId,
-        planId,
-        externalSubscriptionId,
-        expiresAt: periodEnd.toISOString()
-    });
-    
-    return userSub;
 }
 
 /**

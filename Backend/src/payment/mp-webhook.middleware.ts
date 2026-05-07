@@ -72,10 +72,19 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             
             const timestamp = tsPart.split('=')[1];
             const receivedHash = v1Part.split('=')[1];
+
+            // Replay attack protection: reject webhooks older than 5 minutes
+            const tsNum = Number(timestamp);
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            if (!Number.isFinite(tsNum) || Math.abs(nowSeconds - tsNum) > 300) {
+                logger.warn('MP_WEBHOOK_TIMESTAMP_REJECTED', { type, timestamp, diff: Math.abs(nowSeconds - tsNum) });
+                res.status(401).json({ error: 'Webhook timestamp expired' });
+                return;
+            }
             
             // MercadoPago signs this manifest: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
             const rawDataId = req.query['data.id'] || req.query.id || req.body?.data?.id || req.body?.id || '';
-            const dataId = String(rawDataId).toLowerCase();
+            const dataId = String(rawDataId);
             const requestId = String(req.headers['x-request-id'] || '');
             let template = '';
             if (dataId) template += `id:${dataId};`;

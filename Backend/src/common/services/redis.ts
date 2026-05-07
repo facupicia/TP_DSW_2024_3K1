@@ -16,6 +16,8 @@ export async function getRedis() {
             const newClient = createClient({
                 url: env.REDIS_URL,
                 socket: {
+                    connectTimeout: 5000,
+                    keepAlive: true,
                     reconnectStrategy: (retries) => {
                         if (retries > 5) {
                             console.warn(`[Redis] Max reconnection attempts reached. Giving up.`);
@@ -29,11 +31,7 @@ export async function getRedis() {
             });
 
             newClient.on("error", (err) => {
-                // Silently ignore common reconnection errors to avoid noise,
-                // but log unexpected ones
-                if (!(err as any).message?.includes('ECONNREFUSED')) {
-                    console.error("[Redis] Client error:", (err as any).message);
-                }
+                console.error("[Redis] Client error:", (err as Error).message);
             });
 
             newClient.on("connect", () => {

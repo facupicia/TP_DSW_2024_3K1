@@ -40,9 +40,9 @@ export const getActiveSubscription = async (userId: number): Promise<UserSubscri
 /**
  * Assign the default FREE plan to a user.
  */
-export const assignDefaultPlan = async (userId: number): Promise<UserSubscription> => {
-    const planRepo = AppDataSource.getRepository(SubscriptionPlan);
-    const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
+export const assignDefaultPlan = async (userId: number, manager?: any): Promise<UserSubscription> => {
+    const planRepo = manager ? manager.getRepository(SubscriptionPlan) : AppDataSource.getRepository(SubscriptionPlan);
+    const subscriptionRepo = manager ? manager.getRepository(UserSubscription) : AppDataSource.getRepository(UserSubscription);
 
     // Get FREE plan
     let freePlan = await planRepo.findOne({ where: { name: 'FREE' } });
@@ -68,7 +68,7 @@ export const assignDefaultPlan = async (userId: number): Promise<UserSubscriptio
         await planRepo.save(freePlan);
     }
 
-    // Deactivate any existing subscriptions for this user
+    // Deactivate any existing subscriptions for this user atomically
     await subscriptionRepo.update(
         { userId, status: SubscriptionStatus.ACTIVE },
         { status: SubscriptionStatus.EXPIRED }
@@ -233,34 +233,58 @@ export const upgradeToPlan = async (
     planId: number,
     durationMonths: number = 1
 ): Promise<UserSubscription> => {
-    const planRepo = AppDataSource.getRepository(SubscriptionPlan);
-    const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const plan = await planRepo.findOne({ where: { id: planId, active: true } });
-    if (!plan) {
-        throw new Error('Plan not found or inactive');
+    try {
+        const planRepo = queryRunner.manager.getRepository(SubscriptionPlan);
+        const subscriptionRepo = queryRunner.manager.getRepository(UserSubscription);
+
+        const plan = await planRepo.findOne({ where: { id: planId, active: true } });
+        if (!plan) {
+            throw new Error('Plan not found or inactive');
+        }
+
+        // Deactivate current subscription
+        await subscriptionRepo.update(
+            { userId, status: SubscriptionStatus.ACTIVE },
+            { status: SubscriptionStatus.EXPIRED }
+        );
+
+        // Create new subscription with safe date calculation
+        const now = new Date();
+        const periodEnd = safeAddMonths(now, durationMonths);
+
+        const subscription = subscriptionRepo.create({
+            userId,
+            planId: plan.id,
+            plan,
+            status: SubscriptionStatus.ACTIVE,
+            currentPeriodStart: now,
+            currentPeriodEnd: plan.monthlyPrice > 0 ? periodEnd : null
+        });
+
+        await subscriptionRepo.save(subscription);
+        await queryRunner.commitTransaction();
+        return subscription;
+    } catch (error) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        throw error;
+    } finally {
+        await queryRunner.release();
     }
-
-    // Deactivate current subscription
-    await subscriptionRepo.update(
-        { userId, status: SubscriptionStatus.ACTIVE },
-        { status: SubscriptionStatus.EXPIRED }
-    );
-
-    // Create new subscription
-    const now = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + durationMonths);
-
-    const subscription = subscriptionRepo.create({
-        userId,
-        planId: plan.id,
-        plan,
-        status: SubscriptionStatus.ACTIVE,
-        currentPeriodStart: now,
-        currentPeriodEnd: plan.monthlyPrice > 0 ? periodEnd : null // FREE never expires
-    });
-
-    await subscriptionRepo.save(subscription);
-    return subscription;
 };
+
+function safeAddMonths(date: Date, months: number): Date {
+    const result = new Date(date);
+    const day = result.getDate();
+    result.setMonth(result.getMonth() + months);
+    // If the day overflowed (e.g. Jan 31 + 1 month = Mar 3), clamp to last day of target month
+    if (result.getDate() !== day) {
+        result.setDate(0);
+    }
+    return result;
+}

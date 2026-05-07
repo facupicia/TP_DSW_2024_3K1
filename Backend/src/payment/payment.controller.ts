@@ -250,7 +250,11 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     }
     
     try {
-        const lookup = await resolveWebhookPayment(String(paymentId));
+        const lookup = await resolveWebhookPayment(String(paymentId), {
+            id: String(paymentId),
+            status: 'unknown',
+            external_reference: req.body?.data?.external_reference || req.query.external_reference
+        } as any);
 
         if (!lookup) {
             logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId: String(paymentId) });

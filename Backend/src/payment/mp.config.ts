@@ -94,6 +94,10 @@ export function generateOAuthState(userId: number, redirectTo?: string): string 
  */
 export function verifyOAuthState(state: string): { userId: number; redirectTo?: string } | null {
     try {
+        if (state.length > 500) {
+            logger.warn('MP_OAUTH_STATE_TOO_LONG');
+            return null;
+        }
         const config = getMPConfig();
         const payload = JSON.parse(Buffer.from(state, 'base64url').toString());
 

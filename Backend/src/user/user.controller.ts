@@ -18,7 +18,7 @@ export const signupUser = async (req: Request, res: Response) => {
     const { firstname, lastname, email, password, phone, pais, provincia, ciudad, birth, address } = req.body;
 
     // Encriptar password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = new User();
     user.phone = phone;
@@ -226,7 +226,7 @@ export const updateUser = async (req: CustomRequest, res: Response) => {
     if (lastname !== undefined) user.lastname = lastname
     if (email !== undefined) user.email = email
     if (password) {
-      user.password = await bcrypt.hash(password, 10);
+      user.password = await bcrypt.hash(password, 12);
     }
 
     await user.save()
@@ -379,7 +379,7 @@ export const completeAccountClaim = async (req: Request, res: Response) => {
       });
     }
 
-    user.password = await bcrypt.hash(password, 10);
+    user.password = await bcrypt.hash(password, 12);
     user.isGuestAccount = false;
     user.claimedAt = new Date();
     await User.save(user);
@@ -590,7 +590,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       user.phone = "";
       user.address = "";
       user.birth = new Date("1970-01-01");
-      user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 10);
+      user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 12);
 
       // Auto-fill location from IP if available
       user.pais = location.pais || "";

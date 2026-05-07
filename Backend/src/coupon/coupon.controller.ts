@@ -153,9 +153,9 @@ export const deleteCoupon = async (req: CustomRequest, res: Response) => {
             return res.status(403).json({ message: "No tienes permiso para eliminar este cupón" });
         }
 
-        await Coupon.delete(couponId);
+        await Coupon.update(couponId, { isActive: false });
 
-        return res.json({ message: "Cupón eliminado correctamente" });
+        return res.json({ message: "Cupón desactivado correctamente" });
     } catch (error: any) {
         console.error("Error deleting coupon:", error);
         return res.status(500).json({ message: "Error al eliminar cupón" });

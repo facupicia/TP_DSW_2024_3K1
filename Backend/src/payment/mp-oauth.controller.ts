@@ -45,9 +45,11 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
 
         // Capturar página de retorno (ej: /create-event, /profile, /settings)
         const redirectTo = req.query.redirectTo as string | undefined;
+        const allowedPaths = ['/perfil', '/profile', '/create-event', '/settings', '/configuracion'];
+        const sanitizedRedirect = redirectTo && allowedPaths.includes(redirectTo) ? redirectTo : undefined;
 
         // Generar state firmado con redirectTo
-        const state = generateOAuthState(userId, redirectTo);
+        const state = generateOAuthState(userId, sanitizedRedirect);
 
         const params = new URLSearchParams({
             client_id: config.clientId,
@@ -117,8 +119,9 @@ export const oauthCallback = async (req: Request, res: Response) => {
         }
 
         const { userId, redirectTo } = stateData;
-        // Usar la página original si existe, sino default
-        if (redirectTo) {
+        const allowedPaths = ['/perfil', '/profile', '/create-event', '/settings', '/configuracion'];
+        // Usar la página original si existe y está en whitelist, sino default
+        if (redirectTo && allowedPaths.includes(redirectTo)) {
             returnPath = redirectTo;
         }
 

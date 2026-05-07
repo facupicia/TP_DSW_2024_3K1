@@ -1,7 +1,7 @@
 import AppDataSource from "../db";
 import { ScannerOrganizerAssignment } from "./scanner-organizer-assignment.entity";
 
-export async function canValidateEvent(userId: number, roles: string[], _eventId: number, eventOwnerId: number) {
+export async function canValidateEvent(userId: number, roles: string[], eventId: number, eventOwnerId: number) {
     if (roles.includes("admin") || eventOwnerId === userId) return true;
     if (!roles.includes("scanner")) return false;
 

@@ -26,7 +26,7 @@ router.post("/refresh", refreshSession)
 
 router.post("/logout", logoutUser)
 
-router.post("/register", schemaValidation(signupUserSchema), signupUser)
+router.post("/register", authRateLimiter, schemaValidation(signupUserSchema), signupUser)
 
 router.post("/claim/request", authRateLimiter, schemaValidation(requestAccountClaimSchema), requestAccountClaim)
 
