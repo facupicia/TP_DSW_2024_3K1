@@ -33,6 +33,8 @@ function createRedisStore(prefix: string) {
     });
 }
 
+const isProduction = env.NODE_ENV === "production";
+
 export const globalRateLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 120,
@@ -42,17 +44,43 @@ export const globalRateLimiter = rateLimit({
     handler: rateLimitHandler
 });
 
+const authWindowMs = isProduction ? 15 * 60 * 1000 : 60 * 1000;
+const authMaxRequests = isProduction ? 10 : 100;
+const refreshWindowMs = 15 * 60 * 1000;
+const refreshMaxRequests = isProduction ? 60 : 300;
+
 export const authRateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
+    windowMs: authWindowMs,
+    max: authMaxRequests,
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false,
     store: createRedisStore("rl:auth:"),
     handler: (_req, res, _next, options) => {
+        const retryAfter = res.getHeader("ratelimit-reset") || res.getHeader("x-ratelimit-reset");
+        const minutes = Math.max(1, Math.ceil(options.windowMs / 60000));
         res.status(options.statusCode).json({
             code: "AUTH_RATE_LIMITED",
-            message: "Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos."
+            message: `Demasiados intentos de inicio de sesión. Intenta nuevamente en ${minutes} minuto${minutes === 1 ? "" : "s"}.`,
+            retryAfter: retryAfter ?? null
+        });
+    }
+});
+
+export const refreshRateLimiter = rateLimit({
+    windowMs: refreshWindowMs,
+    max: refreshMaxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: false,
+    store: createRedisStore("rl:auth-refresh:"),
+    handler: (_req, res, _next, options) => {
+        const retryAfter = res.getHeader("ratelimit-reset") || res.getHeader("x-ratelimit-reset");
+        const minutes = Math.max(1, Math.ceil(options.windowMs / 60000));
+        res.status(options.statusCode).json({
+            code: "AUTH_REFRESH_RATE_LIMITED",
+            message: `Demasiadas solicitudes de renovación de sesión. Intenta nuevamente en ${minutes} minuto${minutes === 1 ? "" : "s"}.`,
+            retryAfter: retryAfter ?? null
         });
     }
 });

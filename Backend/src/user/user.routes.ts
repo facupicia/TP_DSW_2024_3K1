@@ -8,7 +8,7 @@ import { schemaValidation } from "../common/middleware/schemaValidacion"
 import { signupUserSchema, updateUserSchema, signinUserSchema, updateUserRoleSchema, googleSigninSchema, requestAccountClaimSchema, validateAccountClaimSchema, completeAccountClaimSchema } from "../schemas/schema.user"
 import { checkAuthToken } from "../common/middleware/authToken"
 import { checkRoleAuth } from "../common/middleware/checkRole"
-import { authRateLimiter } from "../common/middleware/rateLimit"
+import { authRateLimiter, refreshRateLimiter } from "../common/middleware/rateLimit"
 
 const router = Router()
 
@@ -22,7 +22,7 @@ router.post("/login", authRateLimiter, schemaValidation(signinUserSchema), signi
 
 router.post("/google", authRateLimiter, schemaValidation(googleSigninSchema), googleSignin)
 
-router.post("/refresh", authRateLimiter, refreshSession)
+router.post("/refresh", refreshRateLimiter, refreshSession)
 
 router.post("/logout", logoutUser)
 

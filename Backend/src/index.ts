@@ -1,18 +1,39 @@
 import 'reflect-metadata'
+import http from "http";
 import app from "./app";
 import AppDataSource from "./db";
-import dotenv from "dotenv";
+import { env } from "./config/env";
 import { verifyMailer } from "./common/services/mailer";
 import { getMPConfig } from "./payment/mp.config";
 import { migrateLegacyRoles } from "./user/migrate-roles";
 import { closeRedis } from "./common/services/redis";
 import { logger } from "./common/services/logger";
 
-dotenv.config();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = env.PORT;
 
-let server: ReturnType<typeof app.listen> | null = null;
+let server: http.Server | null = null;
 let isShuttingDown = false;
+
+function startServer(port: number): Promise<http.Server> {
+  return new Promise((resolve, reject) => {
+    const listener = http.createServer(app);
+
+    const onError = (error: NodeJS.ErrnoException) => {
+      listener.off("listening", onListening);
+      reject(error);
+    };
+
+    const onListening = () => {
+      listener.off("error", onError);
+      logger.info("STARTUP_SERVER_LISTENING", { port });
+      resolve(listener);
+    };
+
+    listener.once("error", onError);
+    listener.once("listening", onListening);
+    listener.listen(port);
+  });
+}
 
 async function main() {
   try {
@@ -26,15 +47,21 @@ async function main() {
 
     await migrateLegacyRoles();
 
-    server = app.listen(PORT, () => {
-      logger.info("STARTUP_SERVER_LISTENING", { port: PORT });
-    });
+    server = await startServer(PORT);
 
     const mailOk = await verifyMailer();
     logger.info("STARTUP_MAILER_STATUS", { ready: mailOk });
   } catch (error) {
-    logger.error("STARTUP_FATAL_ERROR", { error: (error as Error).message });
-    process.exit(1);
+    const startupError = error as NodeJS.ErrnoException;
+    if (startupError.code === "EADDRINUSE") {
+      logger.error("STARTUP_PORT_IN_USE", {
+        port: PORT,
+        hint: `Port ${PORT} is already in use. Stop the existing process or set PORT to another value.`,
+      });
+    } else {
+      logger.error("STARTUP_FATAL_ERROR", { error: startupError.message });
+    }
+    await gracefulShutdown("STARTUP_FAILURE", 1);
   }
 }
 
@@ -42,7 +69,7 @@ main();
 
 /* ========== Graceful Shutdown ========== */
 
-async function gracefulShutdown(signal: string) {
+async function gracefulShutdown(signal: string, exitCode = 0) {
   if (isShuttingDown) {
     logger.warn("SHUTDOWN_ALREADY_IN_PROGRESS", { signal });
     return;
@@ -79,7 +106,7 @@ async function gracefulShutdown(signal: string) {
 
     clearTimeout(forceExit);
     logger.info("SHUTDOWN_GRACEFUL_COMPLETE");
-    process.exit(0);
+    process.exit(exitCode);
   } catch (err) {
     logger.error("SHUTDOWN_ERROR", { error: (err as Error).message });
     process.exit(1);
