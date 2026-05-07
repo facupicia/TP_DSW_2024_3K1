@@ -564,4 +564,78 @@ Configuración en `netlify.toml`:
 
 ---
 
+## Changelog - Backend Security & Logic Hardening (May 2026)
+
+Esta sección documenta los cambios críticos realizados en el backend durante la sesión de hardening. **Todos los agentes deben leer esta sección antes de modificar código relacionado.**
+
+### Autenticación y Autorización
+- **`generateToken.ts`**: Se agregó `import crypto from 'crypto'` (fix de `ReferenceError` crítico). `verifyToken` ahora valida `issuer: 'eventlife-api'` y `audience` contra `env.CLIENT_URL`.
+- **`authToken.ts`**: `checkAuthToken` ahora consulta la base de datos para verificar que el usuario esté `active === true` y no tenga `deletedAt` (cache de 5s para reducir carga). `optionalAuthToken` ya no retorna 401 ante token inválido; continúa como usuario anónimo.
+- **`schema.user.ts`**: Contraseña mínima elevada de 6 a 8 caracteres.
+- **`user.routes.ts`**: Endpoint `/refresh` ahora tiene `authRateLimiter` aplicado.
+- **`sessionTokens.ts`**: `rotateRefreshToken` ya verifica `!reused.user.active` y `!reused.user.deletedAt`.
+
+### Pagos y Webhooks
+- **`mp-webhook.middleware.ts`**: El webhook **rechaza** cualquier request si `webhookSecret` no está configurado, sin importar el entorno. Ya no hay bypass en desarrollo/sandbox.
+- **`payment.controller.ts`**: Webhook ahora retorna **200** ante errores irrecuperables de negocio (para que MP no reintente), y **500** solo ante errores transitorios de infraestructura. `simulatePaymentWebhook` usa `env.NODE_ENV` en lugar de `process.env.NODE_ENV`.
+- **`payment.core.ts`**:
+  - Tolerancia de monto reducida de `$1 ARS` a `$0.01 ARS`.
+  - Cuando `createPaymentLog` detecta duplicado, busca los tickets ya creados y los retorna (recuperación de reintentos de MP).
+- **`preference.service.ts`**:
+  - `createMercadoPagoPreference` y `createPlatformPreference` ahora usan transacción corta con `pessimistic_write` para validar stock atómicamente antes de crear la preferencia MP.
+  - Rechazan explícitamente preferencias con `totalAmount <= 0` (`ZERO_AMOUNT_NOT_SUPPORTED`) porque MP no soporta pagos de $0 ARS.
+- **`refund.service.ts`**:
+  - El orden de operaciones se invirtió: primero se actualiza la base de datos (marcar como REFUNDED, cancelar tickets, restaurar stock), se hace commit, y **después** se llama a la API de MercadoPago. Esto garantiza consistencia interna incluso si MP falla.
+  - La búsqueda de tickets a cancelar ahora usa una ventana de tiempo (`createdAt ± 5 min` del `PaymentLog`) para vincular los tickets correctos al pago, en lugar de "los más recientes".
+
+### Tickets y Escáner
+- **`ticket.controller.ts`**:
+  - `validateTicket` ya **no** acepta IDs numéricos secuenciales; solo busca por `codigo_unico` (UUID).
+  - `cancelTicket` usa `GREATEST("soldCount" - 1, 0)` para evitar valores negativos.
+  - `getLastPurchaseTickets` distingue estado `failed` de `processing`.
+  - `inviteGuests`: la generación de QR y códigos UUID se hace **fuera** de la transacción de base de datos. La transacción solo reserva stock e inserta tickets. Se eliminó el `await import("crypto")` dentro del loop.
+- **`scanner.controller.ts`**: `validateTicket` ahora verifica que `ticketType.status === ACTIVE` y `event.active === true` antes de permitir la validación.
+
+### Eventos
+- **`event.controller.ts`**:
+  - `createEvent` y `updateEvent` validan que `date + time` no estén en el pasado (en lugar de solo la fecha).
+  - `updateEvent` verifica `canCreateTicketTypes` al crear nuevos tipos de entrada dentro de un evento existente (evita bypass de límites de plan).
+  - `deleteEvent` ahora decrementa `soldCount` de cada `TicketType` al cancelar tickets, y setea `deletedAt` (soft delete real).
+  - `getEvents` y `getEventByName` filtran eventos cuya fecha+hora ya pasó (no solo medianoche del día).
+  - `streamCreatorStats` (SSE) limita conexiones a **3 por usuario** (`MAX_SSE_PER_USER`), con cleanup robusto en `close`, `error` y `aborted`.
+
+### Base de Datos
+- **Timestamps unificados**: Todas las entidades pasaron de `type: 'timestamp'` a `type: 'timestamptz'` para evitar inconsistencias de zonas horarias.
+- **`Ticket`**: Se agregó `@DeleteDateColumn` para soft delete.
+- **`WebhookLog`**: `payload` e `ipAddress` ahora tienen `select: false`.
+- **`Event`**: Relaciones `User` y `Category` tienen `onDelete: 'CASCADE'` / `'RESTRICT'`.
+- **`database.ts`**: Ruta de migraciones corregida a `../database/migrations/`.
+
+### Infraestructura y Configuración
+- **`app.ts`**:
+  - `express.json()` y `express.urlencoded()` se movieron al **inicio** del pipeline, antes de rate limiting y morgan, para rechazar payloads inválidos antes de que consuman recursos.
+  - Helmet CSP reactivado con política restrictiva (`defaultSrc: 'none'`, `frameAncestors: 'none'`).
+  - Health check (`/health`) ahora devuelve solo `{ status: 'ok' | 'error' }`, sin uptime ni detalles de infraestructura.
+- **`index.ts`**: `gracefulShutdown` usa flag `isShuttingDown` para evitar ejecuciones simultáneas. Se agregó handler para `SIGUSR2` (nodemon).
+- **`logger.ts`**: `JSON.stringify` ahora usa `safeStringify` con detección de referencias circulares (`[Circular]`), evitando crash del proceso.
+- **`mailer.ts`**: Todas las variables de usuario interpoladas en HTML se escapan con `escapeHtml()` para prevenir XSS en emails. Se reemplazó el uso disperso de `process.env` por `env`.
+- **`checkRole.ts`**: Errores ahora usan `logger.error` en lugar de `console.error`.
+- **`errorHandler.ts`**: En producción, errores 4xx también retornan mensaje genérico (`'Request error'`) para evitar information disclosure.
+
+### Usuarios
+- **`user.controller.ts`**:
+  - `signupUser` verifica email duplicado antes de crear (409 con código `EMAIL_ALREADY_EXISTS`).
+  - `updateUser` verifica email duplicado al cambiar email.
+  - `googleSignin` convierte `isGuestAccount = false` cuando un usuario guest inicia sesión con Google.
+  - Usa `env.ID_CLIENT_GOOGLE_OAUTH` en lugar de `process.env`.
+
+### Notas para futuros agentes
+- **No revertir** el orden de body parsers en `app.ts`.
+- **No bypassar** la validación de firma en webhooks (`mp-webhook.middleware.ts`).
+- **No reducir** la tolerancia de monto en pagos por debajo de `$0.01` sin consultar.
+- **No eliminar** la verificación de `user.active` en `authToken.ts`.
+- Si se agrega una nueva entidad, usar `timestamptz` para todas las columnas de fecha/hora.
+
+---
+
 *Documento generado para agentes de IA. Para información más detallada, consultar README.md y la documentación en cada carpeta.*
