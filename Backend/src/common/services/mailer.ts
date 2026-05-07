@@ -1,6 +1,15 @@
 import { generateTicketsPDF } from "./pdfGenerator";
 import { logger } from "./logger";
 
+function escapeHtml(unsafe: string): string {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // --- FUNCIONES DE ESTADO ---
 let mailerReady = false;
 
@@ -42,7 +51,7 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
       },
     ];
 
-    const eventName = tickets[0]?.eventTitle || "Evento";
+    const eventName = escapeHtml(tickets[0]?.eventTitle || "Evento");
 
     const htmlContent = `
             <html>
@@ -121,18 +130,23 @@ export const sendPromoterInvitationEmail = async (
   }
 
   try {
+    const safePromoterName = escapeHtml(promoterName);
+    const safeOrganizerName = escapeHtml(organizerName);
+    const safePromoterCode = escapeHtml(promoterCode);
+    const safeCommission = Number(commissionPercentage).toFixed(2);
+
     const htmlContent = `
             <html>
                 <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h1 style="color: #4f46e5;">¡Has sido invitado como Promotor!</h1>
-                        <p>Hola ${promoterName},</p>
-                        <p><strong>${organizerName}</strong> te ha agregado como promotor (RRPP) en EventLife.</p>
+                        <p>Hola ${safePromoterName},</p>
+                        <p><strong>${safeOrganizerName}</strong> te ha agregado como promotor (RRPP) en EventLife.</p>
                         
                         <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                             <p style="margin: 0; font-size: 14px; color: #666;">Tu código de promotor:</p>
-                            <p style="margin: 10px 0; font-size: 24px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">${promoterCode}</p>
-                            <p style="margin: 0; font-size: 14px; color: #666;">Comisión: <strong>${commissionPercentage}%</strong> por cada venta</p>
+                            <p style="margin: 10px 0; font-size: 24px; font-weight: bold; color: #4f46e5; letter-spacing: 2px;">${safePromoterCode}</p>
+                            <p style="margin: 0; font-size: 14px; color: #666;">Comisión: <strong>${safeCommission}%</strong> por cada venta</p>
                         </div>
                         
                         <p>Comparte tu código con tus contactos y empieza a ganar comisiones por cada ticket vendido.</p>
@@ -209,7 +223,9 @@ export const sendAccountClaimEmail = async (
   }
 
   try {
-    const safeName = buyerName || "comprador";
+    const safeName = escapeHtml(buyerName || "comprador");
+    // claimUrl should be validated by the caller; we still encode it for href safety
+    const safeClaimUrl = claimUrl.replace(/"/g, '&quot;');
     const htmlContent = `
             <html>
                 <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
@@ -217,7 +233,7 @@ export const sendAccountClaimEmail = async (
                         <h1 style="color: #0084f0;">Accede a tus entradas cuando quieras</h1>
                         <p>Hola ${safeName},</p>
                         <p>Creaste una compra como invitado en EventLife. Puedes reclamar tu cuenta para ver tus tickets y próximas compras desde tu perfil.</p>
-                        <a href="${claimUrl}"
+                        <a href="${safeClaimUrl}"
                            style="display: inline-block; background: #111827; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; margin: 20px 0; font-weight: bold;">
                             Reclamar mi cuenta
                         </a>

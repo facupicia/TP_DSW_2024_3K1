@@ -31,7 +31,10 @@ import { env } from "./config/env";
 
 const app = express();
 
-app.use(express.urlencoded({ extended: false, limit: "100kb" }))
+// Body parsing FIRST so invalid/large payloads are rejected before rate limiting/logging
+app.use(express.urlencoded({ extended: false, limit: "100kb" }));
+app.use(express.json({ limit: "1mb" }));
+
 app.use(requestId)
 app.use(metricsMiddleware)
 
@@ -41,7 +44,12 @@ app.use(helmet({
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: false, // Disabled for API-only server
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+        }
+    },
 }));
 
 const allowedOriginsRaw = (env.CLIENT_URLS || env.CLIENT_URL || "")
@@ -71,33 +79,20 @@ app.use(cors({
 app.use(globalRateLimiter);
 
 app.use(morgan(env.NODE_ENV === 'production' ? "combined" : "dev"));
-app.use(express.json({ limit: "1mb" }));
 
-// Healthcheck
+// Healthcheck - minimal info to avoid information disclosure
 app.get('/health', async (_req, res) => {
     try {
-        let db = 'down';
-        let redis = 'down';
+        let healthy = false;
         try {
             if (AppDataSource.isInitialized) {
                 await AppDataSource.query("SELECT 1");
-                db = 'up';
+                healthy = true;
             }
         } catch {
-            db = 'down';
+            healthy = false;
         }
-        try {
-            const redisClient = await getRedis();
-            if (redisClient) {
-                await redisClient.ping();
-                redis = 'up';
-            }
-        } catch {
-            redis = 'down';
-        }
-        const mail = getMailerStatus();
-        const healthy = db === 'up';
-        res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'error', uptime: process.uptime(), db, redis, mail });
+        res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'error' });
     } catch {
         res.status(503).json({ status: 'error' });
     }

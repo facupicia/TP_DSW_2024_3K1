@@ -17,6 +17,15 @@ export const signupUser = async (req: Request, res: Response) => {
   try {
     const { firstname, lastname, email, password, phone, pais, provincia, ciudad, birth, address } = req.body;
 
+    // Check for duplicate email before creating
+    const existingUser = await User.findOne({
+      where: { email: email.toLowerCase().trim() },
+      select: ['id']
+    });
+    if (existingUser) {
+      return res.status(409).json({ code: 'EMAIL_ALREADY_EXISTS', message: 'El email ya está registrado. Iniciá sesión o usá otro email.' });
+    }
+
     // Encriptar password
     const hashedPassword = await bcrypt.hash(password, 12);
 
@@ -29,7 +38,7 @@ export const signupUser = async (req: Request, res: Response) => {
     user.ciudad = ciudad;
     user.firstname = firstname;
     user.lastname = lastname;
-    user.email = email;
+    user.email = email.toLowerCase().trim();
     user.password = hashedPassword;
 
     const defaultRoles = await findRolesByNames(['user']);
@@ -224,7 +233,16 @@ export const updateUser = async (req: CustomRequest, res: Response) => {
     if (address !== undefined) user.address = address
     if (imgPerfil !== undefined) user.imgPerfil = imgPerfil
     if (lastname !== undefined) user.lastname = lastname
-    if (email !== undefined) user.email = email
+    if (email !== undefined) {
+      const normalizedEmail = email.toLowerCase().trim();
+      if (normalizedEmail !== user.email) {
+        const existing = await User.findOne({ where: { email: normalizedEmail }, select: ['id'] });
+        if (existing) {
+          return res.status(409).json({ code: 'EMAIL_ALREADY_EXISTS', message: 'El email ya está en uso por otro usuario.' });
+        }
+        user.email = normalizedEmail;
+      }
+    }
     if (password) {
       user.password = await bcrypt.hash(password, 12);
     }
@@ -602,8 +620,14 @@ export const googleSignin = async (req: Request, res: Response) => {
 
       await repo.save(user);
     } else {
+      if (user.isGuestAccount) {
+        user.isGuestAccount = false;
+        user.claimedAt = new Date();
+      }
       if (picture && picture !== user.imgPerfil) {
         user.imgPerfil = picture;
+      }
+      if (user.isGuestAccount || (picture && picture !== user.imgPerfil)) {
         await repo.save(user);
       }
     }

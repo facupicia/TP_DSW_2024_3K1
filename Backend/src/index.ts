@@ -12,6 +12,7 @@ dotenv.config();
 const PORT = Number(process.env.PORT) || 3000;
 
 let server: ReturnType<typeof app.listen> | null = null;
+let isShuttingDown = false;
 
 async function main() {
   try {
@@ -42,6 +43,11 @@ main();
 /* ========== Graceful Shutdown ========== */
 
 async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) {
+    logger.warn("SHUTDOWN_ALREADY_IN_PROGRESS", { signal });
+    return;
+  }
+  isShuttingDown = true;
   logger.info("SHUTDOWN_RECEIVED", { signal });
 
   const forceExit = setTimeout(() => {
@@ -82,6 +88,7 @@ async function gracefulShutdown(signal: string) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2'));
 
 process.on('unhandledRejection', (reason: any) => {
   logger.error('UNHANDLED_REJECTION', { reason: String(reason) });
