@@ -1,4 +1,5 @@
 import { Response, NextFunction } from "express";
+import { logger } from "../services/logger";
 import { CustomRequest as AuthRequest } from "./authToken";
 
 export interface CustomRequest extends AuthRequest { }
@@ -58,8 +59,8 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
             required: requiredRolesArray,
             current: userRoles
         });
-    } catch (error) {
-        console.error("Role check error:", error);
+    } catch (error: any) {
+        logger.error("ROLE_CHECK_ERROR", { error: error?.message });
         return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal Server Error" });
     }
 }
@@ -96,8 +97,8 @@ export const checkExactRole = (requiredRoles: string | string[]) => async (req: 
             required: requiredRolesArray,
             current: userRoles
         });
-    } catch (error) {
-        console.error("Role check error:", error);
+    } catch (error: any) {
+        logger.error("ROLE_CHECK_ERROR", { error: error?.message });
         return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal Server Error" });
     }
 }

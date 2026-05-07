@@ -11,7 +11,7 @@ import { getRoleNames, findRolesByNames } from "./role.entity";
 import { issueRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../common/services/sessionTokens";
 import { createAccountClaimToken, consumeAccountClaimToken, findValidAccountClaimToken } from "./accountClaim.service";
 import { sendAccountClaimEmail } from "../common/services/mailer";
-
+import { env } from "../config/env";
 
 export const signupUser = async (req: Request, res: Response) => {
   try {
@@ -558,7 +558,7 @@ async function logRoleChange(adminId: number, userId: number, prevRole: string, 
 export const googleSignin = async (req: Request, res: Response) => {
   try {
     const credential = (req.body as any)?.credential;
-    const clientId = process.env.ID_CLIENT_GOOGLE_OAUTH;
+    const clientId = env.ID_CLIENT_GOOGLE_OAUTH;
     if (!clientId) {
       return res.status(500).json({ code: "GOOGLE_OAUTH_NOT_CONFIGURED", message: "OAuth no configurado" });
     }

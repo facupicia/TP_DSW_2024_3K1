@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { randomUUID } from "crypto";
 import { Ticket, TicketStatus } from "./ticket.entity";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../common/middleware/authToken";
@@ -255,6 +256,10 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
             return res.status(200).json({ tickets: [], status: 'no_logs' });
         }
 
+        if (lastLog.status === PaymentStatus.FAILED) {
+            return res.status(200).json({ tickets: [], status: 'failed' });
+        }
+
         if (lastLog.status !== PaymentStatus.COMPLETED) {
             return res.status(200).json({ tickets: [], status: 'processing' });
         }
@@ -475,7 +480,12 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
         ticket.status = TicketStatus.CANCELLED;
         await queryRunner.manager.save(Ticket, ticket);
 
-        await queryRunner.manager.decrement(TicketType, { id: ticket.ticketTypeId }, "soldCount", 1);
+        await queryRunner.manager
+            .createQueryBuilder()
+            .update(TicketType)
+            .set({ soldCount: () => `GREATEST("soldCount" - 1, 0)` })
+            .where('id = :id', { id: ticket.ticketTypeId })
+            .execute();
 
         await queryRunner.commitTransaction();
         return res.status(200).json({ message: "Ticket cancelado", ticketId: ticket.id });
@@ -542,40 +552,19 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             return res.status(400).json({ message: "Máximo 50 emails o 100 tickets por solicitud" });
         }
 
-        await queryRunner.startTransaction();
-
-        // Get ticket type with event
-        const ticketType = await queryRunner.manager.findOne(TicketType, {
+        // Get ticket type with event (outside transaction for quick validation)
+        const ticketType = await AppDataSource.getRepository(TicketType).findOne({
             where: { id: ticketTypeId },
             relations: ["event"]
         });
 
         if (!ticketType) {
-            await queryRunner.rollbackTransaction();
             return res.status(404).json({ message: "Tipo de ticket no encontrado" });
         }
 
         // Verify organizer owns the event
         if (ticketType.event.user_id !== userId && !isAdmin) {
-            await queryRunner.rollbackTransaction();
             return res.status(403).json({ message: "No tienes permiso para invitar a este evento" });
-        }
-
-        // Reserve stock atomically to avoid overselling with concurrent invitations/purchases.
-        const stockUpdate = await queryRunner.manager
-            .createQueryBuilder()
-            .update(TicketType)
-            .set({ soldCount: () => `"soldCount" + ${totalTickets}` })
-            .where("id = :id", { id: ticketType.id })
-            .andWhere(`"soldCount" + ${totalTickets} <= "capacity"`)
-            .execute();
-
-        if (!stockUpdate.affected) {
-            await queryRunner.rollbackTransaction();
-            const availableStock = ticketType.capacity - ticketType.soldCount;
-            return res.status(400).json({
-                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${totalTickets}`
-            });
         }
 
         const event = ticketType.event;
@@ -584,25 +573,21 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         const ticketsToInsert: Ticket[] = [];
         const emailTicketsMap: Record<string, any[]> = {};
 
+        // Pre-generate all ticket data (QR generation) outside the DB transaction to avoid long locks
         for (const email of validEmails) {
             try {
                 const ticketsForThisEmail: any[] = [];
 
-                // Create multiple tickets for this email
                 for (let i = 0; i < ticketQty; i++) {
-                    // Generate unique code and QR
-                    const { randomUUID } = await import("crypto");
                     const codigo_unico = randomUUID();
                     const qrCode = await generarQRUrl(codigo_unico);
 
-                    // Create ticket with price 0 (free)
                     const ticket = new Ticket();
-                    ticket.ticketType = ticketType;
                     ticket.ticketTypeId = ticketType.id;
-                    ticket.userId = userId; // Assigned to organizer
+                    ticket.userId = userId;
                     ticket.codigo_unico = codigo_unico;
                     ticket.qrCode = qrCode;
-                    ticket.purchasePrice = 0; // FREE
+                    ticket.purchasePrice = 0;
                     ticket.status = TicketStatus.ACTIVE;
 
                     ticketsToInsert.push(ticket);
@@ -610,7 +595,7 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
 
                     ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
-                        ticketId: null, // Will be set after bulk save
+                        ticketId: null,
                         eventTitle: event.title,
                         eventDate: `${new Date(event.date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${event.time}`,
                         eventLocation: event.direccion || event.ciudad || '',
@@ -631,24 +616,30 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         }
 
         if (ticketsToInsert.length === 0) {
-            await queryRunner.rollbackTransaction();
             return res.status(400).json({ message: "No se pudo crear ninguna invitación", errors });
         }
 
-        const reservedButNotCreated = totalTickets - ticketsToInsert.length;
-        if (reservedButNotCreated > 0) {
-            await queryRunner.manager.decrement(
-                TicketType,
-                { id: ticketType.id },
-                "soldCount",
-                reservedButNotCreated
-            );
+        await queryRunner.startTransaction();
+
+        // Reserve stock atomically to avoid overselling with concurrent invitations/purchases.
+        const stockUpdate = await queryRunner.manager
+            .createQueryBuilder()
+            .update(TicketType)
+            .set({ soldCount: () => `"soldCount" + ${ticketsToInsert.length}` })
+            .where("id = :id", { id: ticketType.id })
+            .andWhere(`"soldCount" + ${ticketsToInsert.length} <= "capacity"`)
+            .execute();
+
+        if (!stockUpdate.affected) {
+            await queryRunner.rollbackTransaction();
+            const availableStock = ticketType.capacity - ticketType.soldCount;
+            return res.status(400).json({
+                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${ticketsToInsert.length}`
+            });
         }
 
         // Bulk insert all tickets at once
-        if (ticketsToInsert.length > 0) {
-            await queryRunner.manager.save(Ticket, ticketsToInsert);
-        }
+        await queryRunner.manager.save(Ticket, ticketsToInsert);
 
         await queryRunner.commitTransaction();
 

@@ -7,10 +7,10 @@ export const errorHandler = (err: any, req: Request, res: Response, _next: NextF
     const code = err.code || 'INTERNAL_ERROR';
     const isDev = env.NODE_ENV === 'development';
 
-    // Never expose internal error details in production for 5xx errors
+    // Never expose internal error details in production
     let message = err.message || 'Internal server error';
-    if (status >= 500 && !isDev) {
-        message = 'Internal server error';
+    if (!isDev) {
+        message = status >= 500 ? 'Internal server error' : 'Request error';
     }
 
     logger.error('GLOBAL_ERROR', {

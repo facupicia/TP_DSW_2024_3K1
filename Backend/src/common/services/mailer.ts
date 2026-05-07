@@ -1,5 +1,6 @@
 import { generateTicketsPDF } from "./pdfGenerator";
 import { logger } from "./logger";
+import { env } from "../../config/env";
 
 function escapeHtml(unsafe: string): string {
     return unsafe
@@ -14,7 +15,7 @@ function escapeHtml(unsafe: string): string {
 let mailerReady = false;
 
 export const verifyMailer = async (): Promise<boolean> => {
-  const ok = !!process.env.BREVO_API_KEY;
+  const ok = !!env.BREVO_API_KEY;
   mailerReady = ok;
   return ok;
 };
@@ -33,7 +34,7 @@ export interface ITicketQR {
 }
 
 const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
-  const apiKey = process.env.BREVO_API_KEY;
+  const apiKey = env.BREVO_API_KEY;
   if (!apiKey) {
     logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
@@ -73,7 +74,7 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
     const body = {
       sender: {
         name: "Event Life",
-        email: process.env.MAIL_FROM || "no-reply@eventlife.com",
+        email: env.MAIL_FROM || "no-reply@eventlife.com",
       },
       to: [{ email }],
       subject: `Tus Entradas para ${eventName} 🎟️`,
@@ -123,7 +124,7 @@ export const sendPromoterInvitationEmail = async (
   promoterCode: string,
   commissionPercentage: number,
 ) => {
-  const apiKey = process.env.BREVO_API_KEY;
+  const apiKey = env.BREVO_API_KEY;
   if (!apiKey) {
     logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
@@ -166,7 +167,7 @@ export const sendPromoterInvitationEmail = async (
     const body = {
       sender: {
         name: "Event Life",
-        email: process.env.MAIL_FROM || "no-reply@eventlife.com",
+        email: env.MAIL_FROM || "no-reply@eventlife.com",
       },
       to: [{ email }],
       subject: `¡Has sido invitado como Promotor por ${organizerName}! 🎉`,
@@ -216,7 +217,7 @@ export const sendAccountClaimEmail = async (
   buyerName: string,
   claimUrl: string,
 ) => {
-  const apiKey = process.env.BREVO_API_KEY;
+  const apiKey = env.BREVO_API_KEY;
   if (!apiKey) {
     logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
@@ -248,7 +249,7 @@ export const sendAccountClaimEmail = async (
     const body = {
       sender: {
         name: "Event Life",
-        email: process.env.MAIL_FROM || "no-reply@eventlife.com",
+        email: env.MAIL_FROM || "no-reply@eventlife.com",
       },
       to: [{ email }],
       subject: "Reclama tu cuenta de EventLife",
