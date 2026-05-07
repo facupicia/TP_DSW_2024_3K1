@@ -22,6 +22,7 @@ export class PaymentLog {
   mpPaymentId: string;
 
   @Column({ nullable: true })
+  @Index('idx_payment_external_ref')
   externalReference?: string;
 
   @Column()
@@ -33,7 +34,6 @@ export class PaymentLog {
   ticketTypeId: number;
 
   /* ===================== PAYMENT AMOUNTS ===================== */
-  // El evento se obtiene vía: payment_log → ticket_type → event
 
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   unitPrice: number;
@@ -45,21 +45,16 @@ export class PaymentLog {
   totalAmount: number;
 
   /* ===================== COMMISSION SNAPSHOT ===================== */
-  // Snapshot of organizer's plan commission at time of payment (for auditing)
 
-  /** Commission percentage from organizer's plan at time of payment */
   @Column({ type: 'numeric', precision: 5, scale: 2, default: 0 })
   commissionPercent: number;
 
-  /** Calculated commission amount (totalAmount * commissionPercent / 100) */
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   commissionAmount: number;
 
-  /** Organizer's plan name at time of payment (FREE, PRO, etc.) */
   @Column({ type: 'varchar', length: 50, nullable: true })
   organizerPlanName: string;
 
-  /** Organizer ID who receives the payment (marketplace audit) */
   @Column({ nullable: true })
   @Index('idx_payment_organizer')
   organizerId: number;
@@ -72,13 +67,13 @@ export class PaymentLog {
   @Index('idx_payment_status')
   status: PaymentStatus;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ type: 'timestamptz' })
   @Index('idx_payment_created_at')
   createdAt: Date;
 
   /* ===================== REFUND FIELDS ===================== */
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   refundedAt?: Date;
 
   @Column({ nullable: true })

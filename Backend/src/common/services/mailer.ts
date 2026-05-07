@@ -1,20 +1,17 @@
-import dotenv from "dotenv";
 import { generateTicketsPDF } from "./pdfGenerator";
+import { logger } from "./logger";
 
-dotenv.config();
-
-// --- FUNCIONES DE ESTADO (Restauradas para arreglar index.ts) ---
+// --- FUNCIONES DE ESTADO ---
 let mailerReady = false;
 
 export const verifyMailer = async (): Promise<boolean> => {
-  // Verificamos si existe la API Key de Brevo
   const ok = !!process.env.BREVO_API_KEY;
   mailerReady = ok;
   return ok;
 };
 
 export const getMailerStatus = () => (mailerReady ? "up" : "down");
-// ---------------------------------------------------------------
+// -------------------------------
 
 export interface ITicketQR {
   qrCode: string;
@@ -29,17 +26,15 @@ export interface ITicketQR {
 const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
-    console.error("FALTA BREVO_API_KEY");
+    logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
   }
 
   try {
-    console.log("📄 Generando PDF de tickets...");
+    logger.info("MAILER_GENERATING_PDF");
 
-    // 1. Generamos el PDF en Base64 usando tu nuevo generador
     const pdfBase64 = await generateTicketsPDF(tickets);
 
-    // 2. Preparamos el adjunto para Brevo
     const attachments = [
       {
         content: pdfBase64,
@@ -49,7 +44,6 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
 
     const eventName = tickets[0]?.eventTitle || "Evento";
 
-    // 3. HTML simple del correo
     const htmlContent = `
             <html>
                 <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
@@ -67,7 +61,6 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
             </html>
         `;
 
-    // 4. Enviar a Brevo
     const body = {
       sender: {
         name: "Event Life",
@@ -87,25 +80,26 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      let errorJson;
+      let errorJson: any;
       try {
         errorJson = JSON.parse(errorText || "{}");
       } catch {
         errorJson = { message: errorText };
       }
-      console.error("❌ Error API Brevo:", errorJson);
+      logger.error("MAILER_BREVO_ERROR", { error: errorJson });
       return null;
     }
 
     const data = await response.json();
-    console.log("✅ Correo con PDF enviado. ID:", (data as any)?.messageId);
+    logger.info("MAILER_SENT", { messageId: (data as any)?.messageId });
     return data;
   } catch (error) {
-    console.error("Error enviando correo:", error);
+    logger.error("MAILER_SEND_ERROR", { error: (error as Error).message });
     return null;
   }
 };
@@ -122,7 +116,7 @@ export const sendPromoterInvitationEmail = async (
 ) => {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
-    console.error("FALTA BREVO_API_KEY");
+    logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
   }
 
@@ -173,42 +167,32 @@ export const sendPromoterInvitationEmail = async (
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      const errorJson = JSON.parse(errorText || "{}");
+      let errorJson: any;
+      try { errorJson = JSON.parse(errorText || "{}"); } catch { errorJson = { message: errorText }; }
 
-      // Detectar error de IP no autorizada
       if (
         errorJson.code === "unauthorized" &&
         errorJson.message?.includes("unrecognised IP")
       ) {
-        console.error("❌ ERROR BREVO: IP no autorizada");
-        console.error("👉 Para solucionarlo:");
-        console.error(
-          "   1. Ve a https://app.brevo.com/security/authorised_ips",
-        );
-        console.error("   2. Agrega la IP del servidor a la lista blanca");
-        console.error("   O desactiva la restricción de IP si no la necesitas");
-        console.error(
-          "📍 IP detectada:",
-          errorJson.message.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || "desconocida",
-        );
+        logger.error("MAILER_BREVO_UNAUTHORIZED_IP", {
+          ip: errorJson.message.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || "desconocida"
+        });
       } else {
-        console.error("Error API Brevo:", errorText);
+        logger.error("MAILER_BREVO_ERROR", { error: errorJson });
       }
       return { error: errorJson, success: false };
     }
 
     const data = await response.json();
-    console.log(
-      "✅ Correo de invitación enviado. ID:",
-      (data as any)?.messageId,
-    );
+    logger.info("MAILER_INVITATION_SENT", { messageId: (data as any)?.messageId });
     return { data, success: true };
   } catch (error) {
-    console.error("ERROR al enviar email:", error);
+    logger.error("MAILER_INVITATION_ERROR", { error: (error as Error).message });
     return null;
   }
 };
@@ -220,7 +204,7 @@ export const sendAccountClaimEmail = async (
 ) => {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
-    console.error("FALTA BREVO_API_KEY");
+    logger.error("MAILER_MISSING_BREVO_KEY");
     return null;
   }
 
@@ -263,19 +247,20 @@ export const sendAccountClaimEmail = async (
         "content-type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Error API Brevo claim account:", errorText);
+      logger.error("MAILER_CLAIM_ERROR", { error: errorText });
       return null;
     }
 
     const data = await response.json();
-    console.log("✅ Correo de reclamo enviado. ID:", (data as any)?.messageId);
+    logger.info("MAILER_CLAIM_SENT", { messageId: (data as any)?.messageId });
     return data;
   } catch (error) {
-    console.error("ERROR al enviar email de reclamo:", error);
+    logger.error("MAILER_CLAIM_ERROR", { error: (error as Error).message });
     return null;
   }
 };

@@ -333,11 +333,16 @@ async function resolvePurchasePayer(queryRunner: any, input: PreferenceInput): P
         relations: ['roles']
     });
 
+    if (user && !user.isGuestAccount) {
+        // Do not link guest checkout to existing registered accounts without consent
+        throw new Error('GUEST_EMAIL_ALREADY_REGISTERED');
+    }
+
     if (!user) {
         const fallbackBirth = input.guestBuyer.birth
             ? new Date(`${input.guestBuyer.birth}T00:00:00`)
             : new Date('1900-01-01T00:00:00');
-        const hashedPassword = await bcrypt.hash(`guest:${normalizedEmail}:${Date.now()}`, 10);
+        const hashedPassword = await bcrypt.hash(`guest:${normalizedEmail}:${Date.now()}`, 12);
         const userRoles = await findRolesByNames(['user']);
 
         user = userRepo.create({

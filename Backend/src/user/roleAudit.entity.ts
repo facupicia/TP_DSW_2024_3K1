@@ -1,4 +1,4 @@
-import { BaseEntity, Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { BaseEntity, Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity({ name: "role_audit" })
 export class RoleAudit extends BaseEntity {
@@ -6,9 +6,11 @@ export class RoleAudit extends BaseEntity {
   id: number;
 
   @Column()
+  @Index('idx_role_audit_admin')
   adminId: number;
 
   @Column()
+  @Index('idx_role_audit_user')
   userId: number;
 
   @Column()
@@ -20,6 +22,7 @@ export class RoleAudit extends BaseEntity {
   @Column({ nullable: true })
   ip: string;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
+  @Index('idx_role_audit_created')
   createdAt: Date;
 }

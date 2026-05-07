@@ -17,7 +17,7 @@ export async function getRedis() {
                 url: env.REDIS_URL,
                 socket: {
                     connectTimeout: 5000,
-                    keepAlive: true,
+                    keepAlive: 5000,
                     reconnectStrategy: (retries) => {
                         if (retries > 5) {
                             console.warn(`[Redis] Max reconnection attempts reached. Giving up.`);

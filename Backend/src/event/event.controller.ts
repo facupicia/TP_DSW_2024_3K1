@@ -8,7 +8,7 @@ import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
-import { UserSubscription } from "../subscription/user_subscription.entity";
+import { UserSubscription, SubscriptionStatus } from "../subscription/user_subscription.entity";
 import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
 import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
@@ -109,7 +109,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             await queryRunner.manager.save(User, user);
             // Ensure user has a subscription using queryRunner manager for atomicity
             const existingSub = await queryRunner.manager.findOne(UserSubscription, {
-                where: { userId, status: 'active' }
+                where: { userId, status: SubscriptionStatus.ACTIVE }
             });
             if (!existingSub) {
                 const freePlan = await queryRunner.manager.findOne(SubscriptionPlan, { where: { name: 'FREE' } });
@@ -117,7 +117,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
                     const sub = queryRunner.manager.create(UserSubscription, {
                         userId,
                         planId: freePlan.id,
-                        status: 'active',
+                        status: SubscriptionStatus.ACTIVE,
                         currentPeriodStart: new Date(),
                         currentPeriodEnd: null
                     });

@@ -4,9 +4,9 @@ import { z } from "zod";
 import { logger } from "../services/logger";
 
 export interface IPayload {
-    id: number;
+    id?: number;
     roles?: string[];
-    iat: number;
+    iat?: number;
 }
 
 // Extender la interfaz Request para incluir la propiedad id
@@ -22,7 +22,7 @@ const payloadSchema = z.object({
     jti: z.string().optional(),
     iss: z.string().optional(),
     aud: z.string().optional(),
-});
+}).passthrough();
 
 export const checkAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {

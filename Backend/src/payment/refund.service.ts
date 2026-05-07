@@ -1,11 +1,12 @@
-import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { In } from 'typeorm';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { Ticket, TicketStatus } from '../ticket/ticket.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
+import { User } from '../user/user.entity';
 import { logger } from '../common/services/logger';
-import { getPlatformMPClient, getOrganizerMPClient } from './payment.core';
+import { decryptFromString } from '../common/services/encryption';
+import { getMPConfig } from './mp.config';
 
 /**
  * Refund Service
@@ -153,7 +154,7 @@ export async function processRefund(
             throw new Error(errorData.message || `MP API error: ${mpResponse.status}`);
         }
 
-        const refundResult = await mpResponse.json();
+        const refundResult = await mpResponse.json() as any;
 
         // 3. Actualizar estado en nuestra BD
         await queryRunner.manager.update(

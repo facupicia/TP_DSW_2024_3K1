@@ -191,6 +191,13 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 });
             }
 
+            if (error.message === 'GUEST_EMAIL_ALREADY_REGISTERED') {
+                return res.status(409).json({
+                    code: 'GUEST_EMAIL_ALREADY_REGISTERED',
+                    message: 'Este email ya está registrado. Iniciá sesión para comprar.'
+                });
+            }
+
             if (['COUPON_INVALID', 'COUPON_EXPIRED', 'COUPON_EXHAUSTED'].includes(error.message)) {
                 return res.status(400).json({
                     code: error.message,

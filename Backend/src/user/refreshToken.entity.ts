@@ -11,20 +11,23 @@ export class RefreshToken extends BaseEntity {
     tokenHash: string;
 
     @Column()
+    @Index('idx_refresh_token_user')
     userId: number;
 
     @ManyToOne(() => User, { onDelete: "CASCADE" })
     user: User;
 
-    @Column({ type: "timestamp" })
+    @Column({ type: "timestamptz" })
+    @Index('idx_refresh_token_expires')
     expiresAt: Date;
 
-    @Column({ type: "timestamp", nullable: true })
+    @Column({ type: "timestamptz", nullable: true })
     revokedAt: Date | null;
 
     @Column({ nullable: true })
+    @Index('idx_refresh_token_replaced')
     replacedByHash: string | null;
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 }

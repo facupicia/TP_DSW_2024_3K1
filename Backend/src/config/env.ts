@@ -63,6 +63,7 @@ const EnvSchema = z.object({
 
     // Encryption
     ENCRYPTION_KEY: z.string().length(64).optional(),
+    METRICS_PUBLIC: z.enum(["true", "false"]).default("false"),
 }).refine(
     (data) => {
         const hasDbUrl = !!(data.DATABASE_URL || data.POSTGRES_URL);

@@ -153,7 +153,7 @@ export const oauthCallback = async (req: Request, res: Response) => {
             return res.redirect(`${config.clientUrl}${returnPath}?mp_error=token_exchange_failed`);
         }
 
-        const tokens = await tokenResponse.json();
+        const tokens = await tokenResponse.json() as any;
 
         if (!tokens.access_token || !tokens.user_id) {
             logger.error('MP_OAUTH_INVALID_TOKENS', {
@@ -376,7 +376,7 @@ export const refreshOrganizerToken = async (userId: number): Promise<string | nu
             return null;
         }
         
-        const tokens = await response.json();
+        const tokens = await response.json() as any;
         
         // Calcular nueva fecha de expiración
         const expiresAt = new Date();

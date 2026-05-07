@@ -30,7 +30,6 @@ export class UserSubscription extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    /** The user (organizer) who owns this subscription */
     @ManyToOne(() => User, { nullable: false })
     @JoinColumn({ name: 'userId' })
     user: User;
@@ -39,15 +38,13 @@ export class UserSubscription extends BaseEntity {
     @Index()
     userId: number;
 
-    /** The subscription plan */
-    @ManyToOne(() => SubscriptionPlan, { nullable: false, eager: true })
+    @ManyToOne(() => SubscriptionPlan, { nullable: false })
     @JoinColumn({ name: 'planId' })
     plan: SubscriptionPlan;
 
     @Column()
     planId: number;
 
-    /** Current subscription status */
     @Column({
         type: 'enum',
         enum: SubscriptionStatus,
@@ -56,35 +53,30 @@ export class UserSubscription extends BaseEntity {
     @Index('idx_subscription_status')
     status: SubscriptionStatus;
 
-    /** When current billing period started */
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     currentPeriodStart: Date | null;
 
-    /** When current billing period ends (null for FREE = never expires) */
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     currentPeriodEnd: Date | null;
 
-    /** External payment reference (for future MP integration) */
     @Column({ type: 'varchar', length: 255, nullable: true })
     externalSubscriptionId: string | null;
 
-    /** Cancellation date if cancelled */
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     @Index('idx_subscription_cancelled_at')
     cancelledAt: Date | null;
 
-    /** Billing cycle: monthly or annual */
     @Column({ 
         type: 'enum', 
-        enum: ['monthly', 'annual'],
+        enum: ['monthly', 'yearly'],
         default: 'monthly'
     })
-    billingCycle: 'monthly' | 'annual';
+    billingCycle: 'monthly' | 'yearly';
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     @Index('idx_subscription_created_at')
     createdAt: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt: Date;
 }
