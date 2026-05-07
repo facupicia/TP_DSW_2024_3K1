@@ -90,7 +90,7 @@ export class User extends BaseEntity {
     mpRefreshToken: string | null;
 
     /** Fecha de expiración del access token */
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     mpTokenExpiresAt: Date | null;
 
     /* ================================================================== */
@@ -105,16 +105,16 @@ export class User extends BaseEntity {
     @Index('idx_user_guest_account')
     isGuestAccount: boolean;
 
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     claimedAt: Date | null;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt: Date;
 
-    @DeleteDateColumn({ type: 'timestamp', nullable: true })
+    @DeleteDateColumn({ type: 'timestamptz', nullable: true })
     deletedAt?: Date;
 
     @OneToMany(() => Event, evento => evento.user)

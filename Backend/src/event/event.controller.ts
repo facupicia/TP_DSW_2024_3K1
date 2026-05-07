@@ -422,6 +422,7 @@ export const deleteEvent = async (req: CustomRequest, res: Response) => {
         }
 
         event.active = false;
+        event.deletedAt = new Date();
         await queryRunner.manager.save(Event, event);
 
         // Propagate soft delete to ticket types, cancel active tickets, and restore stock

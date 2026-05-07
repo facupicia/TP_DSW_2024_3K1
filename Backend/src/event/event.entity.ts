@@ -73,7 +73,7 @@ export class Event extends BaseEntity {
 
     /* ===================== RELATIONS ===================== */
 
-    @ManyToOne(() => User, user => user.eventos, { nullable: false })
+    @ManyToOne(() => User, user => user.eventos, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "user_id" })
     user: User;
 
@@ -81,7 +81,7 @@ export class Event extends BaseEntity {
     @Index('idx_event_user_id')
     user_id: number;
 
-    @ManyToOne(() => Category, category => category.events, { nullable: false })
+    @ManyToOne(() => Category, category => category.events, { nullable: false, onDelete: 'RESTRICT' })
     @JoinColumn({ name: "categoryId" })
     category: Category;
 
@@ -99,12 +99,12 @@ export class Event extends BaseEntity {
 
     /* ===================== TIMESTAMPS ===================== */
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: "timestamp" })
+    @UpdateDateColumn({ type: "timestamptz" })
     updatedAt: Date;
 
-    @DeleteDateColumn({ type: "timestamp", nullable: true })
+    @DeleteDateColumn({ type: "timestamptz", nullable: true })
     deletedAt: Date | null;
 }

@@ -64,9 +64,9 @@ export class SubscriptionPlan extends BaseEntity {
     @Column({ default: 0 })
     sortOrder: number;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt: Date;
 }

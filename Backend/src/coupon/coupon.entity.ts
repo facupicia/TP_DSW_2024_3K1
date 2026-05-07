@@ -37,7 +37,7 @@ export class Coupon extends BaseEntity {
     @Column({ type: "int", default: 0 })
     usedCount: number;
 
-    @Column({ type: "timestamp", nullable: true })
+    @Column({ type: "timestamptz", nullable: true })
     expiresAt: Date | null;
 
     @Column({ default: true })
@@ -55,9 +55,9 @@ export class Coupon extends BaseEntity {
 
     /* ===================== TIMESTAMPS ===================== */
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: "timestamp" })
+    @UpdateDateColumn({ type: "timestamptz" })
     updatedAt: Date;
 }

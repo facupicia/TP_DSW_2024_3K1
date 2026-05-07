@@ -4,6 +4,7 @@ import {
     PrimaryGeneratedColumn,
     CreateDateColumn,
     UpdateDateColumn,
+    DeleteDateColumn,
     BaseEntity,
     ManyToOne,
     JoinColumn,
@@ -103,7 +104,7 @@ export class Ticket extends BaseEntity {
 
     /* ===================== ACCESS CONTROL ===================== */
 
-    @Column({ type: "timestamp", nullable: true })
+    @Column({ type: "timestamptz", nullable: true })
     usedAt: Date | null;
 
     @ManyToOne(() => User, { nullable: true })
@@ -117,10 +118,13 @@ export class Ticket extends BaseEntity {
 
     /* ===================== TIMESTAMPS ===================== */
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     @Index("idx_ticket_created_at")
     createdAt: Date;
 
-    @UpdateDateColumn({ type: "timestamp" })
+    @UpdateDateColumn({ type: "timestamptz" })
     updatedAt: Date;
+
+    @DeleteDateColumn({ type: "timestamptz", nullable: true })
+    deletedAt: Date | null;
 }

@@ -20,10 +20,10 @@ export class WebhookLog {
     @Index()
     mpPaymentId: string;
 
-    @Column({ type: 'jsonb', nullable: true })
+    @Column({ type: 'jsonb', nullable: true, select: false })
     payload: any;
 
-    @Column({ type: 'varchar', length: 45 })
+    @Column({ type: 'varchar', length: 45, select: false })
     ipAddress: string;
 
     @Column({ type: 'boolean', default: false })
@@ -37,7 +37,7 @@ export class WebhookLog {
     @Column({ type: 'text', nullable: true })
     error: string;
 
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     processedAt: Date;
 
     @CreateDateColumn()

@@ -27,12 +27,12 @@ export class AccountClaimToken extends BaseEntity {
     @Column({ unique: true })
     tokenHash: string;
 
-    @Column({ type: "timestamp" })
+    @Column({ type: "timestamptz" })
     expiresAt: Date;
 
-    @Column({ type: "timestamp", nullable: true })
+    @Column({ type: "timestamptz", nullable: true })
     usedAt: Date | null;
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 }

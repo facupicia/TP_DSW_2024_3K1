@@ -68,10 +68,10 @@ export class PromoterGroup extends BaseEntity {
 
     /* ===================== TIMESTAMPS ===================== */
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: "timestamp" })
+    @UpdateDateColumn({ type: "timestamptz" })
     updatedAt: Date;
 }
 
@@ -116,9 +116,9 @@ export class PromoterEventAssignment extends BaseEntity {
 
     /* ===================== TIMESTAMPS ===================== */
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 
-    @UpdateDateColumn({ type: "timestamp" })
+    @UpdateDateColumn({ type: "timestamptz" })
     updatedAt: Date;
 }
