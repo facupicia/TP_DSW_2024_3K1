@@ -28,6 +28,16 @@ function getEventDateTime(event: { date: any; time?: string | null }) {
     return new Date(`${date}T${time}`);
 }
 
+class HttpError extends Error {
+    status: number;
+    code: string;
+    constructor(status: number, code: string, message: string) {
+        super(message);
+        this.status = status;
+        this.code = code;
+    }
+}
+
 export const createTicket = async (req: CustomRequest, res: Response) => {
     // 0. Validaciones Previas (Fail Fast)
     const { cantidad, ticketTypeId } = req.body;
@@ -57,7 +67,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             select: ['id', 'email', 'firstname', 'lastname', 'birth']
         });
         if (!user) {
-            return res.status(404).json({ message: "Usuario no encontrado" });
+            throw new HttpError(404, 'USER_NOT_FOUND', "Usuario no encontrado");
         }
 
         // 2. Buscar TicketType (con bloqueo pesimista) y Evento
@@ -68,38 +78,39 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             .getOne();
 
         if (!ticketType) {
-            return res.status(404).json({ message: "Tipo de ticket no encontrado" });
+            throw new HttpError(404, 'TICKET_TYPE_NOT_FOUND', "Tipo de ticket no encontrado");
         }
 
         if (ticketType.status !== TicketTypeStatus.ACTIVE) {
-            return res.status(400).json({ message: "Este tipo de ticket no está disponible." });
+            throw new HttpError(400, 'TICKET_TYPE_INACTIVE', "Este tipo de ticket no está disponible.");
         }
 
         const event = ticketType.event;
         if (!event) {
-            return res.status(404).json({ message: "Evento asociado no encontrado" });
+            throw new HttpError(404, 'EVENT_NOT_FOUND', "Evento asociado no encontrado");
+        }
+
+        if (!event.active) {
+            throw new HttpError(400, 'EVENT_INACTIVE', "El evento no está activo.");
         }
 
         // Verificar que el ticketType pertenezca al evento de la URL (si se provee)
         const { id: eventIdParam } = req.params;
         if (eventIdParam && event.id !== parseInt(eventIdParam)) {
-            return res.status(400).json({ message: "El tipo de ticket no pertenece al evento especificado" });
+            throw new HttpError(400, 'TICKET_TYPE_MISMATCH', "El tipo de ticket no pertenece al evento especificado");
         }
 
         // 3. Verificar Stock
         const capacidadDisponible = ticketType.capacity - ticketType.soldCount;
 
         if (capacidadDisponible < cantidadTickets) {
-            return res.status(400).json({ message: `No hay suficientes boletos disponibles. Quedan ${capacidadDisponible} boletos.` });
+            throw new HttpError(400, 'NO_STOCK', `No hay suficientes boletos disponibles. Quedan ${capacidadDisponible} boletos.`);
         }
 
         // 3.1 Validar que el evento no haya comenzado
         const eventDateTime = new Date(`${event.date}T${event.time}`);
         if (new Date() > eventDateTime) {
-            return res.status(400).json({
-                code: 'EVENT_STARTED',
-                message: 'Las ventas han cerrado. El evento ya comenzó.'
-            });
+            throw new HttpError(400, 'EVENT_STARTED', 'Las ventas han cerrado. El evento ya comenzó.');
         }
 
         // 3.2 Validar edad mínima si aplica
@@ -113,10 +124,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             }
 
             if (age < (event as any).minAge) {
-                return res.status(403).json({
-                    code: 'AGE_RESTRICTED',
-                    message: `Debes tener al menos ${(event as any).minAge} años para comprar entradas a este evento.`
-                });
+                throw new HttpError(403, 'AGE_RESTRICTED', `Debes tener al menos ${(event as any).minAge} años para comprar entradas a este evento.`);
             }
         }
 
@@ -157,6 +165,9 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
     } catch (error: any) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
+        }
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ code: error.code, message: error.message });
         }
         return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
     } finally {
@@ -373,6 +384,12 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         if (hoursDiff > 24) {
             return res.status(409).json({
                 message: `Este ticket es de un evento pasado: ${ticket.ticketType.event.title}`,
+                valid: false
+            });
+        }
+        if (hoursDiff < -3) {
+            return res.status(409).json({
+                message: `El evento aún no comenzó. No se puede validar hasta 3 horas antes del inicio.`,
                 valid: false
             });
         }

@@ -188,8 +188,10 @@ export async function fetchPaymentWithRetry(
  * eso el token de plataforma no siempre puede consultar el pago notificado.
  */
 export async function resolveWebhookPayment(
-    paymentId: string
+    paymentId: string,
+    paymentData?: PaymentData
 ): Promise<WebhookPaymentLookupResult | null> {
+    // Try platform token first
     const platformClient = getPlatformMPClient();
     const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
 
@@ -201,14 +203,40 @@ export async function resolveWebhookPayment(
         };
     }
 
+    // Extract organizerId from external_reference if available
+    const externalRef = paymentData?.external_reference || '';
+    const organizerIdFromRef = extractOrganizerIdFromRef(externalRef);
+
+    if (organizerIdFromRef) {
+        const organizerClient = await getOrganizerMPClient(organizerIdFromRef);
+        if (organizerClient) {
+            const organizerPayment = await fetchPaymentOnce(paymentId, organizerClient);
+            if (organizerPayment) {
+                logger.info('PAYMENT_LOOKUP_ORGANIZER_HIT', {
+                    paymentId,
+                    organizerId: organizerIdFromRef,
+                    status: organizerPayment.status
+                });
+                return {
+                    payment: organizerPayment,
+                    client: organizerClient,
+                    source: 'organizer',
+                    organizerId: organizerIdFromRef
+                };
+            }
+        }
+    }
+
     logger.warn('PAYMENT_LOOKUP_PLATFORM_MISS', { paymentId });
 
+    // Fallback: limited search (max 10 organizers) to prevent DoS
     const userRepo = AppDataSource.getRepository(User);
     const organizers = await userRepo
         .createQueryBuilder('user')
         .select(['user.id', 'user.mpAccessToken'])
         .where('user.mpAccessToken IS NOT NULL')
         .andWhere('user.mpUserId IS NOT NULL')
+        .limit(10)
         .getMany();
 
     for (const organizer of organizers) {
@@ -244,6 +272,16 @@ export async function resolveWebhookPayment(
         organizersChecked: organizers.length
     });
 
+    return null;
+}
+
+function extractOrganizerIdFromRef(externalRef: string): number | null {
+    if (!externalRef) return null;
+    const parts = externalRef.split('|');
+    if (parts.length >= 4) {
+        const id = Number(parts[3]);
+        return Number.isSafeInteger(id) && id > 0 ? id : null;
+    }
     return null;
 }
 
@@ -587,8 +625,8 @@ export async function processApprovedPayment(
             throw new Error('Invalid payment amount');
         }
         
-        // Tolerancia de 1% para diferencias de redondeo
-        const tolerance = Math.max(expectedTotal * 0.01, 1);
+        // Tolerancia fija de $1 ARS para diferencias de redondeo
+        const tolerance = 1;
         if (Math.abs(paidAmount - expectedTotal) > tolerance) {
             logger.error('PAYMENT_AMOUNT_MISMATCH', {
                 paymentId,
@@ -674,8 +712,15 @@ export async function processApprovedPayment(
                 .execute();
 
             if (!couponUpdate.affected) {
+                // Rollback stock and mark payment failed
+                await queryRunner.manager
+                    .createQueryBuilder()
+                    .update(TicketType)
+                    .set({ soldCount: () => `GREATEST("soldCount" - ${quantity}, 0)` })
+                    .where('id = :id', { id: ticketTypeId })
+                    .execute();
                 await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-                await queryRunner.commitTransaction();
+                await queryRunner.rollbackTransaction();
                 return { success: false, error: 'Coupon exhausted', logId: log.id };
             }
         }

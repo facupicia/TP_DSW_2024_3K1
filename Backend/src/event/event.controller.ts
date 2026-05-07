@@ -5,15 +5,28 @@ import { User } from "../user/user.entity";
 import { Role, getRoleNames } from "../user/role.entity";
 import { CustomRequest } from "../common/middleware/authToken";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
-import { Ticket } from "../ticket/ticket.entity";
+import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import AppDataSource from "../db";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, assignDefaultPlan } from "../subscription/subscription.service";
+import { UserSubscription } from "../subscription/user_subscription.entity";
+import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
 import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
+import { MoreThanOrEqual, IsNull } from "typeorm";
 
 /* ======================================================
    CREATE EVENT
 ====================================================== */
+class HttpError extends Error {
+    status: number;
+    code: string;
+    constructor(status: number, code: string, message: string) {
+        super(message);
+        this.status = status;
+        this.code = code;
+    }
+}
+
 export const createEvent = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -41,8 +54,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         const userId = req.user?.id;
 
         if (!userId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(401).json({ message: "Unauthorized" });
+            throw new HttpError(401, 'UNAUTHORIZED', "Unauthorized");
         }
 
         const user = await queryRunner.manager.findOne(User, {
@@ -51,52 +63,37 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             select: ['id', 'firstname', 'lastname', 'email', 'mpUserId']
         });
         if (!user) {
-            await queryRunner.rollbackTransaction();
-            return res.status(404).json({ message: "User not found" });
+            throw new HttpError(404, 'USER_NOT_FOUND', "User not found");
         }
 
         // ============ MERCADO PAGO VALIDATION ============
-        // Organizadores DEBEN tener su cuenta MP vinculada para crear eventos
-        // Esto garantiza que puedan recibir pagos de tickets
         if (!user.mpUserId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(403).json({
-                code: 'MP_NOT_LINKED',
-                message: 'Debes vincular tu cuenta de Mercado Pago para crear eventos y recibir pagos.',
-                connectUrl: '/api/payment/mp/connect'
-            });
+            throw new HttpError(403, 'MP_NOT_LINKED', 'Debes vincular tu cuenta de Mercado Pago para crear eventos y recibir pagos.');
         }
         // ================================================
 
         // ============ SUBSCRIPTION PLAN VALIDATION ============
-        // Check event creation limit
         const eventCheck = await canCreateEvent(userId);
         if (!eventCheck.allowed) {
-            await queryRunner.rollbackTransaction();
-            return res.status(403).json({
-                code: 'PLAN_LIMIT_EVENTS',
-                message: eventCheck.reason,
-                upgradeRequired: eventCheck.upgradeRequired,
-                currentCount: eventCheck.currentCount,
-                maxAllowed: eventCheck.maxAllowed
-            });
+            throw new HttpError(403, 'PLAN_LIMIT_EVENTS', eventCheck.reason || 'Plan limit reached');
         }
 
-        // Check ticket types limit
         const ticketTypesCount = ticketTypes?.length || 0;
         if (ticketTypesCount > 0) {
             const ttCheck = await canCreateTicketTypes(userId, ticketTypesCount);
             if (!ttCheck.allowed) {
-                await queryRunner.rollbackTransaction();
-                return res.status(403).json({
-                    code: 'PLAN_LIMIT_TICKET_TYPES',
-                    message: ttCheck.reason,
-                    upgradeRequired: ttCheck.upgradeRequired,
-                    maxAllowed: ttCheck.maxAllowed
-                });
+                throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
             }
         }
         // ======================================================
+
+        // Validate date is not in the past
+        const eventDate = new Date(date);
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        if (eventDate < todayStart) {
+            throw new HttpError(400, 'PAST_DATE', "La fecha del evento no puede ser en el pasado");
+        }
 
         // Promote user to organizer role if they don't have it yet
         const userRoleNames = getRoleNames(user);
@@ -110,15 +107,29 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             }
             user.roles = [...user.roles, organizerRole];
             await queryRunner.manager.save(User, user);
-            // Ensure user has a subscription (will create FREE if none exists)
-            await assignDefaultPlan(userId);
+            // Ensure user has a subscription using queryRunner manager for atomicity
+            const existingSub = await queryRunner.manager.findOne(UserSubscription, {
+                where: { userId, status: 'active' }
+            });
+            if (!existingSub) {
+                const freePlan = await queryRunner.manager.findOne(SubscriptionPlan, { where: { name: 'FREE' } });
+                if (freePlan) {
+                    const sub = queryRunner.manager.create(UserSubscription, {
+                        userId,
+                        planId: freePlan.id,
+                        status: 'active',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: null
+                    });
+                    await queryRunner.manager.save(sub);
+                }
+            }
             wasPromotedToOrganizer = true;
         }
 
         const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });
         if (!category) {
-            await queryRunner.rollbackTransaction();
-            return res.status(404).json({ message: "Category not found" });
+            throw new HttpError(404, 'CATEGORY_NOT_FOUND', "Category not found");
         }
 
         const event = new Event();
@@ -129,7 +140,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         event.direccion = direccion;
         event.organizer = organizer;
         event.image = image;
-        event.date = new Date(date);
+        event.date = eventDate;
         event.time = time;
         event.description = description;
         event.destacado = destacado ?? false;
@@ -167,7 +178,6 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         }
 
         // Limpiar referencia circular antes de devolver JSON
-        // TicketType -> Event -> TicketTypes ...
         if (event.ticketTypes) {
             event.ticketTypes.forEach(tt => {
                 delete (tt as any).event;
@@ -183,6 +193,9 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
     } catch (error: any) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
+        }
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ code: error.code, message: error.message });
         }
         console.error("Error creating event:", error);
         return res.status(500).json({ message: error.message || "Error creating event" });
@@ -203,14 +216,12 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         const userId = req.user?.id;
         const isAdmin = (req.user?.roles || []).includes('admin');
         if (!userId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(401).json({ message: "Unauthorized" });
+            throw new HttpError(401, 'UNAUTHORIZED', "Unauthorized");
         }
 
         const idNum = Number(req.params.id);
         if (isNaN(idNum) || idNum <= 0) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({ message: "Invalid event id" });
+            throw new HttpError(400, 'INVALID_EVENT_ID', "Invalid event id");
         }
 
         const event = await queryRunner.manager.findOne(Event, {
@@ -219,13 +230,11 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         });
 
         if (!event) {
-            await queryRunner.rollbackTransaction();
-            return res.status(404).json({ message: "Event not found" });
+            throw new HttpError(404, 'EVENT_NOT_FOUND', "Event not found");
         }
 
         if (event.user_id !== userId && !isAdmin) {
-            await queryRunner.rollbackTransaction();
-            return res.status(403).json({ message: "No tienes permiso para modificar este evento" });
+            throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para modificar este evento");
         }
 
         const {
@@ -250,8 +259,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         if (categoryId) {
             const category = await queryRunner.manager.findOne(Category, { where: { id: categoryId } });
             if (!category) {
-                await queryRunner.rollbackTransaction();
-                return res.status(404).json({ message: "Category not found" });
+                throw new HttpError(404, 'CATEGORY_NOT_FOUND', "Category not found");
             }
             event.category = category;
             event.categoryId = categoryId;
@@ -264,13 +272,22 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         event.direccion = direccion ?? event.direccion;
         event.organizer = organizer ?? event.organizer;
         event.image = image ?? event.image;
-        event.date = date ? new Date(date) : event.date;
         event.time = time ?? event.time;
         event.description = description ?? event.description;
         event.active = active ?? event.active;
         event.destacado = destacado ?? event.destacado;
         event.minAge = minAge ?? event.minAge;
         event.isPublic = isPublic ?? event.isPublic;
+
+        if (date) {
+            const newDate = new Date(date);
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            if (newDate < todayStart) {
+                throw new HttpError(400, 'PAST_DATE', "La fecha del evento no puede ser en el pasado");
+            }
+            event.date = newDate;
+        }
 
         await queryRunner.manager.save(Event, event);
 
@@ -286,6 +303,9 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
             const existingTypes = event.ticketTypes || [];
             for (const existingTT of existingTypes) {
                 if (!incomingIds.includes(existingTT.id)) {
+                    if (existingTT.soldCount > 0) {
+                        throw new HttpError(409, 'TICKET_TYPE_HAS_SALES', `No se puede eliminar ${existingTT.name} porque tiene ${existingTT.soldCount} tickets vendidos`);
+                    }
                     // Soft delete: status = DISABLED
                     existingTT.status = TicketTypeStatus.DISABLED;
                     await queryRunner.manager.save(TicketType, existingTT);
@@ -300,7 +320,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
                     if (existingTT) {
                         // Business Rule: Cannot reduce capacity below sold count
                         if (ttData.capacity !== undefined && ttData.capacity < existingTT.soldCount) {
-                            throw new Error(`No se puede reducir la capacidad por debajo de lo vendido (${existingTT.soldCount}) para ${existingTT.name}`);
+                            throw new HttpError(400, 'CAPACITY_BELOW_SOLD', `No se puede reducir la capacidad por debajo de lo vendido (${existingTT.soldCount}) para ${existingTT.name}`);
                         }
 
                         existingTT.name = ttData.name ?? existingTT.name;
@@ -338,10 +358,10 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
         }
-        console.error(error);
-        if (error.message && error.message.includes("No se puede reducir la capacidad")) {
-            return res.status(400).json({ message: error.message });
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ code: error.code, message: error.message });
         }
+        console.error(error);
         return res.status(500).json({ message: "Error updating event" });
     } finally {
         await queryRunner.release();
@@ -352,35 +372,62 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
    DELETE EVENT (SOFT LOGIC)
 ====================================================== */
 export const deleteEvent = async (req: CustomRequest, res: Response) => {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
         const userId = req.user?.id;
         const isAdmin = (req.user?.roles || []).includes('admin');
         if (!userId) {
-            return res.status(401).json({ message: "Unauthorized" });
+            throw new HttpError(401, 'UNAUTHORIZED', "Unauthorized");
         }
 
         const idNum = Number(req.params.id);
         if (isNaN(idNum) || idNum <= 0) {
-            return res.status(400).json({ message: "Invalid event id" });
+            throw new HttpError(400, 'INVALID_EVENT_ID', "Invalid event id");
         }
 
-        const event = await Event.findOneBy({ id: idNum });
+        const event = await queryRunner.manager.findOne(Event, { where: { id: idNum }, relations: ['ticketTypes'] });
         if (!event) {
-            return res.status(404).json({ message: "Event not found" });
+            throw new HttpError(404, 'EVENT_NOT_FOUND', "Event not found");
         }
 
         if (event.user_id !== userId && !isAdmin) {
-            return res.status(403).json({ message: "No tienes permiso para eliminar este evento" });
+            throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para eliminar este evento");
         }
 
         event.active = false;
-        await event.save();
+        await queryRunner.manager.save(Event, event);
 
+        // Propagate soft delete to ticket types and cancel active tickets
+        if (event.ticketTypes) {
+            for (const tt of event.ticketTypes) {
+                tt.status = TicketTypeStatus.DISABLED;
+                await queryRunner.manager.save(TicketType, tt);
+            }
+        }
+
+        await queryRunner.manager.update(
+            Ticket,
+            { ticketType: { event: { id: idNum } }, status: TicketStatus.ACTIVE },
+            { status: TicketStatus.CANCELLED }
+        );
+
+        await queryRunner.commitTransaction();
         return res.sendStatus(204);
 
-    } catch (error) {
+    } catch (error: any) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        if (error instanceof HttpError) {
+            return res.status(error.status).json({ code: error.code, message: error.message });
+        }
         console.error(error);
         return res.status(500).json({ message: "Error deleting event" });
+    } finally {
+        await queryRunner.release();
     }
 };
 
@@ -395,7 +442,7 @@ export const getEvent = async (req: Request, res: Response) => {
         }
 
         const event = await Event.findOne({
-            where: { id: idNum },
+            where: { id: idNum, active: true, deletedAt: IsNull() },
             relations: ["user", "category", "ticketTypes"]
         });
 
@@ -1052,7 +1099,7 @@ export const getPlatformStats = async (req: CustomRequest, res: Response) => {
         // Get all events count
         const totalEvents = await Event.count({ where: { active: true } });
         const upcomingEvents = await Event.count({ 
-            where: { active: true, date: new Date() } 
+            where: { active: true, date: MoreThanOrEqual(new Date()) } 
         });
 
         // Get tickets and revenue stats
