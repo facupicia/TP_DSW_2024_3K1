@@ -343,10 +343,12 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
                 "ticket.userId",
                 "ticketType.id",
                 "ticketType.name",
+                "ticketType.status",
                 "event.id",
                 "event.title",
                 "event.date",
                 "event.time",
+                "event.active",
                 "event.user_id",
                 "user.id",
                 "user.firstname",
@@ -380,6 +382,14 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
 
         if (ticket.status === TicketStatus.CANCELLED) {
             return res.status(400).json({ message: "Ticket cancelado", valid: false });
+        }
+
+        if (ticket.ticketType.status !== TicketTypeStatus.ACTIVE) {
+            return res.status(409).json({ message: "El tipo de entrada no está activo", valid: false });
+        }
+
+        if (!ticket.ticketType.event.active) {
+            return res.status(409).json({ message: "El evento no está activo", valid: false });
         }
 
         const eventDate = getEventDateTime(ticket.ticketType.event);
@@ -431,6 +441,7 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         if (error instanceof Error) {
             return res.status(500).json({ message: error.message });
         }
+        return res.status(500).json({ message: "Internal server error" });
     }
 };
 

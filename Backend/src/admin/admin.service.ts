@@ -251,19 +251,23 @@ export class AdminService {
             const totalTransactions = parseInt(data?.totalTransactions || 0);
             const averageTicketPrice = ticketsSold > 0 ? grossRevenue / ticketsSold : 0;
 
-            // Count successful vs failed payments
+            // Count successful vs failed payments without inheriting the completed-only filter.
+            let statusWhereClause = '';
+            if (dateRange?.startDate && dateRange?.endDate) {
+                statusWhereClause = `WHERE "createdAt" >= $1 AND "createdAt" <= $2`;
+            }
             const statusQuery = `
         SELECT 
-          status,
-          COUNT(*) AS count
+          COUNT(*) FILTER (WHERE status = 'completed') AS "successfulPayments",
+          COUNT(*) FILTER (WHERE status = 'failed') AS "failedPayments"
         FROM payment_log
-        ${whereClause.replace('pl.', '')}
-        GROUP BY status
+        ${statusWhereClause}
       `;
             const statusResult = await queryRunner.query(statusQuery, params);
+            const statusData = statusResult[0];
 
-            const successfulPayments = parseInt(statusResult.find((s: any) => s.status === 'completed')?.count || 0);
-            const failedPayments = parseInt(statusResult.find((s: any) => s.status === 'failed')?.count || 0);
+            const successfulPayments = parseInt(statusData?.successfulPayments || 0);
+            const failedPayments = parseInt(statusData?.failedPayments || 0);
 
             return {
                 ticketsSold,

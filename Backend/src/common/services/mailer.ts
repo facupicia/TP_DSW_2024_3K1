@@ -52,7 +52,8 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
       },
     ];
 
-    const eventName = escapeHtml(tickets[0]?.eventTitle || "Evento");
+    const eventName = tickets[0]?.eventTitle || "Evento";
+    const escapedEventName = escapeHtml(eventName);
 
     const htmlContent = `
             <html>
@@ -60,7 +61,7 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
                         <h1 style="color: #0084f0;">¡Tu compra está confirmada!</h1>
                         <p>Hola,</p>
-                        <p>Adjunto encontrarás un archivo PDF con tus <strong>${tickets.length}</strong> entradas para <strong>${eventName}</strong>.</p>
+                        <p>Adjunto encontrarás un archivo PDF con tus <strong>${tickets.length}</strong> entradas para <strong>${escapedEventName}</strong>.</p>
                         <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
                         <p style="font-size: 14px; color: #555;">
                             Descarga el archivo adjunto y preséntalo en la entrada desde tu celular.

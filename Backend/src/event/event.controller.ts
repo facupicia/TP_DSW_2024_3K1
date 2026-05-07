@@ -17,6 +17,12 @@ import { MoreThanOrEqual, IsNull } from "typeorm";
 // SSE connection limiter (per-user, per-process)
 const sseConnections = new Map<number, number>();
 const MAX_SSE_PER_USER = 3;
+const FUTURE_EVENT_SQL = '("event"."date" + "event"."time") > NOW()';
+
+function ticketTypeStatusFromActive(active: boolean | undefined, fallback: TicketTypeStatus): TicketTypeStatus {
+    if (active === undefined) return fallback;
+    return active ? TicketTypeStatus.ACTIVE : TicketTypeStatus.DISABLED;
+}
 
 /* ======================================================
    CREATE EVENT
@@ -329,7 +335,10 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
 
             // 3. Crear o Actualizar los que vienen
             // Count new ticket types to enforce plan limits
-            const newTicketTypesCount = ticketTypes.filter((t: any) => !t.id).length;
+            const newTicketTypesCount = ticketTypes
+                .filter((t: any) => !t.id)
+                .filter((t: any) => ticketTypeStatusFromActive(t.active, TicketTypeStatus.ACTIVE) === TicketTypeStatus.ACTIVE)
+                .length;
             if (newTicketTypesCount > 0) {
                 // Count current active ticket types for this event
                 const currentActiveCount = existingTypes.filter(t => t.status === TicketTypeStatus.ACTIVE).length;
@@ -338,7 +347,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
                     .filter((t: any) => t.id)
                     .filter((t: any) => {
                         const existing = existingTypes.find(et => et.id === Number(t.id));
-                        return existing && (t.status ?? existing.status) === TicketTypeStatus.ACTIVE;
+                        return existing && ticketTypeStatusFromActive(t.active, existing.status) === TicketTypeStatus.ACTIVE;
                     }).length;
                 const totalAfterUpdate = remainingActiveCount + newTicketTypesCount;
                 const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate);
@@ -361,7 +370,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
                         existingTT.price = ttData.price ?? existingTT.price;
                         existingTT.capacity = ttData.capacity ?? existingTT.capacity;
                         existingTT.description = ttData.description ?? existingTT.description;
-                        existingTT.status = ttData.status ?? TicketTypeStatus.ACTIVE;
+                        existingTT.status = ticketTypeStatusFromActive(ttData.active, existingTT.status);
                         await queryRunner.manager.save(TicketType, existingTT);
                     }
                 } else {
@@ -372,7 +381,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
                     newTT.capacity = ttData.capacity;
                     newTT.description = ttData.description;
                     newTT.event = event;
-                    newTT.status = TicketTypeStatus.ACTIVE;
+                    newTT.status = ticketTypeStatusFromActive(ttData.active, TicketTypeStatus.ACTIVE);
                     await queryRunner.manager.save(TicketType, newTT);
                 }
             }
@@ -533,8 +542,6 @@ export const getEvent = async (req: Request, res: Response) => {
 export const getEvents = async (req: Request, res: Response) => {
     try {
         const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 200);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
 
         const baseWhere = {
             active: true,
@@ -548,7 +555,7 @@ export const getEvents = async (req: Request, res: Response) => {
             .addSelect("COALESCE(SUM(ticketTypes.soldCount), 0)", "salesCount")
             .where("event.active = true")
             .andWhere("event.isPublic = true")
-            .andWhere("event.date >= :today", { today })
+            .andWhere(FUTURE_EVENT_SQL)
             .andWhere("event.deletedAt IS NULL")
             .groupBy("event.id")
             .having("COALESCE(SUM(ticketTypes.soldCount), 0) > 0")
@@ -566,7 +573,7 @@ export const getEvents = async (req: Request, res: Response) => {
             .leftJoinAndSelect("event.category", "category")
             .where("event.active = :active", { active: baseWhere.active })
             .andWhere("event.isPublic = :isPublic", { isPublic: baseWhere.isPublic })
-            .andWhere("event.date >= :today", { today })
+            .andWhere(FUTURE_EVENT_SQL)
             .andWhere("event.deletedAt IS NULL")
             .orderBy("event.destacado", "DESC")
             .addOrderBy("event.date", "ASC")
@@ -574,14 +581,7 @@ export const getEvents = async (req: Request, res: Response) => {
             .take(take)
             .getManyAndCount();
 
-        // Filter out events that already passed (today but past time)
-        const now = new Date();
-        const filteredEvents = events.filter(event => {
-            const eventDateTime = new Date(`${event.date}T${event.time || '00:00'}`);
-            return eventDateTime >= now;
-        });
-
-        const data = filteredEvents.map(event => ({
+        const data = events.map(event => ({
             ...event,
             destacado: event.destacado || dynamicFeaturedIds.has(event.id),
             salesCount: salesByEventId.get(event.id) || 0
@@ -590,10 +590,10 @@ export const getEvents = async (req: Request, res: Response) => {
         res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
         return res.json({
             data,
-            total: filteredEvents.length,
+            total,
             page,
             limit,
-            totalPages: Math.max(1, Math.ceil(filteredEvents.length / limit))
+            totalPages: Math.max(1, Math.ceil(total / limit))
         });
     } catch (error) {
         console.error(error);
@@ -617,32 +617,32 @@ export const getEventsNumber = async (req: Request, res: Response) => {
 export const getEventByName = async (req: Request, res: Response) => {
     try {
         const rawTitle = req.query.title || req.query.search;
-        if (!rawTitle) return res.json([]);
-        const { take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        if (!rawTitle) {
+            return res.json({ data: [], total: 0, page, limit, totalPages: 1 });
+        }
 
-        const events = await AppDataSource.getRepository(Event)
+        const [events, total] = await AppDataSource.getRepository(Event)
             .createQueryBuilder("event")
             .leftJoinAndSelect("event.category", "category")
             .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
             .where("LOWER(event.title) LIKE :title", { title: `%${String(rawTitle).toLowerCase()}%` })
             .andWhere("event.active = true")
             .andWhere("event.isPublic = true")
-            .andWhere("event.date >= :today", { today })
+            .andWhere(FUTURE_EVENT_SQL)
             .andWhere("event.deletedAt IS NULL")
             .orderBy("event.date", "ASC")
-            .limit(take)
-            .getMany();
+            .skip(skip)
+            .take(take)
+            .getManyAndCount();
 
-        // Filter out events that already passed (today but past time)
-        const now = new Date();
-        const filteredEvents = events.filter(event => {
-            const eventDateTime = new Date(`${event.date}T${event.time || '00:00'}`);
-            return eventDateTime >= now;
+        return res.json({
+            data: events,
+            total,
+            page,
+            limit,
+            totalPages: Math.max(1, Math.ceil(total / limit))
         });
-
-        return res.json(filteredEvents);
     } catch (error) {
         return res.status(500).json({ message: "Error searching events" });
     }
