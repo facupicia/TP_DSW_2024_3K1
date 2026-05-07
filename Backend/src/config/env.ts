@@ -3,16 +3,26 @@
  * Zod schema validation for environment variables
  */
 import { z } from "zod";
+import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
 
 function requireOneOf(groups: string[][], message: string) {
-    return z.custom<string>((val) => {
-        if (typeof val !== "string") return false;
-        return groups.some((group) => group.every((k) => process.env[k]));
-    }, { message });
+  return z.custom<string>(
+    (val) => {
+      if (typeof val !== "string") return false;
+      return groups.some((group) => group.every((k) => process.env[k]));
+    },
+    { message },
+  );
 }
 
-const EnvSchema = z.object({
-    NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+const EnvSchema = z
+  .object({
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
     PORT: z.coerce.number().min(1).max(65535).default(3000),
     SECRET_KEY: z.string().min(32, "SECRET_KEY must be at least 32 characters"),
     JWT_REFRESH_DAYS: z.coerce.number().int().min(1).max(90).default(30),
@@ -64,21 +74,32 @@ const EnvSchema = z.object({
     // Encryption
     ENCRYPTION_KEY: z.string().length(64).optional(),
     METRICS_PUBLIC: z.enum(["true", "false"]).default("false"),
-}).refine(
+  })
+  .refine(
     (data) => {
-        const hasDbUrl = !!(data.DATABASE_URL || data.POSTGRES_URL);
-        const hasPgVars = !!(data.PGHOST && data.PGUSER && data.PGPASSWORD && data.PGDATABASE);
-        return hasDbUrl || hasPgVars;
+      const hasDbUrl = !!(data.DATABASE_URL || data.POSTGRES_URL);
+      const hasPgVars = !!(
+        data.PGHOST &&
+        data.PGUSER &&
+        data.PGPASSWORD &&
+        data.PGDATABASE
+      );
+      return hasDbUrl || hasPgVars;
     },
-    { message: "Either DATABASE_URL/POSTGRES_URL or all PG* variables must be provided", path: ["DATABASE_URL"] }
-).refine(
+    {
+      message:
+        "Either DATABASE_URL/POSTGRES_URL or all PG* variables must be provided",
+      path: ["DATABASE_URL"],
+    },
+  )
+  .refine(
     (data) => {
-        if (data.NODE_ENV === "production") {
-            return !!data.REDIS_URL;
-        }
-        return true;
+      if (data.NODE_ENV === "production") {
+        return !!data.REDIS_URL;
+      }
+      return true;
     },
-    { message: "REDIS_URL is required in production", path: ["REDIS_URL"] }
-);
+    { message: "REDIS_URL is required in production", path: ["REDIS_URL"] },
+  );
 
 export const env = EnvSchema.parse(process.env);
