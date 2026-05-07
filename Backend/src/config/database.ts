@@ -38,7 +38,7 @@ const AppDataSource = new DataSource({
     synchronize: !isProduction && process.env.DB_SYNC === 'true',
     logging: process.env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog],
-    migrations: [path.join(__dirname, '..', 'migrations', '*.{ts,js}')],
+    migrations: [path.join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
     migrationsRun: isProduction,
     extra: {
         ...(connectionUrl ? { 

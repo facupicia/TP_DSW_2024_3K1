@@ -1,5 +1,6 @@
 import { Response } from "express";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
+import { TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../common/middleware/authToken";
 import AppDataSource from "../db";
 import { canValidateEvent } from "./scanner-permissions";
@@ -242,6 +243,14 @@ export class ScannerController {
 
             if (ticket.status === TicketStatus.CANCELLED) {
                 return res.status(409).json({ message: "Entrada anulada/cancelada" });
+            }
+
+            // Verify ticket type and event are still active
+            if (ticket.ticketType.status !== TicketTypeStatus.ACTIVE) {
+                return res.status(409).json({ message: "El tipo de entrada no está activo" });
+            }
+            if (!ticket.ticketType.event.active) {
+                return res.status(409).json({ message: "El evento no está activo" });
             }
 
             // --- 2. MEJORA: Validación de Evento (Opcional pero recomendada) ---

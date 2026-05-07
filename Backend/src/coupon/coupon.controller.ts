@@ -232,6 +232,19 @@ export const validateCoupon = async (req: Request, res: Response) => {
             return res.status(404).json({ valid: false, message: "Cupón no válido para este evento" });
         }
 
+        // Verify event is active and not in the past
+        const event = await Event.findOne({
+            where: { id: numericEventId },
+            select: ['id', 'active', 'date', 'time']
+        });
+        if (!event || !event.active) {
+            return res.status(400).json({ valid: false, message: "El evento no está activo" });
+        }
+        const eventDateTime = new Date(`${event.date}T${event.time}`);
+        if (new Date() > eventDateTime) {
+            return res.status(400).json({ valid: false, message: "El evento ya finalizó" });
+        }
+
         // Check expiration
         if (coupon.expiresAt && new Date() > coupon.expiresAt) {
             return res.status(400).json({ valid: false, message: "Cupón expirado" });

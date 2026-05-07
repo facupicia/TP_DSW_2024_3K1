@@ -314,7 +314,6 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         const userRoles = req.user?.roles || [];
         const requesterId = req.user?.id;
         const cleanCode = sanitizeTicketCode(code);
-        const codeAsId = /^\d+$/.test(cleanCode) ? parseInt(cleanCode, 10) : -1;
 
         if (!requesterId) {
             return res.status(401).json({ message: "No autorizado", valid: false });
@@ -349,7 +348,6 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
                 "user.lastname"
             ])
             .where("ticket.codigo_unico = :code", { code: cleanCode })
-            .orWhere("ticket.id = :id", { id: codeAsId })
             .getOne();
 
         if (!ticket) {

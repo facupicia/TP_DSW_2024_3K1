@@ -507,19 +507,37 @@ export async function createMercadoPagoPreference(
     
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
+    await queryRunner.startTransaction();
     
     try {
-        // Obtener datos
+        // Obtener datos con bloqueo pesimista para evitar race conditions en stock
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         
         const purchasePayer = await resolvePurchasePayer(queryRunner, input);
         const ticketType = await ticketTypeRepo.findOne({
             where: { id: ticketTypeId },
-            relations: ['event']
+            relations: ['event'],
+            lock: { mode: 'pessimistic_write' }
         });
         
         if (!ticketType) {
             throw new Error('TICKET_TYPE_NOT_FOUND');
+        }
+        
+        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
+            throw new Error('TICKET_TYPE_INACTIVE');
+        }
+        
+        // Validar stock atómicamente
+        const availableStock = ticketType.capacity - ticketType.soldCount;
+        if (availableStock < quantity) {
+            throw new Error('NO_STOCK');
+        }
+        
+        // Validar que el evento no haya comenzado
+        const eventDateTime = new Date(`${ticketType.event.date}T${ticketType.event.time}`);
+        if (new Date() > eventDateTime) {
+            throw new Error('EVENT_STARTED');
         }
         
         // Obtener info del marketplace
@@ -534,15 +552,15 @@ export async function createMercadoPagoPreference(
             throw new Error('ORGANIZER_MP_NOT_LINKED');
         }
         
-        // Crear cliente MP con token del ORGANIZADOR
-        const mpClient = new MercadoPagoConfig({
-            accessToken: marketplaceInfo.organizerAccessToken
-        });
-        
-        const preference = new Preference(mpClient);
-        
         // Construir body
         const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
+        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
+        
+        // Rechazar checkout de $0 - MP no soporta pagos de $0 ARS
+        if (pricing.totalAmount <= 0) {
+            throw new Error('ZERO_AMOUNT_NOT_SUPPORTED');
+        }
+        
         const body = buildPreferenceBody(
             purchasePayer.payer,
             purchasePayer.user.id,
@@ -552,13 +570,21 @@ export async function createMercadoPagoPreference(
             input.promoterCode,
             coupon
         );
-        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
         const externalReference = buildExternalReference(
             purchasePayer.user.id,
             ticketType,
             quantity,
             input.promoterCode
         );
+        
+        await queryRunner.commitTransaction();
+        
+        // Crear cliente MP con token del ORGANIZADOR (fuera de transacción DB)
+        const mpClient = new MercadoPagoConfig({
+            accessToken: marketplaceInfo.organizerAccessToken
+        });
+        
+        const preference = new Preference(mpClient);
         
         // Log de creación
         logger.info('PREFERENCE_CREATING', {
@@ -593,6 +619,11 @@ export async function createMercadoPagoPreference(
             guestCheckout: purchasePayer.guestCheckout
         };
         
+    } catch (error) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        throw error;
     } finally {
         await queryRunner.release();
     }
@@ -609,6 +640,7 @@ export async function createPlatformPreference(
     
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
+    await queryRunner.startTransaction();
     
     try {
         const config = getMPConfig();
@@ -618,20 +650,40 @@ export async function createPlatformPreference(
         const purchasePayer = await resolvePurchasePayer(queryRunner, input);
         const ticketType = await ticketTypeRepo.findOne({
             where: { id: ticketTypeId },
-            relations: ['event']
+            relations: ['event'],
+            lock: { mode: 'pessimistic_write' }
         });
         
         if (!ticketType) {
             throw new Error('TICKET_TYPE_NOT_FOUND');
         }
         
-        // Usar token de la plataforma
-        const mpClient = new MercadoPagoConfig({ accessToken: config.accessToken });
-        const preference = new Preference(mpClient);
+        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
+            throw new Error('TICKET_TYPE_INACTIVE');
+        }
+        
+        // Validar stock atómicamente
+        const availableStock = ticketType.capacity - ticketType.soldCount;
+        if (availableStock < quantity) {
+            throw new Error('NO_STOCK');
+        }
+        
+        // Validar que el evento no haya comenzado
+        const eventDateTime = new Date(`${ticketType.event.date}T${ticketType.event.time}`);
+        if (new Date() > eventDateTime) {
+            throw new Error('EVENT_STARTED');
+        }
         
         // Obtener info de comisión para metadata
         const marketplaceInfo = await getMarketPlaceInfo(ticketType.event.user_id);
         const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
+        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
+        
+        // Rechazar checkout de $0 - MP no soporta pagos de $0 ARS
+        if (pricing.totalAmount <= 0) {
+            throw new Error('ZERO_AMOUNT_NOT_SUPPORTED');
+        }
+        
         const body = buildPreferenceBody(
             purchasePayer.payer,
             purchasePayer.user.id,
@@ -641,7 +693,6 @@ export async function createPlatformPreference(
             input.promoterCode,
             coupon
         );
-        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
         const externalReference = buildExternalReference(
             purchasePayer.user.id,
             ticketType,
@@ -651,6 +702,12 @@ export async function createPlatformPreference(
         
         // Sin marketplace_fee al usar token de plataforma
         delete body.marketplace_fee;
+        
+        await queryRunner.commitTransaction();
+        
+        // Usar token de la plataforma (fuera de transacción DB)
+        const mpClient = new MercadoPagoConfig({ accessToken: config.accessToken });
+        const preference = new Preference(mpClient);
         
         const result = await preference.create({ body });
         
@@ -673,6 +730,11 @@ export async function createPlatformPreference(
             guestCheckout: purchasePayer.guestCheckout
         };
         
+    } catch (error) {
+        if (queryRunner.isTransactionActive) {
+            await queryRunner.rollbackTransaction();
+        }
+        throw error;
     } finally {
         await queryRunner.release();
     }

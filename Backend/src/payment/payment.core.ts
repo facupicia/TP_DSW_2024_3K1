@@ -1,4 +1,5 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { Between } from 'typeorm';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { User } from '../user/user.entity';
@@ -625,8 +626,8 @@ export async function processApprovedPayment(
             throw new Error('Invalid payment amount');
         }
         
-        // Tolerancia fija de $1 ARS para diferencias de redondeo
-        const tolerance = 1;
+        // Tolerancia de $0.01 ARS para diferencias de redondeo
+        const tolerance = 0.01;
         if (Math.abs(paidAmount - expectedTotal) > tolerance) {
             logger.error('PAYMENT_AMOUNT_MISMATCH', {
                 paymentId,
@@ -688,8 +689,36 @@ export async function processApprovedPayment(
         });
         
         if (!log) {
-            // Ya procesado
+            // Already processed (idempotency). Find existing log and tickets.
             await queryRunner.rollbackTransaction();
+            
+            const existingLog = await queryRunner.manager.findOne(PaymentLog, {
+                where: { mpPaymentId: paymentId },
+                select: ['id', 'status', 'userId', 'ticketTypeId', 'createdAt']
+            });
+            
+            if (existingLog && existingLog.status === PaymentStatus.COMPLETED) {
+                // Find tickets created around the same time as the log
+                const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
+                const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
+                
+                const existingTickets = await queryRunner.manager.find(Ticket, {
+                    where: {
+                        userId: existingLog.userId,
+                        ticketTypeId: existingLog.ticketTypeId,
+                        createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
+                    },
+                    relations: ['ticketType', 'ticketType.event']
+                });
+                
+                return { 
+                    success: true, 
+                    tickets: existingTickets,
+                    logId: existingLog.id,
+                    error: undefined
+                };
+            }
+            
             return { success: true, error: 'Payment already processed' };
         }
         

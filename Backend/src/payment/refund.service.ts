@@ -1,4 +1,4 @@
-import { In } from 'typeorm';
+import { In, Between } from 'typeorm';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { Ticket, TicketStatus } from '../ticket/ticket.entity';
@@ -20,6 +20,7 @@ export interface RefundResult {
     amountRefunded?: number;
     message: string;
     error?: string;
+    warning?: string;
 }
 
 /**
@@ -122,13 +123,77 @@ export async function processRefund(
             };
         }
 
-        // 2. Hacer el reembolso en MP dentro de la transacción
+        // 2. Find tickets to cancel (preferably those created around the payment time)
+        const ticketRepo = queryRunner.manager.getRepository(Ticket);
+        const paymentTime = paymentLog.createdAt;
+        const timeWindowStart = new Date(paymentTime.getTime() - 5 * 60 * 1000);
+        const timeWindowEnd = new Date(paymentTime.getTime() + 5 * 60 * 1000);
+
+        let ticketsToCancel = await ticketRepo
+            .createQueryBuilder("ticket")
+            .select(["ticket.id"])
+            .where('"userId" = :userId', { userId: paymentLog.userId })
+            .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
+            .andWhere('status = :active', { active: TicketStatus.ACTIVE })
+            .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
+            .orderBy('"createdAt"', "DESC")
+            .take(paymentLog.quantity)
+            .getMany();
+
+        // Fallback to most recent if time-window search finds nothing
+        if (ticketsToCancel.length === 0) {
+            ticketsToCancel = await ticketRepo
+                .createQueryBuilder("ticket")
+                .select(["ticket.id"])
+                .where('"userId" = :userId', { userId: paymentLog.userId })
+                .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
+                .andWhere('status = :active', { active: TicketStatus.ACTIVE })
+                .orderBy('"createdAt"', "DESC")
+                .take(paymentLog.quantity)
+                .getMany();
+        }
+
+        // 3. Update DB state FIRST (before calling MP) to ensure consistency even if MP fails later
+        await queryRunner.manager.update(
+            PaymentLog,
+            { id: paymentLog.id },
+            {
+                status: PaymentStatus.REFUNDED,
+                refundedAt: new Date(),
+                refundedBy: options.requestedBy,
+                refundReason: options.reason,
+                refundAmount: requestedAmount
+            }
+        );
+
+        if (ticketsToCancel.length > 0) {
+            await ticketRepo.update(
+                { id: In(ticketsToCancel.map(ticket => ticket.id)) },
+                { status: TicketStatus.CANCELLED }
+            );
+        }
+
+        // Restore stock
+        const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
+        const cancelledCount = ticketsToCancel.length;
+        await ticketTypeRepo
+            .createQueryBuilder()
+            .update()
+            .set({ soldCount: () => `GREATEST("soldCount" - ${cancelledCount}, 0)` })
+            .where('id = :id', { id: paymentLog.ticketTypeId })
+            .execute();
+
+        await queryRunner.commitTransaction();
+
+        // 4. Call MercadoPago refund API AFTER DB is committed
         const accessToken = await getAccessTokenForRefund(paymentLog.organizerId);
         if (!accessToken) {
-            await queryRunner.rollbackTransaction();
+            logger.error('REFUND_NO_ACCESS_TOKEN', { paymentId });
             return {
-                success: false,
-                message: 'No access token available for refund'
+                success: true,
+                warning: 'DB updated but MP refund could not be initiated (no token). Retry manually.',
+                message: 'Refund recorded locally. Contact support if MP refund did not complete.',
+                amountRefunded: requestedAmount
             };
         }
 
@@ -151,55 +216,16 @@ export async function processRefund(
             const errorText = await mpResponse.text();
             let errorData: any = { message: errorText };
             try { errorData = JSON.parse(errorText); } catch { /* ignore parse error */ }
-            throw new Error(errorData.message || `MP API error: ${mpResponse.status}`);
+            logger.error('REFUND_MP_API_ERROR', { paymentId, error: errorData });
+            return {
+                success: true,
+                warning: `MP API error: ${errorData.message || mpResponse.status}. DB was updated; retry MP refund manually.`,
+                message: 'Refund recorded locally. Contact support if MP refund did not complete.',
+                amountRefunded: requestedAmount
+            };
         }
 
         const refundResult = await mpResponse.json() as any;
-
-        // 3. Actualizar estado en nuestra BD
-        await queryRunner.manager.update(
-            PaymentLog,
-            { id: paymentLog.id },
-            {
-                status: PaymentStatus.REFUNDED,
-                refundedAt: new Date(),
-                refundedBy: options.requestedBy,
-                refundReason: options.reason,
-                refundAmount: requestedAmount
-            }
-        );
-
-        // 4. Invalidar tickets: buscar los tickets ACTIVE más recientes del usuario para este ticketType
-        const ticketRepo = queryRunner.manager.getRepository(Ticket);
-
-        const ticketsToCancel = await ticketRepo
-            .createQueryBuilder("ticket")
-            .select(["ticket.id"])
-            .where('"userId" = :userId', { userId: paymentLog.userId })
-            .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
-            .andWhere('status = :active', { active: TicketStatus.ACTIVE })
-            .orderBy('"createdAt"', "DESC")
-            .take(paymentLog.quantity)
-            .getMany();
-
-        if (ticketsToCancel.length > 0) {
-            await ticketRepo.update(
-                { id: In(ticketsToCancel.map(ticket => ticket.id)) },
-                { status: TicketStatus.CANCELLED }
-            );
-        }
-
-        // 5. Restaurar stock
-        const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        const cancelledCount = ticketsToCancel.length;
-        await ticketTypeRepo
-            .createQueryBuilder()
-            .update()
-            .set({ soldCount: () => `GREATEST("soldCount" - ${cancelledCount}, 0)` })
-            .where('id = :id', { id: paymentLog.ticketTypeId })
-            .execute();
-
-        await queryRunner.commitTransaction();
 
         logger.info('REFUND_SUCCESS', {
             paymentId,

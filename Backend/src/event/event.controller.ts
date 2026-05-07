@@ -14,9 +14,13 @@ import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
 import { MoreThanOrEqual, IsNull } from "typeorm";
 
+// SSE connection limiter (per-user, per-process)
+const sseConnections = new Map<number, number>();
+const MAX_SSE_PER_USER = 3;
+
 /* ======================================================
    CREATE EVENT
-====================================================== */
+   ====================================================== */
 class HttpError extends Error {
     status: number;
     code: string;
@@ -87,12 +91,13 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         }
         // ======================================================
 
-        // Validate date is not in the past
-        const eventDate = new Date(date);
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        if (eventDate < todayStart) {
-            throw new HttpError(400, 'PAST_DATE', "La fecha del evento no puede ser en el pasado");
+        // Validate date+time is not in the past
+        const eventDateTime = new Date(`${date}T${time || '00:00'}`);
+        const now = new Date();
+        // Allow 5 minutes buffer for clock skew
+        now.setMinutes(now.getMinutes() - 5);
+        if (eventDateTime < now) {
+            throw new HttpError(400, 'PAST_DATE', "La fecha y hora del evento no pueden ser en el pasado");
         }
 
         // Promote user to organizer role if they don't have it yet
@@ -140,7 +145,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         event.direccion = direccion;
         event.organizer = organizer;
         event.image = image;
-        event.date = eventDate;
+        event.date = new Date(date);
         event.time = time;
         event.description = description;
         event.destacado = destacado ?? false;
@@ -280,13 +285,13 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         event.isPublic = isPublic ?? event.isPublic;
 
         if (date) {
-            const newDate = new Date(date);
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
-            if (newDate < todayStart) {
-                throw new HttpError(400, 'PAST_DATE', "La fecha del evento no puede ser en el pasado");
+            const newDateTime = new Date(`${date}T${time || event.time || '00:00'}`);
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - 5);
+            if (newDateTime < now) {
+                throw new HttpError(400, 'PAST_DATE', "La fecha y hora del evento no pueden ser en el pasado");
             }
-            event.date = newDate;
+            event.date = new Date(date);
         }
 
         await queryRunner.manager.save(Event, event);
@@ -313,6 +318,25 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
             }
 
             // 3. Crear o Actualizar los que vienen
+            // Count new ticket types to enforce plan limits
+            const newTicketTypesCount = ticketTypes.filter((t: any) => !t.id).length;
+            if (newTicketTypesCount > 0) {
+                // Count current active ticket types for this event
+                const currentActiveCount = existingTypes.filter(t => t.status === TicketTypeStatus.ACTIVE).length;
+                // Count updated active ones (existing that remain active)
+                const remainingActiveCount = ticketTypes
+                    .filter((t: any) => t.id)
+                    .filter((t: any) => {
+                        const existing = existingTypes.find(et => et.id === Number(t.id));
+                        return existing && (t.status ?? existing.status) === TicketTypeStatus.ACTIVE;
+                    }).length;
+                const totalAfterUpdate = remainingActiveCount + newTicketTypesCount;
+                const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate);
+                if (!ttCheck.allowed) {
+                    throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
+                }
+            }
+
             for (const ttData of ticketTypes) {
                 if (ttData.id) {
                     // Actualizar existente
@@ -400,7 +424,7 @@ export const deleteEvent = async (req: CustomRequest, res: Response) => {
         event.active = false;
         await queryRunner.manager.save(Event, event);
 
-        // Propagate soft delete to ticket types and cancel active tickets
+        // Propagate soft delete to ticket types, cancel active tickets, and restore stock
         if (event.ticketTypes) {
             for (const tt of event.ticketTypes) {
                 tt.status = TicketTypeStatus.DISABLED;
@@ -408,11 +432,32 @@ export const deleteEvent = async (req: CustomRequest, res: Response) => {
             }
         }
 
+        // Count active tickets per type to restore soldCount accurately
+        const activeTickets = await queryRunner.manager.find(Ticket, {
+            where: { ticketType: { event: { id: idNum } }, status: TicketStatus.ACTIVE },
+            relations: ['ticketType'],
+            select: ['id', 'ticketTypeId']
+        });
+
         await queryRunner.manager.update(
             Ticket,
             { ticketType: { event: { id: idNum } }, status: TicketStatus.ACTIVE },
             { status: TicketStatus.CANCELLED }
         );
+
+        // Restore soldCount per ticket type
+        const cancelledByType = new Map<number, number>();
+        for (const t of activeTickets) {
+            cancelledByType.set(t.ticketTypeId, (cancelledByType.get(t.ticketTypeId) || 0) + 1);
+        }
+        for (const [ttId, count] of cancelledByType) {
+            await queryRunner.manager
+                .createQueryBuilder()
+                .update(TicketType)
+                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
+                .where('id = :id', { id: ttId })
+                .execute();
+        }
 
         await queryRunner.commitTransaction();
         return res.sendStatus(204);
@@ -518,7 +563,14 @@ export const getEvents = async (req: Request, res: Response) => {
             .take(take)
             .getManyAndCount();
 
-        const data = events.map(event => ({
+        // Filter out events that already passed (today but past time)
+        const now = new Date();
+        const filteredEvents = events.filter(event => {
+            const eventDateTime = new Date(`${event.date}T${event.time || '00:00'}`);
+            return eventDateTime >= now;
+        });
+
+        const data = filteredEvents.map(event => ({
             ...event,
             destacado: event.destacado || dynamicFeaturedIds.has(event.id),
             salesCount: salesByEventId.get(event.id) || 0
@@ -527,10 +579,10 @@ export const getEvents = async (req: Request, res: Response) => {
         res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
         return res.json({
             data,
-            total,
+            total: filteredEvents.length,
             page,
             limit,
-            totalPages: Math.max(1, Math.ceil(total / limit))
+            totalPages: Math.max(1, Math.ceil(filteredEvents.length / limit))
         });
     } catch (error) {
         console.error(error);
@@ -572,7 +624,14 @@ export const getEventByName = async (req: Request, res: Response) => {
             .limit(take)
             .getMany();
 
-        return res.json(events);
+        // Filter out events that already passed (today but past time)
+        const now = new Date();
+        const filteredEvents = events.filter(event => {
+            const eventDateTime = new Date(`${event.date}T${event.time || '00:00'}`);
+            return eventDateTime >= now;
+        });
+
+        return res.json(filteredEvents);
     } catch (error) {
         return res.status(500).json({ message: "Error searching events" });
     }
@@ -818,11 +877,21 @@ export const getCreatorStatsComparative = async (req: CustomRequest, res: Respon
  * GET /api/event/stats/stream
  */
 export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
+    let interval: NodeJS.Timeout | null = null;
+    let userId: number | undefined;
+
     try {
-        const userId = req.user?.id;
+        userId = req.user?.id;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
+
+        // Enforce per-user SSE connection limit
+        const currentCount = sseConnections.get(userId) || 0;
+        if (currentCount >= MAX_SSE_PER_USER) {
+            return res.status(429).json({ message: "Too many SSE connections. Close other dashboard tabs." });
+        }
+        sseConnections.set(userId, currentCount + 1);
 
         // Set headers for SSE
         res.setHeader('Content-Type', 'text/event-stream');
@@ -859,7 +928,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
 
         // Set up interval to check for updates every 30 seconds (reduced from 10s to lower DB load)
         // For real-time, consider using a pub/sub system or webhook instead of polling
-        const interval = setInterval(async () => {
+        interval = setInterval(async () => {
             try {
                 const stats = await AppDataSource.getRepository(Ticket)
                     .createQueryBuilder('t')
@@ -891,13 +960,34 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
             }
         }, 30000);
 
-        // Clean up on client disconnect
-        req.on('close', () => {
-            clearInterval(interval);
+        // Robust cleanup on client disconnect or error
+        const cleanup = () => {
+            if (interval) {
+                clearInterval(interval);
+                interval = null;
+            }
+            if (userId) {
+                const count = sseConnections.get(userId) || 0;
+                if (count > 1) {
+                    sseConnections.set(userId, count - 1);
+                } else {
+                    sseConnections.delete(userId);
+                }
+            }
             res.end();
-        });
+        };
+
+        req.on('close', cleanup);
+        req.on('error', cleanup);
+        req.on('aborted', cleanup);
 
     } catch (error) {
+        if (interval) clearInterval(interval);
+        if (userId) {
+            const count = sseConnections.get(userId) || 0;
+            if (count > 1) sseConnections.set(userId, count - 1);
+            else sseConnections.delete(userId);
+        }
         console.error("Error in stream:", error);
         return res.status(500).json({ message: "Error en streaming de estadísticas" });
     }

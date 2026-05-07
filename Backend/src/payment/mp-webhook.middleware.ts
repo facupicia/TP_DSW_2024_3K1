@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { getMPConfig } from './mp.config';
 import { logger } from '../common/services/logger';
+import { env } from '../config/env';
 
 /**
  * MercadoPago Webhook Middleware
@@ -41,14 +42,8 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
         });
         
         if (!webhookSecret) {
-            if (process.env.NODE_ENV === 'production') {
-                logger.error('MP_WEBHOOK_SECRET_MISSING_PRODUCTION', { type, path: req.path });
-                res.status(503).json({ error: 'Webhook signature validation is not configured' });
-                return;
-            }
-
-            // Development/sandbox mode only.
-            next();
+            logger.error('MP_WEBHOOK_SECRET_MISSING', { type, path: req.path, env: env.NODE_ENV });
+            res.status(503).json({ error: 'Webhook signature validation is not configured' });
             return;
         }
 

@@ -1,9 +1,11 @@
 import { Response } from "express";
 import { CustomRequest } from "../common/middleware/authToken";
 import { logger } from "../common/services/logger";
+import { env } from "../config/env";
 import AppDataSource from "../db";
 import { PaymentLog, PaymentStatus } from "./payment.entity";
 import { TicketType } from "../ticketType/ticketType.entity";
+import { Ticket } from "../ticket/ticket.entity";
 import { 
     validatePurchaseEligibility,
     createMercadoPagoPreference,
@@ -208,6 +210,34 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                             : 'El cupón no es válido para este evento.'
                 });
             }
+
+            if (error.message === 'ZERO_AMOUNT_NOT_SUPPORTED') {
+                return res.status(400).json({
+                    code: 'ZERO_AMOUNT_NOT_SUPPORTED',
+                    message: 'No se pueden procesar pagos de $0. Para entradas gratuitas usá el sistema de invitaciones.'
+                });
+            }
+
+            if (error.message === 'NO_STOCK') {
+                return res.status(409).json({
+                    code: 'NO_STOCK',
+                    message: 'Las entradas se agotaron mientras preparábamos tu compra.'
+                });
+            }
+
+            if (error.message === 'EVENT_STARTED') {
+                return res.status(400).json({
+                    code: 'EVENT_STARTED',
+                    message: 'El evento ya comenzó. No se pueden comprar más entradas.'
+                });
+            }
+
+            if (error.message === 'TICKET_TYPE_INACTIVE') {
+                return res.status(400).json({
+                    code: 'TICKET_TYPE_INACTIVE',
+                    message: 'Este tipo de entrada no está disponible.'
+                });
+            }
             
             throw error;
         }
@@ -264,8 +294,10 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
         } as any);
 
         if (!lookup) {
+            // Cannot resolve payment - might be a test payment or deleted organizer.
+            // Return 200 so MP stops retrying; log for manual investigation.
             logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId: String(paymentId) });
-            res.status(500).json({ received: false });
+            res.status(200).json({ received: true, warning: 'Payment lookup failed' });
             return;
         }
 
@@ -290,12 +322,30 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
             });
             res.status(200).json({ received: true });
         } else {
+            // Business logic failure (e.g. no stock). Return 200 to stop MP retries,
+            // but log for monitoring. Only return 500 for transient infra errors.
             logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId: String(paymentId), error: result.error });
-            res.status(500).json({ received: false });
+            res.status(200).json({ received: true, warning: result.error });
         }
     } catch (error: any) {
-        logger.error("WEBHOOK_PROCESSING_ERROR", { paymentId: String(paymentId), error: error?.message });
-        res.status(500).json({ received: false });
+        // Transient errors (DB down, network) should return 500 so MP retries.
+        // Distinguish known transient errors from logic errors.
+        const isTransient = error?.code?.startsWith('ECONN') || 
+                           error?.code === '23503' ||
+                           error?.message?.includes('timeout') ||
+                           error?.message?.includes('connection');
+        
+        logger.error("WEBHOOK_PROCESSING_ERROR", { 
+            paymentId: String(paymentId), 
+            error: error?.message,
+            isTransient 
+        });
+        
+        if (isTransient) {
+            res.status(500).json({ received: false });
+        } else {
+            res.status(200).json({ received: true, warning: 'Processing error logged' });
+        }
     }
 };
 
@@ -312,7 +362,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
 export const simulatePaymentWebhook = async (req: CustomRequest, res: Response) => {
     try {
         // Solo permitir en sandbox o development
-        if (process.env.NODE_ENV === 'production' && !process.env.MP_FORCE_SANDBOX_MODE) {
+        if (env.NODE_ENV === 'production') {
             return res.status(403).json({
                 success: false,
                 message: 'Este endpoint solo está disponible en modo sandbox'
