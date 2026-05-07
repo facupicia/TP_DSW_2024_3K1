@@ -51,35 +51,32 @@ export class PerfilComponent implements OnInit {
   mpLoading = false;
 
   ngOnInit(): void {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        this.profileService.getProfile().subscribe({
-          next: (data) => {
-            this.userProfile = data;
-            // Support both new 'roles' array and legacy 'rol' field
-            this.userRoles = data.roles || [data.rol] || ['user'];
-            
-            // Set role flags using helper functions
-            this.esAdmin = hasExactRole(this.userRoles, 'admin');
-            this.esScanner = hasExactRole(this.userRoles, 'scanner');
-            this.esOrganizer = hasRoleLevel(this.userRoles, 'organizer');
-            this.esRrpp = hasExactRole(this.userRoles, 'rrpp');
-            
-            this.verificarEventos();
-            this.loadSubscription();
-            this.loadPlans();
-            this.loadMpStatus();
-          },
-          error: (err) => {
-            console.error('Error al obtener perfil:', err);
-            this.router.navigate(['/login']);
-          },
-        });
-      } else {
-        this.router.navigate(['/login']);
-      }
-    }
+    this.profileService.ensureCurrentUser().subscribe({
+      next: (data) => {
+        if (!data) {
+          this.router.navigate(['/login'], { queryParams: { returnUrl: '/profile' } });
+          return;
+        }
+
+        this.userProfile = data;
+        // Support both new 'roles' array and legacy 'rol' field
+        this.userRoles = data.roles || [data.rol] || ['user'];
+
+        // Set role flags using helper functions
+        this.esAdmin = hasExactRole(this.userRoles, 'admin');
+        this.esScanner = hasExactRole(this.userRoles, 'scanner');
+        this.esOrganizer = hasRoleLevel(this.userRoles, 'organizer');
+        this.esRrpp = hasExactRole(this.userRoles, 'rrpp');
+
+        this.verificarEventos();
+        this.loadSubscription();
+        this.loadPlans();
+        this.loadMpStatus();
+      },
+      error: () => {
+        this.router.navigate(['/login'], { queryParams: { returnUrl: '/profile' } });
+      },
+    });
   }
 
   private loadSubscription(): void {

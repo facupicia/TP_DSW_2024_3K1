@@ -8,6 +8,7 @@ import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { catchError, of, Subscription, interval } from 'rxjs';
 import { HeaderComponent } from '../../components/header/header.component';
 import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-event-stats',
@@ -101,7 +102,8 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private stats: StatsService,
-    private subscriptionService: SubscriptionService
+    private subscriptionService: SubscriptionService,
+    private authService: AuthService
   ) { }
 
   ngOnInit(): void {
@@ -112,10 +114,17 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     }
     this.eventId = Number(idParam);
 
-    this.loadSubscription();
-    this.load();
-    // Refrescar cada 15s para ver check-ins en "casi" tiempo real
-    this.refresh$ = interval(15000).subscribe(() => this.load());
+    this.authService.ensureCurrentUser().subscribe(user => {
+      if (!user) {
+        this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+        return;
+      }
+
+      this.loadSubscription();
+      this.load();
+      // Refrescar cada 15s para ver check-ins en "casi" tiempo real
+      this.refresh$ = interval(15000).subscribe(() => this.load());
+    });
   }
 
   private loadSubscription(): void {
@@ -139,7 +148,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   }
 
   load() {
-    if (typeof window === 'undefined' || !localStorage.getItem('token')) return;
+    if (typeof window === 'undefined') return;
     this.stats.getEventStats(this.eventId).pipe(
       catchError(() => {
         this.isLoading = false;

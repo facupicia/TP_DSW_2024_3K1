@@ -4,6 +4,7 @@ import { catchError, throwError } from 'rxjs';
 import { ToastService } from '../services/toast.service';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { clearAccessToken } from '../services/access-token.store';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
@@ -32,9 +33,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         break;
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
-                        if (typeof window !== 'undefined') {
-                            window.localStorage.removeItem('token');
-                        }
+                        clearAccessToken();
                         authService.logout();
                         router.navigate(['/login']);
                         break;
@@ -55,9 +54,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         } else {
                             // Actual permission error - logout
                             errorMessage = 'No tienes permisos para realizar esta acción.';
-                            if (typeof window !== 'undefined') {
-                                window.localStorage.removeItem('token');
-                            }
+                            clearAccessToken();
                             authService.logout();
                             router.navigate(['/login']);
                         }

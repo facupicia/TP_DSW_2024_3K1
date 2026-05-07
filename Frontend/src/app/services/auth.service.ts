@@ -6,6 +6,7 @@ import { Observable, tap, throwError, BehaviorSubject, switchMap, map, catchErro
 import { ResponseAcceso } from '../interfaces/ResponseAcceso';
 import { Login } from '../interfaces/Login';
 import { UsuarioEdit } from '../interfaces/UsuarioEdit';
+import { clearAccessToken, getAccessToken, setAccessToken } from './access-token.store';
 
 export interface UsersQueryParams {
   page?: number;
@@ -62,18 +63,20 @@ export class AuthService {
   }
 
   private getAccessToken(): string | null {
-    return this.hasBrowserStorage() ? window.localStorage.getItem('token') : null;
+    return getAccessToken();
   }
 
   private setAccessToken(token: string): void {
-    if (this.hasBrowserStorage()) {
-      window.localStorage.setItem('token', token);
-    }
+    setAccessToken(token);
+  }
+
+  storeAccessToken(token: string): void {
+    this.setAccessToken(token);
   }
 
   private clearStoredSession(): void {
+    clearAccessToken();
     if (this.hasBrowserStorage()) {
-      window.localStorage.removeItem('token');
       window.localStorage.removeItem('cachedProfile');
     }
   }

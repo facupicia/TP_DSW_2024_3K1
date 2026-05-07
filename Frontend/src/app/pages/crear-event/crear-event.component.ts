@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-crear-event',
@@ -10,16 +11,20 @@ import { Router } from '@angular/router';
 })
 export class CrearEventComponent {
 
-  constructor(private router: Router) { }
+  constructor(
+    private router: Router,
+    private authService: AuthService
+  ) { }
 
   
   crearEvento():void{
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.router.navigate(['/create-event']);
-    } else {
-      this.router.navigate(['/login']);
-    }
+    this.authService.ensureCurrentUser().subscribe(user => {
+      if (user) {
+        this.router.navigate(['/create-event']);
+      } else {
+        this.router.navigate(['/login'], { queryParams: { returnUrl: '/create-event' } });
+      }
+    });
   }
 
 }

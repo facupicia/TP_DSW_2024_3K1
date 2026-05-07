@@ -97,7 +97,13 @@ export class AdminPanelComponent implements OnInit {
     this.userService.currentUser$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
     });
-    this.loadOverview();
+
+    this.userService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
+      this.currentUser = user;
+      if (user) {
+        this.loadOverview();
+      }
+    });
   }
 
   /**
@@ -105,8 +111,6 @@ export class AdminPanelComponent implements OnInit {
    */
   loadOverview() {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
 
     this.loadingMetrics = true;
     this.adminService.getOverview(this.dateRange).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -142,8 +146,6 @@ export class AdminPanelComponent implements OnInit {
 
   cargarUsuarios(resetPage = false) {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
     if (!this.canSearchUsers) {
       this.usuarios = [];
       this.userTotal = 0;

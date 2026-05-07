@@ -38,28 +38,30 @@ export class PrefilEditComponent implements OnInit {
   }
 
   cargarDatosUsuario(): void {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.AccesService.getProfile().subscribe({
-        next: (data) => {
-          this.userId = data.id;
-          this.formEditarPerfil.patchValue({
-            imgPerfil: data.imgPerfil,
-            firstname: data.firstname,
-            lastname: data.lastname,
-            phone: data.phone,
-            pais: data.pais || '',
-            provincia: data.provincia || '',
-            ciudad: data.ciudad || '',
-            address: data.address || '',
-            birth: data.birth,
-          });
-        },
-        error: (error) => {
-          this.toastService.error('Error al cargar los datos del usuario');
+    this.AccesService.ensureCurrentUser().subscribe({
+      next: (data) => {
+        if (!data) {
+          this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+          return;
         }
-      });
-    }
+
+        this.userId = data.id;
+        this.formEditarPerfil.patchValue({
+          imgPerfil: data.imgPerfil,
+          firstname: data.firstname,
+          lastname: data.lastname,
+          phone: data.phone,
+          pais: data.pais || '',
+          provincia: data.provincia || '',
+          ciudad: data.ciudad || '',
+          address: data.address || '',
+          birth: data.birth,
+        });
+      },
+      error: () => {
+        this.toastService.error('Error al cargar los datos del usuario');
+      }
+    });
   }
 
   actualizarPerfil() {
@@ -91,6 +93,8 @@ export class PrefilEditComponent implements OnInit {
     } else {
       this.toastService.error('Error: ID de usuario no disponible');
     }
-    localStorage.removeItem('cachedProfile');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('cachedProfile');
+    }
   }
 }

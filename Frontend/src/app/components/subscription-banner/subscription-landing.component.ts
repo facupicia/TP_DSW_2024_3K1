@@ -46,12 +46,13 @@ export class SubscriptionLandingComponent implements OnInit {
             return;
         }
 
-        const token = localStorage.getItem('token');
-        this.isLoggedIn = !!token;
+        this.authService.ensureCurrentUser().subscribe(user => {
+            this.isLoggedIn = !!user;
 
-        if (this.isLoggedIn) {
-            this.loadUserLimits();
-        }
+            if (this.isLoggedIn) {
+                this.loadUserLimits();
+            }
+        });
     }
 
     loadPlans() {
@@ -99,7 +100,7 @@ export class SubscriptionLandingComponent implements OnInit {
 
         // 3. Si es gratuito (precio 0), es un downgrade o inicio simple
         if (plan.monthlyPrice === 0) {
-            this.router.navigate(['/dashboard']); // O lógica de downgrade
+            this.router.navigate(['/profile']);
             return;
         }
 

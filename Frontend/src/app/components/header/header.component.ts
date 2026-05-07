@@ -114,9 +114,15 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   crearEvento(): void {
-    const isAuthenticated = localStorage.getItem('token');
-    const route = isAuthenticated ? '/create-event' : '/tickets';
-    this.navigateMobile(route);
+    this.isMenuOpen = false;
+    this.manageScrollLock();
+
+    if (this.accesService.currentUserValue) {
+      this.router.navigate(['/create-event']);
+      return;
+    }
+
+    this.router.navigate(['/login'], { queryParams: { returnUrl: '/create-event' } });
   }
 
   redirectToLogout() {

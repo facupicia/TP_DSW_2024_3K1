@@ -498,82 +498,120 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
     }
 }
 
-/**
- * INVITE GUESTS (Free Tickets)
- * POST /ticket/invite
- * Allows organizers to create free tickets and send them via email
- */
 export const inviteGuests = async (req: CustomRequest, res: Response) => {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
 
     try {
         const userId = req.user?.id;
-        const isAdmin = (req.user?.roles || []).includes('admin');
+        const isAdmin = (req.user?.roles || []).includes("admin");
+
         if (!userId) {
             return res.status(401).json({ message: "No autorizado" });
         }
 
-        const { ticketTypeId, emails, quantity = 1 } = req.body;
+        const { ticketTypeId, emails } = req.body;
+        const quantity = req.body.quantity ?? 1;
 
-        // Validate quantity
-        const ticketQty = parseInt(quantity) || 1;
-        if (ticketQty < 1 || ticketQty > 10) {
-            return res.status(400).json({ message: "La cantidad debe ser entre 1 y 10 por invitado" });
+        // ---------------------------------------------------------------------
+        // Validar cantidad
+        // ---------------------------------------------------------------------
+        const ticketQty = Number(quantity);
+
+        if (!Number.isInteger(ticketQty) || ticketQty < 1 || ticketQty > 10) {
+            return res.status(400).json({
+                message: "La cantidad debe ser un número entero entre 1 y 10 por invitado",
+            });
         }
 
-        // Validate emails
+        // ---------------------------------------------------------------------
+        // Validar emails
+        // ---------------------------------------------------------------------
         if (!emails || !Array.isArray(emails) || emails.length === 0) {
-            return res.status(400).json({ message: "Debes proporcionar al menos un email" });
+            return res.status(400).json({
+                message: "Debes proporcionar al menos un email",
+            });
         }
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         const errors: string[] = [];
-        const normalizedEmails = Array.from(new Set(
-            emails
-                .map((email: unknown) => typeof email === "string" ? email.trim().toLowerCase() : "")
-                .filter(Boolean)
-        ));
-        const validEmails = normalizedEmails.filter(email => {
+
+        const normalizedEmails = Array.from(
+            new Set(
+                emails
+                    .map((email: unknown) =>
+                        typeof email === "string" ? email.trim().toLowerCase() : ""
+                    )
+                    .filter(Boolean)
+            )
+        );
+
+        const validEmails = normalizedEmails.filter((email) => {
             if (!emailRegex.test(email)) {
                 errors.push(`Email inválido: ${email}`);
                 return false;
             }
+
             return true;
         });
 
         if (validEmails.length === 0) {
-            return res.status(400).json({ message: "No hay emails válidos para invitar", errors });
+            return res.status(400).json({
+                message: "No hay emails válidos para invitar",
+                errors,
+            });
         }
 
-        // Limit to prevent abuse (max 50 invites per request)
-        const totalTickets = validEmails.length * ticketQty;
-        if (validEmails.length > 50 || totalTickets > 100) {
-            return res.status(400).json({ message: "Máximo 50 emails o 100 tickets por solicitud" });
+        // ---------------------------------------------------------------------
+        // Límites anti-abuso
+        // ---------------------------------------------------------------------
+        const totalRequestedTickets = validEmails.length * ticketQty;
+
+        if (validEmails.length > 50 || totalRequestedTickets > 100) {
+            return res.status(400).json({
+                message: "Máximo 50 emails o 100 tickets por solicitud",
+            });
         }
 
-        // Get ticket type with event (outside transaction for quick validation)
+        // ---------------------------------------------------------------------
+        // Obtener tipo de ticket + evento
+        // ---------------------------------------------------------------------
         const ticketType = await AppDataSource.getRepository(TicketType).findOne({
             where: { id: ticketTypeId },
-            relations: ["event"]
+            relations: ["event"],
         });
 
         if (!ticketType) {
-            return res.status(404).json({ message: "Tipo de ticket no encontrado" });
+            return res.status(404).json({
+                message: "Tipo de ticket no encontrado",
+            });
         }
 
-        // Verify organizer owns the event
+        if (!ticketType.event) {
+            return res.status(404).json({
+                message: "Evento asociado al tipo de ticket no encontrado",
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // Verificar ownership del evento
+        // ---------------------------------------------------------------------
         if (ticketType.event.user_id !== userId && !isAdmin) {
-            return res.status(403).json({ message: "No tienes permiso para invitar a este evento" });
+            return res.status(403).json({
+                message: "No tienes permiso para invitar a este evento",
+            });
         }
 
         const event = ticketType.event;
-        const createdTickets: any[] = [];
-        let ticketsCreatedCount = 0;
+
+        const createdTickets: Array<{ email: string; quantity: number }> = [];
         const ticketsToInsert: Ticket[] = [];
         const emailTicketsMap: Record<string, any[]> = {};
 
-        // Pre-generate all ticket data (QR generation) outside the DB transaction to avoid long locks
+        // ---------------------------------------------------------------------
+        // Pre-generar tickets y QRs fuera de la transacción
+        // Así evitamos mantener locks de DB mientras se generan QRs.
+        // ---------------------------------------------------------------------
         for (const email of validEmails) {
             try {
                 const ticketsForThisEmail: any[] = [];
@@ -583,97 +621,153 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
                     const qrCode = await generarQRUrl(codigo_unico);
 
                     const ticket = new Ticket();
+
                     ticket.ticketTypeId = ticketType.id;
+
+                    /**
+                     * Importante:
+                     * Esto mantiene tu lógica actual: el ticket queda asociado al organizador.
+                     *
+                     * Si en tu modelo `userId` representa al dueño real del ticket/asistente,
+                     * entonces conviene cambiar esto por:
+                     *
+                     * ticket.userId = null;
+                     * ticket.guestEmail = email;
+                     * ticket.createdByUserId = userId;
+                     *
+                     * Pero eso requiere que existan esas columnas en la entidad Ticket.
+                     */
                     ticket.userId = userId;
+
                     ticket.codigo_unico = codigo_unico;
                     ticket.qrCode = qrCode;
                     ticket.purchasePrice = 0;
                     ticket.status = TicketStatus.ACTIVE;
 
                     ticketsToInsert.push(ticket);
-                    ticketsCreatedCount++;
 
                     ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
                         ticketId: null,
                         eventTitle: event.title,
-                        eventDate: `${new Date(event.date).toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} ${event.time}`,
-                        eventLocation: event.direccion || event.ciudad || '',
-                        buyerName: 'Invitado',
-                        ticketType: ticketType.name
+                        eventDate: `${new Date(event.date).toLocaleDateString("es-AR", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                        })} ${event.time}`,
+                        eventLocation: event.direccion || event.ciudad || "",
+                        buyerName: "Invitado",
+                        ticketType: ticketType.name,
                     });
                 }
 
                 emailTicketsMap[email] = ticketsForThisEmail;
+
                 createdTickets.push({
                     email,
-                    quantity: ticketsForThisEmail.length
+                    quantity: ticketsForThisEmail.length,
                 });
-
             } catch (ticketErr: any) {
-                errors.push(`Error creando ticket para ${email}: ${ticketErr.message}`);
+                errors.push(
+                    `Error creando ticket para ${email}: ${
+                        ticketErr?.message || "Error desconocido"
+                    }`
+                );
             }
         }
 
         if (ticketsToInsert.length === 0) {
-            return res.status(400).json({ message: "No se pudo crear ninguna invitación", errors });
-        }
-
-        await queryRunner.startTransaction();
-
-        // Reserve stock atomically to avoid overselling with concurrent invitations/purchases.
-        const stockUpdate = await queryRunner.manager
-            .createQueryBuilder()
-            .update(TicketType)
-            .set({ soldCount: () => `"soldCount" + ${ticketsToInsert.length}` })
-            .where("id = :id", { id: ticketType.id })
-            .andWhere(`"soldCount" + ${ticketsToInsert.length} <= "capacity"`)
-            .execute();
-
-        if (!stockUpdate.affected) {
-            await queryRunner.rollbackTransaction();
-            const availableStock = ticketType.capacity - ticketType.soldCount;
             return res.status(400).json({
-                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${ticketsToInsert.length}`
+                message: "No se pudo crear ninguna invitación",
+                errors,
             });
         }
 
-        // Bulk insert all tickets at once
-        await queryRunner.manager.save(Ticket, ticketsToInsert);
+        const requestedTickets = ticketsToInsert.length;
+
+        // ---------------------------------------------------------------------
+        // Transacción: reservar stock + insertar tickets
+        // ---------------------------------------------------------------------
+        await queryRunner.startTransaction();
+
+        const stockUpdate = await queryRunner.manager
+            .createQueryBuilder()
+            .update(TicketType)
+            .set({
+                soldCount: () => `"soldCount" + ${requestedTickets}`,
+            })
+            .where("id = :id", { id: ticketType.id })
+            .andWhere(`"soldCount" + ${requestedTickets} <= "capacity"`)
+            .execute();
+
+        if (!stockUpdate.affected) {
+            const freshTicketType = await queryRunner.manager.findOne(TicketType, {
+                where: { id: ticketType.id },
+            });
+
+            await queryRunner.rollbackTransaction();
+
+            const availableStock = freshTicketType
+                ? Math.max(freshTicketType.capacity - freshTicketType.soldCount, 0)
+                : 0;
+
+            return res.status(400).json({
+                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${requestedTickets}`,
+            });
+        }
+
+        const savedTickets = await queryRunner.manager.save(Ticket, ticketsToInsert);
 
         await queryRunner.commitTransaction();
 
-        // Send emails after bulk insert (map saved tickets back to emails)
+        // ---------------------------------------------------------------------
+        // Enviar emails después del commit
+        // Si falla un mail, no rompemos los tickets ya creados.
+        // ---------------------------------------------------------------------
         let ticketIndex = 0;
+
         for (const email of Object.keys(emailTicketsMap)) {
             const ticketsForThisEmail = emailTicketsMap[email];
-            for (const t of ticketsForThisEmail) {
-                if (ticketIndex < ticketsToInsert.length) {
-                    t.ticketId = ticketsToInsert[ticketIndex].id;
+
+            for (const ticketMailData of ticketsForThisEmail) {
+                if (ticketIndex < savedTickets.length) {
+                    ticketMailData.ticketId = savedTickets[ticketIndex].id;
                     ticketIndex++;
                 }
             }
+
             try {
                 await enviarCorreoConQR(email, ticketsForThisEmail);
-            } catch (emailErr) {
+            } catch (emailErr: any) {
                 console.error(`Error enviando email a ${email}:`, emailErr);
-                errors.push(`Error enviando a: ${email}`);
+
+                errors.push(
+                    `Error enviando a ${email}: ${
+                        emailErr?.message || "Error desconocido"
+                    }`
+                );
             }
         }
 
         return res.status(201).json({
-            message: `${ticketsCreatedCount} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,
+            message: `${savedTickets.length} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,
             tickets: createdTickets,
-            totalTickets: ticketsCreatedCount,
-            errors: errors.length > 0 ? errors : undefined
+            totalTickets: savedTickets.length,
+            emailsSentWithErrors: errors.length > 0,
+            errors: errors.length > 0 ? errors : undefined,
         });
-
     } catch (error: any) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
         }
+
         console.error("Error inviting guests:", error);
-        return res.status(500).json({ message: 'Error al enviar invitaciones', error: error.message });
+
+        return res.status(500).json({
+            message: "Error al enviar invitaciones",
+            error: error?.message || "Error desconocido",
+        });
     } finally {
         await queryRunner.release();
     }

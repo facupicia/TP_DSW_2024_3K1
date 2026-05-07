@@ -13,6 +13,7 @@ import { CouponService } from '../../services/coupon.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-checkout',
@@ -29,6 +30,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private couponService = inject(CouponService);
   private destroyRef = inject(DestroyRef);
+  private authService = inject(AuthService);
   isAuthenticated = false;
 
   timeLeft: number = 600; // 10 minutos en segundos
@@ -82,10 +84,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      this.isAuthenticated = !!window.localStorage.getItem('token');
-    }
-
     this.eventId = this.route.snapshot.paramMap.get('id');
 
     if (!this.eventId || isNaN(Number(this.eventId)) || Number(this.eventId) <= 0) {
@@ -99,6 +97,23 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.promoterCode = promoCodeFromUrl;
       this.promoterCodeFromUrl = true;
     }
+
+    this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
+      this.isAuthenticated = !!user;
+      this.loadEvent();
+    });
+
+    // Escuchar cambios en el tipo de ticket
+    this.formCheckout.get('ticketTypeId')?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(id => {
+      this.onTicketTypeChange(Number(id));
+    });
+
+    // Iniciar el temporizador apenas carga el checkout
+    this.startTimer();
+  }
+
+  private loadEvent(): void {
+    if (!this.eventId) return;
 
     this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
       this.evento = evento;
@@ -124,14 +139,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         this.calculateTotal();
       }
     });
-
-    // Escuchar cambios en el tipo de ticket
-    this.formCheckout.get('ticketTypeId')?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(id => {
-      this.onTicketTypeChange(Number(id));
-    });
-
-    // Iniciar el temporizador apenas carga el checkout
-    this.startTimer();
   }
 
   get requiresBirthDate(): boolean {

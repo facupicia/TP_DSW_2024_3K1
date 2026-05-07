@@ -267,11 +267,11 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
  * Procesa la notificación antes de confirmar para que MP pueda reintentar ante fallos.
  */
 export const paymentWebhook = async (req: CustomRequest, res: Response) => {
-    const paymentId = req.query.id || req.query['data.id'] || req.body?.data?.id || req.body?.id;
+    const paymentId = req.paymentId;
     const topic = req.query.topic || req.query.type || req.body?.type;
     
     logger.info("WEBHOOK_RECEIVED", {
-        paymentId: paymentId ? String(paymentId) : undefined,
+        paymentId,
         topic,
         hasBody: !!req.body,
         queryKeys: Object.keys(req.query || {})
@@ -287,8 +287,8 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     }
     
     try {
-        const lookup = await resolveWebhookPayment(String(paymentId), {
-            id: String(paymentId),
+        const lookup = await resolveWebhookPayment(paymentId, {
+            id: paymentId,
             status: 'unknown',
             external_reference: req.body?.data?.external_reference || req.query.external_reference
         } as any);
@@ -296,26 +296,26 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
         if (!lookup) {
             // Cannot resolve payment - might be a test payment or deleted organizer.
             // Return 200 so MP stops retrying; log for manual investigation.
-            logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId: String(paymentId) });
+            logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId });
             res.status(200).json({ received: true, warning: 'Payment lookup failed' });
             return;
         }
 
         const paymentData = lookup.payment.status === 'approved'
             ? lookup.payment
-            : await waitForPaymentApproval(String(paymentId), lookup.client);
+            : await waitForPaymentApproval(paymentId, lookup.client);
 
         if (!paymentData) {
-            logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId: String(paymentId) });
+            logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId });
             res.status(200).json({ received: true, ignored: true });
             return;
         }
 
-        const result = await processApprovedPayment(String(paymentId), paymentData);
+        const result = await processApprovedPayment(paymentId, paymentData);
 
         if (result.success) {
             logger.info("WEBHOOK_PAYMENT_PROCESSED", {
-                paymentId: String(paymentId),
+                paymentId,
                 tokenSource: lookup.source,
                 organizerId: lookup.organizerId,
                 ticketsCount: result.tickets?.length
@@ -324,7 +324,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
         } else {
             // Business logic failure (e.g. no stock). Return 200 to stop MP retries,
             // but log for monitoring. Only return 500 for transient infra errors.
-            logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId: String(paymentId), error: result.error });
+            logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId, error: result.error });
             res.status(200).json({ received: true, warning: result.error });
         }
     } catch (error: any) {
@@ -336,7 +336,7 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
                            error?.message?.includes('connection');
         
         logger.error("WEBHOOK_PROCESSING_ERROR", { 
-            paymentId: String(paymentId), 
+            paymentId, 
             error: error?.message,
             isTransient 
         });

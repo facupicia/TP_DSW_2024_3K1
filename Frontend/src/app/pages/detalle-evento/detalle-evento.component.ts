@@ -37,10 +37,6 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   isEventStarted = false;
 
   ngOnInit(): void {
-    if (typeof localStorage !== 'undefined') {
-      this.isLoggedIn = !!localStorage.getItem('token');
-    }
-
     const idParam = this.route.snapshot.paramMap.get('id');
     this.eventId = idParam;
 
@@ -53,6 +49,9 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     }
 
     this.cargarEvento(Number(this.eventId));
+    this.accesService.ensureCurrentUser().subscribe(user => {
+      this.isLoggedIn = !!user;
+    });
   }
 
   ngOnDestroy(): void {
@@ -172,14 +171,14 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   }
 
   reservarEntrada(eventId: number): void {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
-      this.router.navigate([`/ticket/${eventId}`], { queryParams });
-      return;
-    }
-    this.accesService.getProfile().subscribe({
+    this.accesService.ensureCurrentUser().subscribe({
       next: (profile) => {
+        if (!profile) {
+          const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
+          this.router.navigate([`/ticket/${eventId}`], { queryParams });
+          return;
+        }
+
         if (this.evento?.minAge && this.evento.minAge > 0 && profile?.birth) {
           const userAge = this.calculateAge(profile.birth);
           if (userAge < this.evento.minAge) {
@@ -187,12 +186,14 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
             return;
           }
         }
+
         // Navigate to checkout with promoter code if present
         const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
         this.router.navigate([`/ticket/${eventId}`], { queryParams });
       },
-      error: (err) => {
-        if (err.status === 401) this.router.navigate(['/login']);
+      error: () => {
+      const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
+      this.router.navigate([`/ticket/${eventId}`], { queryParams });
       }
     });
   }

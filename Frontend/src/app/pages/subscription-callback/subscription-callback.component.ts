@@ -151,27 +151,28 @@ export class SubscriptionCallbackComponent implements OnInit {
     errorMessage = 'Tu pago está siendo procesado. Puede tomar unos minutos en activarse.';
 
     ngOnInit() {
-        // Check if user is logged in
-        this.isLoggedIn = typeof window !== 'undefined' && !!localStorage.getItem('token');
+        this.authService.ensureCurrentUser().subscribe(user => {
+            this.isLoggedIn = !!user;
 
-        if (!this.isLoggedIn) {
-            // Not logged in - just show success message
-            // The webhook has already activated the subscription
-            this.loading = false;
-            return;
-        }
-
-        // User is logged in - try to verify the subscription
-        this.route.queryParams.subscribe(params => {
-            const preapprovalId = params['preapproval_id'];
-            if (preapprovalId) {
-                this.verifyWithId(preapprovalId);
-            } else {
-                // Give MP webhook time to process if no ID (fallback)
-                setTimeout(() => {
-                    this.checkSubscription();
-                }, 2000);
+            if (!this.isLoggedIn) {
+                // Not logged in - just show success message
+                // The webhook has already activated the subscription
+                this.loading = false;
+                return;
             }
+
+            // User is logged in - try to verify the subscription
+            this.route.queryParams.subscribe(params => {
+                const preapprovalId = params['preapproval_id'];
+                if (preapprovalId) {
+                    this.verifyWithId(preapprovalId);
+                } else {
+                    // Give MP webhook time to process if no ID (fallback)
+                    setTimeout(() => {
+                        this.checkSubscription();
+                    }, 2000);
+                }
+            });
         });
     }
 

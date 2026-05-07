@@ -87,14 +87,6 @@ export async function rotateRefreshToken(req: Request, res: Response) {
         return null;
     }
 
-    // Double-submit cookie CSRF protection: verify X-Refresh-Token header matches cookie
-    const headerToken = req.header("X-Refresh-Token");
-    if (!headerToken || hashToken(headerToken) !== hashToken(rawToken)) {
-        logger.warn('REFRESH_CSRF_ATTEMPT', { ip: req.ip });
-        clearRefreshToken(res);
-        return null;
-    }
-
     const refreshRepo = AppDataSource.getRepository(RefreshToken);
     const tokenHash = hashToken(rawToken);
 

@@ -271,7 +271,7 @@ export class LoginComponent implements OnInit, OnDestroy {
         // Aseguramos que la navegación ocurra dentro de la zona de Angular
         this.ngZone.run(() => {
           setTimeout(() => {
-            this.router.navigate(['/']);
+            this.router.navigateByUrl(this.getReturnUrl());
           }, 500);
         });
       },
@@ -295,7 +295,7 @@ export class LoginComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.toastService.success('¡Bienvenido de nuevo!'); // Mensaje más amigable
           setTimeout(() => {
-            this.router.navigate(['/']);
+            this.router.navigateByUrl(this.getReturnUrl());
           }, 1000); // Un pequeño delay para que se vea la animación
         },
         error: () => {
@@ -306,5 +306,10 @@ export class LoginComponent implements OnInit, OnDestroy {
     } else {
       this.formLogin.markAllAsTouched();
     }
+  }
+
+  private getReturnUrl(): string {
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/';
+    return returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/';
   }
 }

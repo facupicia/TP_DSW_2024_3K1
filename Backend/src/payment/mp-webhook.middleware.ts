@@ -4,6 +4,14 @@ import { getMPConfig } from './mp.config';
 import { logger } from '../common/services/logger';
 import { env } from '../config/env';
 
+declare global {
+    namespace Express {
+        interface Request {
+            paymentId?: string;
+        }
+    }
+}
+
 /**
  * MercadoPago Webhook Middleware
  * 
@@ -19,6 +27,29 @@ function getClientIP(req: Request): string {
         return forwarded.split(',')[0].trim();
     }
     return req.socket.remoteAddress || 'unknown';
+}
+
+function firstValue(value: unknown): string | undefined {
+    if (Array.isArray(value)) {
+        return firstValue(value[0]);
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+        return value;
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return String(value);
+    }
+
+    return undefined;
+}
+
+export function extractPaymentId(req: Request): string | undefined {
+    return firstValue(req.body?.data?.id)
+        || firstValue(req.body?.id)
+        || firstValue(req.query['data.id'])
+        || firstValue(req.query.id);
 }
 
 /**
@@ -78,8 +109,8 @@ export function createValidateMPWebhookSignature(type: 'payment' | 'subscription
             }
             
             // MercadoPago signs this manifest: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
-            const rawDataId = req.query['data.id'] || req.query.id || req.body?.data?.id || req.body?.id || '';
-            const dataId = String(rawDataId);
+            req.paymentId = extractPaymentId(req);
+            const dataId = req.paymentId || '';
             const requestId = String(req.headers['x-request-id'] || '');
             let template = '';
             if (dataId) template += `id:${dataId};`;

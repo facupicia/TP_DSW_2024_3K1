@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
 import { TicketService } from '../../services/ticket.service';
 import { ToastService } from '../../services/toast.service';
 import { environment } from '../../../environments/environment';
+import { Subscription } from 'rxjs';
 
 @Component({
     selector: 'app-checkout-success',
@@ -27,7 +28,9 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
     attempts = 0;
     maxAttempts = 10;
     lastTickets: any[] = [];
-    pollRef: any;
+    pollRef: ReturnType<typeof setTimeout> | null = null;
+    private profileSub?: Subscription;
+    private pollingStopped = false;
     guestCheckout = false;
     deliveryEmail = '';
     externalReference: string | null = null;
@@ -44,101 +47,126 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
             } catch { }
 
             if (!this.guestCheckout) {
-                this.profileService.currentUser$.subscribe(user => {
+                this.profileSub = this.profileService.currentUser$.subscribe(user => {
                     this.userProfile = user || {};
                 });
-                if (!this.userProfile?.id && window.localStorage?.getItem('token')) {
-                    this.profileService.getProfile().subscribe();
-                }
+                this.profileService.ensureCurrentUser().subscribe(user => {
+                    this.userProfile = user || {};
+                });
             }
 
             this.startPolling();
         }
     }
     ngOnDestroy(): void {
-        if (this.pollRef) clearInterval(this.pollRef);
+        if (this.pollRef) clearTimeout(this.pollRef);
+        this.profileSub?.unsubscribe();
+        this.pollingStopped = true;
     }
+
     startPolling() {
         this.loading = true;
         this.confirmed = false;
         this.attempts = 0;
-        const extRef = this.externalReference;
-        
-        this.pollRef = setInterval(() => {
-            this.attempts++;
-            
-            if (extRef) {
-                this.http.get<{ success: boolean; status: string }>(
-                    `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`
-                ).subscribe({
-                    next: (state) => {
-                        if (state?.status === 'failure') {
-                            this.loading = false;
-                            this.confirmed = false;
-                            this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
-                            clearInterval(this.pollRef);
-                            return;
-                        }
-
-                        if (state?.status === 'approved' && this.guestCheckout) {
-                            this.loading = false;
-                            this.confirmed = true;
-                            this.toast.success(this.deliveryEmail
-                                ? `Pago confirmado. Enviamos las entradas a ${this.deliveryEmail}.`
-                                : 'Pago confirmado. Tus entradas ya fueron enviadas.');
-                            clearInterval(this.pollRef);
-                        }
-                    },
-                    error: () => {
-                        // Ignorar errores de este endpoint, seguir con el polling normal
-                    }
-                });
-            }
-
-            if (this.guestCheckout) {
-                if (this.attempts >= this.maxAttempts) {
-                    clearInterval(this.pollRef);
-                    this.loading = false;
-                    this.confirmed = false;
-                    this.toast.info(this.deliveryEmail
-                        ? `Seguimos procesando la compra. Te avisaremos por correo en ${this.deliveryEmail}.`
-                        : 'Seguimos procesando la compra. Te avisaremos por correo.');
-                }
-                return;
-            }
-
-            this.tickets.getLastPurchase().subscribe({
-                next: (resp) => {
-                    if (resp.status === 'approved' && resp.tickets?.length) {
-                        this.lastTickets = resp.tickets;
-                        this.loading = false;
-                        this.confirmed = true;
-                        this.toast.success('¡Pago confirmado! Aquí están tus tickets');
-                        clearInterval(this.pollRef);
-                    } else if (resp.status === 'processing') {
-                        // sigue intentando
-                    } else if (resp.status === 'no_logs') {
-                        // aún no hay webhook, seguir intentando
-                    }
-                },
-                error: (_err) => {
-                    // fallo de red, reintentar hasta límite
-                    if (_err?.status === 401) {
-                        this.toast.warning('Tu sesión expiró. Inicia sesión nuevamente para ver los tickets.');
-                        clearInterval(this.pollRef);
-                    }
-                }
-            });
-            
-            // Límite de intentos alcanzado
-            if (this.attempts >= this.maxAttempts) {
-                clearInterval(this.pollRef);
-                this.loading = false;
-                this.confirmed = false;
-                this.toast.info('Aún estamos procesando tu compra. Te avisaremos por correo.');
-            }
-        }, 2000);
+        this.pollingStopped = false;
+        this.scheduleNextPoll(0);
     }
+
+    private scheduleNextPoll(delayMs = 2000): void {
+        if (this.pollingStopped) return;
+        this.pollRef = setTimeout(() => this.pollOnce(), delayMs);
+    }
+
+    private pollOnce(): void {
+        if (this.pollingStopped) return;
+
+        this.attempts++;
+
+        if (this.guestCheckout) {
+            this.pollGuestPurchase();
+            return;
+        }
+
+        this.tickets.getLastPurchase().subscribe({
+            next: (resp) => {
+                if (resp.status === 'approved' && resp.tickets?.length) {
+                    this.lastTickets = resp.tickets;
+                    this.stopPolling(true);
+                    this.toast.success('¡Pago confirmado! Aquí están tus tickets');
+                    return;
+                }
+
+                if (resp.status === 'failed' || resp.status === 'failure') {
+                    this.stopPolling(false);
+                    this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
+                    return;
+                }
+
+                this.continueOrTimeout();
+            },
+            error: (_err) => {
+                if (_err?.status === 401) {
+                    this.stopPolling(false);
+                    this.toast.warning('Tu sesión expiró. Inicia sesión nuevamente para ver los tickets.');
+                    return;
+                }
+
+                this.continueOrTimeout();
+            }
+        });
+    }
+
+    private pollGuestPurchase(): void {
+        const extRef = this.externalReference;
+
+        if (!extRef) {
+            this.continueOrTimeout();
+            return;
+        }
+
+        this.http.get<{ success: boolean; status: string }>(
+            `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`
+        ).subscribe({
+            next: (state) => {
+                if (state?.status === 'failure' || state?.status === 'failed') {
+                    this.stopPolling(false);
+                    this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
+                    return;
+                }
+
+                if (state?.status === 'approved') {
+                    this.stopPolling(true);
+                    this.toast.success(this.deliveryEmail
+                        ? `Pago confirmado. Enviamos las entradas a ${this.deliveryEmail}.`
+                        : 'Pago confirmado. Tus entradas ya fueron enviadas.');
+                    return;
+                }
+
+                this.continueOrTimeout();
+            },
+            error: () => this.continueOrTimeout()
+        });
+    }
+
+    private continueOrTimeout(): void {
+        if (this.attempts >= this.maxAttempts) {
+            this.stopPolling(false);
+            this.toast.info(this.deliveryEmail
+                ? `Seguimos procesando la compra. Te avisaremos por correo en ${this.deliveryEmail}.`
+                : 'Aún estamos procesando tu compra. Te avisaremos por correo.');
+            return;
+        }
+
+        this.scheduleNextPoll();
+    }
+
+    private stopPolling(confirmed: boolean): void {
+        this.pollingStopped = true;
+        if (this.pollRef) clearTimeout(this.pollRef);
+        this.loading = false;
+        this.confirmed = confirmed;
+    }
+
     verTickets() {
         if (this.guestCheckout) {
             this.router.navigate(['/events']);

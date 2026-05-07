@@ -34,24 +34,18 @@ export class SettingsComponent implements OnInit {
     mpLoading = false;
 
     ngOnInit(): void {
-        if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('token');
-            if (token) {
-                this.loadProfile();
-            } else {
-                this.router.navigate(['/login']);
-            }
-        }
-    }
-
-    private loadProfile(): void {
-        this.authService.getProfile().subscribe({
+        this.authService.ensureCurrentUser().subscribe({
             next: (data) => {
+                if (!data) {
+                    this.router.navigate(['/login'], { queryParams: { returnUrl: '/settings' } });
+                    return;
+                }
+
                 this.userProfile = data;
                 this.loadSubscription();
                 this.loadMpStatus();
             },
-            error: () => this.router.navigate(['/login'])
+            error: () => this.router.navigate(['/login'], { queryParams: { returnUrl: '/settings' } })
         });
     }
 

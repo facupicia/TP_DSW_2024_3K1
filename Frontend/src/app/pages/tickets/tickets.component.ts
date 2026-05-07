@@ -8,6 +8,7 @@ import { TicketCardComponent } from './ticket-card.component';
 import * as htmlToImage from 'html-to-image';
 import { ToastService } from '../../services/toast.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { AuthService } from '../../services/auth.service';
 
 interface EventGroup {
   eventTitle: string;
@@ -30,6 +31,7 @@ export class TicketsComponent implements OnInit {
   private router = inject(Router);
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
+  private authService = inject(AuthService);
 
   private userID: string | null = null;
 
@@ -55,14 +57,16 @@ export class TicketsComponent implements OnInit {
 
   ngOnInit(): void {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
       this.userID = this.route.snapshot.paramMap.get('id');
 
-      if (token && this.userID) {
-        this.cargarTickets();
-      } else {
-        this.loading = false;
-      }
+      this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
+        if (user && this.userID) {
+          this.cargarTickets();
+        } else {
+          this.loading = false;
+          this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
+        }
+      });
     }
   }
 
@@ -199,6 +203,6 @@ export class TicketsComponent implements OnInit {
   trackTicket(_i: number, t: any) { return t.id || t.codigo_unico; }
 
   irAEventos() {
-    this.router.navigate(['/explore']); // Ajusta según tu ruta real
+    this.router.navigate(['/events']);
   }
 }

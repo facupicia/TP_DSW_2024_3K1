@@ -2,6 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpInterceptorFn } from '@angular/commo
 import { inject } from '@angular/core';
 import { catchError, finalize, Observable, shareReplay, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { clearAccessToken, getAccessToken, setAccessToken } from '../services/access-token.store';
 
 let refreshRequest$: Observable<{ token: string }> | null = null;
 
@@ -13,9 +14,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     }
 
     const isApiRequest = req.url.startsWith(environment.apiUrl);
-    const token = isApiRequest && typeof window !== 'undefined' && window.localStorage
-        ? window.localStorage.getItem('token')
-        : null;
+    const token = isApiRequest ? getAccessToken() : null;
 
     const isAuthEndpoint = isApiRequest && (req.url.includes('/user/login')
         || req.url.includes('/user/google')
@@ -37,7 +36,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 refreshRequest$ = http.post<{ token: string }>(`${environment.apiUrl}/user/refresh`, {}, { withCredentials: true }).pipe(
                     tap((resp) => {
                         if (resp?.token) {
-                            window.localStorage.setItem('token', resp.token);
+                            setAccessToken(resp.token);
                         }
                     }),
                     finalize(() => {
@@ -53,7 +52,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                     ...(resp?.token ? { setHeaders: { Authorization: `Bearer ${resp.token}` } } : {})
                 }))),
                 catchError((refreshError) => {
-                    window.localStorage.removeItem('token');
+                    clearAccessToken();
                     return throwError(() => refreshError);
                 })
             );

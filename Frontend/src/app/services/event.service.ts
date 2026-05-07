@@ -18,27 +18,29 @@ export class EventService {
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
-    return this.http.post<Evento>(`${this.urlBase}/new`, objeto);
+    return this.http.post<Evento>(`${this.urlBase}/new`, objeto).pipe(
+      tap(() => this.clearEventsCache())
+    );
 
   }
 
   obtenerEventosUsuario(): Observable<Evento[]> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/my-events`).pipe(
-        map(response => response.data || []),
-        tap(events => {
-          if (Array.isArray(events)) {
-            events.forEach(e => {
-              if (e.category && !e.categoria_name) {
-                e.categoria_name = (e.category as any).name;
-              }
-            });
-          }
-        })
-      );
-    } else {
+    if (typeof window === 'undefined') {
       return of([]);
     }
+
+    return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/my-events`).pipe(
+      map(response => response.data || []),
+      tap(events => {
+        if (Array.isArray(events)) {
+          events.forEach(e => {
+            if (e.category && !e.categoria_name) {
+              e.categoria_name = (e.category as any).name;
+            }
+          });
+        }
+      })
+    );
   }
 
   obtenerEvento(id: number): Observable<Evento> {
@@ -49,11 +51,15 @@ export class EventService {
   }
 
   borrarEvento(id: number): Observable<Evento> {
-    return this.http.delete<Evento>(`${this.urlBase}/${id}`);
+    return this.http.delete<Evento>(`${this.urlBase}/${id}`).pipe(
+      tap(() => this.clearEventsCache())
+    );
   }
 
   actualizarEvento(id: number, objeto: Evento): Observable<Evento> {
-    return this.http.put<Evento>(`${this.urlBase}/${id}`, objeto,);
+    return this.http.put<Evento>(`${this.urlBase}/${id}`, objeto,).pipe(
+      tap(() => this.clearEventsCache())
+    );
   }
 
   searchEventsByName(searchTerm: string): Observable<any> {
@@ -89,6 +95,10 @@ export class EventService {
 
     this.eventsCache.set(cacheKey, request$);
     return request$;
+  }
+
+  clearEventsCache(): void {
+    this.eventsCache.clear();
   }
 
   getEventsNumber(): Observable<number> {
