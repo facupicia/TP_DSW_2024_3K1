@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
 import { User } from "../../user/user.entity";
 import { getRoleNames } from "../../user/role.entity";
 import { env } from "../../config/env";
@@ -6,7 +7,11 @@ import { logger } from "../services/logger";
 
 export const verifyToken = async (token: string) => {
     try {
-        return jwt.verify(token, env.SECRET_KEY, { algorithms: ['HS256'] });
+        return jwt.verify(token, env.SECRET_KEY, {
+            algorithms: ['HS256'],
+            issuer: 'eventlife-api',
+            audience: env.CLIENT_URL || 'eventlife-app'
+        });
     } catch (error) {
         return null
     }

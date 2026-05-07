@@ -33,10 +33,23 @@ function redact(data: any): any {
     return out;
 }
 
+function safeStringify(obj: any): string {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (_key, value) => {
+        if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) {
+                return "[Circular]";
+            }
+            seen.add(value);
+        }
+        return value;
+    });
+}
+
 function log(level: Level, msg: string, data?: any) {
     if (LOG_LEVEL_PRIORITY[level] < LOG_LEVEL_PRIORITY[env.LOG_LEVEL]) return;
     const entry = { level, msg, time: new Date().toISOString(), ...(data ? redact(data) : {}) };
-    const line = JSON.stringify(entry);
+    const line = safeStringify(entry);
     if (level === "error") console.error(line);
     else if (level === "warn") console.warn(line);
     else console.log(line);

@@ -2,6 +2,7 @@ import { verifyToken } from "../services/generateToken";
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { logger } from "../services/logger";
+import { User } from "../../user/user.entity";
 
 export interface IPayload {
     id?: number;
@@ -50,6 +51,19 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
         }
 
         const tokenData = parseResult.data;
+
+        // Verify user is still active in database
+        const user = await User.findOne({
+            where: { id: tokenData.id },
+            select: ['id', 'active', 'deletedAt'],
+            cache: 5000 // 5s cache to reduce DB load
+        });
+
+        if (!user || !user.active || user.deletedAt) {
+            logger.warn('AUTH_USER_INACTIVE', { userId: tokenData.id, path: req.path });
+            return res.status(401).json({ code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' });
+        }
+
         req.user = tokenData;
         next();
 
@@ -74,18 +88,30 @@ export const optionalAuthToken = async (req: CustomRequest, res: Response, next:
 
         const rawPayload = await verifyToken(token);
         if (!rawPayload) {
-            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' });
+            return next();
         }
 
         const parseResult = payloadSchema.safeParse(rawPayload);
         if (!parseResult.success) {
-            return res.status(401).json({ code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' });
+            return next();
         }
 
-        req.user = parseResult.data;
+        const tokenData = parseResult.data;
+
+        // For optional auth, silently skip if user is inactive
+        const user = await User.findOne({
+            where: { id: tokenData.id },
+            select: ['id', 'active', 'deletedAt'],
+            cache: 5000
+        });
+
+        if (user && user.active && !user.deletedAt) {
+            req.user = tokenData;
+        }
+
         return next();
     } catch (error) {
-        logger.error('OPTIONAL_AUTH_MIDDLEWARE_ERROR', { error: (error as Error).message });
-        return res.status(401).json({ code: 'AUTH_VALIDATION_ERROR', message: 'Invalid or expired token' });
+        // Silently continue as anonymous on any error
+        return next();
     }
 };

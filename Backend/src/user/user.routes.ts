@@ -22,7 +22,7 @@ router.post("/login", authRateLimiter, schemaValidation(signinUserSchema), signi
 
 router.post("/google", authRateLimiter, schemaValidation(googleSigninSchema), googleSignin)
 
-router.post("/refresh", refreshSession)
+router.post("/refresh", authRateLimiter, refreshSession)
 
 router.post("/logout", logoutUser)
 
