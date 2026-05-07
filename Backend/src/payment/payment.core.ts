@@ -741,7 +741,7 @@ export async function processApprovedPayment(
                 .execute();
 
             if (!couponUpdate.affected) {
-                // Rollback stock and mark payment failed
+                // Restore stock and persist the failed payment log for audit/idempotency.
                 await queryRunner.manager
                     .createQueryBuilder()
                     .update(TicketType)
@@ -749,7 +749,7 @@ export async function processApprovedPayment(
                     .where('id = :id', { id: ticketTypeId })
                     .execute();
                 await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-                await queryRunner.rollbackTransaction();
+                await queryRunner.commitTransaction();
                 return { success: false, error: 'Coupon exhausted', logId: log.id };
             }
         }

@@ -1,38 +1,67 @@
--- Data-only migration: Copy rol values to roles column
--- Run this if the schema already has both columns
+-- Data-only migration: copy legacy rol values to roles column.
+-- Safe to run even if the legacy rol column no longer exists.
 
--- Step 1: Check current state
-SELECT 
-    'BEFORE MIGRATION' as status,
-    COUNT(*) as total_users,
-    COUNT(CASE WHEN roles IS NOT NULL AND roles != '' THEN 1 END) as with_roles,
-    COUNT(CASE WHEN rol IS NOT NULL AND rol != '' THEN 1 END) as with_legacy_rol
-FROM "user";
+DO $$
+DECLARE
+  has_roles_column boolean;
+  has_rol_column boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user'
+      AND column_name = 'roles'
+  ) INTO has_roles_column;
 
--- Step 2: Migrate users that have 'rol' but no 'roles'
-UPDATE "user" 
-SET roles = rol 
-WHERE (roles IS NULL OR roles = '') 
-  AND rol IS NOT NULL;
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user'
+      AND column_name = 'rol'
+  ) INTO has_rol_column;
 
--- Step 3: Set default 'user' for any remaining empty roles
-UPDATE "user" 
-SET roles = 'user' 
-WHERE roles IS NULL OR roles = '';
+  IF NOT has_roles_column THEN
+    RAISE NOTICE 'Column "roles" does not exist. Skipping role migration.';
+    RETURN;
+  END IF;
 
--- Step 4: Verify after migration
-SELECT 
-    'AFTER MIGRATION' as status,
-    COUNT(*) as total_users,
-    COUNT(CASE WHEN roles IS NOT NULL AND roles != '' THEN 1 END) as with_roles
-FROM "user";
+  IF NOT has_rol_column THEN
+    RAISE NOTICE 'Legacy column "rol" does not exist. Nothing to migrate.';
+    RETURN;
+  END IF;
 
--- Step 5: Show some examples
-SELECT 
-    id, 
-    firstname, 
-    lastname, 
-    roles
-FROM "user" 
-ORDER BY id
-LIMIT 10;
+  RAISE NOTICE 'Migrating values from "rol" to "roles"...';
+
+  UPDATE "user"
+  SET roles = rol
+  WHERE (roles IS NULL OR roles = '')
+    AND rol IS NOT NULL
+    AND rol != '';
+
+  UPDATE "user"
+  SET roles = 'user'
+  WHERE roles IS NULL OR roles = '';
+END $$;
+
+DO $$
+DECLARE
+  total_users bigint;
+  with_roles bigint;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'user'
+      AND column_name = 'roles'
+  ) THEN
+    EXECUTE 'SELECT COUNT(*), COUNT(CASE WHEN roles IS NOT NULL AND roles != '''' THEN 1 END) FROM "user"'
+    INTO total_users, with_roles;
+
+    RAISE NOTICE 'Role migration result: %/% users have roles data.', with_roles, total_users;
+  ELSE
+    RAISE NOTICE 'Column "roles" does not exist. No verification query was run.';
+  END IF;
+END $$;

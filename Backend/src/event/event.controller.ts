@@ -64,7 +64,17 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         const user = await queryRunner.manager.findOne(User, {
             where: { id: userId },
             relations: ['roles'],
-            select: ['id', 'firstname', 'lastname', 'email', 'mpUserId']
+            select: {
+                id: true,
+                firstname: true,
+                lastname: true,
+                email: true,
+                mpUserId: true,
+                roles: {
+                    id: true,
+                    name: true
+                }
+            }
         });
         if (!user) {
             throw new HttpError(404, 'USER_NOT_FOUND', "User not found");

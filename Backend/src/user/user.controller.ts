@@ -279,11 +279,13 @@ export const signinUser = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
+    const normalizedEmail = String(email).toLowerCase().trim();
+
     // Validar email
     const user = await User.findOne({
-      where: { email },
+      where: { email: normalizedEmail, active: true },
       relations: ['roles'],
-      select: ["id", "password", "email", "firstname", "lastname"]
+      select: ["id", "password", "email", "firstname", "lastname", "active"]
     });
     if (!user) {
       return res.status(400).json({ message: 'Invalid email or password' });
@@ -620,14 +622,20 @@ export const googleSignin = async (req: Request, res: Response) => {
 
       await repo.save(user);
     } else {
+      let shouldSave = false;
+
       if (user.isGuestAccount) {
         user.isGuestAccount = false;
         user.claimedAt = new Date();
+        shouldSave = true;
       }
+
       if (picture && picture !== user.imgPerfil) {
         user.imgPerfil = picture;
+        shouldSave = true;
       }
-      if (user.isGuestAccount || (picture && picture !== user.imgPerfil)) {
+
+      if (shouldSave) {
         await repo.save(user);
       }
     }

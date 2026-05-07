@@ -206,11 +206,13 @@ export class ScannerController {
                     "user.firstname",
                     "user.lastname",
                     "ticketType.id",
+                    "ticketType.status",
                     "ticketType.name",
                     "event.id",
                     "event.title",
                     "event.date",
                     "event.time",
+                    "event.active",
                     "event.user_id"
                 ])
                 .where("ticket.codigo_unico = :code", { code: cleanCode })

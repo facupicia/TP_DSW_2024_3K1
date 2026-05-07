@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { TicketType, TicketTypeStatus } from "./ticketType.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../common/middleware/authToken";
+import { canCreateTicketTypes } from "../subscription/subscription.service";
 
 /* ======================================================
    CREATE TICKET TYPE
@@ -49,6 +50,20 @@ export const createTicketType = async (req: CustomRequest, res: Response) => {
         // Verificar que el usuario sea el dueño del evento
         if (event.user_id !== userId && !isAdmin) {
             return res.status(403).json({ code: "FORBIDDEN", message: "No tienes permiso para modificar este evento" });
+        }
+
+        const currentActiveCount = await TicketType.count({
+            where: {
+                eventId: event.id,
+                status: TicketTypeStatus.ACTIVE
+            }
+        });
+        const ttCheck = await canCreateTicketTypes(event.user_id, currentActiveCount + 1);
+        if (!ttCheck.allowed) {
+            return res.status(403).json({
+                code: "PLAN_LIMIT_TICKET_TYPES",
+                message: ttCheck.reason || "Ticket type limit reached"
+            });
         }
 
         const ticketType = TicketType.create({

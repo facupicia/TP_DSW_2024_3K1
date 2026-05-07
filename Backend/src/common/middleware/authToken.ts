@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { logger } from "../services/logger";
 import { User } from "../../user/user.entity";
+import { getRoleNames } from "../../user/role.entity";
 
 export interface IPayload {
     id?: number;
@@ -55,8 +56,16 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
         // Verify user is still active in database
         const user = await User.findOne({
             where: { id: tokenData.id },
-            select: ['id', 'active', 'deletedAt'],
-            cache: 5000 // 5s cache to reduce DB load
+            relations: ['roles'],
+            select: {
+                id: true,
+                active: true,
+                deletedAt: true,
+                roles: {
+                    id: true,
+                    name: true
+                }
+            }
         });
 
         if (!user || !user.active || user.deletedAt) {
@@ -64,7 +73,11 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
             return res.status(401).json({ code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' });
         }
 
-        req.user = tokenData;
+        const currentRoles = getRoleNames(user);
+        req.user = {
+            ...tokenData,
+            roles: currentRoles.length > 0 ? currentRoles : ['user']
+        };
         next();
 
     } catch (error) {
@@ -101,12 +114,24 @@ export const optionalAuthToken = async (req: CustomRequest, res: Response, next:
         // For optional auth, silently skip if user is inactive
         const user = await User.findOne({
             where: { id: tokenData.id },
-            select: ['id', 'active', 'deletedAt'],
-            cache: 5000
+            relations: ['roles'],
+            select: {
+                id: true,
+                active: true,
+                deletedAt: true,
+                roles: {
+                    id: true,
+                    name: true
+                }
+            }
         });
 
         if (user && user.active && !user.deletedAt) {
-            req.user = tokenData;
+            const currentRoles = getRoleNames(user);
+            req.user = {
+                ...tokenData,
+                roles: currentRoles.length > 0 ? currentRoles : ['user']
+            };
         }
 
         return next();

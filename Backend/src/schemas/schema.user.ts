@@ -50,7 +50,7 @@ export const updateUserSchema = z.object({
         firstname: z.string().min(1, "Firstname is required").optional(),
         lastname: z.string().min(1, "Lastname is required").optional(),
         email: z.string().email("Invalid email format").optional(),
-        password: z.string().min(6, "Password must be at least 6 characters long").optional(),
+        password: z.string().min(8, "Password must be at least 8 characters long").optional(),
         phone: z
             .string()
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
@@ -108,6 +108,6 @@ export const validateAccountClaimSchema = z.object({
 export const completeAccountClaimSchema = z.object({
     body: z.object({
         token: z.string().min(20, "Token is required"),
-        password: z.string().min(6, "Password must be at least 6 characters long")
+        password: z.string().min(8, "Password must be at least 8 characters long")
     })
 })
