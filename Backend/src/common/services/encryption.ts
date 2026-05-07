@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logger } from './logger';
+import { env } from '../../config/env';
 
 /**
  * Encryption Service
@@ -21,26 +22,15 @@ let encryptionKey: Buffer | null = null;
 function getEncryptionKey(): Buffer {
     if (encryptionKey) return encryptionKey;
     
-    const envKey = process.env.ENCRYPTION_KEY;
+    const envKey = env.ENCRYPTION_KEY;
     
     if (!envKey) {
-        // En desarrollo, generar una clave derivada del SECRET_KEY
-        if (process.env.NODE_ENV === 'development') {
-            const fallbackKey = process.env.SECRET_KEY || 'default-dev-key-not-for-production';
-            encryptionKey = crypto.scryptSync(fallbackKey, 'salt', KEY_LENGTH);
-            logger.warn('ENCRYPTION_USING_FALLBACK_KEY', { 
-                message: 'Using fallback encryption key - set ENCRYPTION_KEY in production!' 
-            });
-            return encryptionKey;
-        }
-        
         throw new Error(
-            'ENCRYPTION_KEY environment variable is required in production. ' +
+            'ENCRYPTION_KEY environment variable is required. ' +
             'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
         );
     }
     
-    // La clave debe ser hex de 64 caracteres (32 bytes)
     if (envKey.length !== 64) {
         throw new Error('ENCRYPTION_KEY must be a 64-character hex string (32 bytes)');
     }
@@ -116,7 +106,8 @@ export function encryptToString(text: string | null | undefined): string | null 
 }
 
 /**
- * Desencripta un string JSON previamente encriptado
+ * Desencripta un string JSON previamente encriptado.
+ * Never returns raw unencrypted text on parse failure.
  */
 export function decryptFromString(encryptedString: string | null | undefined): string | null {
     if (!encryptedString) return null;
@@ -125,9 +116,8 @@ export function decryptFromString(encryptedString: string | null | undefined): s
         const data = JSON.parse(encryptedString) as EncryptedData;
         return decrypt(data);
     } catch (error) {
-        // Si no es JSON válido, podría ser un token sin encriptar (migración)
-        // En ese caso, retornar el valor original
-        return encryptedString;
+        logger.error('DECRYPT_FROM_STRING_ERROR', { error: (error as Error).message });
+        throw new Error('Failed to decrypt data - data may be corrupted or tampered');
     }
 }
 

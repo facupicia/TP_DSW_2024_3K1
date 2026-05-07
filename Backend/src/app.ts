@@ -25,6 +25,9 @@ import { metricsMiddleware, metricsHandler } from "./common/services/metrics"
 import { checkAuthToken } from "./common/middleware/authToken"
 import { checkRoleAuth } from "./common/middleware/checkRole"
 import { globalRateLimiter } from "./common/middleware/rateLimit"
+import AppDataSource from "./db";
+import { getRedis } from "./common/services/redis";
+import { env } from "./config/env";
 
 const app = express();
 
@@ -33,65 +36,87 @@ app.use(requestId)
 app.use(metricsMiddleware)
 
 // Security Middleware
-// Configuración crítica para Google OAuth en navegadores modernos y Safari
-// Permite que la ventana emergente de Google (popup) se comunique con la ventana principal
-app.use(helmet({ crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" } })); // Allow Google OAuth popups
-const allowedOriginsRaw = (process.env.CLIENT_URLS || process.env.CLIENT_URL || "http://localhost:4200")
+app.use(helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // Disabled for API-only server
+}));
+
+const allowedOriginsRaw = (env.CLIENT_URLS || env.CLIENT_URL || "")
     .split(",")
-    .map(o => o.trim().replace(/\/+$/, "").toLowerCase());
-function isOriginAllowed(origin?: string) {
-    if (!origin) return true;
-    const o = origin.replace(/\/+$/, "").toLowerCase();
-    if (allowedOriginsRaw.includes(o)) return true;
-    return false;
+    .map(o => o.trim().replace(/\/+$/, "").toLowerCase())
+    .filter(Boolean);
+
+if (env.NODE_ENV === "production" && allowedOriginsRaw.length === 0) {
+    throw new Error("CLIENT_URLS or CLIENT_URL must be set in production");
 }
+
+function isOriginAllowed(origin?: string) {
+    if (!origin) return false;
+    const o = origin.replace(/\/+$/, "").toLowerCase();
+    return allowedOriginsRaw.includes(o);
+}
+
 app.use(cors({
     origin: (origin, cb) => cb(null, isOriginAllowed(origin) ? origin : false),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     optionsSuccessStatus: 204,
-    allowedHeaders: ['Authorization', 'Content-Type', 'token', 'X-Requested-With'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With', 'X-Refresh-Token'],
     exposedHeaders: ['x-request-id']
 }));
 
 app.use(globalRateLimiter);
 
-app.use(morgan(process.env.NODE_ENV === 'production' ? "combined" : "dev"));
+app.use(morgan(env.NODE_ENV === 'production' ? "combined" : "dev"));
 app.use(express.json({ limit: "1mb" }));
 
 // Healthcheck
 app.get('/health', async (_req, res) => {
     try {
-        let db = 'unknown';
+        let db = 'down';
+        let redis = 'down';
         try {
-            if ((await import("./db")).default.isInitialized) {
-                await (await import("./db")).default.query("SELECT 1");
+            if (AppDataSource.isInitialized) {
+                await AppDataSource.query("SELECT 1");
                 db = 'up';
-            } else {
-                db = 'down';
             }
         } catch {
             db = 'down';
         }
+        try {
+            const redisClient = await getRedis();
+            if (redisClient) {
+                await redisClient.ping();
+                redis = 'up';
+            }
+        } catch {
+            redis = 'down';
+        }
         const mail = getMailerStatus();
-        res.status(200).json({ status: 'ok', uptime: process.uptime(), db, mail });
+        const healthy = db === 'up';
+        res.status(healthy ? 200 : 503).json({ status: healthy ? 'ok' : 'error', uptime: process.uptime(), db, redis, mail });
     } catch {
-        res.status(500).json({ status: 'error' });
+        res.status(503).json({ status: 'error' });
     }
 });
 
 // Métricas Prometheus
-const metricsMiddlewares = process.env.METRICS_PUBLIC === "true"
+const metricsMiddlewares = env.METRICS_PUBLIC === "true"
     ? []
     : [checkAuthToken, checkRoleAuth(["admin"])];
 app.get('/metrics', ...metricsMiddlewares, metricsHandler)
 
-// Swagger UI
-app.use('/api-docs', checkAuthToken, checkRoleAuth(["admin"]), swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-    customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'EventLife API Docs'
-}));
+// Swagger UI - disabled in production
+if (env.NODE_ENV !== "production") {
+    app.use('/api-docs', checkAuthToken, checkRoleAuth(["admin"]), swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        explorer: true,
+        customCss: '.swagger-ui .topbar { display: none }',
+        customSiteTitle: 'EventLife API Docs'
+    }));
+}
 
 /* ==================== API ROUTES ==================== */
 app.use("/api/category", categoryRoutes)

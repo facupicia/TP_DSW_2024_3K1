@@ -5,9 +5,11 @@ import AppDataSource from "../../db";
 import { User } from "../../user/user.entity";
 import { RefreshToken } from "../../user/refreshToken.entity";
 import { tokenSing } from "./generateToken";
+import { logger } from "./logger";
+import { env } from "../../config/env";
 
 const REFRESH_COOKIE = "eventlife_refresh";
-const REFRESH_DAYS = Number(process.env.JWT_REFRESH_DAYS || 30);
+const REFRESH_DAYS = env.JWT_REFRESH_DAYS;
 
 function hashToken(token: string) {
     return crypto.createHash("sha256").update(token).digest("hex");
@@ -20,7 +22,7 @@ function refreshExpiry() {
 }
 
 function getCookieOptions() {
-    const isProduction = process.env.NODE_ENV === "production";
+    const isProduction = env.NODE_ENV === "production";
     return {
         httpOnly: true,
         secure: isProduction,
@@ -41,6 +43,11 @@ function readCookie(req: Request, name: string) {
     return decodeURIComponent(target.slice(name.length + 1));
 }
 
+/**
+ * Limit active refresh tokens per user to prevent token accumulation
+ */
+const MAX_REFRESH_TOKENS_PER_USER = 5;
+
 export async function issueRefreshToken(res: Response, user: User) {
     const rawToken = crypto.randomBytes(64).toString("base64url");
     const token = new RefreshToken();
@@ -50,35 +57,83 @@ export async function issueRefreshToken(res: Response, user: User) {
     token.revokedAt = null;
     token.replacedByHash = null;
 
-    await AppDataSource.getRepository(RefreshToken).save(token);
+    const refreshRepo = AppDataSource.getRepository(RefreshToken);
+
+    // Clean up oldest tokens if exceeding limit
+    const existingTokens = await refreshRepo.find({
+        where: { userId: user.id, revokedAt: IsNull() },
+        order: { createdAt: "ASC" },
+        take: MAX_REFRESH_TOKENS_PER_USER + 1
+    });
+    if (existingTokens.length >= MAX_REFRESH_TOKENS_PER_USER) {
+        const toRevoke = existingTokens.slice(0, existingTokens.length - MAX_REFRESH_TOKENS_PER_USER + 1);
+        for (const old of toRevoke) {
+            old.revokedAt = new Date();
+        }
+        await refreshRepo.save(toRevoke);
+    }
+
+    await refreshRepo.save(token);
     res.cookie(REFRESH_COOKIE, rawToken, getCookieOptions());
 }
 
+/**
+ * Rotate refresh token with reuse detection.
+ * If a revoked token is presented, we detect reuse and revoke all tokens for the user.
+ */
 export async function rotateRefreshToken(req: Request, res: Response) {
     const rawToken = readCookie(req, REFRESH_COOKIE);
     if (!rawToken) {
         return null;
     }
 
+    // Double-submit cookie CSRF protection: verify X-Refresh-Token header matches cookie
+    const headerToken = req.header("X-Refresh-Token");
+    if (!headerToken || hashToken(headerToken) !== hashToken(rawToken)) {
+        logger.warn('REFRESH_CSRF_ATTEMPT', { ip: req.ip });
+        clearRefreshToken(res);
+        return null;
+    }
+
     const refreshRepo = AppDataSource.getRepository(RefreshToken);
-    const current = await refreshRepo.findOne({
-        where: { tokenHash: hashToken(rawToken), revokedAt: IsNull() },
+    const tokenHash = hashToken(rawToken);
+
+    // Check for reused (revoked) token
+    const reused = await refreshRepo.findOne({
+        where: { tokenHash, revokedAt: IsNull() },
         relations: ["user", "user.roles"]
     });
 
-    if (!current || current.expiresAt <= new Date() || !current.user || current.user.deletedAt || !current.user.active) {
+    if (!reused) {
+        // Token not found or already revoked - possible reuse attack
+        const existingRevoked = await refreshRepo.findOne({
+            where: { tokenHash }
+        });
+        if (existingRevoked) {
+            logger.error('REFRESH_TOKEN_REUSE_DETECTED', { userId: existingRevoked.userId, tokenHash: tokenHash.slice(0, 16) });
+            // Revoke ALL refresh tokens for this user
+            await refreshRepo.update(
+                { userId: existingRevoked.userId, revokedAt: IsNull() },
+                { revokedAt: new Date() }
+            );
+        }
+        clearRefreshToken(res);
+        return null;
+    }
+
+    if (reused.expiresAt <= new Date() || !reused.user || reused.user.deletedAt || !reused.user.active) {
         clearRefreshToken(res);
         return null;
     }
 
     const nextRawToken = crypto.randomBytes(64).toString("base64url");
     const nextHash = hashToken(nextRawToken);
-    current.revokedAt = new Date();
-    current.replacedByHash = nextHash;
-    await refreshRepo.save(current);
+    reused.revokedAt = new Date();
+    reused.replacedByHash = nextHash;
+    await refreshRepo.save(reused);
 
     const nextToken = new RefreshToken();
-    nextToken.userId = current.userId;
+    nextToken.userId = reused.userId;
     nextToken.tokenHash = nextHash;
     nextToken.expiresAt = refreshExpiry();
     nextToken.revokedAt = null;
@@ -86,7 +141,7 @@ export async function rotateRefreshToken(req: Request, res: Response) {
     await refreshRepo.save(nextToken);
 
     res.cookie(REFRESH_COOKIE, nextRawToken, getCookieOptions());
-    return tokenSing(current.user);
+    return tokenSing(reused.user);
 }
 
 export async function revokeRefreshToken(req: Request, res: Response) {
@@ -103,8 +158,8 @@ export async function revokeRefreshToken(req: Request, res: Response) {
 export function clearRefreshToken(res: Response) {
     res.clearCookie(REFRESH_COOKIE, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: env.NODE_ENV === "production",
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
         path: "/api/user"
     });
 }

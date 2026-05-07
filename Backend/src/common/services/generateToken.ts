@@ -1,19 +1,19 @@
 import jwt from 'jsonwebtoken'
 import { User } from "../../user/user.entity";
 import { getRoleNames } from "../../user/role.entity";
-
+import { env } from "../../config/env";
+import { logger } from "../services/logger";
 
 export const verifyToken = async (token: string) => {
     try {
-        return jwt.verify(token, process.env.SECRET_KEY!)
+        return jwt.verify(token, env.SECRET_KEY, { algorithms: ['HS256'] });
     } catch (error) {
         return null
     }
 };
 
-
 export const tokenSing = async (user: User) => {
-    if (!process.env.SECRET_KEY) {
+    if (!env.SECRET_KEY) {
         throw new Error("SECRET_KEY is missing in environment variables");
     }
     let roleNames = getRoleNames(user);
@@ -27,11 +27,14 @@ export const tokenSing = async (user: User) => {
     return jwt.sign(
         {
             id: user.id,
-            roles: roleNames.length > 0 ? roleNames : ['user']
+            roles: roleNames.length > 0 ? roleNames : ['user'],
+            jti: crypto.randomUUID(),
+            iss: 'eventlife-api',
+            aud: env.CLIENT_URL || 'eventlife-app'
         },
-        process.env.SECRET_KEY,
+        env.SECRET_KEY,
         {
-            expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m'
+            expiresIn: env.JWT_ACCESS_EXPIRES_IN
         }
     );
 }

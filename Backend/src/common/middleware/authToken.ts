@@ -1,5 +1,7 @@
 import { verifyToken } from "../services/generateToken";
 import { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import { logger } from "../services/logger";
 
 export interface IPayload {
     id: number;
@@ -13,37 +15,46 @@ export interface CustomRequest extends Request {
     user?: IPayload
 }
 
+const payloadSchema = z.object({
+    id: z.number().int().positive(),
+    roles: z.array(z.string()).optional().default([]),
+    iat: z.number().optional(),
+    jti: z.string().optional(),
+    iss: z.string().optional(),
+    aud: z.string().optional(),
+});
+
 export const checkAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
         const tokenHeader = req.header("Authorization");
-        let token: any;
+        let token: string | undefined;
 
         if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
             token = tokenHeader.split(" ")[1];
-        } else {
-            token = req.header("token");
         }
 
         if (!token) {
-            console.warn('[AUTH] No token in request', { path: req.path, method: req.method });
+            logger.warn('[AUTH] No token in request', { path: req.path, method: req.method });
             return res.status(401).json({ code: 'AUTH_NO_TOKEN', message: 'No token provided' });
         }
 
-        const tokenData = await verifyToken(token) as IPayload;
-
-        if (!tokenData || !tokenData.id) {
-            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid token data' });
+        const rawPayload = await verifyToken(token);
+        if (!rawPayload) {
+            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' });
         }
 
-        // Ensure roles is always an array
-        if (tokenData.roles && typeof tokenData.roles === 'string') {
-            tokenData.roles = (tokenData.roles as any).split(',');
+        const parseResult = payloadSchema.safeParse(rawPayload);
+        if (!parseResult.success) {
+            logger.warn('AUTH_PAYLOAD_VALIDATION_FAILED', { errors: parseResult.error.errors });
+            return res.status(401).json({ code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' });
         }
+
+        const tokenData = parseResult.data;
         req.user = tokenData;
         next();
 
     } catch (error) {
-        console.error('AUTH_MIDDLEWARE_ERROR', { error });
+        logger.error('AUTH_MIDDLEWARE_ERROR', { error: (error as Error).message });
         return res.status(401).json({ code: 'AUTH_VALIDATION_ERROR', message: 'Invalid or expired token' });
     }
 };
@@ -51,32 +62,30 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
 export const optionalAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
         const tokenHeader = req.header("Authorization");
-        let token: any;
+        let token: string | undefined;
 
         if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
             token = tokenHeader.split(" ")[1];
-        } else {
-            token = req.header("token");
         }
 
         if (!token) {
             return next();
         }
 
-        const tokenData = await verifyToken(token) as IPayload;
-
-        if (!tokenData || !tokenData.id) {
-            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid token data' });
+        const rawPayload = await verifyToken(token);
+        if (!rawPayload) {
+            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' });
         }
 
-        if (tokenData.roles && typeof tokenData.roles === 'string') {
-            tokenData.roles = (tokenData.roles as any).split(',');
+        const parseResult = payloadSchema.safeParse(rawPayload);
+        if (!parseResult.success) {
+            return res.status(401).json({ code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' });
         }
 
-        req.user = tokenData;
+        req.user = parseResult.data;
         return next();
     } catch (error) {
-        console.error('OPTIONAL_AUTH_MIDDLEWARE_ERROR', { error });
+        logger.error('OPTIONAL_AUTH_MIDDLEWARE_ERROR', { error: (error as Error).message });
         return res.status(401).json({ code: 'AUTH_VALIDATION_ERROR', message: 'Invalid or expired token' });
     }
 };
