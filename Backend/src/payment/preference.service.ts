@@ -514,11 +514,12 @@ export async function createMercadoPagoPreference(
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         
         const purchasePayer = await resolvePurchasePayer(queryRunner, input);
-        const ticketType = await ticketTypeRepo.findOne({
-            where: { id: ticketTypeId },
-            relations: ['event'],
-            lock: { mode: 'pessimistic_write' }
-        });
+        const ticketType = await ticketTypeRepo
+            .createQueryBuilder('ticketType')
+            .innerJoinAndSelect('ticketType.event', 'event')
+            .where('ticketType.id = :ticketTypeId', { ticketTypeId })
+            .setLock('pessimistic_write')
+            .getOne();
         
         if (!ticketType) {
             throw new Error('TICKET_TYPE_NOT_FOUND');
@@ -648,11 +649,12 @@ export async function createPlatformPreference(
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         
         const purchasePayer = await resolvePurchasePayer(queryRunner, input);
-        const ticketType = await ticketTypeRepo.findOne({
-            where: { id: ticketTypeId },
-            relations: ['event'],
-            lock: { mode: 'pessimistic_write' }
-        });
+        const ticketType = await ticketTypeRepo
+            .createQueryBuilder('ticketType')
+            .innerJoinAndSelect('ticketType.event', 'event')
+            .where('ticketType.id = :ticketTypeId', { ticketTypeId })
+            .setLock('pessimistic_write')
+            .getOne();
         
         if (!ticketType) {
             throw new Error('TICKET_TYPE_NOT_FOUND');
