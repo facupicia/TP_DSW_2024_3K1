@@ -20,21 +20,21 @@ export class ScannerOrganizerAssignment extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => User, user => user.scannerAssignmentsOwned, { nullable: false })
+    @ManyToOne(() => User, user => user.scannerAssignmentsOwned, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "organizerId" })
     organizer: User;
 
     @Column()
     organizerId: number;
 
-    @ManyToOne(() => User, user => user.scannerAssignments, { nullable: false })
+    @ManyToOne(() => User, user => user.scannerAssignments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "scannerId" })
     scanner: User;
 
     @Column()
     scannerId: number;
 
-    @ManyToOne(() => User, { nullable: true })
+    @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: "assignedById" })
     assignedBy: User | null;
 

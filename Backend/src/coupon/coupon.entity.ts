@@ -7,7 +7,8 @@ import {
     BaseEntity,
     ManyToOne,
     JoinColumn,
-    Index
+    Index,
+    Check
 } from "typeorm";
 
 import { Event } from "../event/event.entity";
@@ -15,6 +16,10 @@ import { Event } from "../event/event.entity";
 @Entity("coupon")
 @Index('idx_coupon_event_created', ['eventId', 'createdAt'])
 @Index('idx_coupon_event_code_active', ['eventId', 'code', 'isActive'])
+@Check('"discountPercent" >= 0 AND "discountPercent" <= 100')
+@Check('"maxUses" >= 0')
+@Check('"usedCount" >= 0')
+@Check('"usedCount" <= "maxUses" OR "maxUses" = 0')
 export class Coupon extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -23,7 +28,6 @@ export class Coupon extends BaseEntity {
     /* ===================== IDENTIFICATION ===================== */
 
     @Column({ type: "varchar", length: 50, unique: true })
-    @Index({ unique: true })
     code: string;
 
     /* ===================== DISCOUNT CONFIG ===================== */
@@ -50,7 +54,6 @@ export class Coupon extends BaseEntity {
     event: Event;
 
     @Column()
-    @Index('idx_coupon_event_id')
     eventId: number;
 
     /* ===================== TIMESTAMPS ===================== */

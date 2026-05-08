@@ -4,7 +4,8 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
-    BaseEntity
+    BaseEntity,
+    Check
 } from 'typeorm';
 
 /**
@@ -12,6 +13,11 @@ import {
  * Plans are stored in DB to allow dynamic configuration without code changes.
  */
 @Entity('subscription_plan')
+@Check('"monthlyPrice" >= 0')
+@Check('"yearlyPrice" >= 0')
+@Check('"commissionPercent" >= 0 AND "commissionPercent" <= 100')
+@Check('"maxEventsPerMonth" >= -1')
+@Check('"maxTicketTypesPerEvent" >= -1')
 export class SubscriptionPlan extends BaseEntity {
 
     @PrimaryGeneratedColumn()

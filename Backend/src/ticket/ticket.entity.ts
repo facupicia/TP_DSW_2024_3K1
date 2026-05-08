@@ -8,7 +8,8 @@ import {
     BaseEntity,
     ManyToOne,
     JoinColumn,
-    Index
+    Index,
+    Check
 } from "typeorm";
 
 import { User } from "../user/user.entity";
@@ -27,6 +28,9 @@ export enum TicketStatus {
 @Index("idx_ticket_promoter_created", ["soldByPromoterId", "createdAt"])
 @Index("idx_ticket_scanner_used", ["scannedById", "usedAt"])
 @Index("idx_ticket_status_created", ["status", "createdAt"])
+@Check('"purchasePrice" >= 0')
+@Check('"promoterCommissionPercentage" IS NULL OR ("promoterCommissionPercentage" >= 0 AND "promoterCommissionPercentage" <= 100)')
+@Check('"promoterCommissionAmount" IS NULL OR "promoterCommissionAmount" >= 0')
 export class Ticket extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -35,7 +39,6 @@ export class Ticket extends BaseEntity {
     /* ===================== IDENTIFICATION ===================== */
 
     @Column({ type: "varchar", unique: true })
-    @Index({ unique: true })
     codigo_unico: string;
 
     @Column({ type: "text" })
@@ -48,11 +51,9 @@ export class Ticket extends BaseEntity {
         onDelete: "RESTRICT"
     })
     @JoinColumn({ name: "ticketTypeId" })
-    @Index("idx_ticket_ticket_type")
     ticketType: TicketType;
 
     @Column()
-    @Index("idx_ticket_ticket_type_id")
     ticketTypeId: number;
 
     @ManyToOne(() => User, user => user.tickets, {
@@ -63,7 +64,6 @@ export class Ticket extends BaseEntity {
     user: User;
 
     @Column()
-    @Index("idx_ticket_user_id")
     userId: number;
 
     /* ===================== BUSINESS DATA ===================== */
@@ -81,13 +81,11 @@ export class Ticket extends BaseEntity {
     /* ===================== PROMOTER (RRPP) DATA ===================== */
 
     /** Promoter who sold this ticket (if applicable) */
-    @ManyToOne(() => User, { nullable: true })
+    @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
     @JoinColumn({ name: "soldByPromoterId" })
-    @Index("idx_ticket_sold_by_promoter")
     soldByPromoter: User | null;
 
     @Column({ nullable: true })
-    @Index("idx_ticket_sold_by_promoter_id")
     soldByPromoterId: number | null;
 
     /** Commission percentage applied at the time of sale */
@@ -107,19 +105,16 @@ export class Ticket extends BaseEntity {
     @Column({ type: "timestamptz", nullable: true })
     usedAt: Date | null;
 
-    @ManyToOne(() => User, { nullable: true })
+    @ManyToOne(() => User, { nullable: true, onDelete: "SET NULL" })
     @JoinColumn({ name: "scannedById" })
-    @Index("idx_ticket_scanned_by")
     scannedBy: User | null;
 
     @Column({ nullable: true })
-    @Index("idx_ticket_scanned_by_id")
     scannedById: number | null;
 
     /* ===================== TIMESTAMPS ===================== */
 
     @CreateDateColumn({ type: "timestamptz" })
-    @Index("idx_ticket_created_at")
     createdAt: Date;
 
     @UpdateDateColumn({ type: "timestamptz" })

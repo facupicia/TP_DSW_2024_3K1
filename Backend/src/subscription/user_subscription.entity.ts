@@ -30,15 +30,14 @@ export class UserSubscription extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => User, { nullable: false })
+    @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: 'userId' })
     user: User;
 
     @Column()
-    @Index()
     userId: number;
 
-    @ManyToOne(() => SubscriptionPlan, { nullable: false })
+    @ManyToOne(() => SubscriptionPlan, { nullable: false, onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'planId' })
     plan: SubscriptionPlan;
 

@@ -5,6 +5,7 @@ import { UserSubscription, SubscriptionStatus } from "./user_subscription.entity
 import { User } from "../user/user.entity";
 import { logger } from "../common/services/logger";
 import { getMPConfig } from "../payment/mp.config";
+import { env } from "../config/env";
 
 // Separate MP client for subscriptions (uses different access token)
 const getSubscriptionClient = () => {
@@ -52,7 +53,7 @@ export const createSubscriptionCheckout = async (
 
 
     // Back URL for redirect after payment
-    const backendUrl = process.env.MP_SUBSCRIPTION_BACK_URL || process.env.BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = env.MP_SUBSCRIPTION_BACK_URL || env.BACKEND_URL || 'http://localhost:3000';
 
     try {
         // Using 'as any' because MP SDK types may not include all valid API fields

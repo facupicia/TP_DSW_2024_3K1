@@ -45,9 +45,9 @@ export const globalRateLimiter = rateLimit({
 });
 
 const authWindowMs = isProduction ? 15 * 60 * 1000 : 60 * 1000;
-const authMaxRequests = isProduction ? 10 : 100;
+const authMaxRequests = isProduction ? 10 : env.AUTH_RATE_LIMIT_MAX;
 const refreshWindowMs = 15 * 60 * 1000;
-const refreshMaxRequests = isProduction ? 60 : 300;
+const refreshMaxRequests = isProduction ? 60 : env.REFRESH_RATE_LIMIT_MAX;
 
 export const authRateLimiter = rateLimit({
     windowMs: authWindowMs,

@@ -8,6 +8,7 @@ import { PromoterGroup, PromoterEventAssignment } from "./promoter.entity";
 import { Roles } from "../schemas/schema.user";
 import AppDataSource from "../db";
 import { randomUUID } from "crypto";
+import { env } from "../config/env";
 
 /**
  * Add a new promoter to the organizer's group
@@ -644,7 +645,7 @@ export const getMyAssignedEvents = async (req: CustomRequest, res: Response) => 
         });
 
         // Build frontend URL from environment or default
-        const frontendUrl = process.env.CLIENT_URL || "https://event-life.netlify.app";
+        const frontendUrl = env.CLIENT_URL || "https://event-life.netlify.app";
 
         const assignedEvents = eventAssignments.map(ea => ({
             id: ea.eventId,

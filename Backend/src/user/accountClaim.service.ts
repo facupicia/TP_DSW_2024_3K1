@@ -3,8 +3,9 @@ import { IsNull } from "typeorm";
 import AppDataSource from "../db";
 import { AccountClaimToken } from "./accountClaimToken.entity";
 import { User } from "./user.entity";
+import { env } from "../config/env";
 
-const CLAIM_TOKEN_HOURS = Number(process.env.ACCOUNT_CLAIM_TOKEN_HOURS || 48);
+const CLAIM_TOKEN_HOURS = env.ACCOUNT_CLAIM_TOKEN_HOURS;
 
 function hashToken(token: string) {
     return crypto.createHash("sha256").update(token).digest("hex");
@@ -17,7 +18,7 @@ function expiresAt() {
 }
 
 function getClientUrl() {
-    return (process.env.CLIENT_URL || "https://event-life.netlify.app").replace(/\/$/, "");
+    return (env.CLIENT_URL || "https://event-life.netlify.app").replace(/\/$/, "");
 }
 
 export async function createAccountClaimToken(user: User): Promise<{ rawToken: string; claimUrl: string; expiresAt: Date }> {

@@ -1,4 +1,4 @@
-import { BaseEntity, Column, CreateDateColumn, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BaseEntity, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "./user.entity";
 
 @Entity({ name: "refresh_token" })
@@ -15,6 +15,7 @@ export class RefreshToken extends BaseEntity {
     userId: number;
 
     @ManyToOne(() => User, { onDelete: "CASCADE" })
+    @JoinColumn({ name: 'userId' })
     user: User;
 
     @Column({ type: "timestamptz" })

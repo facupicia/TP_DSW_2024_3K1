@@ -137,7 +137,9 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
         const tickets = await createTicketsForPurchase(ticketType, user, cantidadTickets);
         await queryRunner.manager.save(Ticket, tickets);
 
-        // 6. Enviar Correo
+        await queryRunner.commitTransaction();
+
+        // 6. Enviar Correo DESPUÉS del commit
         if (user.email) {
             const dateObj = new Date(event.date);
             const formattedDate = !isNaN(dateObj.getTime())
@@ -158,8 +160,6 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
                 console.error("Error enviando email (no bloqueante):", emailErr);
             }
         }
-
-        await queryRunner.commitTransaction();
 
         return res.status(201).json({ message: `${cantidadTickets} ticket(s) creado(s) exitosamente` });
 
@@ -464,42 +464,60 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
             return res.status(400).json({ message: "ID de ticket inválido" });
         }
 
-        const ticket = await queryRunner.manager.findOne(Ticket, {
-            where: { id: ticketId, userId },
-            select: ["id", "userId", "ticketTypeId", "status", "purchasePrice"]
+        // Cancelar ticket con UPDATE condicional atómico
+        const updateResult = await queryRunner.manager.update(Ticket,
+            { id: ticketId, userId, status: TicketStatus.ACTIVE, purchasePrice: 0 },
+            { status: TicketStatus.CANCELLED }
+        );
+
+        if (updateResult.affected === 0) {
+            await queryRunner.rollbackTransaction();
+
+            // Determinar por qué falló el UPDATE para dar un mensaje útil
+            const ticket = await queryRunner.manager.findOne(Ticket, {
+                where: { id: ticketId, userId },
+                select: ["id", "status", "purchasePrice"]
+            });
+
+            if (!ticket) {
+                return res.status(404).json({ message: "Ticket no encontrado" });
+            }
+
+            if (ticket.status === TicketStatus.USED) {
+                return res.status(409).json({ message: "Ticket ya fue utilizado" });
+            }
+
+            if (ticket.status === TicketStatus.CANCELLED) {
+                return res.status(409).json({ message: "Ticket ya fue cancelado" });
+            }
+
+            if (Number(ticket.purchasePrice) > 0) {
+                return res.status(409).json({
+                    code: "PAID_TICKET_REFUND_REQUIRED",
+                    message: "Los tickets pagos deben cancelarse mediante el flujo de reembolso para mantener consistente el pago y el stock."
+                });
+            }
+
+            return res.status(409).json({ message: "No se pudo cancelar el ticket" });
+        }
+
+        // Obtener ticketTypeId del ticket cancelado para restaurar stock
+        const cancelledTicket = await queryRunner.manager.findOne(Ticket, {
+            where: { id: ticketId },
+            select: ['ticketTypeId']
         });
 
-        if (!ticket) {
-            await queryRunner.rollbackTransaction();
-            return res.status(404).json({ message: "Ticket no encontrado" });
+        if (cancelledTicket) {
+            await queryRunner.manager
+                .createQueryBuilder()
+                .update(TicketType)
+                .set({ soldCount: () => `GREATEST("soldCount" - 1, 0)` })
+                .where('id = :id', { id: cancelledTicket.ticketTypeId })
+                .execute();
         }
-
-        if (ticket.status === TicketStatus.USED || ticket.status === TicketStatus.CANCELLED) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({ message: `Ticket ya ${ticket.status === TicketStatus.USED ? 'utilizado' : 'cancelado'}` });
-        }
-
-        if (Number(ticket.purchasePrice) > 0) {
-            await queryRunner.rollbackTransaction();
-            return res.status(409).json({
-                code: "PAID_TICKET_REFUND_REQUIRED",
-                message: "Los tickets pagos deben cancelarse mediante el flujo de reembolso para mantener consistente el pago y el stock."
-            });
-        }
-
-        // Cancelar ticket
-        ticket.status = TicketStatus.CANCELLED;
-        await queryRunner.manager.save(Ticket, ticket);
-
-        await queryRunner.manager
-            .createQueryBuilder()
-            .update(TicketType)
-            .set({ soldCount: () => `GREATEST("soldCount" - 1, 0)` })
-            .where('id = :id', { id: ticket.ticketTypeId })
-            .execute();
 
         await queryRunner.commitTransaction();
-        return res.status(200).json({ message: "Ticket cancelado", ticketId: ticket.id });
+        return res.status(200).json({ message: "Ticket cancelado", ticketId: ticketId });
 
     } catch (error: any) {
         await queryRunner.rollbackTransaction();
@@ -592,6 +610,13 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             relations: ["event"],
         });
 
+        // Validar que el tipo de ticket sea gratuito
+        if (ticketType && Number(ticketType.price) > 0) {
+            return res.status(400).json({
+                message: "Solo se pueden invitar guests a tipos de entrada gratuitos",
+            });
+        }
+
         if (!ticketType) {
             return res.status(404).json({
                 message: "Tipo de ticket no encontrado",
@@ -614,6 +639,21 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
         }
 
         const event = ticketType.event;
+
+        // Validar que el evento no haya pasado
+        const eventDateTime = getEventDateTime(event);
+        if (new Date() > eventDateTime) {
+            return res.status(400).json({
+                message: "No se pueden invitar guests a un evento que ya pasó",
+            });
+        }
+
+        // Validar edad mínima
+        if (event.minAge && event.minAge > 0) {
+            return res.status(400).json({
+                message: `Este evento requiere edad mínima de ${event.minAge} años. Las invitaciones no verifican edad.`,
+            });
+        }
 
         const createdTickets: Array<{ email: string; quantity: number }> = [];
         const ticketsToInsert: Ticket[] = [];

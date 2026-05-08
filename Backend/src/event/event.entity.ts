@@ -9,7 +9,8 @@ import {
     OneToMany,
     ManyToOne,
     JoinColumn,
-    Index
+    Index,
+    Check
 } from "typeorm";
 
 import { TicketType } from "../ticketType/ticketType.entity";
@@ -22,6 +23,8 @@ import { PromoterEventAssignment } from "../promoter/promoter.entity";
 @Index('idx_event_user_active_date', ['user_id', 'active', 'date'])
 @Index('idx_event_category_active_date', ['categoryId', 'active', 'date'])
 @Index('idx_event_ciudad', ['ciudad'])
+@Index('idx_event_destacado_active_date', ['destacado', 'active', 'date'])
+@Check('"minAge" >= 0')
 export class Event extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -49,7 +52,6 @@ export class Event extends BaseEntity {
     image: string;
 
     @Column({ type: "date" })
-    @Index()
     date: Date;
 
     @Column({ type: "time" })
@@ -59,7 +61,6 @@ export class Event extends BaseEntity {
     description: string;
 
     @Column({ default: true })
-    @Index('idx_event_active_public')
     active: boolean;
 
     @Column({ default: false })
@@ -78,7 +79,6 @@ export class Event extends BaseEntity {
     user: User;
 
     @Column()
-    @Index('idx_event_user_id')
     user_id: number;
 
     @ManyToOne(() => Category, category => category.events, { nullable: false, onDelete: 'RESTRICT' })
@@ -86,7 +86,6 @@ export class Event extends BaseEntity {
     category: Category;
 
     @Column()
-    @Index('idx_event_category_id')
     categoryId: number;
 
     @OneToMany(() => TicketType, ticketType => ticketType.event, {

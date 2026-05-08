@@ -9,8 +9,8 @@ import { MoreThanOrEqual, LessThanOrEqual, Between } from "typeorm";
  * Get the active subscription for a user.
  * If no subscription exists, creates a FREE subscription automatically.
  */
-export const getActiveSubscription = async (userId: number): Promise<UserSubscription> => {
-    const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
+export const getActiveSubscription = async (userId: number, manager?: any): Promise<UserSubscription> => {
+    const subscriptionRepo = manager ? manager.getRepository(UserSubscription) : AppDataSource.getRepository(UserSubscription);
 
     // Try to find existing active subscription
     let subscription = await subscriptionRepo.findOne({
@@ -28,13 +28,13 @@ export const getActiveSubscription = async (userId: number): Promise<UserSubscri
             await subscriptionRepo.save(subscription);
 
             // Downgrade to FREE
-            subscription = await assignDefaultPlan(userId);
+            subscription = await assignDefaultPlan(userId, manager);
         }
         return subscription;
     }
 
     // No subscription found, assign FREE plan
-    return await assignDefaultPlan(userId);
+    return await assignDefaultPlan(userId, manager);
 };
 
 /**
@@ -91,8 +91,8 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
 /**
  * Count events created by user in current calendar month.
  */
-export const countEventsThisMonth = async (userId: number): Promise<number> => {
-    const eventRepo = AppDataSource.getRepository(Event);
+export const countEventsThisMonth = async (userId: number, manager?: any): Promise<number> => {
+    const eventRepo = manager ? manager.getRepository(Event) : AppDataSource.getRepository(Event);
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -113,14 +113,14 @@ export const countEventsThisMonth = async (userId: number): Promise<number> => {
  * Validate if user can create a new event based on their plan limits.
  * Returns { allowed: boolean, reason?: string, upgradeRequired?: boolean }
  */
-export const canCreateEvent = async (userId: number): Promise<{
+export const canCreateEvent = async (userId: number, manager?: any): Promise<{
     allowed: boolean;
     reason?: string;
     upgradeRequired?: boolean;
     currentCount?: number;
     maxAllowed?: number;
 }> => {
-    const subscription = await getActiveSubscription(userId);
+    const subscription = await getActiveSubscription(userId, manager);
     const plan = subscription.plan;
 
     // Unlimited events
@@ -128,7 +128,7 @@ export const canCreateEvent = async (userId: number): Promise<{
         return { allowed: true };
     }
 
-    const eventsThisMonth = await countEventsThisMonth(userId);
+    const eventsThisMonth = await countEventsThisMonth(userId, manager);
 
     if (eventsThisMonth >= plan.maxEventsPerMonth) {
         return {
@@ -150,13 +150,13 @@ export const canCreateEvent = async (userId: number): Promise<{
 /**
  * Validate if user can create specified number of ticket types based on their plan.
  */
-export const canCreateTicketTypes = async (userId: number, ticketTypesCount: number): Promise<{
+export const canCreateTicketTypes = async (userId: number, ticketTypesCount: number, manager?: any): Promise<{
     allowed: boolean;
     reason?: string;
     upgradeRequired?: boolean;
     maxAllowed?: number;
 }> => {
-    const subscription = await getActiveSubscription(userId);
+    const subscription = await getActiveSubscription(userId, manager);
     const plan = subscription.plan;
 
     // Unlimited ticket types

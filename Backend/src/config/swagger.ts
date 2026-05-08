@@ -1,4 +1,5 @@
 import swaggerJsdoc from "swagger-jsdoc";
+import { env } from "./env";
 
 const options: swaggerJsdoc.Options = {
     definition: {
@@ -10,7 +11,7 @@ const options: swaggerJsdoc.Options = {
         },
         servers: [
             {
-                url: process.env.API_URL || "http://localhost:3000/api",
+                url: env.API_URL || "http://localhost:3000/api",
                 description: "Servidor de desarrollo",
             },
         ],
@@ -34,7 +35,7 @@ const options: swaggerJsdoc.Options = {
             },
         ],
     },
-    apis: process.env.NODE_ENV === 'production'
+    apis: env.NODE_ENV === 'production'
         ? ["./dist/**/*.routes.js", "./dist/**/*.controller.js", "./dist/**/*.entity.js"]
         : ["./src/**/*.routes.ts", "./src/**/*.controller.ts", "./src/**/*.entity.ts"],
 };

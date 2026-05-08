@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index, ManyToOne, JoinColumn, BaseEntity, Check } from 'typeorm';
+import { User } from '../user/user.entity';
+import { TicketType } from '../ticketType/ticketType.entity';
 
 export enum PaymentStatus {
   PROCESSING = 'processing',
@@ -14,7 +16,12 @@ export enum PaymentStatus {
 @Index('idx_payment_organizer_status', ['organizerId', 'status'])
 @Index('idx_payment_user_created', ['userId', 'createdAt'])
 @Index('idx_payment_ticket_type_status_created', ['ticketTypeId', 'status', 'createdAt'])
-export class PaymentLog {
+@Check('"quantity" > 0')
+@Check('"unitPrice" >= 0')
+@Check('"totalAmount" > 0')
+@Check('"commissionPercent" >= 0 AND "commissionPercent" <= 100')
+@Check('"refundAmount" IS NULL OR "refundAmount" >= 0')
+export class PaymentLog extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -25,12 +32,18 @@ export class PaymentLog {
   @Index('idx_payment_external_ref')
   externalReference?: string;
 
-  @Column()
-  @Index('idx_payment_user')
-  userId: number;
+  @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column()
-  @Index('idx_payment_ticket_type')
+  userId: number;
+
+  @ManyToOne(() => TicketType, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'ticketTypeId' })
+  ticketType: TicketType;
+
+  @Column()
   ticketTypeId: number;
 
   /* ===================== PAYMENT AMOUNTS ===================== */
@@ -55,16 +68,18 @@ export class PaymentLog {
   @Column({ type: 'varchar', length: 50, nullable: true })
   organizerPlanName: string;
 
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'organizerId' })
+  organizer: User | null;
+
   @Column({ nullable: true })
-  @Index('idx_payment_organizer')
-  organizerId: number;
+  organizerId: number | null;
 
   @Column({
     type: 'enum',
     enum: PaymentStatus,
     default: PaymentStatus.PROCESSING
   })
-  @Index('idx_payment_status')
   status: PaymentStatus;
 
   @CreateDateColumn({ type: 'timestamptz' })
@@ -75,6 +90,10 @@ export class PaymentLog {
 
   @Column({ type: 'timestamptz', nullable: true })
   refundedAt?: Date;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'refundedBy' })
+  refundedByUser: User | null;
 
   @Column({ nullable: true })
   refundedBy?: number;

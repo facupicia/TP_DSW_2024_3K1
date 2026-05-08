@@ -153,7 +153,7 @@ export const sendPromoterInvitationEmail = async (
                         
                         <p>Comparte tu código con tus contactos y empieza a ganar comisiones por cada ticket vendido.</p>
                         
-                        <a href="${process.env.CLIENT_URL || "https://event-life.netlify.app"}/promoter/dashboard" 
+                        <a href="${env.CLIENT_URL || "https://event-life.netlify.app"}/promoter/dashboard" 
                            style="display: inline-block; background: #4f46e5; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
                             Ver Mi Panel
                         </a>

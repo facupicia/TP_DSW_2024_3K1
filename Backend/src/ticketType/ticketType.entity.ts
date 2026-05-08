@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany, Check } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany, Check, Unique } from 'typeorm';
 import { Event } from '../event/event.entity';
 import { Ticket } from '../ticket/ticket.entity';
 
@@ -11,6 +11,9 @@ export enum TicketTypeStatus {
 
 @Entity('ticket_type')
 @Index('idx_ticket_type_event_status', ['eventId', 'status'])
+@Unique(['eventId', 'name'])
+@Check('"price" >= 0')
+@Check('"capacity" >= 0')
 @Check('"soldCount" >= 0')
 @Check('"soldCount" <= "capacity"')
 export class TicketType extends BaseEntity {
@@ -19,10 +22,9 @@ export class TicketType extends BaseEntity {
     id: number;
 
     @Column()
-    @Index('idx_ticket_type_eventId')
     eventId: number;
 
-    @ManyToOne(() => Event, event => event.ticketTypes)
+    @ManyToOne(() => Event, event => event.ticketTypes, { onDelete: 'CASCADE' })
     @JoinColumn({ name: "eventId" })
     event: Event;
 

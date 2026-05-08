@@ -55,6 +55,12 @@ const EnvSchema = z
     PGUSER: z.string().optional(),
     PGPASSWORD: z.string().optional(),
     PGDATABASE: z.string().optional(),
+    DB_SYNC: z.enum(["true", "false"]).optional().default("false"),
+    DB_LOGGING: z.enum(["true", "false"]).optional().default("false"),
+    DB_POOL_MAX: z.coerce.number().min(1).max(100).optional().default(10),
+    DB_CONN_TIMEOUT: z.coerce.number().min(1000).optional().default(15000),
+    DB_IDLE_TIMEOUT: z.coerce.number().min(1000).optional().default(30000),
+    DB_STATEMENT_TIMEOUT: z.coerce.number().min(1000).optional().default(30000),
 
     // Auth
     ID_CLIENT_GOOGLE_OAUTH: z.string().optional(),
@@ -62,6 +68,10 @@ const EnvSchema = z
     // Cache
     REDIS_URL: z.string().optional(),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+
+    BACKEND_URL: z.string().optional(),
+    API_URL: z.string().optional(),
+    ACCOUNT_CLAIM_TOKEN_HOURS: z.coerce.number().min(1).max(168).optional().default(24),
 
     // Email
     MAIL_HOST: z.string().optional(),
@@ -74,6 +84,10 @@ const EnvSchema = z
     // Encryption
     ENCRYPTION_KEY: z.string().length(64).optional(),
     METRICS_PUBLIC: z.enum(["true", "false"]).default("false"),
+
+    // Rate Limiting
+    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(100),
+    REFRESH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(300),
   })
   .refine(
     (data) => {

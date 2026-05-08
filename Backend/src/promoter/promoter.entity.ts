@@ -8,7 +8,9 @@ import {
     ManyToOne,
     JoinColumn,
     OneToMany,
-    Index
+    Index,
+    Unique,
+    Check
 } from "typeorm";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
@@ -21,6 +23,8 @@ import { Event } from "../event/event.entity";
 @Index('idx_promoter_group_organizer_active', ['organizerId', 'isActive'])
 @Index('idx_promoter_group_promoter_active', ['promoterId', 'isActive'])
 @Index('idx_promoter_group_organizer_promoter', ['organizerId', 'promoterId'])
+@Unique(['organizerId', 'promoterId'])
+@Check('"commissionPercentage" >= 0 AND "commissionPercentage" <= 100')
 export class PromoterGroup extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
@@ -28,7 +32,7 @@ export class PromoterGroup extends BaseEntity {
     /* ===================== RELATIONS ===================== */
 
     /** Organizer (owner) of this promoter group */
-    @ManyToOne(() => User, user => user.promoterGroupsOwned, { nullable: false })
+    @ManyToOne(() => User, user => user.promoterGroupsOwned, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "organizerId" })
     organizer: User;
 
@@ -36,7 +40,7 @@ export class PromoterGroup extends BaseEntity {
     organizerId: number;
 
     /** Promoter (RRPP) assigned to this group */
-    @ManyToOne(() => User, user => user.promoterAssignments, { nullable: false })
+    @ManyToOne(() => User, user => user.promoterAssignments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "promoterId" })
     promoter: User;
 
@@ -82,6 +86,8 @@ export class PromoterGroup extends BaseEntity {
 @Entity("promoter_event_assignment")
 @Index('idx_promoter_assignment_event_active', ['eventId', 'isActive'])
 @Index('idx_promoter_assignment_group_active', ['promoterGroupId', 'isActive'])
+@Unique(['promoterGroupId', 'eventId'])
+@Check('"customCommissionPercentage" IS NULL OR ("customCommissionPercentage" >= 0 AND "customCommissionPercentage" <= 100)')
 export class PromoterEventAssignment extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
@@ -89,7 +95,7 @@ export class PromoterEventAssignment extends BaseEntity {
     /* ===================== RELATIONS ===================== */
 
     /** The promoter group relationship */
-    @ManyToOne(() => PromoterGroup, group => group.eventAssignments, { nullable: false })
+    @ManyToOne(() => PromoterGroup, group => group.eventAssignments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "promoterGroupId" })
     promoterGroup: PromoterGroup;
 
@@ -97,7 +103,7 @@ export class PromoterEventAssignment extends BaseEntity {
     promoterGroupId: number;
 
     /** The event this promoter can sell tickets for */
-    @ManyToOne(() => Event, event => event.promoterAssignments, { nullable: false })
+    @ManyToOne(() => Event, event => event.promoterAssignments, { nullable: false, onDelete: 'CASCADE' })
     @JoinColumn({ name: "eventId" })
     event: Event;
 

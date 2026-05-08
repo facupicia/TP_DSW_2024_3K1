@@ -98,7 +98,6 @@ export class User extends BaseEntity {
     @Column({
         default: true
     })
-    @Index('idx_user_active')
     active: boolean;
 
     @Column({ default: false })

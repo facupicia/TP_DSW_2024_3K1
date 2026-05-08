@@ -54,15 +54,15 @@ async function seed() {
                 {
                     id: 1,
                     name: 'FREE',
-                    displayName: 'Gratis',
+                    displayName: 'Plan Gratuito',
                     monthlyPrice: 0,
                     yearlyPrice: 0,
-                    maxEventsPerMonth: 1,
+                    maxEventsPerMonth: 3,
                     maxTicketTypesPerEvent: 1,
-                    commissionPercent: 15,
-                    features: { advancedDashboard: false, exportSales: false, featuredEvents: false, prioritySupport: false },
+                    commissionPercent: 8.00,
+                    features: { advancedDashboard: false, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false },
                     active: true,
-                    sortOrder: 1
+                    sortOrder: 0
                 },
                 {
                     id: 2,
@@ -72,10 +72,10 @@ async function seed() {
                     yearlyPrice: 99999,
                     maxEventsPerMonth: 5,
                     maxTicketTypesPerEvent: 3,
-                    commissionPercent: 10,
-                    features: { advancedDashboard: true, exportSales: false, featuredEvents: false, prioritySupport: false },
+                    commissionPercent: 5.00,
+                    features: { advancedDashboard: true, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false },
                     active: true,
-                    sortOrder: 2
+                    sortOrder: 1
                 },
                 {
                     id: 3,
@@ -85,10 +85,10 @@ async function seed() {
                     yearlyPrice: 299999,
                     maxEventsPerMonth: -1,
                     maxTicketTypesPerEvent: -1,
-                    commissionPercent: 5,
-                    features: { advancedDashboard: true, exportSales: true, featuredEvents: true, prioritySupport: true },
+                    commissionPercent: 2.50,
+                    features: { advancedDashboard: true, exportSales: true, featuredEvents: true, prioritySupport: true, removeBranding: true },
                     active: true,
-                    sortOrder: 3
+                    sortOrder: 2
                 }
             ];
             
@@ -298,18 +298,15 @@ async function seed() {
 
             // Reset sequences to avoid PK conflicts after inserting explicit IDs
             console.log('🔄 Resetting sequences...');
-            await queryRunner.manager.query(`
-                SELECT setval('role_id_seq', COALESCE((SELECT MAX(id) FROM role), 0) + 1, false);
-            `);
-            await queryRunner.manager.query(`
-                SELECT setval('user_id_seq', COALESCE((SELECT MAX(id) FROM "user"), 0) + 1, false);
-            `);
-            await queryRunner.manager.query(`
-                SELECT setval('promoter_group_id_seq', COALESCE((SELECT MAX(id) FROM promoter_group), 0) + 1, false);
-            `);
-            await queryRunner.manager.query(`
-                SELECT setval('promoter_event_assignment_id_seq', COALESCE((SELECT MAX(id) FROM promoter_event_assignment), 0) + 1, false);
-            `);
+            await queryRunner.manager.query(`SELECT setval('category_id_seq', COALESCE((SELECT MAX(id) FROM category), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('subscription_plan_id_seq', COALESCE((SELECT MAX(id) FROM subscription_plan), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('role_id_seq', COALESCE((SELECT MAX(id) FROM role), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('user_id_seq', COALESCE((SELECT MAX(id) FROM "user"), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('user_subscription_id_seq', COALESCE((SELECT MAX(id) FROM user_subscription), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('event_id_seq', COALESCE((SELECT MAX(id) FROM event), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('ticket_type_id_seq', COALESCE((SELECT MAX(id) FROM ticket_type), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('promoter_group_id_seq', COALESCE((SELECT MAX(id) FROM promoter_group), 0) + 1, false);`);
+            await queryRunner.manager.query(`SELECT setval('promoter_event_assignment_id_seq', COALESCE((SELECT MAX(id) FROM promoter_event_assignment), 0) + 1, false);`);
             console.log('✅ Sequences reset\n');
 
             await queryRunner.commitTransaction();

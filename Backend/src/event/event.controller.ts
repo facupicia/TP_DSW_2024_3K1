@@ -93,14 +93,14 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         // ================================================
 
         // ============ SUBSCRIPTION PLAN VALIDATION ============
-        const eventCheck = await canCreateEvent(userId);
+        const eventCheck = await canCreateEvent(userId, queryRunner.manager);
         if (!eventCheck.allowed) {
             throw new HttpError(403, 'PLAN_LIMIT_EVENTS', eventCheck.reason || 'Plan limit reached');
         }
 
         const ticketTypesCount = ticketTypes?.length || 0;
         if (ticketTypesCount > 0) {
-            const ttCheck = await canCreateTicketTypes(userId, ticketTypesCount);
+            const ttCheck = await canCreateTicketTypes(userId, ticketTypesCount, queryRunner.manager);
             if (!ttCheck.allowed) {
                 throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
             }
@@ -350,7 +350,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
                         return existing && ticketTypeStatusFromActive(t.active, existing.status) === TicketTypeStatus.ACTIVE;
                     }).length;
                 const totalAfterUpdate = remainingActiveCount + newTicketTypesCount;
-                const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate);
+                const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate, queryRunner.manager);
                 if (!ttCheck.allowed) {
                     throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
                 }

@@ -8,6 +8,7 @@ import { TicketType } from "../ticketType/ticketType.entity";
 import { createTicketsForPurchase } from "../ticket/ticket.service";
 import enviarCorreoConQR from "../common/services/mailer";
 import { logger } from "../common/services/logger";
+import { env } from "../config/env";
 import { getActiveSubscription } from "../subscription/subscription.service";
 
 /* ==============================================================================
@@ -31,7 +32,7 @@ export const processPaymentTransaction = async (paymentId: string) => {
 
         // Ahora que usamos el token de la PLATAFORMA para crear preferencias,
         // podemos consultar el pago directamente con ese mismo token
-        const platformClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN || '' });
+        const platformClient = new MercadoPagoConfig({ accessToken: env.MP_ACCESS_TOKEN || '' });
         const platformPaymentClient = new Payment(platformClient);
 
         let payment: any = null;

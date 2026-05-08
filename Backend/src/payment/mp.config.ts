@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { logger } from '../common/services/logger';
+import { env } from '../config/env';
 
 /**
  * MercadoPago Configuration
@@ -36,7 +37,7 @@ export function getMPConfig(): MPConfig {
 
     const missing: string[] = [];
     for (const envVar of requiredEnvVars) {
-        if (!process.env[envVar]) {
+        if (!(env as any)[envVar]) {
             missing.push(envVar);
         }
     }
@@ -48,16 +49,16 @@ export function getMPConfig(): MPConfig {
     }
 
     cachedConfig = {
-        accessToken: process.env.MP_ACCESS_TOKEN!,
-        clientId: process.env.MP_CLIENT_ID!,
-        clientSecret: process.env.MP_CLIENT_SECRET!,
-        webhookSecret: process.env.MP_WEBHOOK_SECRET,
-        subscriptionWebhookSecret: process.env.MP_SUBSCRIPTION_WEBHOOK_SECRET,
-        subscriptionAccessToken: process.env.MP_ACCESS_TOKEN_SUSCRIPCION,
-        notificationUrl: process.env.MP_NOTIFICATION_URL || '',
-        subscriptionBackUrl: process.env.MP_SUBSCRIPTION_BACK_URL || process.env.BACKEND_URL || 'http://localhost:3000',
-        clientUrl: (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:4200').split(',')[0].trim(),
-        appUrl: process.env.APP_URL || 'http://localhost:3000'
+        accessToken: env.MP_ACCESS_TOKEN,
+        clientId: env.MP_CLIENT_ID!,
+        clientSecret: env.MP_CLIENT_SECRET!,
+        webhookSecret: env.MP_WEBHOOK_SECRET,
+        subscriptionWebhookSecret: env.MP_SUBSCRIPTION_WEBHOOK_SECRET,
+        subscriptionAccessToken: env.MP_ACCESS_TOKEN_SUSCRIPCION,
+        notificationUrl: env.MP_NOTIFICATION_URL || '',
+        subscriptionBackUrl: env.MP_SUBSCRIPTION_BACK_URL || env.BACKEND_URL || 'http://localhost:3000',
+        clientUrl: (env.CLIENT_URLS || env.CLIENT_URL || 'http://localhost:4200').split(',')[0].trim(),
+        appUrl: env.APP_URL || 'http://localhost:3000'
     };
 
     return cachedConfig;

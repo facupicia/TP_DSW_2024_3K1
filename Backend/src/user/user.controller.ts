@@ -288,7 +288,9 @@ export const signinUser = async (req: Request, res: Response) => {
       select: ["id", "password", "email", "firstname", "lastname", "active"]
     });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' });
+      // Ejecutar bcrypt.compare contra un hash dummy para evitar timing side-channel
+      await bcrypt.compare(password, '$2b$10$dummy.hash.for.timing.mitigation.only');
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     // Validar contraseña
@@ -425,23 +427,8 @@ export const profile = async (req: CustomRequest, res: Response) => {
     const user = await User.findOne({ where: { id }, relations: ['roles'] });
     if (!user) return res.status(404).json('No User found');
 
-    // Merge roles: if roles array is incomplete compared to legacy rol, add it
     let userRoles = getRoleNames(user);
     if (userRoles.length === 0) userRoles = ['user'];
-    const legacyRol = (user as any).rol; // Still might exist in DB
-
-    // If legacy rol exists and is higher than current roles, include it
-    if (legacyRol && !userRoles.includes(legacyRol)) {
-      const ROLE_HIERARCHY: Record<string, number> = {
-        'user': 1, 'rrpp': 2, 'scanner': 3, 'organizer': 4, 'admin': 5
-      };
-      const currentHighestLevel = Math.max(...userRoles.map(r => ROLE_HIERARCHY[r] || 0));
-      const legacyLevel = ROLE_HIERARCHY[legacyRol] || 0;
-
-      if (legacyLevel > currentHighestLevel) {
-        userRoles = [...userRoles, legacyRol];
-      }
-    }
 
     return res.json({
       id: user.id,

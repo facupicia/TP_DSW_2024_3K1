@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, BaseEntity } from "typeorm";
 
 /**
  * Webhook Log Entity
@@ -6,7 +6,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 
  * Almacena todos los webhooks recibidos para auditoría y debugging.
  */
 @Entity()
-export class WebhookLog {
+@Index("idx_webhook_log_type_created", ["type", "createdAt"])
+export class WebhookLog extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -40,7 +41,7 @@ export class WebhookLog {
     @Column({ type: 'timestamptz', nullable: true })
     processedAt: Date;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
     @Column({ type: 'varchar', length: 500, nullable: true })
