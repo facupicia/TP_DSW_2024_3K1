@@ -7,6 +7,7 @@ import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
 import { ImageUploadService } from '../../services/image-upload.service';
 
 import { HeaderComponent } from '../../components/header/header.component';
+import { normalizeOptionalText, PHONE_PATTERN } from '../../utils/validation';
 
 @Component({
     selector: 'app-prefil-edit',
@@ -23,9 +24,9 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
 
   public formEditarPerfil: FormGroup = this.formBuild.group({
     imgPerfil: [''],
-    firstname: [''],
-    lastname: [''],
-    phone: ['', [Validators.pattern('[0-9]+')]],
+    firstname: ['', [Validators.required]],
+    lastname: ['', [Validators.required]],
+    phone: ['', [Validators.pattern(PHONE_PATTERN)]],
     pais: [''],
     provincia: [''],
     ciudad: [''],
@@ -80,6 +81,12 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
   actualizarPerfil() {
     if (this.isSaving) return;
 
+    if (this.formEditarPerfil.invalid) {
+      this.formEditarPerfil.markAllAsTouched();
+      this.toastService.warning('Revisá los campos marcados antes de guardar.');
+      return;
+    }
+
     if (this.userId) {
       this.isSaving = true;
 
@@ -105,14 +112,14 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
       this.formEditarPerfil.patchValue({ imgPerfil });
       const objeto: UsuarioEdit = {
         id: Number(this.userId),
-        firstname: this.formEditarPerfil.value.firstname,
-        lastname: this.formEditarPerfil.value.lastname,
-        phone: this.formEditarPerfil.value.phone.toString(),
-        pais: this.formEditarPerfil.value.pais,
-        provincia: this.formEditarPerfil.value.provincia,
-        ciudad: this.formEditarPerfil.value.ciudad,
-        address: this.formEditarPerfil.value.address,
-        birth: this.formEditarPerfil.value.birth,
+        firstname: normalizeOptionalText(this.formEditarPerfil.value.firstname),
+        lastname: normalizeOptionalText(this.formEditarPerfil.value.lastname),
+        phone: normalizeOptionalText(this.formEditarPerfil.value.phone),
+        pais: normalizeOptionalText(this.formEditarPerfil.value.pais),
+        provincia: normalizeOptionalText(this.formEditarPerfil.value.provincia),
+        ciudad: normalizeOptionalText(this.formEditarPerfil.value.ciudad),
+        address: normalizeOptionalText(this.formEditarPerfil.value.address),
+        birth: normalizeOptionalText(this.formEditarPerfil.value.birth),
         imgPerfil
       };
 

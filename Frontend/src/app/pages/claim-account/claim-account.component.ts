@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService, AccountClaimInfo } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { PASSWORD_MIN_LENGTH } from '../../utils/validation';
 
 @Component({
     selector: 'app-claim-account',
@@ -32,7 +33,7 @@ export class ClaimAccountComponent implements OnInit {
   });
 
   form = this.fb.group({
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(PASSWORD_MIN_LENGTH)]],
     confirmPassword: ['', [Validators.required]]
   });
 

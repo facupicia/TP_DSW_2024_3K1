@@ -7,6 +7,7 @@ import { Login } from '../../interfaces/Login';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 import { HeaderComponent } from '../../components/header/header.component';
+import { PASSWORD_MIN_LENGTH } from '../../utils/validation';
 
 @Component({
     selector: 'app-login',
@@ -32,7 +33,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   
   public formLogin: FormGroup = this.formBuilder.group({
     email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
+    password: ['', [Validators.required, Validators.minLength(PASSWORD_MIN_LENGTH)]],
   });
 
   // Detectar Safari en iOS para usar modo redirect

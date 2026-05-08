@@ -6,6 +6,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Usuario } from '../../interfaces/Usuario';
 import { CommonModule } from '@angular/common';
 import { HeaderComponent } from '../../components/header/header.component';
+import { PASSWORD_MIN_LENGTH, PHONE_PATTERN } from '../../utils/validation';
 
 @Component({
     selector: 'app-register',
@@ -27,8 +28,8 @@ export class RegisterComponent {
     email: ['', [Validators.required, Validators.email]],
     firstname: ['', Validators.required],
     lastname: ['', Validators.required],
-    password: ['', [Validators.required, Validators.minLength(6)]],
-    phone: ['', [Validators.required]],
+    password: ['', [Validators.required, Validators.minLength(PASSWORD_MIN_LENGTH)]],
+    phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
     pais: [''],
     provincia: [''],
     ciudad: ['', Validators.required],
@@ -78,5 +79,6 @@ export class RegisterComponent {
       input = `${input.substring(0, 4)}-${input.substring(4, 10)}`;
     }
     event.target.value = input;
+    this.formRegistro.get('phone')?.setValue(input, { emitEvent: false });
   }
 }

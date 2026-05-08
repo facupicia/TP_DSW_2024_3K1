@@ -75,7 +75,7 @@
             <label class="block">
               <span class="mb-2 block text-xs font-bold uppercase tracking-widest text-gray-400">Contraseña</span>
               <div class="relative">
-                <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="Mínimo 6 caracteres"
+                <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="Mínimo 8 caracteres"
                   class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-24 text-gray-950 outline-none transition focus:border-gray-950 focus:bg-white">
                 <button type="button" (click)="showPassword = !showPassword"
                   class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-100">
@@ -84,7 +84,7 @@
               </div>
               @if (form.get('password')?.hasError('minlength') && form.get('password')?.touched) {
                 <span
-                class="mt-1 block text-xs text-red-500">Usa al menos 6 caracteres.</span>
+                class="mt-1 block text-xs text-red-500">Usa al menos 8 caracteres.</span>
               }
             </label>
             <label class="block">

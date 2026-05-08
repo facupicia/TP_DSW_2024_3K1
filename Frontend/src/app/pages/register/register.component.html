@@ -57,6 +57,9 @@
                 <input type="text" formControlName="phone" (input)="formatPhoneNumber($event)" placeholder="0000-000000"
                   class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
                   [ngClass]="{'ring-2 ring-red-100 bg-red-50': formRegistro.get('phone')?.invalid && formRegistro.get('phone')?.touched}">
+                  @if (formRegistro.get('phone')?.hasError('pattern') && formRegistro.get('phone')?.touched) {
+                    <p class="text-red-500 text-xs mt-1 ml-1">Teléfono inválido</p>
+                  }
                 </div>
               </div>
 
@@ -142,7 +145,7 @@
                               </div>
                               @if (formRegistro.get('password')?.hasError('minlength') && formRegistro.get('password')?.touched) {
                                 <p
-                                class="text-red-500 text-xs mt-1 ml-1">Mínimo 6 caracteres</p>
+                                class="text-red-500 text-xs mt-1 ml-1">Mínimo 8 caracteres</p>
                               }
                             </div>
 

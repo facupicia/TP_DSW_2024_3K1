@@ -14,6 +14,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
 import { AuthService } from '../../services/auth.service';
+import { PHONE_PATTERN } from '../../utils/validation';
 
 @Component({
     selector: 'app-checkout',
@@ -157,7 +158,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       } else {
         const validators = controlName === 'birth'
           ? (this.requiresBirthDate ? [Validators.required] : [])
-          : [Validators.required];
+          : controlName === 'phone'
+            ? [Validators.required, Validators.pattern(PHONE_PATTERN)]
+            : (controlName === 'email' || controlName === 'confirmEmail')
+              ? [Validators.required, Validators.email]
+              : [Validators.required];
         control.setValidators(validators);
       }
 
@@ -184,6 +189,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     if (email !== confirmEmail) {
       this.toastService.warning('Los correos no coinciden.');
+      return null;
+    }
+
+    if (!PHONE_PATTERN.test(phone)) {
+      this.toastService.warning('Ingresá un teléfono válido.');
       return null;
     }
 
@@ -325,13 +335,29 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.calculateTotal();
   }
 
+  formatGuestPhoneNumber(event: Event): void {
+    const inputElement = event.target as HTMLInputElement;
+    let input = inputElement.value.replace(/\D/g, '');
+
+    if (input.length > 4) {
+      input = `${input.substring(0, 4)}-${input.substring(4, 10)}`;
+    }
+
+    inputElement.value = input;
+    this.formCheckout.get('phone')?.setValue(input, { emitEvent: false });
+  }
+
   comprarTickets() {
     this.showSuccessMessage = false;
     this.showErrorMessage = false;
     this.errorMessageText = '';
     this.paymentStatus = 'idle';
 
-    if (!this.formCheckout.valid) return;
+    if (!this.formCheckout.valid) {
+      this.formCheckout.markAllAsTouched();
+      this.toastService.warning('Revisá los datos del comprador para continuar.');
+      return;
+    }
     if (!this.selectedTicketType && this.ticketTypes.length > 0) return;
     const guestBuyer = this.getGuestBuyer();
     if (!this.isAuthenticated && !guestBuyer) return;
