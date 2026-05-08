@@ -88,6 +88,15 @@ const EnvSchema = z
     // Rate Limiting
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(100),
     REFRESH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(300),
+
+    // Volume Seeding (solo para testeo de carga)
+    VOLUME_USERS: z.coerce.number().int().min(1).optional().default(500),
+    VOLUME_ORGANIZERS: z.coerce.number().int().min(1).optional().default(20),
+    VOLUME_EVENTS: z.coerce.number().int().min(1).optional().default(100),
+    VOLUME_TICKET_TYPES: z.coerce.number().int().min(1).optional().default(300),
+    VOLUME_TICKETS: z.coerce.number().int().min(1).optional().default(2000),
+    VOLUME_PAYMENTS: z.coerce.number().int().min(1).optional().default(2000),
+    VOLUME_BATCH_SIZE: z.coerce.number().int().min(1).optional().default(500),
   })
   .refine(
     (data) => {
