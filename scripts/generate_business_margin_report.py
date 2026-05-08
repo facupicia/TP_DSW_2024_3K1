@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -64,25 +65,45 @@ def bullets(items: list[str], styles):
 
 
 def table(data, widths=None, small=False):
+    header_style = ParagraphStyle(
+        "TableHeader",
+        fontName="Helvetica-Bold",
+        fontSize=8 if small else 9,
+        leading=10 if small else 11,
+        textColor=colors.white,
+    )
+    cell_style = ParagraphStyle(
+        "TableCell",
+        fontName="Helvetica",
+        fontSize=7 if small else 8,
+        leading=9 if small else 10.5,
+        textColor=colors.HexColor("#111827"),
+    )
+
+    def as_paragraph(value, is_header=False):
+        if isinstance(value, Paragraph):
+            return value
+        value = "" if value is None else str(value)
+        return Paragraph(escape(value), header_style if is_header else cell_style)
+
+    wrapped_data = [
+        [as_paragraph(cell, row_index == 0) for cell in row]
+        for row_index, row in enumerate(data)
+    ]
+
     style = TableStyle(
         [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0F172A")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 8 if small else 9),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 7 if small else 8),
-            ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#111827")),
             ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F8FAFC")]),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
             ("TOPPADDING", (0, 0), (-1, -1), 5),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ]
     )
-    return Table(data, colWidths=widths, hAlign="LEFT", repeatRows=1, style=style)
+    return Table(wrapped_data, colWidths=widths, hAlign="LEFT", repeatRows=1, style=style)
 
 
 def footer(canvas, doc):
