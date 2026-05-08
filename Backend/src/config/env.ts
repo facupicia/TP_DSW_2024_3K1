@@ -84,10 +84,41 @@ const EnvSchema = z
     // Encryption
     ENCRYPTION_KEY: z.string().length(64).optional(),
     METRICS_PUBLIC: z.enum(["true", "false"]).default("false"),
+    TRUST_PROXY_HOPS: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(10)
+      .optional()
+      .default(process.env.NODE_ENV === "production" ? 1 : 0),
 
     // Rate Limiting
-    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(100),
-    REFRESH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).optional().default(300),
+    AUTH_RATE_LIMIT_MAX: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .default(process.env.NODE_ENV === "production" ? 30 : 100),
+    AUTH_RATE_LIMIT_WINDOW_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(60)
+      .optional()
+      .default(process.env.NODE_ENV === "production" ? 15 : 1),
+    REFRESH_RATE_LIMIT_MAX: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .default(process.env.NODE_ENV === "production" ? 60 : 300),
+    REFRESH_RATE_LIMIT_WINDOW_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(60)
+      .optional()
+      .default(15),
 
     // Volume Seeding (solo para testeo de carga)
     VOLUME_USERS: z.coerce.number().int().min(1).optional().default(500),

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnInit, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminService, EventRanking, DateRange } from '../../services/admin.service';
 import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
@@ -280,12 +280,13 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
     }
   `]
 })
-export class TopEventsTableComponent implements OnInit {
+export class TopEventsTableComponent implements OnInit, OnChanges {
     private adminService = inject(AdminService);
     private cdr = inject(ChangeDetectorRef);
 
     @Input() dateRange?: DateRange;
     @Input() autoLoad = true;
+    @Input() refreshKey = 0;
 
     events: EventRanking[] = [];
     loading = false;
@@ -294,6 +295,14 @@ export class TopEventsTableComponent implements OnInit {
 
     ngOnInit(): void {
         if (this.autoLoad) {
+            this.loadEvents();
+        }
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        const dateChanged = changes['dateRange'] && !changes['dateRange'].isFirstChange();
+        const keyChanged = changes['refreshKey'] && !changes['refreshKey'].isFirstChange();
+        if (dateChanged || keyChanged) {
             this.loadEvents();
         }
     }

@@ -239,7 +239,7 @@
                                         @case ('dashboard') {
                                           <div class="animate-fade-in-up">
                                             @defer (on viewport) {
-                                              <app-dashboard-overview [overview]="overview" [loading]="loadingMetrics"></app-dashboard-overview>
+                                              <app-dashboard-overview [overview]="overview" [loading]="loadingMetrics" [dateRange]="dateRange" [refreshKey]="refreshKey"></app-dashboard-overview>
                                             } @placeholder {
                                               <div class="h-64 bg-white/70 border border-gray-100 rounded-2xl animate-pulse"></div>
                                             }

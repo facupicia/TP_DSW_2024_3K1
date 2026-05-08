@@ -173,7 +173,8 @@ router.get(
     checkRoleAuth('admin'),
     async (req: CustomRequest, res: Response) => {
         try {
-            const metrics = await adminService.getEventMetrics();
+            const dateRange = parseDateRange(req);
+            const metrics = await adminService.getEventMetrics(dateRange);
 
             res.json({
                 success: true,

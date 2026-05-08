@@ -15,7 +15,7 @@ import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatt
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
-type DatePreset = 'today' | '7days' | '30days' | '90days' | 'all';
+type DatePreset = 'today' | '7days' | '30days' | '90days' | '180days' | 'all';
 
 @Component({
     selector: 'app-admin-panel',
@@ -72,6 +72,7 @@ export class AdminPanelComponent implements OnInit {
     { value: '7days', label: '7 días' },
     { value: '30days', label: '30 días' },
     { value: '90days', label: '90 días' },
+    { value: '180days', label: '6 meses' },
     { value: 'all', label: 'Todo' }
   ];
 
@@ -92,15 +93,12 @@ export class AdminPanelComponent implements OnInit {
   // New comprehensive metrics
   overview: OverviewResponse | null = null;
   dateRange: DateRange | undefined = undefined;
+  refreshKey = 0;
 
   ngOnInit(): void {
     this.userService.currentUser$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
-    });
-
-    this.userService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
-      this.currentUser = user;
-      if (user) {
+      if (u && !this.overview && !this.loadingMetrics) {
         this.loadOverview();
       }
     });
@@ -238,14 +236,21 @@ export class AdminPanelComponent implements OnInit {
         startDate.setDate(startDate.getDate() - 90);
         startDate.setHours(0, 0, 0, 0);
         break;
+      case '180days':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 180);
+        startDate.setHours(0, 0, 0, 0);
+        break;
       case 'all':
       default:
         this.dateRange = undefined;
+        this.refreshKey++;
         this.loadOverview();
         return;
     }
 
     this.dateRange = { startDate, endDate };
+    this.refreshKey++;
     this.loadOverview();
   }
 

@@ -7,6 +7,7 @@ import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignm
 @Entity()
 @Unique(['email'])
 @Index('idx_user_active_created', ['active', 'createdAt'])
+@Index('idx_user_created_at', ['createdAt'])
 export class User extends BaseEntity {
 
     @PrimaryGeneratedColumn()

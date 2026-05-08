@@ -113,89 +113,58 @@ export class AdminService {
      */
     async getSubscriptionMetrics(dateRange?: DateRange): Promise<SubscriptionMetrics> {
         const queryRunner = AppDataSource.createQueryRunner();
+        const params: any[] = [];
 
         try {
-            // Active subscriptions by plan
-            const activeSubsQuery = `
-        SELECT 
-          sp.name AS "planName",
-          sp."displayName" AS "displayName",
-          COUNT(*) AS count
-        FROM user_subscription us
-        INNER JOIN subscription_plan sp ON us."planId" = sp.id
-        WHERE us.status = 'active'
-        GROUP BY sp.id, sp.name, sp."displayName"
-        ORDER BY count DESC
+            // Combined query 1: Active subs by plan + MRR + pro/free counts
+            const activeStatsQuery = `
+        WITH active_stats AS (
+          SELECT 
+            sp.name AS "planName",
+            sp."displayName" AS "displayName",
+            COUNT(*) AS count,
+            COALESCE(SUM(
+              CASE WHEN sp.name != 'FREE' THEN
+                CASE WHEN us."billingCycle" = 'annual' THEN sp."monthlyPrice" / 12.0 ELSE sp."monthlyPrice" END
+              ELSE 0 END
+            ), 0) AS "planMrr"
+          FROM user_subscription us
+          INNER JOIN subscription_plan sp ON us."planId" = sp.id
+          WHERE us.status = 'active'
+          GROUP BY sp.id, sp.name, sp."displayName"
+          ORDER BY count DESC
+        )
+        SELECT *, SUM("planMrr") OVER () AS "totalMrr" FROM active_stats
       `;
-            const activeSubs = await queryRunner.query(activeSubsQuery);
+            const activeSubs = await queryRunner.query(activeStatsQuery);
 
             const totalActive = activeSubs.reduce((sum: number, item: any) => sum + parseInt(item.count), 0);
+            const mrr = parseFloat(activeSubs[0]?.totalMrr || 0);
+            const proUsers = parseInt(activeSubs.find((s: any) => s.planName === 'PRO')?.count || 0);
+            const freeUsers = parseInt(activeSubs.find((s: any) => s.planName === 'FREE')?.count || 0);
 
-            // MRR calculation (excluding FREE plan)
-            // For annual subscriptions, we divide by 12 to get monthly equivalent
-            const mrrQuery = `
-        SELECT 
-          COALESCE(SUM(
-            CASE 
-              WHEN us."billingCycle" = 'annual' THEN sp."monthlyPrice" / 12.0
-              ELSE sp."monthlyPrice"
-            END
-          ), 0) AS mrr
-        FROM user_subscription us
-        INNER JOIN subscription_plan sp ON us."planId" = sp.id
-        WHERE us.status = 'active'
-          AND sp.name != 'FREE'
-      `;
-            const mrrResult = await queryRunner.query(mrrQuery);
-            const mrr = parseFloat(mrrResult[0]?.mrr || 0);
-
-            // New subscriptions in date range
+            // Combined query 2: New, cancelled, startPeriod counts (only when dateRange present)
             let newSubsCount = 0;
-            if (dateRange?.startDate && dateRange?.endDate) {
-                const newSubsQuery = `
-          SELECT COUNT(*) AS count
-          FROM user_subscription
-          WHERE "createdAt" >= $1 AND "createdAt" <= $2
-        `;
-                const newSubsResult = await queryRunner.query(newSubsQuery, [dateRange.startDate, dateRange.endDate]);
-                newSubsCount = parseInt(newSubsResult[0]?.count || 0);
-            }
-
-            // Cancelled subscriptions in date range (churn calculation)
             let cancelledCount = 0;
             let churnRate = 0;
-            let startPeriodTotal = 0;
-            
+
             if (dateRange?.startDate && dateRange?.endDate) {
-                const cancelledQuery = `
-          SELECT COUNT(*) AS count
+                const dateMetricsQuery = `
+          SELECT 
+            COUNT(*) FILTER (WHERE "createdAt" >= $1 AND "createdAt" <= $2) AS "newSubs",
+            COUNT(*) FILTER (WHERE status = 'cancelled' AND "cancelledAt" >= $1 AND "cancelledAt" <= $2) AS "cancelled",
+            COUNT(*) FILTER (WHERE "createdAt" < $1 AND (status != 'cancelled' OR "cancelledAt" >= $1)) AS "startPeriod"
           FROM user_subscription
-          WHERE status = 'cancelled'
-            AND "cancelledAt" >= $1
-            AND "cancelledAt" <= $2
         `;
-                const cancelledResult = await queryRunner.query(cancelledQuery, [dateRange.startDate, dateRange.endDate]);
-                cancelledCount = parseInt(cancelledResult[0]?.count || 0);
+                const dateResult = await queryRunner.query(dateMetricsQuery, [dateRange.startDate, dateRange.endDate]);
+                newSubsCount = parseInt(dateResult[0]?.newSubs || 0);
+                cancelledCount = parseInt(dateResult[0]?.cancelled || 0);
+                const startPeriodTotal = parseInt(dateResult[0]?.startPeriod || 0);
 
-                // Get total subscriptions at START of period for accurate churn calculation
-                const startPeriodQuery = `
-          SELECT COUNT(*) AS count
-          FROM user_subscription
-          WHERE "createdAt" < $1
-            AND (status != 'cancelled' OR "cancelledAt" >= $1)
-        `;
-                const startPeriodResult = await queryRunner.query(startPeriodQuery, [dateRange.startDate]);
-                startPeriodTotal = parseInt(startPeriodResult[0]?.count || 0);
-
-                // Churn rate calculation: Cancelled / Total at start of period
                 if (startPeriodTotal > 0) {
                     churnRate = (cancelledCount / startPeriodTotal) * 100;
                 }
             }
-
-            // PRO vs FREE split
-            const proUsers = activeSubs.find((s: any) => s.planName === 'PRO')?.count || 0;
-            const freeUsers = activeSubs.find((s: any) => s.planName === 'FREE')?.count || 0;
 
             return {
                 activeSubscriptions: {
@@ -210,8 +179,8 @@ export class AdminService {
                 cancelledSubscriptions: cancelledCount,
                 churnRate: parseFloat(churnRate.toFixed(2)),
                 mrr: parseFloat(mrr.toFixed(2)),
-                proUsers: parseInt(proUsers),
-                freeUsers: parseInt(freeUsers)
+                proUsers,
+                freeUsers
             };
 
         } finally {
@@ -226,21 +195,24 @@ export class AdminService {
         const queryRunner = AppDataSource.createQueryRunner();
 
         try {
-            let whereClause = `WHERE pl.status = 'completed'`;
+            let dateFilter = `WHERE 1=1`;
             const params: any[] = [];
 
             if (dateRange?.startDate && dateRange?.endDate) {
-                whereClause += ` AND pl."createdAt" >= $1 AND pl."createdAt" <= $2`;
+                dateFilter = `WHERE "createdAt" >= $1 AND "createdAt" <= $2`;
                 params.push(dateRange.startDate, dateRange.endDate);
             }
 
+            // Combined query: completed metrics + payment status breakdown
             const metricsQuery = `
         SELECT 
-          COUNT(*) AS "totalTransactions",
-          SUM(pl.quantity) AS "ticketsSold",
-          SUM(pl."totalAmount") AS "grossRevenue"
-        FROM payment_log pl
-        ${whereClause}
+          COUNT(*) FILTER (WHERE status = 'completed') AS "totalTransactions",
+          COALESCE(SUM(quantity) FILTER (WHERE status = 'completed'), 0) AS "ticketsSold",
+          COALESCE(SUM("totalAmount") FILTER (WHERE status = 'completed'), 0) AS "grossRevenue",
+          COUNT(*) FILTER (WHERE status = 'completed') AS "successfulPayments",
+          COUNT(*) FILTER (WHERE status = 'failed') AS "failedPayments"
+        FROM payment_log
+        ${dateFilter}
       `;
 
             const result = await queryRunner.query(metricsQuery, params);
@@ -251,31 +223,13 @@ export class AdminService {
             const totalTransactions = parseInt(data?.totalTransactions || 0);
             const averageTicketPrice = ticketsSold > 0 ? grossRevenue / ticketsSold : 0;
 
-            // Count successful vs failed payments without inheriting the completed-only filter.
-            let statusWhereClause = '';
-            if (dateRange?.startDate && dateRange?.endDate) {
-                statusWhereClause = `WHERE "createdAt" >= $1 AND "createdAt" <= $2`;
-            }
-            const statusQuery = `
-        SELECT 
-          COUNT(*) FILTER (WHERE status = 'completed') AS "successfulPayments",
-          COUNT(*) FILTER (WHERE status = 'failed') AS "failedPayments"
-        FROM payment_log
-        ${statusWhereClause}
-      `;
-            const statusResult = await queryRunner.query(statusQuery, params);
-            const statusData = statusResult[0];
-
-            const successfulPayments = parseInt(statusData?.successfulPayments || 0);
-            const failedPayments = parseInt(statusData?.failedPayments || 0);
-
             return {
                 ticketsSold,
                 grossRevenue: parseFloat(grossRevenue.toFixed(2)),
                 averageTicketPrice: parseFloat(averageTicketPrice.toFixed(2)),
                 totalTransactions,
-                successfulPayments,
-                failedPayments
+                successfulPayments: parseInt(data?.successfulPayments || 0),
+                failedPayments: parseInt(data?.failedPayments || 0)
             };
 
         } finally {
@@ -298,46 +252,55 @@ export class AdminService {
                 params.push(dateRange.startDate, dateRange.endDate);
             }
 
-            // Total commission
-            const totalQuery = `
-        SELECT 
-          SUM(pl."commissionAmount") AS "totalCommission",
-          AVG(pl."commissionPercent") AS "avgCommissionPercent"
-        FROM payment_log pl
-        ${whereClause}
-      `;
-            const totalResult = await queryRunner.query(totalQuery, params);
-            const totalCommission = parseFloat(totalResult[0]?.totalCommission || 0);
-            const avgCommissionPercent = parseFloat(totalResult[0]?.avgCommissionPercent || 0);
+            const limitParam = params.length + 1;
 
-            // Top organizers by commission
-            const topOrganizersQuery = `
-        SELECT 
-          pl."organizerId",
-          u.firstname || ' ' || u.lastname AS "organizerName",
-          SUM(pl."commissionAmount") AS "totalCommission",
-          SUM(pl."totalAmount") AS "totalGmv",
-          COUNT(*) AS "salesCount"
-        FROM payment_log pl
-        INNER JOIN "user" u ON pl."organizerId" = u.id
-        ${whereClause}
-        GROUP BY pl."organizerId", "organizerName"
-        ORDER BY "totalCommission" DESC
-        LIMIT $${params.length + 1}
+            // Single CTE query: grand totals + top organizers in one round trip
+            const query = `
+        WITH totals AS (
+          SELECT 
+            SUM("commissionAmount") AS "grandTotalCommission",
+            AVG("commissionPercent") AS "avgCommissionPercent"
+          FROM payment_log pl
+          ${whereClause}
+        ),
+        top_orgs AS (
+          SELECT 
+            pl."organizerId",
+            u.firstname || ' ' || u.lastname AS "organizerName",
+            SUM(pl."commissionAmount") AS "totalCommission",
+            SUM(pl."totalAmount") AS "totalGmv",
+            COUNT(*) AS "salesCount"
+          FROM payment_log pl
+          INNER JOIN "user" u ON pl."organizerId" = u.id
+          ${whereClause}
+          GROUP BY pl."organizerId", u.firstname, u.lastname
+          ORDER BY "totalCommission" DESC
+          LIMIT $${limitParam}
+        )
+        SELECT t.*, org.*
+        FROM totals t
+        LEFT JOIN top_orgs org ON true
       `;
-            const topOrganizers = await queryRunner.query(topOrganizersQuery, [...params, limit]);
+            const result = await queryRunner.query(query, [...params, limit]);
 
-            return {
-                totalCommission: parseFloat(totalCommission.toFixed(2)),
-                commissionByPeriod: parseFloat(totalCommission.toFixed(2)),
-                averageCommissionPercent: parseFloat(avgCommissionPercent.toFixed(2)),
-                topOrganizers: topOrganizers.map((org: any) => ({
+            const totalCommission = parseFloat(result[0]?.grandTotalCommission || 0);
+            const avgCommissionPercent = parseFloat(result[0]?.avgCommissionPercent || 0);
+
+            const topOrganizers = result
+                .filter((row: any) => row.organizerId != null)
+                .map((org: any) => ({
                     organizerId: org.organizerId,
                     organizerName: org.organizerName,
                     totalCommission: parseFloat(org.totalCommission),
                     totalGmv: parseFloat(org.totalGmv),
                     salesCount: parseInt(org.salesCount)
-                }))
+                }));
+
+            return {
+                totalCommission: parseFloat(totalCommission.toFixed(2)),
+                commissionByPeriod: parseFloat(totalCommission.toFixed(2)),
+                averageCommissionPercent: parseFloat(avgCommissionPercent.toFixed(2)),
+                topOrganizers
             };
 
         } finally {
@@ -350,44 +313,33 @@ export class AdminService {
      */
     async getUserMetrics(dateRange?: DateRange): Promise<UserMetrics> {
         const queryRunner = AppDataSource.createQueryRunner();
+        const params: any[] = [];
 
         try {
-            // Total users
-            const totalUsersResult = await queryRunner.query(`SELECT COUNT(*) AS count FROM "user" WHERE active = true`);
-            const totalUsers = parseInt(totalUsersResult[0]?.count || 0);
-
-            // New users in date range
-            let newUsers = 0;
+            let newUsersFilter = '0';
             if (dateRange?.startDate && dateRange?.endDate) {
-                const newUsersResult = await queryRunner.query(
-                    `SELECT COUNT(*) AS count FROM "user" WHERE "createdAt" >= $1 AND "createdAt" <= $2`,
-                    [dateRange.startDate, dateRange.endDate]
-                );
-                newUsers = parseInt(newUsersResult[0]?.count || 0);
+                newUsersFilter = `(SELECT COUNT(*) FROM "user" WHERE "createdAt" >= $1 AND "createdAt" <= $2)`;
+                params.push(dateRange.startDate, dateRange.endDate);
             }
 
-            // Users with active subscription (non-FREE)
-            const activeSubsResult = await queryRunner.query(`
-        SELECT COUNT(DISTINCT us."userId") AS count
-        FROM user_subscription us
-        INNER JOIN subscription_plan sp ON us."planId" = sp.id
-        WHERE us.status = 'active' AND sp.name != 'FREE'
-      `);
-            const usersWithActiveSubscription = parseInt(activeSubsResult[0]?.count || 0);
+            const nextParam = () => params.length + 1;
 
-            // Active organizers (users who have created events)
-            const activeOrganizersResult = await queryRunner.query(`
-        SELECT COUNT(DISTINCT "user_id") AS count
-        FROM event
-        WHERE "deletedAt" IS NULL
-      `);
-            const activeOrganizers = parseInt(activeOrganizersResult[0]?.count || 0);
+            const query = `
+        SELECT 
+          (SELECT COUNT(*) FROM "user" WHERE active = true) AS "totalUsers",
+          ${newUsersFilter} AS "newUsers",
+          (SELECT COUNT(DISTINCT us."userId") FROM user_subscription us INNER JOIN subscription_plan sp ON us."planId" = sp.id WHERE us.status = 'active' AND sp.name != 'FREE') AS "usersWithActiveSubscription",
+          (SELECT COUNT(DISTINCT "user_id") FROM event WHERE "deletedAt" IS NULL) AS "activeOrganizers"
+      `;
+
+            const result = await queryRunner.query(query, params);
+            const data = result[0];
 
             return {
-                totalUsers,
-                newUsers,
-                usersWithActiveSubscription,
-                activeOrganizers
+                totalUsers: parseInt(data?.totalUsers || 0),
+                newUsers: parseInt(data?.newUsers || 0),
+                usersWithActiveSubscription: parseInt(data?.usersWithActiveSubscription || 0),
+                activeOrganizers: parseInt(data?.activeOrganizers || 0)
             };
 
         } finally {
@@ -396,37 +348,39 @@ export class AdminService {
     }
 
     /**
-     * Get event metrics
+     * Get event metrics, optionally filtered by date range (event.createdAt)
      */
-    async getEventMetrics(): Promise<EventMetrics> {
+    async getEventMetrics(dateRange?: DateRange): Promise<EventMetrics> {
         const queryRunner = AppDataSource.createQueryRunner();
 
         try {
-            // Basic event counts
+            let dateClause = '';
+            const params: any[] = [];
+
+            if (dateRange?.startDate && dateRange?.endDate) {
+                dateClause = ` AND e."createdAt" >= $1 AND e."createdAt" <= $2`;
+                params.push(dateRange.startDate, dateRange.endDate);
+            }
+
+            const nextParam = () => params.length + 1;
+            const now = new Date();
+
+            // Combined query: basic counts + upcoming/past split
             const basicQuery = `
         SELECT 
           COUNT(*) AS "totalEvents",
-          COUNT(*) FILTER (WHERE active = true AND "deletedAt" IS NULL) AS "activeEvents",
-          COUNT(*) FILTER (WHERE active = false OR "deletedAt" IS NOT NULL) AS "inactiveEvents",
-          COUNT(*) FILTER (WHERE destacado = true AND active = true) AS "featuredEvents"
-        FROM event
+          COUNT(*) FILTER (WHERE e.active = true AND e."deletedAt" IS NULL) AS "activeEvents",
+          COUNT(*) FILTER (WHERE e.active = false OR e."deletedAt" IS NOT NULL) AS "inactiveEvents",
+          COUNT(*) FILTER (WHERE e.destacado = true AND e.active = true) AS "featuredEvents",
+          COUNT(*) FILTER (WHERE e.active = true AND e."deletedAt" IS NULL AND e.date >= $${nextParam()}) AS "upcomingEvents",
+          COUNT(*) FILTER (WHERE e.active = true AND e."deletedAt" IS NULL AND e.date < $${nextParam()}) AS "pastEvents"
+        FROM event e
+        WHERE 1=1 ${dateClause}
       `;
-            const basicResult = await queryRunner.query(basicQuery);
+            const basicResult = await queryRunner.query(basicQuery, [...params, now]);
             const basic = basicResult[0];
 
-            // Upcoming vs past events
-            const now = new Date();
-            const dateQuery = `
-        SELECT 
-          COUNT(*) FILTER (WHERE date >= $1) AS "upcomingEvents",
-          COUNT(*) FILTER (WHERE date < $1) AS "pastEvents"
-        FROM event
-        WHERE active = true AND "deletedAt" IS NULL
-      `;
-            const dateResult = await queryRunner.query(dateQuery, [now]);
-            const dates = dateResult[0];
-
-            // Average capacity utilization
+            // Average capacity utilization (optionally filtered by event creation date)
             const utilizationQuery = `
         SELECT 
           AVG(utilization) AS "avgUtilization"
@@ -439,11 +393,11 @@ export class AdminService {
             END AS utilization
           FROM event e
           INNER JOIN ticket_type tt ON e.id = tt."eventId"
-          WHERE e.active = true AND e."deletedAt" IS NULL
+          WHERE e.active = true AND e."deletedAt" IS NULL ${dateClause}
           GROUP BY e.id
         ) AS event_utilization
       `;
-            const utilizationResult = await queryRunner.query(utilizationQuery);
+            const utilizationResult = await queryRunner.query(utilizationQuery, params);
             const avgUtilization = parseFloat(utilizationResult[0]?.avgUtilization || 0);
 
             return {
@@ -451,8 +405,8 @@ export class AdminService {
                 activeEvents: parseInt(basic.activeEvents || 0),
                 inactiveEvents: parseInt(basic.inactiveEvents || 0),
                 featuredEvents: parseInt(basic.featuredEvents || 0),
-                upcomingEvents: parseInt(dates.upcomingEvents || 0),
-                pastEvents: parseInt(dates.pastEvents || 0),
+                upcomingEvents: parseInt(basic.upcomingEvents || 0),
+                pastEvents: parseInt(basic.pastEvents || 0),
                 averageCapacityUtilization: parseFloat(avgUtilization.toFixed(2))
             };
 
@@ -462,15 +416,14 @@ export class AdminService {
     }
 
     /**
-     * Get revenue overview (combined metrics)
+     * Get revenue overview (combined metrics) from pre-computed sub-metrics.
+     * This avoids re-querying the same data that getOverview already fetches.
      */
-    async getRevenueOverview(dateRange?: DateRange): Promise<RevenueOverview> {
-        const [commissionMetrics, marketplaceMetrics, subscriptionMetrics] = await Promise.all([
-            this.getCommissionMetrics(dateRange),
-            this.getMarketplaceMetrics(dateRange),
-            this.getSubscriptionMetrics(dateRange)
-        ]);
-
+    deriveRevenueOverview(
+        commissionMetrics: CommissionMetrics,
+        marketplaceMetrics: MarketplaceMetrics,
+        subscriptionMetrics: SubscriptionMetrics
+    ): RevenueOverview {
         const commissionRevenue = commissionMetrics.totalCommission;
         const subscriptionRevenue = subscriptionMetrics.mrr;
         const gmv = marketplaceMetrics.grossRevenue;
@@ -597,16 +550,20 @@ export class AdminService {
                     marketplaceMetrics,
                     commissionMetrics,
                     userMetrics,
-                    eventMetrics,
-                    revenueOverview
+                    eventMetrics
                 ] = await Promise.all([
                     this.getSubscriptionMetrics(dateRange),
                     this.getMarketplaceMetrics(dateRange),
                     this.getCommissionMetrics(dateRange, 5),
                     this.getUserMetrics(dateRange),
-                    this.getEventMetrics(),
-                    this.getRevenueOverview(dateRange)
+                    this.getEventMetrics(dateRange)
                 ]);
+
+                const revenueOverview = this.deriveRevenueOverview(
+                    commissionMetrics,
+                    marketplaceMetrics,
+                    subscriptionMetrics
+                );
 
                 return {
                     revenue: revenueOverview,

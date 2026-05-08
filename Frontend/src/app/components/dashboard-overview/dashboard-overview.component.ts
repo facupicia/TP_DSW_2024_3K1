@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { OverviewResponse } from '../../services/admin.service';
+import { OverviewResponse, DateRange } from '../../services/admin.service';
 import { KpiCardComponent, KpiCardData } from '../kpi-card/kpi-card.component';
 import { TrendChartComponent } from '../trend-chart/trend-chart.component';
 import { TopEventsTableComponent } from '../top-events-table/top-events-table.component';
@@ -37,7 +37,8 @@ import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatt
         </div>
         <!-- Revenue Trend Chart -->
         <app-trend-chart
-          [config]="{ title: '📈 Tendencias de Ingresos', showSelector: true, height: 320, showLegend: true }">
+          [config]="{ title: '📈 Tendencias de Ingresos', showSelector: true, height: 320, showLegend: true }"
+          [refreshKey]="refreshKey">
         </app-trend-chart>
         <!-- Quick Stats Grid -->
         <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -135,7 +136,7 @@ import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatt
         </div>
         <!-- Top Events Table -->
         <div class="mt-8">
-          <app-top-events-table></app-top-events-table>
+          <app-top-events-table [dateRange]="dateRange" [refreshKey]="refreshKey"></app-top-events-table>
         </div>
         <!-- Event Stats Summary -->
         <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -170,6 +171,8 @@ import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatt
 export class DashboardOverviewComponent {
   @Input() overview: OverviewResponse | null = null;
   @Input() loading = false;
+  @Input() dateRange?: DateRange;
+  @Input() refreshKey = 0;
 
   get kpiCards(): KpiCardData[] {
     if (!this.overview) return [];

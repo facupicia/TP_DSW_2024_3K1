@@ -14,6 +14,7 @@ export enum PaymentStatus {
 @Unique(['mpPaymentId'])
 @Index('idx_payment_status_created', ['status', 'createdAt'])
 @Index('idx_payment_organizer_status', ['organizerId', 'status'])
+@Index('idx_payment_status_organizer', ['status', 'organizerId'])
 @Index('idx_payment_user_created', ['userId', 'createdAt'])
 @Index('idx_payment_ticket_type_status_created', ['ticketTypeId', 'status', 'createdAt'])
 @Check('"quantity" > 0')

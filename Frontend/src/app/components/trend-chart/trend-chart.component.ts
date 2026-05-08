@@ -12,6 +12,13 @@ export interface TrendChartConfig {
     showLegend?: boolean;
 }
 
+export interface TrendChartConfig {
+    title?: string;
+    showSelector?: boolean;
+    height?: number;
+    showLegend?: boolean;
+}
+
 @Component({
     selector: 'app-trend-chart',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -188,12 +195,14 @@ export class TrendChartComponent implements OnInit, OnChanges {
     };
 
     @Input() externalData: TrendDataPoint[] | null = null;
+    @Input() refreshKey = 0;
     @Output() periodChange = new EventEmitter<TrendPeriod>();
 
     selectedPeriod: TrendPeriod = 'day';
     loading = false;
     trendData: TrendDataPoint[] = [];
     chartOptions: any = null;
+    private hasLoaded = false;
 
     periods = [
         { value: 'day' as TrendPeriod, label: '7 días', count: 7 },
@@ -202,7 +211,7 @@ export class TrendChartComponent implements OnInit, OnChanges {
     ];
 
     ngOnInit(): void {
-        if (!this.externalData) {
+        if (!this.externalData && !this.hasLoaded) {
             this.loadTrendData();
         }
     }
@@ -211,6 +220,13 @@ export class TrendChartComponent implements OnInit, OnChanges {
         if (changes['externalData'] && this.externalData) {
             this.trendData = this.externalData;
             this.buildChart();
+        }
+        if (changes['refreshKey'] && !changes['refreshKey'].isFirstChange()) {
+            this.selectedPeriod = 'day';
+            this.loadTrendData();
+        }
+        if (changes['config']?.currentValue?.title && !changes['config'].isFirstChange()) {
+            this.loadTrendData();
         }
     }
 

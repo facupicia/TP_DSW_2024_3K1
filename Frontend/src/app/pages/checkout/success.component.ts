@@ -173,10 +173,6 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (this.userProfile.id) {
-            this.router.navigate([`/my-tickets/${this.userProfile.id}`]);
-        } else {
-            this.router.navigate(['/events']);
-        }
+        this.router.navigate(['/my-tickets']);
     }
 }

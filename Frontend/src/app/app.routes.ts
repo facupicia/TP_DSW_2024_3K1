@@ -33,6 +33,7 @@ export const routes: Routes = [
     { path: "checkout/failure", loadComponent: () => import('./pages/checkout/failure.component').then(m => m.CheckoutFailureComponent), title: 'Pago Fallido' },
     { path: "checkout/pending", loadComponent: () => import('./pages/checkout/pending.component').then(m => m.CheckoutPendingComponent), title: 'Pago Pendiente' },
     { path: "admin", loadComponent: () => import('./pages/admin-panel/admin-panel.component').then(m => m.AdminPanelComponent), title: 'Panel de Administración', canActivate: [authGuard, adminGuard] },
+    { path: "my-tickets", loadComponent: () => import('./pages/tickets/tickets.component').then(m => m.TicketsComponent), title: 'Mis Tickets', canActivate: [authGuard] },
     { path: "my-tickets/:id", loadComponent: () => import('./pages/tickets/tickets.component').then(m => m.TicketsComponent), title: 'Mis Tickets', canActivate: [authGuard] },
     { path: "creator/stats", loadComponent: () => import('./pages/creator-stats/creator-stats.component').then(m => m.CreatorStatsComponent), title: 'Estadísticas', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id/stats", loadComponent: () => import('./pages/event-stats/event-stats.component').then(m => m.EventStatsComponent), title: 'Estadísticas de Evento', canActivate: [authGuard, organizerGuard] },

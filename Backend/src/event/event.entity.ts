@@ -24,6 +24,7 @@ import { PromoterEventAssignment } from "../promoter/promoter.entity";
 @Index('idx_event_category_active_date', ['categoryId', 'active', 'date'])
 @Index('idx_event_ciudad', ['ciudad'])
 @Index('idx_event_destacado_active_date', ['destacado', 'active', 'date'])
+@Index('idx_event_date', ['date'])
 @Check('"minAge" >= 0')
 export class Event extends BaseEntity {
 

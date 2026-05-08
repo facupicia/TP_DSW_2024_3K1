@@ -60,7 +60,14 @@ export class TicketsComponent implements OnInit {
       this.userID = this.route.snapshot.paramMap.get('id');
 
       this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
-        if (user && this.userID) {
+        const routeUserId = Number(this.userID);
+        const currentUserId = Number(user?.id);
+        const ticketUserId = Number.isSafeInteger(routeUserId) && routeUserId > 0
+          ? routeUserId
+          : currentUserId;
+
+        if (user && Number.isSafeInteger(ticketUserId) && ticketUserId > 0) {
+          this.userID = String(ticketUserId);
           this.cargarTickets();
         } else {
           this.loading = false;

@@ -231,7 +231,7 @@ export class PerfilComponent implements OnInit {
   }
 
   showOrders() {
-    if (this.userProfile.id) this.router.navigate(['/my-tickets', this.userProfile.id]);
+    this.router.navigate(['/my-tickets']);
   }
 
   misEventos() { this.router.navigate(['/my-events']); }

@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import crypto from "crypto";
 import { RedisStore } from "rate-limit-redis";
 import { getRedis } from "../services/redis";
 import { env } from "../../config/env";
+import { logger } from "../services/logger";
 
 const rateLimitHandler = (_req: Request, res: Response, _next: unknown, options: any) => {
     const reset = res.getHeader("ratelimit-reset") || res.getHeader("x-ratelimit-reset");
@@ -14,14 +16,15 @@ const rateLimitHandler = (_req: Request, res: Response, _next: unknown, options:
 };
 
 function createRedisStore(prefix: string) {
-    if (!env.REDIS_URL) {
-        if (env.NODE_ENV === "production") {
-            throw new Error("REDIS_URL is required in production for rate limiting");
-        }
+    if (env.NODE_ENV !== "production") {
         return undefined;
     }
 
-    return new RedisStore({
+    if (!env.REDIS_URL) {
+        throw new Error("REDIS_URL is required in production for rate limiting");
+    }
+
+    const store = new RedisStore({
         prefix,
         sendCommand: async (...args: string[]) => {
             const client = await getRedis();
@@ -31,9 +34,40 @@ function createRedisStore(prefix: string) {
             return client.sendCommand(args);
         }
     });
+
+    void store.incrementScriptSha.catch((error) => {
+        logger.error("RATE_LIMIT_REDIS_INCREMENT_SCRIPT_LOAD_FAILED", {
+            prefix,
+            error: (error as Error).message
+        });
+    });
+    void store.getScriptSha.catch((error) => {
+        logger.error("RATE_LIMIT_REDIS_GET_SCRIPT_LOAD_FAILED", {
+            prefix,
+            error: (error as Error).message
+        });
+    });
+
+    return store;
 }
 
-const isProduction = env.NODE_ENV === "production";
+function hashRateLimitPart(value: string) {
+    return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
+}
+
+function authKeyGenerator(req: Request) {
+    const ip = ipKeyGenerator(req.ip || req.socket.remoteAddress || "unknown");
+    const route = `${req.baseUrl}${req.path}`.replace(/\/+/g, "/");
+    const rawIdentifier =
+        typeof req.body?.email === "string"
+            ? req.body.email.trim().toLowerCase()
+            : typeof req.body?.token === "string"
+                ? req.body.token.trim()
+                : "";
+    const identifier = rawIdentifier ? hashRateLimitPart(rawIdentifier) : "anonymous";
+
+    return `${route}:${ip}:${identifier}`;
+}
 
 export const globalRateLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -44,18 +78,19 @@ export const globalRateLimiter = rateLimit({
     handler: rateLimitHandler
 });
 
-const authWindowMs = isProduction ? 15 * 60 * 1000 : 60 * 1000;
-const authMaxRequests = isProduction ? 10 : env.AUTH_RATE_LIMIT_MAX;
-const refreshWindowMs = 15 * 60 * 1000;
-const refreshMaxRequests = isProduction ? 60 : env.REFRESH_RATE_LIMIT_MAX;
+const authWindowMs = env.AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
+const authMaxRequests = env.AUTH_RATE_LIMIT_MAX;
+const refreshWindowMs = env.REFRESH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
+const refreshMaxRequests = env.REFRESH_RATE_LIMIT_MAX;
 
 export const authRateLimiter = rateLimit({
     windowMs: authWindowMs,
     max: authMaxRequests,
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: false,
-    store: createRedisStore("rl:auth:"),
+    skipSuccessfulRequests: true,
+    keyGenerator: authKeyGenerator,
+    store: createRedisStore("rl:auth:v2:"),
     handler: (_req, res, _next, options) => {
         const retryAfter = res.getHeader("ratelimit-reset") || res.getHeader("x-ratelimit-reset");
         const minutes = Math.max(1, Math.ceil(options.windowMs / 60000));

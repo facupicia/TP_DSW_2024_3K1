@@ -26,10 +26,13 @@ import { checkAuthToken } from "./common/middleware/authToken"
 import { checkRoleAuth } from "./common/middleware/checkRole"
 import { globalRateLimiter } from "./common/middleware/rateLimit"
 import AppDataSource from "./db";
-import { getRedis } from "./common/services/redis";
 import { env } from "./config/env";
 
 const app = express();
+
+if (env.TRUST_PROXY_HOPS > 0) {
+    app.set("trust proxy", env.TRUST_PROXY_HOPS);
+}
 
 // Body parsing FIRST so invalid/large payloads are rejected before rate limiting/logging
 app.use(express.urlencoded({ extended: false, limit: "100kb" }));
