@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EventService } from '../../services/event.service';
@@ -11,6 +11,7 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { SubscriptionService, SubscriptionLimits } from '../../services/subscription.service';
 import { PaymentService, MpStatus } from '../../services/payment.service';
+import { ImageUploadService } from '../../services/image-upload.service';
 
 @Component({
     selector: 'app-registrar-evento',
@@ -18,7 +19,7 @@ import { PaymentService, MpStatus } from '../../services/payment.service';
     templateUrl: './registrar-evento.component.html',
     styleUrls: ['./registrar-evento.component.css']
 })
-export class RegistrarEventoComponent implements OnInit {
+export class RegistrarEventoComponent implements OnInit, OnDestroy {
   private eventService = inject(EventService);
   private categoryService = inject(CategoryService);
   private authService = inject(AuthService);
@@ -28,6 +29,7 @@ export class RegistrarEventoComponent implements OnInit {
   private toastService = inject(ToastService);
   private subscriptionService = inject(SubscriptionService);
   private paymentService = inject(PaymentService);
+  private imageUploadService = inject(ImageUploadService);
 
   // Estados de la vista
   public isEditMode: boolean = false;
@@ -49,6 +51,9 @@ export class RegistrarEventoComponent implements OnInit {
   public showMpModal: boolean = false;
   public mpLoading: boolean = false;
   public isFreePlan: boolean = true;
+  public selectedEventImageFile: File | null = null;
+  public eventImagePreview: string = '';
+  private eventImagePreviewObjectUrl: string | null = null;
 
   public formRegistroEvento: FormGroup = this.formBuild.group({
     category: ['', Validators.required],
@@ -60,12 +65,15 @@ export class RegistrarEventoComponent implements OnInit {
     provincia: ['', Validators.required],
     ciudad: ['', Validators.required],
     direccion: ['', Validators.required],
-    image: ['', [Validators.pattern(/^https?:\/\/.+/)]],
+    image: [''],
     organizer: ['Organizer', Validators.required],
     minAge: [0], // 0 = sin restricción, 18 = +18, etc.
     isPublic: [true], // true = visible en explorador, false = solo por link
     ticketTypes: this.formBuild.array([])
   });
+
+  private readonly allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  private readonly maxImageSize = 8 * 1024 * 1024;
 
   get ticketTypes() {
     return this.formRegistroEvento.get('ticketTypes') as FormArray;
@@ -128,6 +136,10 @@ export class RegistrarEventoComponent implements OnInit {
 
   }
 
+  ngOnDestroy(): void {
+    this.revokeEventImagePreview();
+  }
+
   addTicketType(data?: TicketType) {
     // Validate ticket type limit (skip if loading existing data or unlimited)
     if (!data && this.maxTicketTypes !== -1 && this.ticketTypes.length >= this.maxTicketTypes) {
@@ -174,6 +186,7 @@ export class RegistrarEventoComponent implements OnInit {
           category: evento.categoryId,
           minAge: evento.minAge || 0
         });
+        this.eventImagePreview = evento.image || '';
 
         // Load Ticket Types
         this.ticketTypes.clear();
@@ -216,12 +229,29 @@ export class RegistrarEventoComponent implements OnInit {
 
     this.isSubmitting = true;
 
+    if (this.selectedEventImageFile) {
+      this.imageUploadService.uploadImage(this.selectedEventImageFile, 'event').subscribe({
+        next: ({ url }) => this.saveEvent(url),
+        error: () => {
+          this.toastService.error('No se pudo subir la imagen');
+          this.isSubmitting = false;
+        }
+      });
+      return;
+    }
+
+    this.saveEvent(this.formRegistroEvento.value.image || '');
+  }
+
+  private saveEvent(imageUrl: string) {
+    this.formRegistroEvento.patchValue({ image: imageUrl });
+
     const formValue = this.formRegistroEvento.value;
     const selectedCategory = this.categories.find(c => c.id == formValue.category);
 
     const eventData: Evento = {
       destacado: false,
-      user_id: this.userId,
+      user_id: this.userId!,
       title: formValue.title,
       description: formValue.description,
       date: formValue.date,
@@ -230,7 +260,7 @@ export class RegistrarEventoComponent implements OnInit {
       provincia: formValue.provincia,
       ciudad: formValue.ciudad,
       direccion: formValue.direccion,
-      image: formValue.image,
+      image: imageUrl,
       organizer: formValue.organizer,
       categoryId: Number(formValue.category),
       categoria_name: selectedCategory ? selectedCategory.name : '',
@@ -279,6 +309,49 @@ export class RegistrarEventoComponent implements OnInit {
           // Other errors handled by interceptor
         }
       });
+    }
+  }
+
+  onEventImageSelected(event: globalThis.Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!this.allowedImageTypes.has(file.type)) {
+      this.toastService.warning('Usá una imagen JPG, PNG, WebP o GIF');
+      input.value = '';
+      return;
+    }
+
+    if (file.size > this.maxImageSize) {
+      this.toastService.warning('La imagen no puede superar 8MB');
+      input.value = '';
+      return;
+    }
+
+    this.selectedEventImageFile = file;
+    this.revokeEventImagePreview();
+    this.eventImagePreviewObjectUrl = URL.createObjectURL(file);
+    this.eventImagePreview = this.eventImagePreviewObjectUrl;
+  }
+
+  clearSelectedEventImage(): void {
+    this.selectedEventImageFile = null;
+    this.revokeEventImagePreview();
+    this.eventImagePreview = this.formRegistroEvento.get('image')?.value || '';
+  }
+
+  getEventImagePreview(): string {
+    return this.eventImagePreview || this.formRegistroEvento.get('image')?.value || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=1000';
+  }
+
+  private revokeEventImagePreview(): void {
+    if (this.eventImagePreviewObjectUrl) {
+      URL.revokeObjectURL(this.eventImagePreviewObjectUrl);
+      this.eventImagePreviewObjectUrl = null;
     }
   }
 

@@ -1,9 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { Router, RouterLink } from '@angular/router';
 import { UsuarioEdit } from '../../interfaces/UsuarioEdit';
+import { ImageUploadService } from '../../services/image-upload.service';
 
 import { HeaderComponent } from '../../components/header/header.component';
 
@@ -13,10 +14,11 @@ import { HeaderComponent } from '../../components/header/header.component';
     templateUrl: './prefil-edit.component.html',
     styleUrl: './prefil-edit.component.css'
 })
-export class PrefilEditComponent implements OnInit {
+export class PrefilEditComponent implements OnInit, OnDestroy {
   private AccesService = inject(AuthService);
   private router = inject(Router);
   private toastService = inject(ToastService);
+  private imageUploadService = inject(ImageUploadService);
   public formBuild = inject(FormBuilder);
 
   public formEditarPerfil: FormGroup = this.formBuild.group({
@@ -32,9 +34,19 @@ export class PrefilEditComponent implements OnInit {
   });
 
   private userId: string | null = null;
+  public isSaving: boolean = false;
+  public selectedProfileImageFile: File | null = null;
+  public profileImagePreview: string = '';
+  private profileImagePreviewObjectUrl: string | null = null;
+  private readonly allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  private readonly maxImageSize = 8 * 1024 * 1024;
 
   ngOnInit(): void {
     this.cargarDatosUsuario();
+  }
+
+  ngOnDestroy(): void {
+    this.revokeProfileImagePreview();
   }
 
   cargarDatosUsuario(): void {
@@ -57,6 +69,7 @@ export class PrefilEditComponent implements OnInit {
           address: data.address || '',
           birth: data.birth,
         });
+        this.profileImagePreview = data.imgPerfil || '';
       },
       error: () => {
         this.toastService.error('Error al cargar los datos del usuario');
@@ -65,7 +78,31 @@ export class PrefilEditComponent implements OnInit {
   }
 
   actualizarPerfil() {
+    if (this.isSaving) return;
+
     if (this.userId) {
+      this.isSaving = true;
+
+      if (this.selectedProfileImageFile) {
+        this.imageUploadService.uploadImage(this.selectedProfileImageFile, 'profile').subscribe({
+          next: ({ url }) => this.saveProfile(url),
+          error: () => {
+            this.toastService.error('No se pudo subir la imagen');
+            this.isSaving = false;
+          }
+        });
+        return;
+      }
+
+      this.saveProfile(this.formEditarPerfil.value.imgPerfil);
+    } else {
+      this.toastService.error('Error: ID de usuario no disponible');
+    }
+  }
+
+  private saveProfile(imgPerfil: string) {
+    if (this.userId) {
+      this.formEditarPerfil.patchValue({ imgPerfil });
       const objeto: UsuarioEdit = {
         id: Number(this.userId),
         firstname: this.formEditarPerfil.value.firstname,
@@ -76,7 +113,7 @@ export class PrefilEditComponent implements OnInit {
         ciudad: this.formEditarPerfil.value.ciudad,
         address: this.formEditarPerfil.value.address,
         birth: this.formEditarPerfil.value.birth,
-        imgPerfil: this.formEditarPerfil.value.imgPerfil
+        imgPerfil
       };
 
       this.AccesService.update(objeto).subscribe({
@@ -88,13 +125,55 @@ export class PrefilEditComponent implements OnInit {
         },
         error: (error) => {
           this.toastService.error('Error al actualizar el perfil');
+          this.isSaving = false;
         }
       });
-    } else {
-      this.toastService.error('Error: ID de usuario no disponible');
     }
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('cachedProfile');
+    }
+  }
+
+  onProfileImageSelected(event: globalThis.Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (!this.allowedImageTypes.has(file.type)) {
+      this.toastService.warning('Usá una imagen JPG, PNG, WebP o GIF');
+      input.value = '';
+      return;
+    }
+
+    if (file.size > this.maxImageSize) {
+      this.toastService.warning('La imagen no puede superar 8MB');
+      input.value = '';
+      return;
+    }
+
+    this.selectedProfileImageFile = file;
+    this.revokeProfileImagePreview();
+    this.profileImagePreviewObjectUrl = URL.createObjectURL(file);
+    this.profileImagePreview = this.profileImagePreviewObjectUrl;
+  }
+
+  clearSelectedProfileImage(): void {
+    this.selectedProfileImageFile = null;
+    this.revokeProfileImagePreview();
+    this.profileImagePreview = this.formEditarPerfil.get('imgPerfil')?.value || '';
+  }
+
+  getProfileImagePreview(): string {
+    return this.profileImagePreview || this.formEditarPerfil.get('imgPerfil')?.value || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png';
+  }
+
+  private revokeProfileImagePreview(): void {
+    if (this.profileImagePreviewObjectUrl) {
+      URL.revokeObjectURL(this.profileImagePreviewObjectUrl);
+      this.profileImagePreviewObjectUrl = null;
     }
   }
 }

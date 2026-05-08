@@ -81,6 +81,9 @@ const EnvSchema = z
     MAIL_FROM: z.string().optional(),
     BREVO_API_KEY: z.string().optional(),
 
+    // Cloudinary
+    CLOUDINARY_URL: z.string().optional(),
+
     // Encryption
     ENCRYPTION_KEY: z.string().length(64).optional(),
     METRICS_PUBLIC: z.enum(["true", "false"]).default("false"),
