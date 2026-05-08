@@ -13,6 +13,8 @@ export interface SubscriptionPlan {
     maxEventsPerMonth: number;
     maxTicketTypesPerEvent: number;
     commissionPercent: number;
+    serviceFeePercent: number;
+    minimumServiceFee: number;
     features: {
         advancedDashboard?: boolean;
         exportSales?: boolean;
@@ -30,6 +32,8 @@ export interface UserSubscription {
         name: string;
         displayName: string;
         commissionPercent: number;
+        serviceFeePercent: number;
+        minimumServiceFee: number;
         monthlyPrice: number;
         yearlyPrice: number | null;
         features: any;
@@ -46,6 +50,8 @@ export interface SubscriptionLimits {
         name: string;
         displayName: string;
         commissionPercent: number;
+        serviceFeePercent: number;
+        minimumServiceFee: number;
         features: any;
     };
     limits: {
@@ -95,7 +101,9 @@ export class SubscriptionService {
                         ...plan,
                         monthlyPrice: Number(plan.monthlyPrice) || 0,
                         yearlyPrice: plan.yearlyPrice ? Number(plan.yearlyPrice) : null,
-                        commissionPercent: Number(plan.commissionPercent) || 0
+                        commissionPercent: Number(plan.commissionPercent) || 0,
+                        serviceFeePercent: Number(plan.serviceFeePercent) || 0,
+                        minimumServiceFee: Number(plan.minimumServiceFee) || 0
                     }));
                     return plans;
                 }),

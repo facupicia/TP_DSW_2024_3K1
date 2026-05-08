@@ -148,7 +148,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             const ticketType = await ticketTypeRepo.findOne({ where: { id: parsedTicketTypeId }, relations: ['event'] });
             const marketplaceInfo = ticketType
                 ? await getMarketPlaceInfo(ticketType.event.user_id)
-                : { commissionPercent: 8, planName: 'FREE' };
+                : { commissionPercent: 8, serviceFeePercent: 15, minimumServiceFee: 0, planName: 'FREE' };
             const commissionAmount = Math.ceil((result.pricing.totalAmount * marketplaceInfo.commissionPercent) / 100);
             
             return res.status(200).json({
@@ -162,13 +162,16 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                     base_amount: result.pricing.baseAmount,
                     discount_amount: result.pricing.discountAmount,
                     total_amount: result.pricing.totalAmount,
+                    service_fee_percent: result.pricing.serviceFeePercent,
+                    service_fee_amount: result.pricing.serviceFeeAmount,
+                    buyer_total_amount: result.pricing.buyerTotalAmount,
                     coupon_id: result.pricing.couponId
                 },
                 commission_info: {
                     commission_percent: marketplaceInfo.commissionPercent,
                     commission_amount: commissionAmount,
                     plan_name: marketplaceInfo.planName,
-                    organizer_net_amount: result.pricing.totalAmount - commissionAmount
+                    organizer_net_amount: result.pricing.totalAmount
                 }
             });
             

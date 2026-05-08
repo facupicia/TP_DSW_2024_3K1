@@ -20,6 +20,11 @@ export enum PaymentStatus {
 @Check('"quantity" > 0')
 @Check('"unitPrice" >= 0')
 @Check('"totalAmount" > 0')
+@Check('"baseAmount" >= 0')
+@Check('"discountAmount" >= 0')
+@Check('"serviceFeePercent" >= 0 AND "serviceFeePercent" <= 100')
+@Check('"serviceFeeAmount" >= 0')
+@Check('"buyerTotalAmount" > 0')
 @Check('"commissionPercent" >= 0 AND "commissionPercent" <= 100')
 @Check('"refundAmount" IS NULL OR "refundAmount" >= 0')
 export class PaymentLog extends BaseEntity {
@@ -57,6 +62,21 @@ export class PaymentLog extends BaseEntity {
 
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   totalAmount: number;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  baseAmount: number;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  discountAmount: number;
+
+  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0 })
+  serviceFeePercent: number;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  serviceFeeAmount: number;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  buyerTotalAmount: number;
 
   /* ===================== COMMISSION SNAPSHOT ===================== */
 

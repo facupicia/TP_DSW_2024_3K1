@@ -16,6 +16,8 @@ import {
 @Check('"monthlyPrice" >= 0')
 @Check('"yearlyPrice" >= 0')
 @Check('"commissionPercent" >= 0 AND "commissionPercent" <= 100')
+@Check('"serviceFeePercent" >= 0 AND "serviceFeePercent" <= 100')
+@Check('"minimumServiceFee" >= 0')
 @Check('"maxEventsPerMonth" >= -1')
 @Check('"maxTicketTypesPerEvent" >= -1')
 export class SubscriptionPlan extends BaseEntity {
@@ -50,6 +52,14 @@ export class SubscriptionPlan extends BaseEntity {
     /** Commission percentage charged on each ticket sale */
     @Column({ type: 'decimal', precision: 5, scale: 2 })
     commissionPercent: number;
+
+    /** Service fee percentage added to the attendee checkout total */
+    @Column({ type: 'decimal', precision: 5, scale: 2, default: 15.00 })
+    serviceFeePercent: number;
+
+    /** Minimum service fee in ARS when serviceFeePercent is greater than zero */
+    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    minimumServiceFee: number;
 
     /** JSON object with feature flags */
     @Column({ type: 'jsonb', default: {} })

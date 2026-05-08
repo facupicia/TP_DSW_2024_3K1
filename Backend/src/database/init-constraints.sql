@@ -32,6 +32,21 @@ ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_total CHECK ("totalAmount" 
 ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_unit_price;
 ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_unit_price CHECK ("unitPrice" >= 0);
 
+ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_base_amount;
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_base_amount CHECK ("baseAmount" >= 0);
+
+ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_discount_amount;
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_discount_amount CHECK ("discountAmount" >= 0);
+
+ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_service_fee_percent;
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_service_fee_percent CHECK ("serviceFeePercent" >= 0 AND "serviceFeePercent" <= 100);
+
+ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_service_fee_amount;
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_service_fee_amount CHECK ("serviceFeeAmount" >= 0);
+
+ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_buyer_total;
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_buyer_total CHECK ("buyerTotalAmount" > 0);
+
 ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_commission;
 ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_commission CHECK ("commissionPercent" >= 0 AND "commissionPercent" <= 100);
 
@@ -60,6 +75,12 @@ ALTER TABLE "subscription_plan" ADD CONSTRAINT chk_plan_yearly_price CHECK ("yea
 
 ALTER TABLE "subscription_plan" DROP CONSTRAINT IF EXISTS chk_plan_commission;
 ALTER TABLE "subscription_plan" ADD CONSTRAINT chk_plan_commission CHECK ("commissionPercent" >= 0 AND "commissionPercent" <= 100);
+
+ALTER TABLE "subscription_plan" DROP CONSTRAINT IF EXISTS chk_plan_service_fee;
+ALTER TABLE "subscription_plan" ADD CONSTRAINT chk_plan_service_fee CHECK ("serviceFeePercent" >= 0 AND "serviceFeePercent" <= 100);
+
+ALTER TABLE "subscription_plan" DROP CONSTRAINT IF EXISTS chk_plan_minimum_service_fee;
+ALTER TABLE "subscription_plan" ADD CONSTRAINT chk_plan_minimum_service_fee CHECK ("minimumServiceFee" >= 0);
 
 ALTER TABLE "subscription_plan" DROP CONSTRAINT IF EXISTS chk_plan_max_events;
 ALTER TABLE "subscription_plan" ADD CONSTRAINT chk_plan_max_events CHECK ("maxEventsPerMonth" >= -1);

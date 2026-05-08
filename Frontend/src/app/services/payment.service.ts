@@ -25,6 +25,9 @@ export interface PreferenceResponse {
         base_amount: number;
         discount_amount?: number;
         total_amount: number;
+        service_fee_percent?: number;
+        service_fee_amount?: number;
+        buyer_total_amount?: number;
         coupon_id?: number;
     };
     commission_info: {

@@ -37,6 +37,11 @@ export interface Evento {
     categoria_name?: string;
     category?: Categoria | any;
     ticketTypes?: TicketType[];
+    checkoutPricing?: {
+        serviceFeePercent: number;
+        minimumServiceFee: number;
+        planName: string;
+    };
     minAge?: number; // 0 = sin restricción, 18 = +18, etc.
     isPublic?: boolean; // true = visible en explorador, false = solo por link
     salesCount?: number;

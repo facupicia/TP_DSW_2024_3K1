@@ -523,9 +523,27 @@ export const getEvent = async (req: Request, res: Response) => {
             imgPerfil: event.user.imgPerfil
         } : null;
 
+        let checkoutPricing = {
+            serviceFeePercent: 15,
+            minimumServiceFee: 0,
+            planName: 'FREE'
+        };
+
+        try {
+            const subscription = await getActiveSubscription(event.user_id);
+            checkoutPricing = {
+                serviceFeePercent: Number(subscription.plan.serviceFeePercent),
+                minimumServiceFee: Number(subscription.plan.minimumServiceFee),
+                planName: subscription.plan.name
+            };
+        } catch (pricingError: any) {
+            console.warn("Error resolving checkout pricing", pricingError?.message);
+        }
+
         return res.json({
             ...event,
-            user: safeUser
+            user: safeUser,
+            checkoutPricing
         });
 
     } catch (error) {

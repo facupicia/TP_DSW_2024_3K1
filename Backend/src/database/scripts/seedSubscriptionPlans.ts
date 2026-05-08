@@ -33,6 +33,8 @@ async function seedSubscriptionPlans() {
                 maxEventsPerMonth: 3,
                 maxTicketTypesPerEvent: 1,
                 commissionPercent: 8.00,
+                serviceFeePercent: 15.00,
+                minimumServiceFee: 0,
                 features: {
                     advancedDashboard: false,
                     exportSales: false,
@@ -60,6 +62,8 @@ async function seedSubscriptionPlans() {
                 maxEventsPerMonth: -1, // Unlimited
                 maxTicketTypesPerEvent: -1, // Unlimited
                 commissionPercent: 2.50,
+                serviceFeePercent: 12.00,
+                minimumServiceFee: 0,
                 features: {
                     advancedDashboard: true,
                     exportSales: true,

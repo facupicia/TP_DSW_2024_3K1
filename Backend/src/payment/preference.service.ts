@@ -45,6 +45,10 @@ export interface PreferencePricing {
     discountAmount: number;
     totalAmount: number;
     unitPrice: number;
+    serviceFeePercent: number;
+    serviceFeeAmount: number;
+    buyerTotalAmount: number;
+    buyerUnitPrice: number;
     couponId?: number;
     discountPercent?: number;
 }
@@ -66,6 +70,8 @@ export interface GuestBuyerInput {
 
 export interface MarketPlaceInfo {
     commissionPercent: number;
+    serviceFeePercent: number;
+    minimumServiceFee: number;
     planName: string;
     marketplaceFee: number;
     organizerAccessToken: string | null;
@@ -223,6 +229,8 @@ export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPla
     // Default: comisión FREE plan
     const defaultInfo: MarketPlaceInfo = {
         commissionPercent: 8.00,
+        serviceFeePercent: 15.00,
+        minimumServiceFee: 0,
         planName: 'FREE',
         marketplaceFee: 0,
         organizerAccessToken: null
@@ -235,9 +243,13 @@ export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPla
         // Obtener plan y comisión
         const subscription = await getActiveSubscription(eventUserId);
         const commissionPercent = Number(subscription.plan.commissionPercent);
+        const serviceFeePercent = Number(subscription.plan.serviceFeePercent);
+        const minimumServiceFee = Number(subscription.plan.minimumServiceFee);
         
         return {
             commissionPercent,
+            serviceFeePercent: Number.isFinite(serviceFeePercent) ? serviceFeePercent : defaultInfo.serviceFeePercent,
+            minimumServiceFee: Number.isFinite(minimumServiceFee) ? minimumServiceFee : defaultInfo.minimumServiceFee,
             planName: subscription.plan.name,
             marketplaceFee: 0, // Se calcula después
             organizerAccessToken
@@ -378,19 +390,42 @@ function buildExternalReference(userId: number, ticketType: TicketType, quantity
     return `${userId}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCodeStr}`;
 }
 
-function calculatePricing(unitPrice: number, quantity: number, coupon?: Coupon | null): PreferencePricing {
+function calculateServiceFee(totalAmount: number, serviceFeePercent: number, minimumServiceFee: number): number {
+    if (totalAmount <= 0 || serviceFeePercent <= 0) {
+        return 0;
+    }
+
+    const percentFee = Math.ceil((totalAmount * serviceFeePercent) / 100);
+    return Math.max(percentFee, Math.ceil(minimumServiceFee || 0));
+}
+
+function calculatePricing(
+    unitPrice: number,
+    quantity: number,
+    coupon?: Coupon | null,
+    serviceFeePercent = 0,
+    minimumServiceFee = 0
+): PreferencePricing {
     const baseAmount = unitPrice * quantity;
     const discountPercent = coupon?.discountPercent || 0;
     const discountAmount = discountPercent > 0
         ? Math.min(baseAmount, Math.round((baseAmount * discountPercent) / 100))
         : 0;
     const totalAmount = Math.max(baseAmount - discountAmount, 0);
+    const rawServiceFeeAmount = calculateServiceFee(totalAmount, serviceFeePercent, minimumServiceFee);
+    const buyerUnitPrice = Number(((totalAmount + rawServiceFeeAmount) / quantity).toFixed(2));
+    const buyerTotalAmount = Number((buyerUnitPrice * quantity).toFixed(2));
+    const serviceFeeAmount = Number((buyerTotalAmount - totalAmount).toFixed(2));
 
     return {
         baseAmount,
         discountAmount,
         totalAmount,
         unitPrice: Number((totalAmount / quantity).toFixed(2)),
+        serviceFeePercent,
+        serviceFeeAmount,
+        buyerTotalAmount,
+        buyerUnitPrice,
         couponId: coupon?.id,
         discountPercent: coupon?.discountPercent
     };
@@ -420,7 +455,13 @@ export function buildPreferenceBody(
     const config = getMPConfig();
     
     const originalUnitPrice = Number(ticketType.price);
-    const pricing = calculatePricing(originalUnitPrice, quantity, coupon);
+    const pricing = calculatePricing(
+        originalUnitPrice,
+        quantity,
+        coupon,
+        marketplaceInfo.serviceFeePercent,
+        marketplaceInfo.minimumServiceFee
+    );
     
     // Comisión de EventLife según el plan del organizador (FREE: 8%, PRO: 3%)
     const commissionPercent = marketplaceInfo.commissionPercent;
@@ -440,7 +481,7 @@ export function buildPreferenceBody(
                 title: `${ticketType.event.title} - ${ticketType.name}`.substring(0, 255),
                 description: `Entrada para ${ticketType.event.title}`,
                 quantity: quantity,
-                unit_price: pricing.unitPrice,
+                unit_price: pricing.buyerUnitPrice,
                 currency_id: 'ARS',
             }
         ],
@@ -474,6 +515,9 @@ export function buildPreferenceBody(
             base_amount: pricing.baseAmount,
             discount_amount: pricing.discountAmount,
             total_amount: pricing.totalAmount,
+            service_fee_percent: pricing.serviceFeePercent,
+            service_fee_amount: pricing.serviceFeeAmount,
+            buyer_total_amount: pricing.buyerTotalAmount,
             commission_percent: commissionPercent,
             commission_amount: commissionAmount,
             payment_model: 'marketplace',
@@ -555,13 +599,19 @@ export async function createMercadoPagoPreference(
         
         // Construir body
         const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
-        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
+        const pricing = calculatePricing(
+            Number(ticketType.price),
+            quantity,
+            coupon,
+            marketplaceInfo.serviceFeePercent,
+            marketplaceInfo.minimumServiceFee
+        );
         
         // Rechazar checkout de $0 - MP no soporta pagos de $0 ARS
         if (pricing.totalAmount <= 0) {
             throw new Error('ZERO_AMOUNT_NOT_SUPPORTED');
         }
-        
+
         const body = buildPreferenceBody(
             purchasePayer.payer,
             purchasePayer.user.id,
@@ -679,7 +729,13 @@ export async function createPlatformPreference(
         // Obtener info de comisión para metadata
         const marketplaceInfo = await getMarketPlaceInfo(ticketType.event.user_id);
         const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
-        const pricing = calculatePricing(Number(ticketType.price), quantity, coupon);
+        const pricing = calculatePricing(
+            Number(ticketType.price),
+            quantity,
+            coupon,
+            marketplaceInfo.serviceFeePercent,
+            marketplaceInfo.minimumServiceFee
+        );
         
         // Rechazar checkout de $0 - MP no soporta pagos de $0 ARS
         if (pricing.totalAmount <= 0) {

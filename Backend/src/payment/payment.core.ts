@@ -493,6 +493,11 @@ export async function createPaymentLog(
         unitPrice: number;
         quantity: number;
         totalAmount: number;
+        baseAmount?: number;
+        discountAmount?: number;
+        serviceFeePercent?: number;
+        serviceFeeAmount?: number;
+        buyerTotalAmount?: number;
         commissionPercent: number;
         commissionAmount: number;
         organizerPlanName: string;
@@ -502,6 +507,11 @@ export async function createPaymentLog(
     
     const log = logRepo.create({
         ...data,
+        baseAmount: data.baseAmount ?? data.totalAmount,
+        discountAmount: data.discountAmount ?? 0,
+        serviceFeePercent: data.serviceFeePercent ?? 0,
+        serviceFeeAmount: data.serviceFeeAmount ?? 0,
+        buyerTotalAmount: data.buyerTotalAmount ?? data.totalAmount,
         status: PaymentStatus.PROCESSING
     });
     
@@ -598,6 +608,7 @@ export async function processApprovedPayment(
         // 4. Verificar que el monto pagado coincida con lo esperado
         const baseTotal = Number(ticketType.price) * quantity;
         let expectedTotal = baseTotal;
+        let discountAmount = 0;
         let coupon: Coupon | null = null;
 
         if (couponId) {
@@ -617,7 +628,7 @@ export async function processApprovedPayment(
                 throw new Error('Coupon exhausted');
             }
 
-            const discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
+            discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
             expectedTotal = Math.max(baseTotal - discountAmount, 0);
         }
 
@@ -625,14 +636,24 @@ export async function processApprovedPayment(
         if (!Number.isFinite(paidAmount) || paidAmount < 0) {
             throw new Error('Invalid payment amount');
         }
+
+        const metadata = paymentData.metadata || {};
+        const serviceFeePercent = Number(metadata.service_fee_percent || 0);
+        const serviceFeeAmount = Number(metadata.service_fee_amount || 0);
+        const metadataBuyerTotal = Number(metadata.buyer_total_amount || 0);
+        const expectedBuyerTotal = Number.isFinite(metadataBuyerTotal) && metadataBuyerTotal > 0
+            ? metadataBuyerTotal
+            : expectedTotal;
         
         // Tolerancia de $0.01 ARS para diferencias de redondeo
         const tolerance = 0.01;
-        if (Math.abs(paidAmount - expectedTotal) > tolerance) {
+        if (Math.abs(paidAmount - expectedBuyerTotal) > tolerance) {
             logger.error('PAYMENT_AMOUNT_MISMATCH', {
                 paymentId,
-                expected: expectedTotal,
+                expected: expectedBuyerTotal,
+                expectedBaseTotal: expectedTotal,
                 paid: paidAmount,
+                serviceFeeAmount,
                 tolerance
             });
             throw new Error('Payment amount mismatch');
@@ -683,6 +704,11 @@ export async function processApprovedPayment(
             unitPrice: Number((expectedTotal / quantity).toFixed(2)),
             quantity,
             totalAmount: expectedTotal,
+            baseAmount: baseTotal,
+            discountAmount,
+            serviceFeePercent: Number.isFinite(serviceFeePercent) ? serviceFeePercent : 0,
+            serviceFeeAmount: Number.isFinite(serviceFeeAmount) ? serviceFeeAmount : 0,
+            buyerTotalAmount: expectedBuyerTotal,
             commissionPercent: commission.percent,
             commissionAmount: commission.amount,
             organizerPlanName: commission.planName

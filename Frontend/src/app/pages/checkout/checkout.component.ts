@@ -67,6 +67,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   couponError = '';
   discountAmount = 0;
   finalTotal = 0;
+  serviceFeePercent = 15;
+  minimumServiceFee = 0;
+  serviceFeeAmount = 0;
+  totalToPay = 0;
 
   // Promoter code
   promoterCode = '';
@@ -119,6 +123,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
+      this.serviceFeePercent = Number(evento.checkoutPricing?.serviceFeePercent ?? 15);
+      this.minimumServiceFee = Number(evento.checkoutPricing?.minimumServiceFee ?? 0);
+      this.organizerPlanName = evento.checkoutPricing?.planName || this.organizerPlanName;
       this.configureBuyerValidators();
 
       // Auto-select first active ticket type
@@ -283,7 +290,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.baseAmount = this.ticketQuantity * (this.evento.price || 0);
     }
 
-    // Total es solo el precio base (la comisión se maneja internamente via marketplace_fee)
+    // Total base definido por el organizador.
     this.total = this.baseAmount;
 
     // Apply coupon discount
@@ -294,6 +301,15 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.discountAmount = 0;
       this.finalTotal = this.total;
     }
+
+    if (this.finalTotal > 0 && this.serviceFeePercent > 0) {
+      const percentFee = Math.ceil((this.finalTotal * this.serviceFeePercent) / 100);
+      this.serviceFeeAmount = Math.max(percentFee, Math.ceil(this.minimumServiceFee || 0));
+    } else {
+      this.serviceFeeAmount = 0;
+    }
+
+    this.totalToPay = this.finalTotal + this.serviceFeeAmount;
   }
 
   applyCoupon() {
@@ -385,6 +401,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
               this.commissionAmount = response.commission_info.commission_amount;
               this.organizerPlanName = response.commission_info.plan_name;
             }
+            if (response.pricing) {
+              this.serviceFeePercent = response.pricing.service_fee_percent ?? this.serviceFeePercent;
+              this.serviceFeeAmount = response.pricing.service_fee_amount ?? this.serviceFeeAmount;
+              this.totalToPay = response.pricing.buyer_total_amount ?? this.totalToPay;
+              this.finalTotal = response.pricing.total_amount ?? this.finalTotal;
+            }
             
             try {
               const lastPurchase = {
@@ -393,6 +415,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 eventId: Number(this.eventId),
                 ticketTypeId: ticketTypeId,
                 quantity: this.ticketQuantity,
+                totalAmount: this.finalTotal,
+                serviceFeeAmount: this.serviceFeeAmount,
+                buyerTotalAmount: this.totalToPay,
                 guestCheckout: !this.isAuthenticated,
                 deliveryEmail: response.delivery_email || guestBuyer?.email || null,
                 at: Date.now()

@@ -56,6 +56,8 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
             maxEventsPerMonth: 3,
             maxTicketTypesPerEvent: 1,
             commissionPercent: 8.00,
+            serviceFeePercent: 15.00,
+            minimumServiceFee: 0,
             features: {
                 advancedDashboard: false,
                 exportSales: false,
@@ -188,6 +190,8 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
         name: string;
         displayName: string;
         commissionPercent: number;
+        serviceFeePercent: number;
+        minimumServiceFee: number;
         features: any;
     };
     limits: {
@@ -209,6 +213,8 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
             name: plan.name,
             displayName: plan.displayName || plan.name,
             commissionPercent: Number(plan.commissionPercent),
+            serviceFeePercent: Number(plan.serviceFeePercent),
+            minimumServiceFee: Number(plan.minimumServiceFee),
             features: plan.features
         },
         limits: {
