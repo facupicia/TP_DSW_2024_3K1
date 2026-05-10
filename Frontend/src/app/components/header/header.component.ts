@@ -5,6 +5,7 @@ import { AuthService } from '../../services/auth.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
 import { PromoterService } from '../../services/promoter.service';
 import { EventService } from '../../services/event.service';
+import { CategoryService } from '../../services/category.service';
 import { hasRoleLevel, hasExactRole } from '../../interfaces/Usuario';
 import { Subscription } from 'rxjs';
 
@@ -22,12 +23,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private subscriptionService = inject(SubscriptionService);
   private promoterService = inject(PromoterService);
   private eventService = inject(EventService);
+  private categoryService = inject(CategoryService);
 
   // Estado reactivo del usuario
   user$ = this.accesService.currentUser$;
   
   // Estados de UI
   isMenuOpen = false;
+  categorias: string[] = [];
   scrolled = false; // Nuevo: Para el efecto glass dinámico
 
   // Estado de Suscripción
@@ -50,6 +53,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.manageScrollLock();
     });
     this.subscriptions.push(routerSub);
+    this.loadCategories();
 
     // Cargar suscripción y verificar eventos UNA SOLA VEZ cuando hay usuario
     const userSub = this.user$.subscribe(user => {
@@ -108,6 +112,12 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.router.navigate([path]);
   }
 
+  navigateCategory(categoria: string): void {
+    this.isMenuOpen = false;
+    this.manageScrollLock();
+    this.router.navigate(['/events'], { queryParams: { category: categoria } });
+  }
+
   toggleMenu() {
     this.isMenuOpen = !this.isMenuOpen;
     this.manageScrollLock();
@@ -142,6 +152,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (typeof document !== 'undefined') {
       document.body.style.overflow = this.isMenuOpen ? 'hidden' : '';
     }
+  }
+
+  private loadCategories(): void {
+    const categorySub = this.categoryService.getCategories().subscribe({
+      next: (categorias) => {
+        this.categorias = categorias.map(categoria => categoria.name);
+      },
+      error: () => {
+        this.categorias = [];
+      }
+    });
+    this.subscriptions.push(categorySub);
   }
 
   ngOnDestroy(): void {

@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, DestroyRef } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
@@ -17,6 +17,7 @@ import { EventImageFallbackDirective } from '../../directives/event-image-fallba
 })
 export class ExploradorEventosComponent implements OnInit {
   private router: Router = inject(Router);
+  private route: ActivatedRoute = inject(ActivatedRoute);
   private eventoService: EventService = inject(EventService);
   private categoryService: CategoryService = inject(CategoryService);
   private destroyRef = inject(DestroyRef);
@@ -39,12 +40,19 @@ export class ExploradorEventosComponent implements OnInit {
   ngOnInit(): void {
     this.isLoading = true;
 
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      this.categoriaSeleccionada = params.get('category') || '';
+      if (this.eventos.length > 0) {
+        this.filtrarEventos(false);
+      }
+    });
+
     // Cargar Eventos y Destacados en una sola llamada
     this.eventoService.obtenerEventos(200).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (eventos) => {
         this.eventos = eventos;
-        this.eventosFiltrados = eventos;
         this.destacados = eventos.filter(e => e.destacado);
+        this.filtrarEventos(false);
         this.isLoading = false;
       },
       error: () => {
@@ -70,10 +78,15 @@ export class ExploradorEventosComponent implements OnInit {
     } else {
       this.categoriaSeleccionada = categoria;
     }
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { category: this.categoriaSeleccionada || null },
+      queryParamsHandling: 'merge'
+    });
     this.filtrarEventos();
   }
 
-  filtrarEventos() {
+  filtrarEventos(resetPage = true) {
     this.eventosFiltrados = this.eventos.filter(evento => {
       const matchesCategory = this.categoriaSeleccionada ? evento.categoria_name === this.categoriaSeleccionada : true;
       const matchesSearch = this.searchTerm ? evento.title.toLowerCase().includes(this.searchTerm.toLowerCase()) : true;
@@ -81,7 +94,9 @@ export class ExploradorEventosComponent implements OnInit {
     });
 
     // IMPORTANTE: Resetear a página 1 cuando se filtra
-    this.currentPage = 1;
+    if (resetPage) {
+      this.currentPage = 1;
+    }
   }
 
   verEvento(id: number): void {

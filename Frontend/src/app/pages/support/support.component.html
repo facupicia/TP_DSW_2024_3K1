@@ -16,7 +16,7 @@
             Respuestas rápidas para comprar entradas, crear eventos, cobrar con Mercado Pago,
             validar QR y administrar tu cuenta.
           </p>
-          <div class="mt-8 rounded-2xl bg-slate-900 text-white p-6">
+          <div id="soporte" class="mt-8 rounded-2xl bg-slate-900 text-white p-6">
             <h2 class="text-lg font-bold mb-2">Necesitás más ayuda?</h2>
             <p class="text-sm text-slate-300 leading-relaxed">
               Si una operación de pago o una entrada no se actualiza, guardá el email de tu cuenta,
@@ -25,7 +25,7 @@
           </div>
         </aside>
 
-        <section class="faq-list" aria-label="Preguntas frecuentes">
+        <section id="preguntas-frecuentes" class="faq-list" aria-label="Preguntas frecuentes">
           @for (faq of faqs; track faq; let first = $first) {
             <details class="faq-item" [open]="first">
               <summary>{{ faq.question }}</summary>
