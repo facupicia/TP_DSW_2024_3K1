@@ -171,7 +171,7 @@
         [class.opacity-0]="!isMenuOpen" (click)="toggleMenu()"></div>
 
         <div
-          class="absolute top-0 right-0 w-[80%] max-w-[300px] h-full bg-white/90 backdrop-blur-2xl border-l border-white/40 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col pt-24 px-6"
+          class="mobile-menu-panel absolute top-0 right-0 w-[80%] max-w-[300px] h-full bg-white/90 backdrop-blur-2xl border-l border-white/40 shadow-2xl transform transition-transform duration-300 ease-out flex flex-col pt-24 px-6 pb-8 overflow-y-auto overscroll-contain"
           [class.translate-x-full]="!isMenuOpen">
 
           @if (user$ | async; as user) {
@@ -265,7 +265,7 @@
                   </button>
                 } @else {
                   <div class="space-y-3 mt-4">
-                    <details class="rounded-2xl bg-white/50 border border-white/50 shadow-sm overflow-hidden">
+                    <details class="mobile-categories rounded-2xl bg-white/50 border border-white/50 shadow-sm overflow-hidden">
                       <summary class="list-none cursor-pointer flex items-center justify-between w-full p-4 text-slate-700 font-bold">
                         <span class="flex items-center">
                           <svg class="w-5 h-5 mr-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -278,7 +278,7 @@
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                       </summary>
-                      <div class="px-3 pb-3 space-y-1">
+                      <div class="mobile-categories-list px-3 pb-3 space-y-1 overflow-y-auto overscroll-contain">
                         <button (click)="navigateMobile('/events')"
                           class="w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-slate-600 hover:bg-white">
                           Todos los eventos

@@ -1,3 +1,17 @@
 summary::-webkit-details-marker {
   display: none;
 }
+
+.mobile-menu-panel {
+  max-height: 100dvh;
+  scrollbar-gutter: stable;
+}
+
+.mobile-categories[open] .mobile-categories-list {
+  max-height: min(38dvh, 260px);
+}
+
+.mobile-menu-panel,
+.mobile-categories-list {
+  -webkit-overflow-scrolling: touch;
+}
