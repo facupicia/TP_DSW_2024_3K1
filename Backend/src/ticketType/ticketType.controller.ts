@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { TicketType, TicketTypeStatus } from "./ticketType.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../common/middleware/authToken";
@@ -79,7 +80,7 @@ export const createTicketType = async (req: CustomRequest, res: Response) => {
         return res.status(201).json(ticketType);
 
     } catch (error) {
-        console.error("Error creating ticket type:", error);
+        logger.error("Error creating ticket type:", error);
         return res.status(500).json({
             code: "INTERNAL_ERROR",
             message: "Error al crear tipo de ticket"
@@ -111,7 +112,7 @@ export const getTicketTypesByEvent = async (req: Request, res: Response) => {
         return res.json(ticketTypes);
 
     } catch (error) {
-        console.error("Error fetching ticket types:", error);
+        logger.error("Error fetching ticket types:", error);
         return res.status(500).json({
             code: "INTERNAL_ERROR",
             message: "Error al obtener tipos de ticket"
@@ -199,7 +200,7 @@ export const updateTicketType = async (req: CustomRequest, res: Response) => {
         return res.json(ticketType);
 
     } catch (error) {
-        console.error("Error updating ticket type:", error);
+        logger.error("Error updating ticket type:", error);
         return res.status(500).json({
             code: "INTERNAL_ERROR",
             message: "Error al actualizar tipo de ticket"
@@ -248,7 +249,7 @@ export const deactivateTicketType = async (req: CustomRequest, res: Response) =>
         return res.sendStatus(204);
 
     } catch (error) {
-        console.error("Error deactivating ticket type:", error);
+        logger.error("Error deactivating ticket type:", error);
         return res.status(500).json({
             code: "INTERNAL_ERROR",
             message: "Error al desactivar tipo de ticket"

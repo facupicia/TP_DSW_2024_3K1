@@ -26,6 +26,32 @@ const preferenceRateLimiter = rateLimit({
     }
 });
 
+const statusRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+        res.status(options.statusCode).json({
+            code: "STATUS_RATE_LIMITED",
+            message: "Demasiadas consultas de estado. Intenta de nuevo en un minuto."
+        });
+    }
+});
+
+const refundRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+        res.status(options.statusCode).json({
+            code: "REFUND_RATE_LIMITED",
+            message: "Demasiadas solicitudes de reembolso. Intenta de nuevo en un minuto."
+        });
+    }
+});
+
 const router = Router();
 
 /* ==================== PAYMENT ROUTES ==================== */
@@ -44,7 +70,7 @@ router.post("/create-preference", preferenceRateLimiter, optionalAuthToken, crea
  * Verifica el estado de un pago por external_reference.
  * Usado por el frontend para polling después del checkout, incluso para invitados.
  */
-router.get("/status", getPaymentStatus);
+router.get("/status", statusRateLimiter, getPaymentStatus);
 
 /* ==================== WEBHOOK ROUTES ==================== */
 
@@ -111,7 +137,7 @@ router.post("/mp/disconnect", checkAuthToken, disconnectMp);
  * 
  * Body: { amount?: number, reason?: string }
  */
-router.post("/refund/:paymentId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
+router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
     const { processRefund } = await import('./refund.service');
     const result = await processRefund(req.params.paymentId, {
         amount: req.body?.amount,
@@ -127,7 +153,7 @@ router.post("/refund/:paymentId", checkAuthToken, checkRoleAuth(["organizer", "a
  * 
  * Verifica si un pago puede ser reembolsado.
  */
-router.get("/refund-status/:paymentId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
+router.get("/refund-status/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
     const { getRefundStatus } = await import('./refund.service');
     const result = await getRefundStatus(req.params.paymentId, req.user?.id, req.user?.roles || []);
     res.status(200).json(result);

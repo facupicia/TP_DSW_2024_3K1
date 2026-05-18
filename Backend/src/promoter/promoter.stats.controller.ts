@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
 import { PromoterGroup, PromoterEventAssignment } from "./promoter.entity";
 import { Ticket } from "../ticket/ticket.entity";
@@ -93,7 +94,7 @@ export const getPromotersStats = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Error fetching promoters stats:", error);
+        logger.error("Error fetching promoters stats:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -252,7 +253,7 @@ export const getPromoterStatsById = async (req: CustomRequest, res: Response) =>
         });
 
     } catch (error: any) {
-        console.error("Error fetching promoter stats:", error);
+        logger.error("Error fetching promoter stats:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -415,7 +416,7 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Error fetching my promoter stats:", error);
+        logger.error("Error fetching my promoter stats:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -480,7 +481,7 @@ export const getEventsPromoterStats = async (req: CustomRequest, res: Response) 
         });
 
     } catch (error: any) {
-        console.error("Error fetching events promoter stats:", error);
+        logger.error("Error fetching events promoter stats:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -679,7 +680,7 @@ export const exportPromotersStatsPdf = async (req: CustomRequest, res: Response)
         doc.end();
 
     } catch (error: any) {
-        console.error("Error exporting promoters stats PDF:", error);
+        logger.error("Error exporting promoters stats PDF:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };

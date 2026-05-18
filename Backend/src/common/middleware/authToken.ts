@@ -26,6 +26,22 @@ const payloadSchema = z.object({
     aud: z.string().optional(),
 }).passthrough();
 
+// Simple in-memory cache for active user validation (5s TTL)
+const userCache = new Map<number, { roles: string[]; expiresAt: number }>();
+const USER_CACHE_TTL_MS = 5000;
+
+function getCachedUser(userId: number) {
+    const cached = userCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.roles;
+    }
+    return null;
+}
+
+function setCachedUser(userId: number, roles: string[]) {
+    userCache.set(userId, { roles, expiresAt: Date.now() + USER_CACHE_TTL_MS });
+}
+
 export const checkAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
         const tokenHeader = req.header("Authorization");
@@ -53,27 +69,34 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
 
         const tokenData = parseResult.data;
 
-        // Verify user is still active in database
-        const user = await User.findOne({
-            where: { id: tokenData.id },
-            relations: ['roles'],
-            select: {
-                id: true,
-                active: true,
-                deletedAt: true,
-                roles: {
-                    id: true,
-                    name: true
-                }
-            }
-        });
+        // Check cache first
+        let currentRoles = getCachedUser(tokenData.id);
 
-        if (!user || !user.active || user.deletedAt) {
-            logger.warn('AUTH_USER_INACTIVE', { userId: tokenData.id, path: req.path });
-            return res.status(401).json({ code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' });
+        if (!currentRoles) {
+            // Verify user is still active in database
+            const user = await User.findOne({
+                where: { id: tokenData.id },
+                relations: ['roles'],
+                select: {
+                    id: true,
+                    active: true,
+                    deletedAt: true,
+                    roles: {
+                        id: true,
+                        name: true
+                    }
+                }
+            });
+
+            if (!user || !user.active || user.deletedAt) {
+                logger.warn('AUTH_USER_INACTIVE', { userId: tokenData.id, path: req.path });
+                return res.status(401).json({ code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' });
+            }
+
+            currentRoles = getRoleNames(user);
+            setCachedUser(tokenData.id, currentRoles);
         }
 
-        const currentRoles = getRoleNames(user);
         req.user = {
             ...tokenData,
             roles: currentRoles.length > 0 ? currentRoles : ['user']
@@ -111,23 +134,32 @@ export const optionalAuthToken = async (req: CustomRequest, res: Response, next:
 
         const tokenData = parseResult.data;
 
-        // For optional auth, silently skip if user is inactive
-        const user = await User.findOne({
-            where: { id: tokenData.id },
-            relations: ['roles'],
-            select: {
-                id: true,
-                active: true,
-                deletedAt: true,
-                roles: {
-                    id: true,
-                    name: true
-                }
-            }
-        });
+        // Check cache first
+        let currentRoles = getCachedUser(tokenData.id);
 
-        if (user && user.active && !user.deletedAt) {
-            const currentRoles = getRoleNames(user);
+        if (!currentRoles) {
+            // For optional auth, silently skip if user is inactive
+            const user = await User.findOne({
+                where: { id: tokenData.id },
+                relations: ['roles'],
+                select: {
+                    id: true,
+                    active: true,
+                    deletedAt: true,
+                    roles: {
+                        id: true,
+                        name: true
+                    }
+                }
+            });
+
+            if (user && user.active && !user.deletedAt) {
+                currentRoles = getRoleNames(user);
+                setCachedUser(tokenData.id, currentRoles);
+            }
+        }
+
+        if (currentRoles) {
             req.user = {
                 ...tokenData,
                 roles: currentRoles.length > 0 ? currentRoles : ['user']

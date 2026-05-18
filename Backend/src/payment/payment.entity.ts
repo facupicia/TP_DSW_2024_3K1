@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index, ManyToOne, JoinColumn, BaseEntity, Check } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index, ManyToOne, JoinColumn, BaseEntity, Check, DeleteDateColumn } from 'typeorm';
 import { User } from '../user/user.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
 
@@ -124,4 +124,7 @@ export class PaymentLog extends BaseEntity {
 
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
   refundAmount?: number;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deletedAt?: Date;
 }

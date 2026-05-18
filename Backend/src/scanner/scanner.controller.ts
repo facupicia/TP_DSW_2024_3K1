@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { logger } from "../common/services/logger";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../common/middleware/authToken";
@@ -66,7 +67,7 @@ export class ScannerController {
                 total: assignments.length
             });
         } catch (error) {
-            console.error("Error listando scanners:", error);
+            logger.error("Error listando scanners:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
     }
@@ -144,7 +145,7 @@ export class ScannerController {
                 }
             });
         } catch (error: any) {
-            console.error("Error asignando scanner:", error);
+            logger.error("Error asignando scanner:", error);
             if (error.code === "23505") {
                 return res.status(409).json({ code: "ALREADY_ASSIGNED", message: "El usuario ya está asignado como scanner" });
             }
@@ -171,7 +172,7 @@ export class ScannerController {
 
             return res.json({ message: "Scanner desasignado del organizador" });
         } catch (error) {
-            console.error("Error quitando scanner:", error);
+            logger.error("Error quitando scanner:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
     }
@@ -294,7 +295,7 @@ export class ScannerController {
             });
 
         } catch (error) {
-            console.error("Error validando ticket:", error);
+            logger.error("Error validando ticket:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
     }
@@ -332,7 +333,7 @@ export class ScannerController {
 
             return res.json(tickets);
         } catch (error) {
-            console.error(error);
+            logger.error(error);
             return res.status(500).json({ message: "Internal server error" });
         }
     }

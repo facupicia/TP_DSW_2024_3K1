@@ -165,6 +165,9 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
         if (this.pollRef) clearTimeout(this.pollRef);
         this.loading = false;
         this.confirmed = confirmed;
+        if (confirmed && typeof window !== 'undefined') {
+            window.localStorage.removeItem('lastPurchase');
+        }
     }
 
     verTickets() {

@@ -134,7 +134,11 @@ async function fetchPaymentOnce(
         const paymentClient = new Payment(client);
         const result = await paymentClient.get({ id: paymentId });
         return normalizePaymentData(paymentId, result);
-    } catch {
+    } catch (error: any) {
+        logger.warn('PAYMENT_FETCH_ONCE_FAILED', {
+            paymentId,
+            error: error?.message || 'Unknown error'
+        });
         return null;
     }
 }
@@ -299,25 +303,14 @@ export async function waitForPaymentApproval(
         return payment;
     }
     
-    // Si no está aprobado, reintentar unas veces más
-    let attempts = 0;
-    const maxApprovalAttempts = 3;
+    // Solo un reintento rápido para evitar exceder el timeout de MP (~5s)
+    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+    payment = await fetchPaymentWithRetry(paymentId, client);
     
-    while (
-        attempts < maxApprovalAttempts && 
-        payment && 
-        payment.status !== 'approved'
-    ) {
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        payment = await fetchPaymentWithRetry(paymentId, client);
-        attempts++;
-        
-        logger.info('PAYMENT_APPROVAL_WAIT', {
-            paymentId,
-            attempt: attempts,
-            status: payment?.status
-        });
-    }
+    logger.info('PAYMENT_APPROVAL_WAIT', {
+        paymentId,
+        status: payment?.status
+    });
     
     return payment?.status === 'approved' ? payment : null;
 }
@@ -616,20 +609,21 @@ export async function processApprovedPayment(
                 where: { id: couponId, eventId: ticketType.event.id, isActive: true }
             });
 
-            if (!coupon) {
-                throw new Error('Coupon not valid for this event');
+            // Si el pago ya fue capturado por MP, no rechazar por cupón inválido.
+            // Procesar sin descuento para evitar cobro sin tickets.
+            if (coupon && coupon.expiresAt && new Date() > coupon.expiresAt) {
+                logger.warn('PAYMENT_COUPON_EXPIRED_BUT_PAID', { paymentId, couponId });
+                coupon = null;
+            }
+            if (coupon && coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
+                logger.warn('PAYMENT_COUPON_EXHAUSTED_BUT_PAID', { paymentId, couponId });
+                coupon = null;
             }
 
-            if (coupon.expiresAt && new Date() > coupon.expiresAt) {
-                throw new Error('Coupon expired');
+            if (coupon) {
+                discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
+                expectedTotal = Math.max(baseTotal - discountAmount, 0);
             }
-
-            if (coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
-                throw new Error('Coupon exhausted');
-            }
-
-            discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
-            expectedTotal = Math.max(baseTotal - discountAmount, 0);
         }
 
         const paidAmount = Number(paymentData.transaction_amount);

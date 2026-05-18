@@ -6,6 +6,9 @@ import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { clearAccessToken } from '../services/access-token.store';
 
+// Flag para prevenir múltiples navegaciones a login ante requests 401 paralelos
+let isNavigatingToLogin = false;
+
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
     const router = inject(Router);
@@ -33,9 +36,14 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         break;
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
-                        clearAccessToken();
-                        authService.logout();
-                        router.navigate(['/login']);
+                        if (!isNavigatingToLogin) {
+                            isNavigatingToLogin = true;
+                            clearAccessToken();
+                            authService.logout();
+                            router.navigate(['/login']).then(() => {
+                                isNavigatingToLogin = false;
+                            });
+                        }
                         break;
                     case 403:
                         // Check if this is a plan limit or MP connection error (should NOT logout)
@@ -44,19 +52,24 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                             'PLAN_LIMIT_', 'MP_NOT_LINKED', 'PLAN_LIMIT_EVENTS', 'PLAN_LIMIT_TICKET_TYPES',
                             'FORBIDDEN_ROLE', 'FORBIDDEN_USER_LOOKUP' // Don't logout on role/user permission errors
                         ];
-                        const shouldNotLogout = noLogoutCodes.some(code => 
+                        const shouldNotLogout = noLogoutCodes.some(code =>
                             errorCode?.startsWith(code) || errorCode === code
                         );
-                        
+
                         if (shouldNotLogout) {
                             // Business logic error - show message but don't logout
                             errorMessage = error.error?.message || 'Acción no permitida. Verifica los requisitos.';
                         } else {
                             // Actual permission error - logout
                             errorMessage = 'No tienes permisos para realizar esta acción.';
-                            clearAccessToken();
-                            authService.logout();
-                            router.navigate(['/login']);
+                            if (!isNavigatingToLogin) {
+                                isNavigatingToLogin = true;
+                                clearAccessToken();
+                                authService.logout();
+                                router.navigate(['/login']).then(() => {
+                                    isNavigatingToLogin = false;
+                                });
+                            }
                         }
                         break;
                     case 429:

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
 import { User } from "../user/user.entity";
 import { Role, getRoleNames } from "../user/role.entity";
@@ -143,7 +144,7 @@ export const addPromoter = async (req: CustomRequest, res: Response) => {
         }
 
     } catch (error: any) {
-        console.error("Error adding promoter:", error);
+        logger.error("Error adding promoter:", error);
         
         // Handle specific database errors
         if (error.code === '23505') { // PostgreSQL unique violation
@@ -221,7 +222,7 @@ export const getMyPromoters = async (req: CustomRequest, res: Response) => {
         return res.status(200).json({ data: formattedPromoters, total });
 
     } catch (error: any) {
-        console.error("Error fetching promoters:", error);
+        logger.error("Error fetching promoters:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -287,7 +288,7 @@ export const getPromoterById = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Error fetching promoter:", error);
+        logger.error("Error fetching promoter:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -365,7 +366,7 @@ export const updatePromoter = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Error updating promoter:", error);
+        logger.error("Error updating promoter:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -410,7 +411,7 @@ export const removePromoter = async (req: CustomRequest, res: Response) => {
         return res.status(200).json({ message: "Promotor eliminado exitosamente" });
 
     } catch (error: any) {
-        console.error("Error removing promoter:", error);
+        logger.error("Error removing promoter:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -497,7 +498,7 @@ export const assignPromoterToEvent = async (req: CustomRequest, res: Response) =
         });
 
     } catch (error: any) {
-        console.error("Error assigning promoter to event:", error);
+        logger.error("Error assigning promoter to event:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -549,7 +550,7 @@ export const removePromoterFromEvent = async (req: CustomRequest, res: Response)
         return res.status(200).json({ message: "Promotor removido del evento exitosamente" });
 
     } catch (error: any) {
-        console.error("Error removing promoter from event:", error);
+        logger.error("Error removing promoter from event:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -606,7 +607,7 @@ export const getPromoterProfile = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error("Error fetching promoter profile:", error);
+        logger.error("Error fetching promoter profile:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -676,7 +677,7 @@ export const getMyAssignedEvents = async (req: CustomRequest, res: Response) => 
         });
 
     } catch (error: any) {
-        console.error("Error fetching assigned events:", error);
+        logger.error("Error fetching assigned events:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };
@@ -709,7 +710,7 @@ export const checkOrganizerHasEvents = async (req: CustomRequest, res: Response)
         });
 
     } catch (error: any) {
-        console.error("Error checking events:", error);
+        logger.error("Error checking events:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: error.message || "Error interno del servidor" });
     }
 };

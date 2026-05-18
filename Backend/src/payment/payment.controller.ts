@@ -364,11 +364,11 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
  */
 export const simulatePaymentWebhook = async (req: CustomRequest, res: Response) => {
     try {
-        // Solo permitir en sandbox o development
-        if (env.NODE_ENV === 'production') {
+        // Solo permitir en development
+        if (env.NODE_ENV !== 'development') {
             return res.status(403).json({
                 success: false,
-                message: 'Este endpoint solo está disponible en modo sandbox'
+                message: 'Este endpoint solo está disponible en modo development'
             });
         }
         

@@ -50,5 +50,5 @@ export const routes: Routes = [
     // Subscription routes - no authGuard because webhook handles activation
     { path: "subscription/callback", loadComponent: () => import('./pages/subscription-callback/subscription-callback.component').then(m => m.SubscriptionCallbackComponent), title: 'Verificando Suscripción' },
 
-    { path: "**", redirectTo: "", pathMatch: "full" }
+    { path: "**", loadComponent: () => import('./pages/not-found/not-found.component').then(m => m.NotFoundComponent), title: 'Página no encontrada' }
 ];

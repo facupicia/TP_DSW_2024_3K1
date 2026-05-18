@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { logger } from "../services/logger";
 import { AnyZodObject, ZodError } from "zod";
 
 
@@ -31,7 +32,7 @@ export const schemaValidation =
       }
 
       // Manejo de otros errores inesperados
-      console.error(error);
+      logger.error(error);
       return res.status(500).json({ message: "Internal server error" });
     }
   };

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { randomUUID } from "crypto";
 import { Ticket, TicketStatus } from "./ticket.entity";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
@@ -109,7 +110,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
         }
 
         // 3.1 Validar que el evento no haya comenzado
-        const eventDateTime = new Date(`${event.date}T${event.time}`);
+        const eventDateTime = getEventDateTime(event);
         if (new Date() > eventDateTime) {
             throw new HttpError(400, 'EVENT_STARTED', 'Las ventas han cerrado. El evento ya comenzó.');
         }
@@ -157,7 +158,7 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
                     ticketType: ticketType.name
                 })));
             } catch (emailErr) {
-                console.error("Error enviando email (no bloqueante):", emailErr);
+                logger.error("Error enviando email (no bloqueante):", emailErr);
             }
         }
 
@@ -308,7 +309,7 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
         });
 
     } catch (error: any) {
-        console.error("ERROR REAL:", error);
+        logger.error("ERROR REAL:", error);
         return res.status(500).json({ message: 'Error interno del servidor' });
     }
 };
@@ -791,7 +792,7 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             try {
                 await enviarCorreoConQR(email, ticketsForThisEmail);
             } catch (emailErr: any) {
-                console.error(`Error enviando email a ${email}:`, emailErr);
+                logger.error(`Error enviando email a ${email}:`, emailErr);
 
                 errors.push(
                     `Error enviando a ${email}: ${
@@ -813,7 +814,7 @@ export const inviteGuests = async (req: CustomRequest, res: Response) => {
             await queryRunner.rollbackTransaction();
         }
 
-        console.error("Error inviting guests:", error);
+        logger.error("Error inviting guests:", error);
 
         return res.status(500).json({
             message: "Error al enviar invitaciones",

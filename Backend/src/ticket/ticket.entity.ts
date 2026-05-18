@@ -14,6 +14,7 @@ import {
 
 import { User } from "../user/user.entity";
 import { TicketType } from "../ticketType/ticketType.entity";
+import { PaymentLog } from "../payment/payment.entity";
 
 export enum TicketStatus {
     ACTIVE = "active",
@@ -65,6 +66,13 @@ export class Ticket extends BaseEntity {
 
     @Column()
     userId: number;
+
+    @ManyToOne(() => PaymentLog, { nullable: true, onDelete: "SET NULL" })
+    @JoinColumn({ name: "paymentLogId" })
+    paymentLog: PaymentLog | null;
+
+    @Column({ nullable: true })
+    paymentLogId: number | null;
 
     /* ===================== BUSINESS DATA ===================== */
 

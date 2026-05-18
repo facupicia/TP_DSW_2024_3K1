@@ -2,6 +2,7 @@ import { User } from "./user.entity"
 import { Request, Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from 'jsonwebtoken';
+import { logger } from "../common/services/logger";
 import { Brackets } from "typeorm";
 import { tokenSing } from "../common/services/generateToken"
 import { CustomRequest } from "../common/middleware/authToken";
@@ -12,6 +13,7 @@ import { issueRefreshToken, revokeRefreshToken, rotateRefreshToken } from "../co
 import { createAccountClaimToken, consumeAccountClaimToken, findValidAccountClaimToken } from "./accountClaim.service";
 import { sendAccountClaimEmail } from "../common/services/mailer";
 import { env } from "../config/env";
+import { RefreshToken } from "./refreshToken.entity";
 
 export const signupUser = async (req: Request, res: Response) => {
   try {
@@ -47,7 +49,8 @@ export const signupUser = async (req: Request, res: Response) => {
     await user.save();
     res.status(201).json({ mensaje: 'Registro guardado correctamente' });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message || 'Internal server error' });
+    logger.error('SIGNUP_ERROR', { error: error?.message });
+    return res.status(500).json({ code: 'SIGNUP_FAILED', message: 'No se pudo completar el registro. Intentá más tarde.' });
   }
 };
 
@@ -144,7 +147,7 @@ export const getUsers = async (req: Request, res: Response) => {
       totalPages: Math.max(1, Math.ceil(total / limit))
     })
   } catch (error: any) {
-    console.error("Error fetching users:", error);
+    logger.error("Error fetching users:", error);
     return res.status(500).json({
       code: "USERS_SEARCH_ERROR",
       message: error?.message || "Error al buscar usuarios"
@@ -202,8 +205,8 @@ export const getUser = async (req: CustomRequest, res: Response) => {
 };
 
 export const updateUser = async (req: CustomRequest, res: Response) => {
+  const targetId = parseInt(req.params.id)
   try {
-    const targetId = parseInt(req.params.id)
     const requesterId = req.user?.id
     const requesterRoles = req.user?.roles || []
     const isAdmin = requesterRoles.includes('admin')
@@ -250,8 +253,9 @@ export const updateUser = async (req: CustomRequest, res: Response) => {
     await user.save()
 
     return res.status(200).json({ message: "User updated" })
-  } catch (error) {
-    return res.status(500).json({ message: error })
+  } catch (error: any) {
+    logger.error('UPDATE_USER_ERROR', { error: error?.message, userId: targetId });
+    return res.status(500).json({ code: 'UPDATE_FAILED', message: 'No se pudo actualizar el usuario. Intentá más tarde.' })
   }
 }
 
@@ -267,11 +271,16 @@ export const deleteUser = async (req: Request, res: Response) => {
     await user.save();
     await User.softRemove(user);
 
+    // Revocar todos los refresh tokens del usuario
+    await RefreshToken.update(
+      { userId: user.id, revokedAt: undefined as any },
+      { revokedAt: new Date() }
+    );
+
     return res.sendStatus(204);
-  } catch (error) {
-    if (error instanceof Error) {
-      return res.status(500).json({ message: error.message });
-    }
+  } catch (error: any) {
+    logger.error('DELETE_USER_ERROR', { error: error?.message, userId: id });
+    return res.status(500).json({ code: 'DELETE_FAILED', message: 'No se pudo eliminar el usuario. Intentá más tarde.' });
   }
 };
 
@@ -307,7 +316,7 @@ export const signinUser = async (req: Request, res: Response) => {
     return res.status(200).json({ "token": tokenSession })
 
   } catch (error: any) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     return res.status(500).json({ message: error.message || 'Internal Server Error' });
   }
 };
@@ -577,7 +586,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       await dataSource.initialize();
     }
     const repo = dataSource.getRepository(User);
-    let user = await repo.findOne({ where: { email } });
+    let user = await repo.findOne({ where: { email, active: true } });
     let isNewUser = false;
 
     if (!user) {
@@ -587,7 +596,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       const clientIP = getClientIP(req);
       const location = getReadableLocationFromIP(clientIP);
 
-      console.log(`[Google Signin] New user from IP: ${clientIP}`, location);
+      logger.info(`[Google Signin] New user from IP: ${clientIP}`, location);
 
       user = new User();
       user.firstname = firstname;

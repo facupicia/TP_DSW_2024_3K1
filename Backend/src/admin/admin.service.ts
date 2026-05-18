@@ -329,7 +329,7 @@ export class AdminService {
           (SELECT COUNT(*) FROM "user" WHERE active = true) AS "totalUsers",
           ${newUsersFilter} AS "newUsers",
           (SELECT COUNT(DISTINCT us."userId") FROM user_subscription us INNER JOIN subscription_plan sp ON us."planId" = sp.id WHERE us.status = 'active' AND sp.name != 'FREE') AS "usersWithActiveSubscription",
-          (SELECT COUNT(DISTINCT "user_id") FROM event WHERE "deletedAt" IS NULL) AS "activeOrganizers"
+          (SELECT COUNT(DISTINCT e."user_id") FROM event e INNER JOIN "user" u ON e."user_id" = u.id WHERE e."deletedAt" IS NULL AND u.active = true) AS "activeOrganizers"
       `;
 
             const result = await queryRunner.query(query, params);

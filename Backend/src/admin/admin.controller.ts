@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { logger } from "../common/services/logger";
 import { AdminService } from './admin.service';
 import { checkAuthToken, CustomRequest } from '../common/middleware/authToken';
 import { checkRoleAuth } from '../common/middleware/checkRole';
@@ -40,7 +41,7 @@ router.get(
                 data: overview
             });
         } catch (error: any) {
-            console.error('Admin overview error:', error);
+            logger.error('Admin overview error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching admin overview',
@@ -68,7 +69,7 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            console.error('Subscription metrics error:', error);
+            logger.error('Subscription metrics error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching subscription metrics',
@@ -96,7 +97,7 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            console.error('Marketplace metrics error:', error);
+            logger.error('Marketplace metrics error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching marketplace metrics',
@@ -125,7 +126,7 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            console.error('Commission metrics error:', error);
+            logger.error('Commission metrics error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching commission metrics',
@@ -153,7 +154,7 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            console.error('User metrics error:', error);
+            logger.error('User metrics error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching user metrics',
@@ -181,7 +182,7 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            console.error('Event metrics error:', error);
+            logger.error('Event metrics error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching event metrics',
@@ -212,7 +213,7 @@ router.get(
                 data: trendData
             });
         } catch (error: any) {
-            console.error('Revenue trend error:', error);
+            logger.error('Revenue trend error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching revenue trend',
@@ -242,7 +243,7 @@ router.get(
                 data: metrics.topOrganizers
             });
         } catch (error: any) {
-            console.error('Top organizers error:', error);
+            logger.error('Top organizers error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching top organizers',
@@ -272,7 +273,7 @@ router.get(
                 data: topEvents
             });
         } catch (error: any) {
-            console.error('Top events error:', error);
+            logger.error('Top events error:', error);
             res.status(500).json({
                 success: false,
                 message: 'Error fetching top events',

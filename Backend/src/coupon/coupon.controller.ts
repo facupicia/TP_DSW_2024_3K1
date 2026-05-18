@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { Coupon } from "./coupon.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../common/middleware/authToken";
@@ -69,7 +70,7 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
 
         return res.status(201).json(coupon);
     } catch (error: any) {
-        console.error("Error creating coupon:", error);
+        logger.error("Error creating coupon:", error);
         return res.status(500).json({ message: "Error al crear cupón", error: error.message });
     }
 };
@@ -111,7 +112,7 @@ export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
 
         return res.json({ data: coupons, total });
     } catch (error: any) {
-        console.error("Error fetching coupons:", error);
+        logger.error("Error fetching coupons:", error);
         return res.status(500).json({ message: "Error al obtener cupones" });
     }
 };
@@ -157,7 +158,7 @@ export const deleteCoupon = async (req: CustomRequest, res: Response) => {
 
         return res.json({ message: "Cupón desactivado correctamente" });
     } catch (error: any) {
-        console.error("Error deleting coupon:", error);
+        logger.error("Error deleting coupon:", error);
         return res.status(500).json({ message: "Error al eliminar cupón" });
     }
 };
@@ -204,7 +205,7 @@ export const toggleCoupon = async (req: CustomRequest, res: Response) => {
 
         return res.json(updatedCoupon);
     } catch (error: any) {
-        console.error("Error toggling coupon:", error);
+        logger.error("Error toggling coupon:", error);
         return res.status(500).json({ message: "Error al modificar cupón" });
     }
 };
@@ -262,7 +263,7 @@ export const validateCoupon = async (req: Request, res: Response) => {
             message: `Descuento del ${coupon.discountPercent}% aplicado`
         });
     } catch (error: any) {
-        console.error("Error validating coupon:", error);
+        logger.error("Error validating coupon:", error);
         return res.status(500).json({ valid: false, message: "Error al validar cupón" });
     }
 };
@@ -276,6 +277,6 @@ export const incrementCouponUsage = async (couponId: number): Promise<void> => {
             usedCount: () => "usedCount + 1"
         });
     } catch (error) {
-        console.error("Error incrementing coupon usage:", error);
+        logger.error("Error incrementing coupon usage:", error);
     }
 };

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { logger } from "../common/services/logger";
 import { ScannerController } from "./scanner.controller";
 import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { checkExactRole } from "../common/middleware/checkRole";
@@ -33,7 +34,7 @@ const checkScannerAccess = async (req: CustomRequest, res: Response, next: NextF
             current: roles
         });
     } catch (error) {
-        console.error("Scanner role check error:", error);
+        logger.error("Scanner role check error:", error);
         return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal Server Error" });
     }
 };

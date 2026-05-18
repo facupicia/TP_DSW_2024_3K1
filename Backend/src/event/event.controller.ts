@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { logger } from "../common/services/logger";
 import { Event } from "./event.entity";
 import { Category } from "../category/category.entity";
 import { User } from "../user/user.entity";
@@ -218,7 +219,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
         if (error instanceof HttpError) {
             return res.status(error.status).json({ code: error.code, message: error.message });
         }
-        console.error("Error creating event:", error);
+        logger.error("Error creating event:", error);
         return res.status(500).json({ message: error.message || "Error creating event" });
     } finally {
         await queryRunner.release();
@@ -404,7 +405,7 @@ export const updateEvent = async (req: CustomRequest, res: Response) => {
         if (error instanceof HttpError) {
             return res.status(error.status).json({ code: error.code, message: error.message });
         }
-        console.error(error);
+        logger.error(error);
         return res.status(500).json({ message: "Error updating event" });
     } finally {
         await queryRunner.release();
@@ -489,7 +490,7 @@ export const deleteEvent = async (req: CustomRequest, res: Response) => {
         if (error instanceof HttpError) {
             return res.status(error.status).json({ code: error.code, message: error.message });
         }
-        console.error(error);
+        logger.error(error);
         return res.status(500).json({ message: "Error deleting event" });
     } finally {
         await queryRunner.release();
@@ -547,7 +548,7 @@ export const getEvent = async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error(error);
         return res.status(500).json({ message: "Error retrieving event" });
     }
 };
@@ -614,7 +615,7 @@ export const getEvents = async (req: Request, res: Response) => {
             totalPages: Math.max(1, Math.ceil(total / limit))
         });
     } catch (error) {
-        console.error(error);
+        logger.error(error);
         return res.status(500).json({ message: error.message || "Error fetching events" });
     }
 };
@@ -627,7 +628,7 @@ export const getEventsNumber = async (req: Request, res: Response) => {
             activeEvents: count
         });
     } catch (error) {
-        console.error(error);
+        logger.error(error);
         return res.status(500).json({ message: "Error fetching events count" });
     }
 };
@@ -755,6 +756,7 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .andWhere('t.createdAt >= :startDate', { startDate })
             .getRawOne();
 
@@ -769,11 +771,12 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
                     'COUNT(t.id) as "totalTickets"',
                     'SUM(t.purchasePrice) as "totalRevenue"'
                 ])
-                .where('e.user_id = :userId', { userId })
-                .andWhere('e.active = true')
-                .andWhere('t.createdAt >= :previousStartDate', { previousStartDate })
-                .andWhere('t.createdAt < :previousEndDate', { previousEndDate })
-                .getRawOne();
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
+            .andWhere('t.createdAt >= :previousStartDate', { previousStartDate })
+            .andWhere('t.createdAt < :previousEndDate', { previousEndDate })
+            .getRawOne();
             previousStats = {
                 totalTickets: parseInt(prev?.totalTickets || '0'),
                 totalRevenue: parseFloat(prev?.totalRevenue || '0')
@@ -853,7 +856,7 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error) {
-        console.error("Error getting creator stats:", error);
+        logger.error("Error getting creator stats:", error);
         return res.status(500).json({ message: "Error al obtener estadísticas del creador" });
     }
 };
@@ -879,6 +882,7 @@ export const getCreatorStatsComparative = async (req: CustomRequest, res: Respon
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('e.id')
             .addGroupBy('e.title')
             .orderBy('e.date', 'DESC')
@@ -896,7 +900,7 @@ export const getCreatorStatsComparative = async (req: CustomRequest, res: Respon
 
         return res.json({ comparative: formatted });
     } catch (error) {
-        console.error("Error getting comparative stats:", error);
+        logger.error("Error getting comparative stats:", error);
         return res.status(500).json({ message: "Error al obtener estadísticas comparativas" });
     }
 };
@@ -944,6 +948,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .getRawOne();
 
         currentData = {
@@ -970,6 +975,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
                     ])
                     .where('e.user_id = :userId', { userId })
                     .andWhere('e.active = true')
+                    .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
                     .getRawOne();
 
                 const newData = {
@@ -985,7 +991,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
                     res.write(`data: ${JSON.stringify({ type: 'update', data: newData }) }\n\n`);
                 }
             } catch (err) {
-                console.error('Error in stats stream:', err);
+                logger.error('Error in stats stream:', err);
             }
         }, 30000);
 
@@ -1017,7 +1023,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
             if (count > 1) sseConnections.set(userId, count - 1);
             else sseConnections.delete(userId);
         }
-        console.error("Error in stream:", error);
+        logger.error("Error in stream:", error);
         return res.status(500).json({ message: "Error en streaming de estadísticas" });
     }
 };
@@ -1058,6 +1064,7 @@ export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) =
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('e.id')
             .addGroupBy('e.title')
             .addGroupBy('e.date')
@@ -1179,7 +1186,7 @@ export const exportCreatorStatsPdf = async (req: CustomRequest, res: Response) =
         doc.end();
 
     } catch (error) {
-        console.error("Error exporting PDF:", error);
+        logger.error("Error exporting PDF:", error);
         return res.status(500).json({ message: "Error al generar PDF" });
     }
 };
@@ -1230,6 +1237,7 @@ export const getPlatformStats = async (req: CustomRequest, res: Response) => {
                 'AVG(t.purchasePrice) as "avgPrice"'
             ])
             .where('t.createdAt >= :startDate', { startDate })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .getRawOne();
 
         // Get top categories
@@ -1291,7 +1299,7 @@ export const getPlatformStats = async (req: CustomRequest, res: Response) => {
         });
 
     } catch (error) {
-        console.error("Error getting platform stats:", error);
+        logger.error("Error getting platform stats:", error);
         return res.status(500).json({ message: "Error al obtener estadísticas de la plataforma" });
     }
 };
@@ -1341,6 +1349,7 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
                 'SUM(CASE WHEN t.status = \'used\' THEN 1 ELSE 0 END) as "usedCount"'
             ])
             .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .getRawOne();
 
         const totalTickets = parseInt(ticketStats?.totalTickets || '0');
@@ -1423,7 +1432,7 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
             demographics: { ages, ciudades: ciudadesArray }
         });
     } catch (error) {
-        console.error("Error getting event stats:", error);
+        logger.error("Error getting event stats:", error);
         return res.status(500).json({ message: "Error al obtener estadísticas" });
     }
 };
@@ -1458,6 +1467,7 @@ export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) =
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('e.id')
             .addGroupBy('e.title')
             .addGroupBy('e.date')
@@ -1508,7 +1518,7 @@ export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) =
         res.send(BOM + csvContent);
 
     } catch (error) {
-        console.error("Error exporting CSV:", error);
+        logger.error("Error exporting CSV:", error);
         return res.status(500).json({ message: "Error al generar CSV" });
     }
 };
