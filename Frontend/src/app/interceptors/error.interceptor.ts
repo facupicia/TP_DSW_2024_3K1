@@ -46,31 +46,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         }
                         break;
                     case 403:
-                        // Check if this is a plan limit or MP connection error (should NOT logout)
-                        const errorCode = error.error?.code;
-                        const noLogoutCodes = [
-                            'PLAN_LIMIT_', 'MP_NOT_LINKED', 'PLAN_LIMIT_EVENTS', 'PLAN_LIMIT_TICKET_TYPES',
-                            'FORBIDDEN_ROLE', 'FORBIDDEN_USER_LOOKUP' // Don't logout on role/user permission errors
-                        ];
-                        const shouldNotLogout = noLogoutCodes.some(code =>
-                            errorCode?.startsWith(code) || errorCode === code
-                        );
-
-                        if (shouldNotLogout) {
-                            // Business logic error - show message but don't logout
-                            errorMessage = error.error?.message || 'Acción no permitida. Verifica los requisitos.';
-                        } else {
-                            // Actual permission error - logout
-                            errorMessage = 'No tienes permisos para realizar esta acción.';
-                            if (!isNavigatingToLogin) {
-                                isNavigatingToLogin = true;
-                                clearAccessToken();
-                                authService.logout();
-                                router.navigate(['/login']).then(() => {
-                                    isNavigatingToLogin = false;
-                                });
-                            }
-                        }
+                        errorMessage = error.error?.message || 'No tienes permisos para realizar esta acción.';
                         break;
                     case 429:
                         errorMessage = 'Demasiadas solicitudes. Intenta nuevamente en unos segundos.';

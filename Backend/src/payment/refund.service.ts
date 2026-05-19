@@ -123,34 +123,44 @@ export async function processRefund(
             };
         }
 
-        // 2. Find tickets to cancel (preferably those created around the payment time)
+        // 2. Find tickets to cancel (using paymentLogId first, fallback to time-window heuristic for legacy tickets)
         const ticketRepo = queryRunner.manager.getRepository(Ticket);
-        const paymentTime = paymentLog.createdAt;
-        const timeWindowStart = new Date(paymentTime.getTime() - 5 * 60 * 1000);
-        const timeWindowEnd = new Date(paymentTime.getTime() + 5 * 60 * 1000);
-
+        
         let ticketsToCancel = await ticketRepo
             .createQueryBuilder("ticket")
             .select(["ticket.id"])
-            .where('"userId" = :userId', { userId: paymentLog.userId })
-            .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
+            .where('"paymentLogId" = :paymentLogId', { paymentLogId: paymentLog.id })
             .andWhere('status = :active', { active: TicketStatus.ACTIVE })
-            .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
-            .orderBy('"createdAt"', "DESC")
-            .take(paymentLog.quantity)
             .getMany();
 
-        // Fallback to most recent if time-window search finds nothing
         if (ticketsToCancel.length === 0) {
+            const paymentTime = paymentLog.createdAt;
+            const timeWindowStart = new Date(paymentTime.getTime() - 5 * 60 * 1000);
+            const timeWindowEnd = new Date(paymentTime.getTime() + 5 * 60 * 1000);
+
             ticketsToCancel = await ticketRepo
                 .createQueryBuilder("ticket")
                 .select(["ticket.id"])
                 .where('"userId" = :userId', { userId: paymentLog.userId })
                 .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
                 .andWhere('status = :active', { active: TicketStatus.ACTIVE })
+                .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
                 .orderBy('"createdAt"', "DESC")
                 .take(paymentLog.quantity)
                 .getMany();
+
+            // Fallback to most recent if time-window search finds nothing
+            if (ticketsToCancel.length === 0) {
+                ticketsToCancel = await ticketRepo
+                    .createQueryBuilder("ticket")
+                    .select(["ticket.id"])
+                    .where('"userId" = :userId', { userId: paymentLog.userId })
+                    .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
+                    .andWhere('status = :active', { active: TicketStatus.ACTIVE })
+                    .orderBy('"createdAt"', "DESC")
+                    .take(paymentLog.quantity)
+                    .getMany();
+            }
         }
 
         // 3. Update DB state FIRST (before calling MP) to ensure consistency even if MP fails later

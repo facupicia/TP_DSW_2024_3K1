@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
 import { PromoterGroup, PromoterEventAssignment } from "./promoter.entity";
-import { Ticket } from "../ticket/ticket.entity";
+import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { Event } from "../event/event.entity";
 import AppDataSource from "../db";
 import PDFDocument from "pdfkit";
@@ -35,7 +35,8 @@ export const getPromotersStats = async (req: CustomRequest, res: Response) => {
             .leftJoin("tt.event", "e")
             .leftJoin("t.soldByPromoter", "p")
             .leftJoin(PromoterGroup, "pg", "pg.promoterId = t.soldByPromoterId AND pg.organizerId = :organizerId", { organizerId })
-            .where("t.soldByPromoterId IS NOT NULL");
+            .where("t.soldByPromoterId IS NOT NULL")
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED });
 
         if (eventId) {
             queryBuilder.andWhere("tt.eventId = :eventId", { eventId: parseInt(eventId as string) });
@@ -139,7 +140,8 @@ export const getPromoterStatsById = async (req: CustomRequest, res: Response) =>
         const queryBuilder = AppDataSource.getRepository(Ticket)
             .createQueryBuilder("t")
             .leftJoin("t.ticketType", "tt")
-            .where("t.soldByPromoterId = :promoterId", { promoterId });
+            .where("t.soldByPromoterId = :promoterId", { promoterId })
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED });
 
         if (eventId) {
             queryBuilder.andWhere("tt.eventId = :eventId", { eventId: parseInt(eventId as string) });
@@ -198,7 +200,8 @@ export const getPromoterStatsById = async (req: CustomRequest, res: Response) =>
                 "event.id",
                 "event.title"
             ])
-            .where("ticket.soldByPromoterId = :promoterId", { promoterId: promoterGroup.promoterId });
+            .where("ticket.soldByPromoterId = :promoterId", { promoterId: promoterGroup.promoterId })
+            .andWhere("ticket.status != :cancelled", { cancelled: TicketStatus.CANCELLED });
 
         if (eventId) {
             recentSalesQuery.andWhere("ticketType.eventId = :eventId", { eventId: parseInt(eventId as string) });
@@ -281,7 +284,8 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
         const queryBuilder = AppDataSource.getRepository(Ticket)
             .createQueryBuilder("t")
             .leftJoin("t.ticketType", "tt")
-            .where("t.soldByPromoterId = :userId", { userId });
+            .where("t.soldByPromoterId = :userId", { userId })
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED });
 
         if (eventId) {
             queryBuilder.andWhere("tt.eventId = :eventId", { eventId: parseInt(eventId as string) });
@@ -332,6 +336,7 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
             .createQueryBuilder("t")
             .leftJoin("t.ticketType", "tt")
             .where("t.soldByPromoterId = :userId", { userId })
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED })
             .andWhere("t.createdAt >= :date", { date: sixMonthsAgo })
             .select([
                 "DATE_TRUNC('month', t.createdAt) as month",
@@ -363,7 +368,8 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
                 "user.firstname",
                 "user.lastname"
             ])
-            .where("ticket.soldByPromoterId = :userId", { userId });
+            .where("ticket.soldByPromoterId = :userId", { userId })
+            .andWhere("ticket.status != :cancelled", { cancelled: TicketStatus.CANCELLED });
 
         if (eventId) {
             recentSalesQuery.andWhere("ticketType.eventId = :eventId", { eventId: parseInt(eventId as string) });
@@ -447,6 +453,7 @@ export const getEventsPromoterStats = async (req: CustomRequest, res: Response) 
             .leftJoin("t.soldByPromoter", "p")
             .where("e.user_id = :organizerId", { organizerId })
             .andWhere("t.soldByPromoterId IS NOT NULL")
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED })
             .select([
                 "e.id as eventId",
                 "e.title as eventTitle",
@@ -527,6 +534,7 @@ export const exportPromotersStatsPdf = async (req: CustomRequest, res: Response)
             .leftJoin(PromoterGroup, "pg", "pg.promoterId = t.soldByPromoterId AND pg.organizerId = :organizerId", { organizerId })
             .where("t.soldByPromoterId IS NOT NULL")
             .andWhere("tt.eventId = :eventId", { eventId })
+            .andWhere("t.status != :cancelled", { cancelled: TicketStatus.CANCELLED })
             .select([
                 "t.soldByPromoterId as promoterId",
                 "p.firstname as firstname",

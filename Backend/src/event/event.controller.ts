@@ -13,7 +13,7 @@ import { UserSubscription, SubscriptionStatus } from "../subscription/user_subsc
 import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
 import { tokenSing } from "../common/services/generateToken";
 import PDFDocument from "pdfkit";
-import { MoreThanOrEqual, IsNull } from "typeorm";
+import { MoreThanOrEqual, IsNull, In } from "typeorm";
 
 // SSE connection limiter (per-user, per-process)
 const sseConnections = new Map<number, number>();
@@ -454,17 +454,19 @@ export const deleteEvent = async (req: CustomRequest, res: Response) => {
         }
 
         // Count active tickets per type to restore soldCount accurately
-        const activeTickets = await queryRunner.manager.find(Ticket, {
-            where: { ticketType: { event: { id: idNum } }, status: TicketStatus.ACTIVE },
-            relations: ['ticketType'],
+        const ticketTypeIds = event.ticketTypes ? event.ticketTypes.map(tt => tt.id) : [];
+        const activeTickets = ticketTypeIds.length > 0 ? await queryRunner.manager.find(Ticket, {
+            where: { ticketTypeId: In(ticketTypeIds), status: TicketStatus.ACTIVE },
             select: ['id', 'ticketTypeId']
-        });
+        }) : [];
 
-        await queryRunner.manager.update(
-            Ticket,
-            { ticketType: { event: { id: idNum } }, status: TicketStatus.ACTIVE },
-            { status: TicketStatus.CANCELLED }
-        );
+        if (ticketTypeIds.length > 0) {
+            await queryRunner.manager.update(
+                Ticket,
+                { ticketTypeId: In(ticketTypeIds), status: TicketStatus.ACTIVE },
+                { status: TicketStatus.CANCELLED }
+            );
+        }
 
         // Restore soldCount per ticket type
         const cancelledByType = new Map<number, number>();
@@ -807,6 +809,7 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('e.id')
             .addGroupBy('e.title')
             .orderBy('SUM(t.purchasePrice)', 'DESC')
@@ -834,6 +837,7 @@ export const getCreatorStats = async (req: CustomRequest, res: Response) => {
             ])
             .where('e.user_id = :userId', { userId })
             .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .orderBy('t.createdAt', 'DESC')
             .limit(10)
             .getRawMany();
@@ -1271,6 +1275,7 @@ export const getPlatformStats = async (req: CustomRequest, res: Response) => {
                 'SUM(t.purchasePrice) as revenue'
             ])
             .where('t.createdAt >= :startDate', { startDate })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('DATE(t.createdAt)')
             .orderBy('date', 'ASC')
             .getRawMany();
@@ -1372,6 +1377,7 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
                 'COUNT(t.id) as count'
             ])
             .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .groupBy('DATE(t.createdAt)')
             .orderBy('date', 'DESC')
             .limit(7)
@@ -1393,6 +1399,7 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
                 'COUNT(t.id) as "count"'
             ])
             .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .andWhere('u.birth IS NOT NULL')
             .groupBy(ageGroupExpression)
             .getRawMany();
@@ -1405,6 +1412,7 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
                 'COUNT(t.id) as "value"'
             ])
             .where('t.ticketTypeId IN (:...ids)', { ids: ticketTypeIds })
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
             .andWhere('u.ciudad IS NOT NULL')
             .groupBy('u.ciudad')
             .orderBy('"value"', 'DESC')

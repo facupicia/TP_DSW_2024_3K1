@@ -712,24 +712,32 @@ export async function processApprovedPayment(
             // Already processed (idempotency). Find existing log and tickets.
             await queryRunner.rollbackTransaction();
             
-            const existingLog = await queryRunner.manager.findOne(PaymentLog, {
+            const existingLog = await AppDataSource.getRepository(PaymentLog).findOne({
                 where: { mpPaymentId: paymentId },
                 select: ['id', 'status', 'userId', 'ticketTypeId', 'createdAt']
             });
             
             if (existingLog && existingLog.status === PaymentStatus.COMPLETED) {
-                // Find tickets created around the same time as the log
-                const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
-                const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
-                
-                const existingTickets = await queryRunner.manager.find(Ticket, {
-                    where: {
-                        userId: existingLog.userId,
-                        ticketTypeId: existingLog.ticketTypeId,
-                        createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
-                    },
+                // Find tickets created for this payment log
+                let existingTickets = await AppDataSource.getRepository(Ticket).find({
+                    where: { paymentLogId: existingLog.id },
                     relations: ['ticketType', 'ticketType.event']
                 });
+                
+                // Fallback for legacy tickets created around the same time as the log
+                if (existingTickets.length === 0) {
+                    const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
+                    const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
+                    
+                    existingTickets = await AppDataSource.getRepository(Ticket).find({
+                        where: {
+                            userId: existingLog.userId,
+                            ticketTypeId: existingLog.ticketTypeId,
+                            createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
+                        },
+                        relations: ['ticketType', 'ticketType.event']
+                    });
+                }
                 
                 return { 
                     success: true, 
@@ -789,6 +797,7 @@ export async function processApprovedPayment(
         const paidUnitPrice = Number((expectedTotal / quantity).toFixed(2));
         tickets.forEach(ticket => {
             ticket.purchasePrice = paidUnitPrice;
+            ticket.paymentLogId = log.id;
         });
         await queryRunner.manager.save(Ticket, tickets);
         
