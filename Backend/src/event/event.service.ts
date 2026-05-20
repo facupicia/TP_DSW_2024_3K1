@@ -29,12 +29,69 @@ function ticketTypeStatusFromActive(active: boolean | undefined, fallback: Ticke
     return active ? TicketTypeStatus.ACTIVE : TicketTypeStatus.DISABLED;
 }
 
+interface TicketTypeInput {
+    name: string;
+    price: number;
+    capacity: number;
+    description?: string;
+}
+
+interface UpdateTicketTypeInput {
+    id?: number;
+    name?: string;
+    price?: number;
+    capacity?: number;
+    description?: string;
+    active?: boolean;
+}
+
+interface CreateEventInput {
+    title: string;
+    pais?: string;
+    provincia?: string;
+    ciudad?: string;
+    direccion?: string;
+    organizer?: string;
+    image?: string;
+    date: string;
+    time?: string;
+    description?: string;
+    destacado?: boolean;
+    minAge?: number;
+    isPublic?: boolean;
+    categoryId: number;
+    ticketTypes?: TicketTypeInput[];
+}
+
+interface UpdateEventInput {
+    title?: string;
+    pais?: string;
+    provincia?: string;
+    ciudad?: string;
+    direccion?: string;
+    organizer?: string;
+    image?: string;
+    date?: string;
+    time?: string;
+    description?: string;
+    active?: boolean;
+    destacado?: boolean;
+    minAge?: number;
+    isPublic?: boolean;
+    categoryId?: number;
+    ticketTypes?: UpdateTicketTypeInput[];
+}
+
+interface RawSalesRow { id: string; salesCount: string; }
+interface RawDayRow { date: string; count: string; }
+interface RawCityRow { name: string; value: string; }
+
 // ============================================================================
 // CREATE
 // ============================================================================
 export async function create(
     userId: number,
-    data: any
+    data: CreateEventInput
 ): Promise<{ event: Event; newToken?: string }> {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -116,7 +173,7 @@ export async function create(
         await queryRunner.manager.save(Event, event);
 
         if (data.ticketTypes && Array.isArray(data.ticketTypes) && data.ticketTypes.length > 0) {
-            const ticketTypeEntities = data.ticketTypes.map((tt: any) => {
+            const ticketTypeEntities = data.ticketTypes.map((tt: TicketTypeInput) => {
                 const ticketType = new TicketType();
                 ticketType.name = tt.name;
                 ticketType.price = tt.price;
@@ -153,7 +210,7 @@ export async function update(
     userId: number,
     isAdmin: boolean,
     eventId: number,
-    data: any
+    data: UpdateEventInput
 ): Promise<Event> {
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -199,40 +256,34 @@ export async function update(
         await queryRunner.manager.save(Event, event);
 
         if (data.ticketTypes && Array.isArray(data.ticketTypes)) {
-            const incomingIds = data.ticketTypes.filter((t: any) => t.id).map((t: any) => Number(t.id));
-            const existingTypes = event.ticketTypes || [];
-
-            for (const existingTT of existingTypes) {
-                if (!incomingIds.includes(existingTT.id)) {
-                    if (existingTT.soldCount > 0) {
-                        throw new HttpError(409, 'TICKET_TYPE_HAS_SALES', `No se puede eliminar ${existingTT.name} porque tiene ${existingTT.soldCount} tickets vendidos`);
-                    }
-                    existingTT.status = TicketTypeStatus.DISABLED;
-                    await queryRunner.manager.save(TicketType, existingTT);
-                }
-            }
-
-            const newTicketTypesCount = data.ticketTypes
-                .filter((t: any) => !t.id)
-                .filter((t: any) => ticketTypeStatusFromActive(t.active, TicketTypeStatus.ACTIVE) === TicketTypeStatus.ACTIVE)
-                .length;
-
-            if (newTicketTypesCount > 0) {
-                const currentActiveCount = existingTypes.filter(t => t.status === TicketTypeStatus.ACTIVE).length;
-                const remainingActiveCount = data.ticketTypes
-                    .filter((t: any) => t.id)
-                    .filter((t: any) => {
-                        const existing = existingTypes.find(et => et.id === Number(t.id));
-                        return existing && ticketTypeStatusFromActive(t.active, existing.status) === TicketTypeStatus.ACTIVE;
-                    }).length;
-                const totalAfterUpdate = remainingActiveCount + newTicketTypesCount;
-                const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate, queryRunner.manager);
-                if (!ttCheck.allowed) throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
-            }
+            const incomingIds = data.ticketTypes.filter((t: UpdateTicketTypeInput) => t.id).map((t: UpdateTicketTypeInput) => Number(t.id));
+            const existingMap = new Map(event.ticketTypes.map(t => [t.id, t]));
+            const toCreate = data.ticketTypes
+                .filter((t: UpdateTicketTypeInput) => !t.id)
+                .filter((t: UpdateTicketTypeInput) => ticketTypeStatusFromActive(t.active, TicketTypeStatus.ACTIVE) === TicketTypeStatus.ACTIVE)
+                .map((t: UpdateTicketTypeInput) => {
+                    const tt = new TicketType();
+                    tt.name = t.name!;
+                    tt.price = t.price!;
+                    tt.capacity = t.capacity!;
+                    tt.description = t.description;
+                    tt.event = event;
+                    tt.eventId = event.id;
+                    return tt;
+                });
+            const toUpdate = data.ticketTypes.filter((t: UpdateTicketTypeInput) => t.id);
+            const remainingActiveCount = event.ticketTypes.filter(t => t.status === TicketTypeStatus.ACTIVE && !incomingIds.includes(t.id)).length;
+            const newTicketTypesCount = toCreate.length + toUpdate.filter((t: UpdateTicketTypeInput) => {
+                const existing = existingMap.get(Number(t.id));
+                return existing && ticketTypeStatusFromActive(t.active, existing.status) === TicketTypeStatus.ACTIVE;
+            }).length;
+            const totalAfterUpdate = remainingActiveCount + newTicketTypesCount;
+            const ttCheck = await canCreateTicketTypes(userId, totalAfterUpdate, queryRunner.manager);
+            if (!ttCheck.allowed) throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
 
             for (const ttData of data.ticketTypes) {
                 if (ttData.id) {
-                    const existingTT = existingTypes.find(t => t.id === Number(ttData.id));
+                    const existingTT = existingMap.get(Number(ttData.id));
                     if (existingTT) {
                         if (ttData.capacity !== undefined && ttData.capacity < existingTT.soldCount) {
                             throw new HttpError(400, 'CAPACITY_BELOW_SOLD', `No se puede reducir la capacidad por debajo de lo vendido (${existingTT.soldCount}) para ${existingTT.name}`);
@@ -246,9 +297,9 @@ export async function update(
                     }
                 } else {
                     const newTT = new TicketType();
-                    newTT.name = ttData.name;
-                    newTT.price = ttData.price;
-                    newTT.capacity = ttData.capacity;
+                    newTT.name = ttData.name!;
+                    newTT.price = ttData.price!;
+                    newTT.capacity = ttData.capacity!;
                     newTT.description = ttData.description;
                     newTT.event = event;
                     newTT.status = ticketTypeStatusFromActive(ttData.active, TicketTypeStatus.ACTIVE);
@@ -351,7 +402,7 @@ export async function findPublic(params: { skip: number; take: number; page: num
         .limit(12)
         .getRawMany();
 
-    const salesByEventId = new Map<number, number>(topSales.map((row: any) => [Number(row.id), Number(row.salesCount || 0)]));
+    const salesByEventId = new Map<number, number>(topSales.map((row: RawSalesRow) => [Number(row.id), Number(row.salesCount || 0)]));
     const dynamicFeaturedIds = new Set<number>(salesByEventId.keys());
 
     const [events, total] = await AppDataSource.getRepository(Event)
@@ -657,7 +708,8 @@ export async function getEventStats(eventId: number) {
         .getRawMany();
 
     const ages: Record<string, number> = {};
-    ageRows.forEach((row: any) => { ages[row.ageGroup] = parseInt(row.count) || 0; });
+    interface AgeRow { ageGroup: string; count: string; }
+    ageRows.forEach((row: AgeRow) => { ages[row.ageGroup] = parseInt(row.count) || 0; });
 
     return {
         title: event.title,
@@ -666,8 +718,8 @@ export async function getEventStats(eventId: number) {
         attendanceRate,
         checkInCount: usedCount,
         ticketTypeDistribution,
-        salesByDay: salesByDay.map((s: any) => ({ date: s.date, count: parseInt(s.count) })),
-        demographics: { ages, ciudades: cityRows.map((row: any) => ({ name: row.name, value: parseInt(row.value) || 0 })) }
+        salesByDay: salesByDay.map((s: RawDayRow) => ({ date: s.date, count: parseInt(s.count) })),
+        demographics: { ages, ciudades: cityRows.map((row: RawCityRow) => ({ name: row.name, value: parseInt(row.value) || 0 })) }
     };
 }
 

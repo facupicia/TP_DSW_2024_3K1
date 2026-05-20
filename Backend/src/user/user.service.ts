@@ -80,7 +80,7 @@ export async function register(data: RegisterData): Promise<User> {
 
   const existing = await User.findOne({ where: { email: normalizedEmail }, select: ['id'] });
   if (existing) {
-    const err: any = new Error("EMAIL_ALREADY_EXISTS");
+    const err = new Error("EMAIL_ALREADY_EXISTS") as any;
     err.code = "EMAIL_ALREADY_EXISTS";
     throw err;
   }
@@ -117,7 +117,7 @@ export async function search(params: UserSearchParams): Promise<Paginated<UserSu
   const hasRoleFilter = Boolean(validRole);
 
   if (!hasSearch && !hasRoleFilter) {
-    const err: any = new Error("QUERY_REQUIRED");
+    const err = new Error("QUERY_REQUIRED") as any;
     err.code = "QUERY_REQUIRED";
     err.payload = {
       data: [], total: 0, page, limit, totalPages: 1, queryRequired: true,
@@ -127,7 +127,7 @@ export async function search(params: UserSearchParams): Promise<Paginated<UserSu
   }
 
   if (search && !hasSearch) {
-    const err: any = new Error("SEARCH_TOO_SHORT");
+    const err = new Error("SEARCH_TOO_SHORT") as any;
     err.code = "SEARCH_TOO_SHORT";
     err.payload = {
       data: [], total: 0, page, limit, totalPages: 1,
@@ -197,7 +197,7 @@ export async function findById(id: number): Promise<User | null> {
 export async function update(targetId: number, data: UpdateUserData): Promise<User> {
   const user = await User.findOneBy({ id: targetId });
   if (!user) {
-    const err: any = new Error("USER_NOT_FOUND");
+    const err = new Error("USER_NOT_FOUND") as any;
     err.code = "USER_NOT_FOUND";
     throw err;
   }
@@ -217,7 +217,7 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
     if (normalizedEmail !== user.email) {
       const existing = await User.findOne({ where: { email: normalizedEmail }, select: ['id'] });
       if (existing) {
-        const err: any = new Error("EMAIL_ALREADY_EXISTS");
+        const err = new Error("EMAIL_ALREADY_EXISTS") as any;
         err.code = "EMAIL_ALREADY_EXISTS";
         throw err;
       }
@@ -228,7 +228,7 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
   if (data.password) {
     const validation = validatePassword(data.password);
     if (!validation.valid) {
-      const err: any = new Error("INVALID_PASSWORD");
+      const err = new Error("INVALID_PASSWORD") as any;
       err.code = "INVALID_PASSWORD";
       err.message = validation.message;
       throw err;
@@ -243,7 +243,7 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
 export async function remove(id: number): Promise<void> {
   const user = await User.findOneBy({ id });
   if (!user) {
-    const err: any = new Error("USER_NOT_FOUND");
+    const err = new Error("USER_NOT_FOUND") as any;
     err.code = "USER_NOT_FOUND";
     throw err;
   }
@@ -269,14 +269,14 @@ export async function authenticate(email: string, password: string): Promise<{ u
 
   if (!user) {
     await bcrypt.compare(password, '$2b$12$dummy.hash.for.timing.mitigation.only');
-    const err: any = new Error("INVALID_CREDENTIALS");
+    const err = new Error("INVALID_CREDENTIALS") as any;
     err.code = "INVALID_CREDENTIALS";
     throw err;
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
-    const err: any = new Error("INVALID_CREDENTIALS");
+    const err = new Error("INVALID_CREDENTIALS") as any;
     err.code = "INVALID_CREDENTIALS";
     throw err;
   }
@@ -315,7 +315,7 @@ export async function validateAccountClaim(token: string) {
 export async function completeAccountClaim(token: string, password: string): Promise<{ user: User; token: string }> {
   const validation = validatePassword(password);
   if (!validation.valid) {
-    const err: any = new Error("INVALID_PASSWORD");
+    const err = new Error("INVALID_PASSWORD") as any;
     err.code = "INVALID_PASSWORD";
     err.message = validation.message;
     throw err;
@@ -323,7 +323,7 @@ export async function completeAccountClaim(token: string, password: string): Pro
 
   const user = await consumeAccountClaimToken(token);
   if (!user) {
-    const err: any = new Error("CLAIM_TOKEN_INVALID");
+    const err = new Error("CLAIM_TOKEN_INVALID") as any;
     err.code = "CLAIM_TOKEN_INVALID";
     throw err;
   }
@@ -340,7 +340,7 @@ export async function completeAccountClaim(token: string, password: string): Pro
 export async function getProfile(userId: number) {
   const user = await User.findOne({ where: { id: userId }, relations: ['roles'] });
   if (!user) {
-    const err: any = new Error("USER_NOT_FOUND");
+    const err = new Error("USER_NOT_FOUND") as any;
     err.code = "USER_NOT_FOUND";
     throw err;
   }
@@ -375,7 +375,7 @@ export async function updateRoles(
 ) {
   const invalidRoles = roles.filter(r => !Roles.options.includes(r as any));
   if (invalidRoles.length > 0) {
-    const err: any = new Error("INVALID_ROLE");
+    const err = new Error("INVALID_ROLE") as any;
     err.code = "INVALID_ROLE";
     err.message = `Roles no válidos: ${invalidRoles.join(', ')}`;
     throw err;
@@ -385,7 +385,7 @@ export async function updateRoles(
   const target = await userRepo.findOne({ where: { id: targetId }, relations: ['roles'] });
 
   if (!target) {
-    const err: any = new Error("USER_NOT_FOUND");
+    const err = new Error("USER_NOT_FOUND") as any;
     err.code = "USER_NOT_FOUND";
     throw err;
   }
@@ -408,7 +408,7 @@ export async function updateRoles(
   }
 
   if (JSON.stringify(prevRoles.sort()) === JSON.stringify(newRoleNames.sort())) {
-    const err: any = new Error("NO_CHANGES");
+    const err = new Error("NO_CHANGES") as any;
     err.code = "NO_CHANGES";
     err.payload = { message: "Sin cambios", roles: newRoleNames };
     throw err;
@@ -437,12 +437,12 @@ async function logRoleChange(adminId: number, userId: number, prevRole: string, 
 export async function authenticateGoogle(credential: string, clientIP?: string): Promise<{ user: User; token: string; isNewUser: boolean }> {
   const clientId = env.ID_CLIENT_GOOGLE_OAUTH;
   if (!clientId) {
-    const err: any = new Error("GOOGLE_OAUTH_NOT_CONFIGURED");
+    const err = new Error("GOOGLE_OAUTH_NOT_CONFIGURED") as any;
     err.code = "GOOGLE_OAUTH_NOT_CONFIGURED";
     throw err;
   }
   if (!credential) {
-    const err: any = new Error("MISSING_CREDENTIAL");
+    const err = new Error("MISSING_CREDENTIAL") as any;
     err.code = "MISSING_CREDENTIAL";
     throw err;
   }
@@ -451,14 +451,14 @@ export async function authenticateGoogle(credential: string, clientIP?: string):
   const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
   const payload = ticket.getPayload();
   if (!payload) {
-    const err: any = new Error("INVALID_TOKEN");
+    const err = new Error("INVALID_TOKEN") as any;
     err.code = "INVALID_TOKEN";
     throw err;
   }
 
   const iss = payload.iss;
   if (iss !== "https://accounts.google.com" && iss !== "accounts.google.com") {
-    const err: any = new Error("INVALID_ISSUER");
+    const err = new Error("INVALID_ISSUER") as any;
     err.code = "INVALID_ISSUER";
     throw err;
   }
@@ -466,7 +466,7 @@ export async function authenticateGoogle(credential: string, clientIP?: string):
   const email = payload.email;
   const emailVerified = payload.email_verified;
   if (!email || emailVerified === false) {
-    const err: any = new Error("EMAIL_NOT_VERIFIED");
+    const err = new Error("EMAIL_NOT_VERIFIED") as any;
     err.code = "EMAIL_NOT_VERIFIED";
     throw err;
   }
@@ -482,7 +482,7 @@ export async function authenticateGoogle(credential: string, clientIP?: string):
   if (!user) {
     isNewUser = true;
     const { getClientIP, getReadableLocationFromIP } = await import("../common/services/geolocation");
-    const resolvedIP = clientIP || getClientIP(undefined as any);
+    const resolvedIP = clientIP || '127.0.0.1';
     const location = getReadableLocationFromIP(resolvedIP);
 
     logger.info(`[Google Signin] New user from IP: ${resolvedIP}`, location);

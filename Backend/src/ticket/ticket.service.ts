@@ -451,13 +451,22 @@ export async function inviteGuests(
             throw new HttpError(400, 'AGE_RESTRICTED', `Este evento requiere edad mínima de ${event.minAge} años. Las invitaciones no verifican edad.`);
         }
 
+        interface EmailTicketInfo {
+            qrCode: string;
+            ticketId: number | null;
+            eventTitle: string;
+            eventDate: string;
+            eventLocation: string;
+            buyerName: string;
+            ticketType: string;
+        }
         const createdTickets: Array<{ email: string; quantity: number }> = [];
         const ticketsToInsert: Ticket[] = [];
-        const emailTicketsMap: Record<string, any[]> = {};
+        const emailTicketsMap: Record<string, EmailTicketInfo[]> = {};
 
         for (const email of validEmails) {
             try {
-                const ticketsForThisEmail: any[] = [];
+                const ticketsForThisEmail: EmailTicketInfo[] = [];
 
                 for (let i = 0; i < ticketQty; i++) {
                     const codigo_unico = randomUUID();
@@ -488,8 +497,9 @@ export async function inviteGuests(
 
                 emailTicketsMap[email] = ticketsForThisEmail;
                 createdTickets.push({ email, quantity: ticketsForThisEmail.length });
-            } catch (ticketErr: any) {
-                errors.push(`Error creando ticket para ${email}: ${ticketErr?.message || "Error desconocido"}`);
+            } catch (ticketErr) {
+                const msg = ticketErr instanceof Error ? ticketErr.message : "Error desconocido";
+                errors.push(`Error creando ticket para ${email}: ${msg}`);
             }
         }
 
@@ -532,9 +542,10 @@ export async function inviteGuests(
             }
             try {
                 await enviarCorreoConQR(email, ticketsForThisEmail);
-            } catch (emailErr: any) {
+            } catch (emailErr) {
                 logger.error(`Error enviando email a ${email}:`, emailErr);
-                errors.push(`Error enviando a ${email}: ${emailErr?.message || "Error desconocido"}`);
+                const msg = emailErr instanceof Error ? emailErr.message : "Error desconocido";
+                errors.push(`Error enviando a ${email}: ${msg}`);
             }
         }
 
