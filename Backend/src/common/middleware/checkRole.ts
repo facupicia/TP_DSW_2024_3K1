@@ -46,7 +46,9 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
 
         const userHighestLevel = getHighestRoleLevel(userRoles);
         const requiredLevels = requiredRolesArray.map(role => ROLE_HIERARCHY[role] || 0);
-        const minRequiredLevel = Math.min(...requiredLevels);
+        // Use Math.max so that passing multiple required roles enforces the *strongest* one.
+        // This prevents accidental privilege reduction (e.g. ['admin','user'] -> user).
+        const minRequiredLevel = Math.max(...requiredLevels);
 
         if (userHighestLevel >= minRequiredLevel) {
             (req as any).userRoles = userRoles;

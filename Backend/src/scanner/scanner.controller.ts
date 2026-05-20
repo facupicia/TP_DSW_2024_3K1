@@ -9,21 +9,7 @@ import { User } from "../user/user.entity";
 import { findRolesByNames, getRoleNames } from "../user/role.entity";
 import { ScannerOrganizerAssignment } from "./scanner-organizer-assignment.entity";
 
-function sanitizeTicketCode(code: unknown): string {
-    if (typeof code !== "string") return "";
-    let cleanCode = code.trim().replace(/\/+$/, "");
-    if (cleanCode.includes("/") || cleanCode.includes("http")) {
-        const parts = cleanCode.split("/");
-        cleanCode = parts[parts.length - 1];
-    }
-    return cleanCode.trim();
-}
-
-function getEventDateTime(event: { date: any; time?: string | null }) {
-    const date = String(event.date).split("T")[0];
-    const time = event.time || "00:00";
-    return new Date(`${date}T${time}`);
-}
+import { sanitizeTicketCode, getEventDateTime } from "../common/utils/ticket";
 
 export class ScannerController {
     private static getOrganizerId(req: CustomRequest, res: Response) {
@@ -180,8 +166,10 @@ export class ScannerController {
     static async validateTicket(req: CustomRequest, res: Response) {
         try {
             const { code } = req.body;
-            // @ts-ignore
-            const scannerId = req.user.id;
+            const scannerId = req.user?.id;
+            if (!scannerId) {
+                return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+            }
 
             if (!code) {
                 return res.status(400).json({ message: "Code is required" });
@@ -303,8 +291,10 @@ export class ScannerController {
     // El método getHistory está perfecto como está
     static async getHistory(req: CustomRequest, res: Response) {
         try {
-            // @ts-ignore
-            const scannerId = req.user.id;
+            const scannerId = req.user?.id;
+            if (!scannerId) {
+                return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+            }
 
             const tickets = await AppDataSource.getRepository(Ticket)
                 .createQueryBuilder("ticket")

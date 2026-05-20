@@ -747,7 +747,7 @@ export async function processApprovedPayment(
                 };
             }
             
-            return { success: true, error: 'Payment already processed' };
+            return { success: false, error: 'Payment already processed' };
         }
         
         // 7. Actualizar stock atómicamente

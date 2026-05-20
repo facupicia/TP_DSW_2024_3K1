@@ -13,7 +13,18 @@ export const verifyToken = async (token: string) => {
             audience: env.CLIENT_URL || 'eventlife-app'
         });
     } catch (error) {
-        return null
+        if (error instanceof Error) {
+            // Log error category without leaking the token value
+            const name = error.name;
+            if (name === 'TokenExpiredError') {
+                logger.warn('JWT_VERIFY_EXPIRED');
+            } else if (name === 'JsonWebTokenError') {
+                logger.warn('JWT_VERIFY_MALFORMED');
+            } else {
+                logger.error('JWT_VERIFY_ERROR', { name });
+            }
+        }
+        return null;
     }
 };
 

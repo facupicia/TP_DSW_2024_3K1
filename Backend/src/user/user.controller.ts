@@ -1,9 +1,10 @@
 import { User } from "./user.entity"
 import { Request, Response } from "express"
 import bcrypt from "bcrypt"
-import jwt from 'jsonwebtoken';
+import crypto from "crypto";
 import { logger } from "../common/services/logger";
-import { Brackets } from "typeorm";
+import { Brackets, IsNull } from "typeorm";
+import AppDataSource from "../db";
 import { tokenSing } from "../common/services/generateToken"
 import { CustomRequest } from "../common/middleware/authToken";
 import { Roles, getHighestRole } from "../schemas/schema.user";
@@ -201,6 +202,7 @@ export const getUser = async (req: CustomRequest, res: Response) => {
     if (error instanceof Error) {
       return res.status(500).json({ message: error.message });
     }
+    return res.status(500).json({ message: "Unknown error" });
   }
 };
 
@@ -247,6 +249,10 @@ export const updateUser = async (req: CustomRequest, res: Response) => {
       }
     }
     if (password) {
+      const validation = validatePassword(password);
+      if (!validation.valid) {
+        return res.status(400).json({ code: "INVALID_PASSWORD", message: validation.message });
+      }
       user.password = await bcrypt.hash(password, 12);
     }
 
@@ -273,7 +279,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     // Revocar todos los refresh tokens del usuario
     await RefreshToken.update(
-      { userId: user.id, revokedAt: undefined as any },
+      { userId: user.id, revokedAt: IsNull() },
       { revokedAt: new Date() }
     );
 
@@ -298,7 +304,7 @@ export const signinUser = async (req: Request, res: Response) => {
     });
     if (!user) {
       // Ejecutar bcrypt.compare contra un hash dummy para evitar timing side-channel
-      await bcrypt.compare(password, '$2b$10$dummy.hash.for.timing.mitigation.only');
+      await bcrypt.compare(password, '$2b$12$dummy.hash.for.timing.mitigation.only');
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -401,6 +407,11 @@ export const completeAccountClaim = async (req: Request, res: Response) => {
   try {
     const rawToken = String(req.body?.token || "");
     const password = String(req.body?.password || "");
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      return res.status(400).json({ code: "INVALID_PASSWORD", message: validation.message });
+    }
+
     const user = await consumeAccountClaimToken(rawToken);
 
     if (!user) {
@@ -428,10 +439,20 @@ export const completeAccountClaim = async (req: Request, res: Response) => {
 
 
 
+function validatePassword(password: string): { valid: boolean; message?: string } {
+  const trimmed = (password || "").trim();
+  if (!trimmed || trimmed.length < 8) {
+    return { valid: false, message: "La contraseña debe tener al menos 8 caracteres." };
+  }
+  return { valid: true };
+}
+
 export const profile = async (req: CustomRequest, res: Response) => {
   try {
-    const id = req.user!.id
-
+    const id = req.user?.id;
+    if (!id) {
+      return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+    }
 
     const user = await User.findOne({ where: { id }, relations: ['roles'] });
     if (!user) return res.status(404).json('No User found');
@@ -486,11 +507,7 @@ export const updateUserRole = async (req: CustomRequest, res: Response) => {
       return res.status(400).json({ code: "INVALID_ROLE", message: `Roles no válidos: ${invalidRoles.join(', ')}` });
     }
 
-    const dataSource = (await import("../db")).default;
-    if (!dataSource.isInitialized) {
-      await dataSource.initialize();
-    }
-    const userRepo = dataSource.getRepository(User);
+    const userRepo = AppDataSource.getRepository(User);
     const target = await userRepo.findOne({ where: { id: targetId }, relations: ['roles'] });
 
     if (!target) {
@@ -539,10 +556,6 @@ export const updateUserRole = async (req: CustomRequest, res: Response) => {
 }
 
 async function logRoleChange(adminId: number, userId: number, prevRole: string, newRole: string, ip: string) {
-  const dataSource = (await import("../db")).default;
-  if (!dataSource.isInitialized) {
-    await dataSource.initialize();
-  }
   const { RoleAudit } = await import("./roleAudit.entity");
   const audit = new RoleAudit();
   audit.adminId = adminId;
@@ -606,7 +619,7 @@ export const googleSignin = async (req: Request, res: Response) => {
       user.phone = "";
       user.address = "";
       user.birth = new Date("1970-01-01");
-      user.password = await bcrypt.hash(jwt.sign({ email }, clientId), 12);
+      user.password = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
 
       // Auto-fill location from IP if available
       user.pais = location.pais || "";

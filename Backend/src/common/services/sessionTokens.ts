@@ -57,23 +57,36 @@ export async function issueRefreshToken(res: Response, user: User) {
     token.revokedAt = null;
     token.replacedByHash = null;
 
-    const refreshRepo = AppDataSource.getRepository(RefreshToken);
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Clean up oldest tokens if exceeding limit
-    const existingTokens = await refreshRepo.find({
-        where: { userId: user.id, revokedAt: IsNull() },
-        order: { createdAt: "ASC" },
-        take: MAX_REFRESH_TOKENS_PER_USER + 1
-    });
-    if (existingTokens.length >= MAX_REFRESH_TOKENS_PER_USER) {
-        const toRevoke = existingTokens.slice(0, existingTokens.length - MAX_REFRESH_TOKENS_PER_USER + 1);
-        for (const old of toRevoke) {
-            old.revokedAt = new Date();
+    try {
+        const refreshRepo = queryRunner.manager.getRepository(RefreshToken);
+
+        // Clean up oldest tokens if exceeding limit
+        const existingTokens = await refreshRepo.find({
+            where: { userId: user.id, revokedAt: IsNull() },
+            order: { createdAt: "ASC" },
+            take: MAX_REFRESH_TOKENS_PER_USER + 1
+        });
+        if (existingTokens.length >= MAX_REFRESH_TOKENS_PER_USER) {
+            const toRevoke = existingTokens.slice(0, existingTokens.length - MAX_REFRESH_TOKENS_PER_USER + 1);
+            for (const old of toRevoke) {
+                old.revokedAt = new Date();
+            }
+            await refreshRepo.save(toRevoke);
         }
-        await refreshRepo.save(toRevoke);
+
+        await refreshRepo.save(token);
+        await queryRunner.commitTransaction();
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        throw err;
+    } finally {
+        await queryRunner.release();
     }
 
-    await refreshRepo.save(token);
     res.cookie(REFRESH_COOKIE, rawToken, getCookieOptions());
 }
 
@@ -120,17 +133,33 @@ export async function rotateRefreshToken(req: Request, res: Response) {
 
     const nextRawToken = crypto.randomBytes(64).toString("base64url");
     const nextHash = hashToken(nextRawToken);
-    reused.revokedAt = new Date();
-    reused.replacedByHash = nextHash;
-    await refreshRepo.save(reused);
 
-    const nextToken = new RefreshToken();
-    nextToken.userId = reused.userId;
-    nextToken.tokenHash = nextHash;
-    nextToken.expiresAt = refreshExpiry();
-    nextToken.revokedAt = null;
-    nextToken.replacedByHash = null;
-    await refreshRepo.save(nextToken);
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+        const managerRepo = queryRunner.manager.getRepository(RefreshToken);
+
+        reused.revokedAt = new Date();
+        reused.replacedByHash = nextHash;
+        await managerRepo.save(reused);
+
+        const nextToken = new RefreshToken();
+        nextToken.userId = reused.userId;
+        nextToken.tokenHash = nextHash;
+        nextToken.expiresAt = refreshExpiry();
+        nextToken.revokedAt = null;
+        nextToken.replacedByHash = null;
+        await managerRepo.save(nextToken);
+
+        await queryRunner.commitTransaction();
+    } catch (err) {
+        await queryRunner.rollbackTransaction();
+        throw err;
+    } finally {
+        await queryRunner.release();
+    }
 
     res.cookie(REFRESH_COOKIE, nextRawToken, getCookieOptions());
     return tokenSing(reused.user);

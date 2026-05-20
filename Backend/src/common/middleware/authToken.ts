@@ -29,6 +29,7 @@ const payloadSchema = z.object({
 // Simple in-memory cache for active user validation (5s TTL)
 const userCache = new Map<number, { roles: string[]; expiresAt: number }>();
 const USER_CACHE_TTL_MS = 5000;
+const MAX_CACHE_SIZE = 1000;
 
 function getCachedUser(userId: number) {
     const cached = userCache.get(userId);
@@ -39,70 +40,99 @@ function getCachedUser(userId: number) {
 }
 
 function setCachedUser(userId: number, roles: string[]) {
+    // Evict oldest entries if cache exceeds max size
+    if (userCache.size >= MAX_CACHE_SIZE && !userCache.has(userId)) {
+        const firstKey = userCache.keys().next().value;
+        if (firstKey !== undefined) userCache.delete(firstKey);
+    }
     userCache.set(userId, { roles, expiresAt: Date.now() + USER_CACHE_TTL_MS });
+}
+
+interface AuthOptions {
+    required: boolean;
+}
+
+async function authenticateToken(req: CustomRequest, options: AuthOptions) {
+    const tokenHeader = req.header("Authorization");
+    let token: string | undefined;
+
+    if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
+        token = tokenHeader.split(" ")[1];
+    }
+
+    if (!token) {
+        if (options.required) {
+            logger.warn('[AUTH] No token in request', { path: req.path, method: req.method });
+            return { error: { status: 401, code: 'AUTH_NO_TOKEN', message: 'No token provided' } };
+        }
+        return { skipped: true };
+    }
+
+    const rawPayload = await verifyToken(token);
+    if (!rawPayload) {
+        if (options.required) {
+            return { error: { status: 401, code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' } };
+        }
+        return { skipped: true };
+    }
+
+    const parseResult = payloadSchema.safeParse(rawPayload);
+    if (!parseResult.success) {
+        if (options.required) {
+            logger.warn('AUTH_PAYLOAD_VALIDATION_FAILED', { errors: parseResult.error.errors });
+            return { error: { status: 401, code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' } };
+        }
+        return { skipped: true };
+    }
+
+    const tokenData = parseResult.data;
+
+    // Check cache first
+    let currentRoles = getCachedUser(tokenData.id);
+
+    if (!currentRoles) {
+        const user = await User.findOne({
+            where: { id: tokenData.id },
+            relations: ['roles'],
+            select: {
+                id: true,
+                active: true,
+                deletedAt: true,
+                roles: {
+                    id: true,
+                    name: true
+                }
+            }
+        });
+
+        if (!user || !user.active || user.deletedAt) {
+            if (options.required) {
+                logger.warn('AUTH_USER_INACTIVE', { userId: tokenData.id, path: req.path });
+                return { error: { status: 401, code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' } };
+            }
+            return { skipped: true };
+        }
+
+        currentRoles = getRoleNames(user);
+        setCachedUser(tokenData.id, currentRoles);
+    }
+
+    return {
+        user: {
+            ...tokenData,
+            roles: currentRoles.length > 0 ? currentRoles : ['user']
+        }
+    };
 }
 
 export const checkAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
-        const tokenHeader = req.header("Authorization");
-        let token: string | undefined;
-
-        if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
-            token = tokenHeader.split(" ")[1];
+        const result = await authenticateToken(req, { required: true });
+        if ('error' in result) {
+            return res.status(result.error.status).json({ code: result.error.code, message: result.error.message });
         }
-
-        if (!token) {
-            logger.warn('[AUTH] No token in request', { path: req.path, method: req.method });
-            return res.status(401).json({ code: 'AUTH_NO_TOKEN', message: 'No token provided' });
-        }
-
-        const rawPayload = await verifyToken(token);
-        if (!rawPayload) {
-            return res.status(401).json({ code: 'AUTH_INVALID_TOKEN', message: 'Invalid or expired token' });
-        }
-
-        const parseResult = payloadSchema.safeParse(rawPayload);
-        if (!parseResult.success) {
-            logger.warn('AUTH_PAYLOAD_VALIDATION_FAILED', { errors: parseResult.error.errors });
-            return res.status(401).json({ code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' });
-        }
-
-        const tokenData = parseResult.data;
-
-        // Check cache first
-        let currentRoles = getCachedUser(tokenData.id);
-
-        if (!currentRoles) {
-            // Verify user is still active in database
-            const user = await User.findOne({
-                where: { id: tokenData.id },
-                relations: ['roles'],
-                select: {
-                    id: true,
-                    active: true,
-                    deletedAt: true,
-                    roles: {
-                        id: true,
-                        name: true
-                    }
-                }
-            });
-
-            if (!user || !user.active || user.deletedAt) {
-                logger.warn('AUTH_USER_INACTIVE', { userId: tokenData.id, path: req.path });
-                return res.status(401).json({ code: 'AUTH_USER_INACTIVE', message: 'User account is inactive or deleted' });
-            }
-
-            currentRoles = getRoleNames(user);
-            setCachedUser(tokenData.id, currentRoles);
-        }
-
-        req.user = {
-            ...tokenData,
-            roles: currentRoles.length > 0 ? currentRoles : ['user']
-        };
+        req.user = result.user;
         next();
-
     } catch (error) {
         logger.error('AUTH_MIDDLEWARE_ERROR', { error: (error as Error).message });
         return res.status(401).json({ code: 'AUTH_VALIDATION_ERROR', message: 'Invalid or expired token' });
@@ -111,64 +141,13 @@ export const checkAuthToken = async (req: CustomRequest, res: Response, next: Ne
 
 export const optionalAuthToken = async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
-        const tokenHeader = req.header("Authorization");
-        let token: string | undefined;
-
-        if (tokenHeader && tokenHeader.startsWith("Bearer ")) {
-            token = tokenHeader.split(" ")[1];
+        const result = await authenticateToken(req, { required: false });
+        if ('user' in result && result.user) {
+            req.user = result.user;
         }
-
-        if (!token) {
-            return next();
-        }
-
-        const rawPayload = await verifyToken(token);
-        if (!rawPayload) {
-            return next();
-        }
-
-        const parseResult = payloadSchema.safeParse(rawPayload);
-        if (!parseResult.success) {
-            return next();
-        }
-
-        const tokenData = parseResult.data;
-
-        // Check cache first
-        let currentRoles = getCachedUser(tokenData.id);
-
-        if (!currentRoles) {
-            // For optional auth, silently skip if user is inactive
-            const user = await User.findOne({
-                where: { id: tokenData.id },
-                relations: ['roles'],
-                select: {
-                    id: true,
-                    active: true,
-                    deletedAt: true,
-                    roles: {
-                        id: true,
-                        name: true
-                    }
-                }
-            });
-
-            if (user && user.active && !user.deletedAt) {
-                currentRoles = getRoleNames(user);
-                setCachedUser(tokenData.id, currentRoles);
-            }
-        }
-
-        if (currentRoles) {
-            req.user = {
-                ...tokenData,
-                roles: currentRoles.length > 0 ? currentRoles : ['user']
-            };
-        }
-
-        return next();
+        next();
     } catch (error) {
         // Silently continue as anonymous on any error
-        return next();
+        next();
     }
 };

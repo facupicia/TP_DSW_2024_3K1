@@ -240,7 +240,7 @@ export const deactivateTicketType = async (req: CustomRequest, res: Response) =>
 
         // Advertir si hay tickets vendidos
         if (ticketType.soldCount > 0) {
-            console.warn(`Deactivating ticket type ${id} with ${ticketType.soldCount} sold tickets`);
+            logger.warn(`Deactivating ticket type with sold tickets`, { ticketTypeId: id, soldCount: ticketType.soldCount });
         }
 
         ticketType.status = TicketTypeStatus.DISABLED;

@@ -14,21 +14,7 @@ import { PaymentLog } from "../payment/payment.entity";
 import AppDataSource from "../db";
 import { canValidateEvent } from "../scanner/scanner-permissions";
 
-function sanitizeTicketCode(code: unknown): string {
-    if (typeof code !== "string") return "";
-    let cleanCode = code.trim().replace(/\/+$/, "");
-    if (cleanCode.includes("/") || cleanCode.includes("http")) {
-        const parts = cleanCode.split("/");
-        cleanCode = parts[parts.length - 1];
-    }
-    return cleanCode.trim();
-}
-
-function getEventDateTime(event: { date: any; time?: string | null }) {
-    const date = String(event.date).split("T")[0];
-    const time = event.time || "00:00";
-    return new Date(`${date}T${time}`);
-}
+import { sanitizeTicketCode, getEventDateTime } from "../common/utils/ticket";
 
 class HttpError extends Error {
     status: number;
@@ -130,9 +116,17 @@ export const createTicket = async (req: CustomRequest, res: Response) => {
             }
         }
 
-        // 4. Actualizar Stock
-        ticketType.soldCount += cantidadTickets;
-        await queryRunner.manager.save(ticketType);
+        // 4. Actualizar Stock atómicamente
+        const stockUpdate = await queryRunner.manager
+            .createQueryBuilder()
+            .update(TicketType)
+            .set({ soldCount: () => `"soldCount" + ${cantidadTickets}` })
+            .where('id = :id', { id: ticketType.id })
+            .andWhere('("soldCount" + :amount) <= capacity', { amount: cantidadTickets })
+            .execute();
+        if (!stockUpdate.affected) {
+            throw new HttpError(409, 'NO_STOCK', 'No hay stock suficiente para completar la compra.');
+        }
 
         // 5. Crear Tickets
         const tickets = await createTicketsForPurchase(ticketType, user, cantidadTickets);

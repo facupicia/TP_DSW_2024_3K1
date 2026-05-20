@@ -6,7 +6,7 @@ import { z } from "zod";
 import path from "path";
 import dotenv from "dotenv";
 
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+dotenv.config({ path: path.resolve(__dirname, "..", "..", ".env") });
 
 function requireOneOf(groups: string[][], message: string) {
   return z.custom<string>(

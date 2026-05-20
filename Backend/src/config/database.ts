@@ -33,7 +33,7 @@ const AppDataSource = new DataSource({
     username: !connectionUrl ? env.PGUSER : undefined,
     password: !connectionUrl ? env.PGPASSWORD : undefined,
     database: !connectionUrl ? env.PGDATABASE : undefined,
-    synchronize: !isProduction && env.DB_SYNC === 'true',
+    synchronize: env.NODE_ENV === 'development' && env.DB_SYNC === 'true',
     logging: env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog],
     migrations: [path.join(__dirname, '..', 'database', 'migrations', '[0-9]*.{ts,js}')],

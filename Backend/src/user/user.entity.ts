@@ -68,14 +68,6 @@ export class User extends BaseEntity {
     })
     roles: Role[];
 
-    /**
-     * Temporary mapping to the old 'roles' column (simple-array).
-     * This preserves existing data during migration to the new Role table.
-     * It will be removed in a future cleanup.
-     */
-    @Column({ type: 'simple-array', nullable: true, select: false, name: 'roles' })
-    legacyRoles?: string[];
-
     /* ==================== MERCADO PAGO MARKETPLACE ==================== */
 
     /** MP User ID (collector_id) para recibir pagos de tickets */

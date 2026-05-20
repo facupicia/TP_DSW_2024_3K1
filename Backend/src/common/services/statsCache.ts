@@ -3,6 +3,7 @@
  * Provides Redis-based caching for statistics endpoints
  */
 import { getRedis } from "./redis";
+import { logger } from "./logger";
 
 const DEFAULT_TTL = 300; // 5 minutes in seconds
 const LONG_TTL = 600; // 10 minutes for expensive queries
@@ -38,7 +39,7 @@ export async function getCachedStats<T>(
                 return JSON.parse(cached);
             }
         } catch (err) {
-            console.warn('Redis get error:', err);
+            logger.warn('Redis get error', { error: (err as Error).message });
         }
     }
 
@@ -50,7 +51,7 @@ export async function getCachedStats<T>(
         try {
             await redis.setEx(key, ttl, JSON.stringify(result));
         } catch (err) {
-            console.warn('Redis set error:', err);
+            logger.warn('Redis set error', { error: (err as Error).message });
         }
     }
 
@@ -78,7 +79,7 @@ export async function invalidateStatsCache(pattern: string): Promise<void> {
             await redis.del(keysToDelete);
         }
     } catch (err) {
-        console.warn('Redis invalidate error:', err);
+        logger.warn('Redis invalidate error', { error: (err as Error).message });
     }
 }
 
@@ -102,7 +103,7 @@ export async function invalidateAllStatsCache(): Promise<void> {
             await redis.del(keysToDelete);
         }
     } catch (err) {
-        console.warn('Redis invalidate all error:', err);
+        logger.warn('Redis invalidate all error', { error: (err as Error).message });
     }
 }
 
@@ -128,7 +129,7 @@ export async function prewarmCache<T>(
             await redis.setEx(key, ttl, JSON.stringify(result));
         }
     } catch (err) {
-        console.warn('Redis prewarm error:', err);
+        logger.warn('Redis prewarm error', { error: (err as Error).message });
     }
 }
 

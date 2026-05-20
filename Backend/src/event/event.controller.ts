@@ -199,14 +199,14 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             newToken = await tokenSing(user);
         }
 
-        // Limpiar referencia circular antes de devolver JSON
-        if (event.ticketTypes) {
-            event.ticketTypes.forEach(tt => {
-                delete (tt as any).event;
+        // Build response without mutating the entity (avoid delete operator)
+        const response: any = { ...event };
+        if (response.ticketTypes) {
+            response.ticketTypes = response.ticketTypes.map((tt: any) => {
+                const { event: _event, ...clean } = tt;
+                return clean;
             });
         }
-
-        const response: any = { ...event };
         if (newToken) {
             response.token = newToken;
         }
@@ -540,7 +540,7 @@ export const getEvent = async (req: Request, res: Response) => {
                 planName: subscription.plan.name
             };
         } catch (pricingError: any) {
-            console.warn("Error resolving checkout pricing", pricingError?.message);
+            logger.warn("Error resolving checkout pricing", { error: pricingError?.message });
         }
 
         return res.json({
@@ -992,7 +992,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
                 if (newData.lastSaleAt && 
                     (!currentData.lastSaleAt || newData.lastSaleAt > currentData.lastSaleAt)) {
                     currentData = newData;
-                    res.write(`data: ${JSON.stringify({ type: 'update', data: newData }) }\n\n`);
+                    res.write(`data: ${JSON.stringify({ type: 'update', data: newData })}\n\n`);
                 }
             } catch (err) {
                 logger.error('Error in stats stream:', err);
@@ -1315,6 +1315,10 @@ export const getEventStats = async (req: CustomRequest, res: Response) => {
         const userId = req.user?.id;
         const isAdmin = (req.user?.roles || []).includes('admin');
 
+        if (!isAdmin && !userId) {
+            return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
+        }
+
         if (isNaN(eventId) || eventId <= 0) {
             return res.status(400).json({ message: "ID de evento inválido" });
         }
@@ -1501,7 +1505,7 @@ export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) =
             e.eventId,
             `"${e.title.replace(/"/g, '""')}"`,
             new Date(e.date).toISOString().split('T')[0],
-            e.category,
+            `"${String(e.category).replace(/"/g, '""')}"`,
             e.participants,
             e.revenue.toFixed(2),
             (e.attendanceRate * 100).toFixed(1) + '%'
