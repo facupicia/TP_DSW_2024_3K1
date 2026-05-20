@@ -12,9 +12,8 @@ import enviarCorreoConQR from "../common/services/mailer";
 import { createTicketsForPurchase } from "./ticket.service";
 import { PaymentLog } from "../payment/payment.entity";
 import AppDataSource from "../db";
-import { canValidateEvent } from "../scanner/scanner-permissions";
-
-import { sanitizeTicketCode, getEventDateTime } from "../common/utils/ticket";
+import { validateTicket as validateTicketService } from "./ticket-validation.service";
+import { getEventDateTime } from "../common/utils/ticket";
 
 class HttpError extends Error {
     status: number;
@@ -313,113 +312,33 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         const { code } = req.body;
         const userRoles = req.user?.roles || [];
         const requesterId = req.user?.id;
-        const cleanCode = sanitizeTicketCode(code);
 
         if (!requesterId) {
             return res.status(401).json({ message: "No autorizado", valid: false });
         }
 
-        if (!cleanCode) {
-            return res.status(400).json({ message: "Code is required", valid: false });
+        const result = await validateTicketService(code, requesterId, userRoles);
+
+        if (!result.success) {
+            const statusMap: Record<string, number> = {
+                INVALID_CODE: 400,
+                NOT_FOUND: 404,
+                FORBIDDEN: 403,
+                ALREADY_USED: 400,
+                CANCELLED: 400,
+                INACTIVE_TICKET_TYPE: 409,
+                INACTIVE_EVENT: 409,
+                EVENT_PAST: 409,
+                EVENT_NOT_STARTED: 409,
+                RACE_CONDITION: 409
+            };
+            const status = statusMap[result.code || ""] || 400;
+            const payload: Record<string, any> = { message: result.message, valid: false };
+            if (result.usedAt) payload.usedAt = result.usedAt;
+            return res.status(status).json(payload);
         }
 
-        const ticket = await AppDataSource.getRepository(Ticket)
-            .createQueryBuilder("ticket")
-            .leftJoinAndSelect("ticket.ticketType", "ticketType")
-            .leftJoinAndSelect("ticketType.event", "event")
-            .leftJoinAndSelect("ticket.user", "user")
-            .select([
-                "ticket.id",
-                "ticket.codigo_unico",
-                "ticket.status",
-                "ticket.usedAt",
-                "ticket.scannedById",
-                "ticket.ticketTypeId",
-                "ticket.userId",
-                "ticketType.id",
-                "ticketType.name",
-                "ticketType.status",
-                "event.id",
-                "event.title",
-                "event.date",
-                "event.time",
-                "event.active",
-                "event.user_id",
-                "user.id",
-                "user.firstname",
-                "user.lastname"
-            ])
-            .where("ticket.codigo_unico = :code", { code: cleanCode })
-            .getOne();
-
-        if (!ticket) {
-            return res.status(404).json({ message: "Ticket no encontrado", valid: false });
-        }
-
-        const isAuthorized = await canValidateEvent(
-            requesterId,
-            userRoles,
-            ticket.ticketType.event.id,
-            ticket.ticketType.event.user_id
-        );
-
-        if (!isAuthorized) {
-            return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento", valid: false });
-        }
-
-        if (ticket.status === TicketStatus.USED) {
-            return res.status(400).json({
-                message: "Ticket ya fue utilizado",
-                valid: false,
-                usedAt: ticket.usedAt
-            });
-        }
-
-        if (ticket.status === TicketStatus.CANCELLED) {
-            return res.status(400).json({ message: "Ticket cancelado", valid: false });
-        }
-
-        if (ticket.ticketType.status !== TicketTypeStatus.ACTIVE) {
-            return res.status(409).json({ message: "El tipo de entrada no está activo", valid: false });
-        }
-
-        if (!ticket.ticketType.event.active) {
-            return res.status(409).json({ message: "El evento no está activo", valid: false });
-        }
-
-        const eventDate = getEventDateTime(ticket.ticketType.event);
-        const hoursDiff = (Date.now() - eventDate.getTime()) / (1000 * 60 * 60);
-        if (hoursDiff > 24) {
-            return res.status(409).json({
-                message: `Este ticket es de un evento pasado: ${ticket.ticketType.event.title}`,
-                valid: false
-            });
-        }
-        if (hoursDiff < -3) {
-            return res.status(409).json({
-                message: `El evento aún no comenzó. No se puede validar hasta 3 horas antes del inicio.`,
-                valid: false
-            });
-        }
-
-        // Marcar como usado de forma atómica para evitar doble escaneo simultáneo
-        const usedAt = new Date();
-        const updateResult = await Ticket.update(
-            { id: ticket.id, status: TicketStatus.ACTIVE },
-            { status: TicketStatus.USED, usedAt, scannedById: requesterId }
-        );
-
-        if (!updateResult.affected) {
-            return res.status(409).json({
-                message: "Ticket ya fue utilizado",
-                valid: false
-            });
-        }
-
-        ticket.status = TicketStatus.USED;
-        ticket.usedAt = usedAt;
-        ticket.scannedById = requesterId;
-
+        const ticket = result.ticket!;
         return res.json({
             message: "Ticket válido. Acceso permitido.",
             valid: true,
@@ -431,7 +350,6 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
                 status: ticket.status
             }
         });
-
     } catch (error) {
         if (error instanceof Error) {
             return res.status(500).json({ message: error.message });
