@@ -1,57 +1,19 @@
 import { Response } from "express";
-import { logger } from "../common/services/logger";
-import { Ticket, TicketStatus } from "../ticket/ticket.entity";
-import { TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../common/middleware/authToken";
-import AppDataSource from "../db";
-import { canValidateEvent } from "./scanner-permissions";
-import { User } from "../user/user.entity";
-import { findRolesByNames, getRoleNames } from "../user/role.entity";
-import { ScannerOrganizerAssignment } from "./scanner-organizer-assignment.entity";
-
-import { sanitizeTicketCode, getEventDateTime } from "../common/utils/ticket";
+import { logger } from "../common/services/logger";
+import { validateTicket as validateTicketService } from "../ticket/ticket-validation.service";
+import * as scannerService from "./scanner.service";
 
 export class ScannerController {
-    private static getOrganizerId(req: CustomRequest, res: Response) {
-        const requesterId = req.user?.id;
-        if (!requesterId) {
-            res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
-            return null;
-        }
-
-        return requesterId;
-    }
-
     static async getOrganizerScanners(req: CustomRequest, res: Response) {
         try {
-            const organizerId = ScannerController.getOrganizerId(req, res);
-            if (!organizerId) return;
+            const organizerId = req.user?.id;
+            if (!organizerId) {
+                return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+            }
 
-            const assignments = await AppDataSource.getRepository(ScannerOrganizerAssignment)
-                .createQueryBuilder("assignment")
-                .leftJoinAndSelect("assignment.scanner", "scanner")
-                .where("assignment.organizerId = :organizerId", { organizerId })
-                .andWhere("assignment.isActive = true")
-                .orderBy("assignment.createdAt", "DESC")
-                .getMany();
-
-            return res.json({
-                data: assignments.map(assignment => ({
-                    id: assignment.id,
-                    organizerId: assignment.organizerId,
-                    scannerId: assignment.scannerId,
-                    isActive: assignment.isActive,
-                    createdAt: assignment.createdAt,
-                    scanner: {
-                        id: assignment.scanner.id,
-                        firstname: assignment.scanner.firstname,
-                        lastname: assignment.scanner.lastname,
-                        email: assignment.scanner.email,
-                        imgPerfil: assignment.scanner.imgPerfil
-                    }
-                })),
-                total: assignments.length
-            });
+            const assignments = await scannerService.listAssignments(organizerId);
+            return res.json({ data: assignments, total: assignments.length });
         } catch (error) {
             logger.error("Error listando scanners:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
@@ -60,75 +22,23 @@ export class ScannerController {
 
     static async assignScannerToOrganizer(req: CustomRequest, res: Response) {
         try {
-            const organizerId = ScannerController.getOrganizerId(req, res);
-            if (!organizerId) return;
+            const organizerId = req.user?.id;
+            if (!organizerId) {
+                return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+            }
 
             const { email, userId } = req.body as { email?: string; userId?: number };
-            const userRepo = AppDataSource.getRepository(User);
-            const scanner = userId
-                ? await userRepo.findOne({ where: { id: userId, active: true }, relations: ["roles"] })
-                : await userRepo.createQueryBuilder("user")
-                    .leftJoinAndSelect("user.roles", "role")
-                    .where("LOWER(user.email) = LOWER(:email)", { email: String(email).trim() })
-                    .andWhere("user.active = true")
-                    .getOne();
+            const result = await scannerService.assignScanner(organizerId, { email, userId }, organizerId);
 
-            if (!scanner) {
-                return res.status(404).json({ code: "USER_NOT_FOUND", message: "Usuario no encontrado o inactivo" });
+            if (!result.success) {
+                return res.status(404).json({ code: "USER_NOT_FOUND", message: result.message });
             }
 
-            const roleNames = getRoleNames(scanner);
-            const canOpenScanner = roleNames.some(role => ["scanner", "organizer", "admin"].includes(role));
-            if (!canOpenScanner) {
-                const [scannerRole] = await findRolesByNames(["scanner"]);
-                scanner.roles = [...(scanner.roles || []), scannerRole];
-                await userRepo.save(scanner);
-            }
-
-            const assignmentRepo = AppDataSource.getRepository(ScannerOrganizerAssignment);
-            const existingAssignment = await assignmentRepo.findOne({
-                where: { organizerId, scannerId: scanner.id }
-            });
-
-            if (existingAssignment) {
-                if (!existingAssignment.isActive) {
-                    existingAssignment.isActive = true;
-                    existingAssignment.assignedById = req.user?.id || null;
-                    await assignmentRepo.save(existingAssignment);
-                }
-
-                return res.status(200).json({
-                    message: "Scanner asignado al organizador",
-                    assignment: {
-                        id: existingAssignment.id,
-                        organizerId: existingAssignment.organizerId,
-                        scannerId: existingAssignment.scannerId
-                    }
-                });
-            }
-
-            const assignment = assignmentRepo.create({
-                organizerId,
-                scannerId: scanner.id,
-                assignedById: req.user?.id || null,
-                isActive: true
-            });
-            await assignmentRepo.save(assignment);
-
-            return res.status(201).json({
+            const statusCode = result.scanner ? 201 : 200;
+            return res.status(statusCode).json({
                 message: "Scanner asignado al organizador",
-                assignment: {
-                    id: assignment.id,
-                    organizerId: assignment.organizerId,
-                    scannerId: assignment.scannerId,
-                    scanner: {
-                        id: scanner.id,
-                        firstname: scanner.firstname,
-                        lastname: scanner.lastname,
-                        email: scanner.email,
-                        imgPerfil: scanner.imgPerfil
-                    }
-                }
+                assignment: result.assignment,
+                ...(result.scanner && { scanner: result.scanner })
             });
         } catch (error: any) {
             logger.error("Error asignando scanner:", error);
@@ -141,22 +51,19 @@ export class ScannerController {
 
     static async removeScannerFromOrganizer(req: CustomRequest, res: Response) {
         try {
-            const organizerId = ScannerController.getOrganizerId(req, res);
-            if (!organizerId) return;
-            const assignmentId = parseInt(req.params.assignmentId, 10);
-
-            const assignment = await AppDataSource.getRepository(ScannerOrganizerAssignment).findOne({
-                where: { id: assignmentId, organizerId }
-            });
-
-            if (!assignment) {
-                return res.status(404).json({ code: "ASSIGNMENT_NOT_FOUND", message: "Asignación no encontrada" });
+            const organizerId = req.user?.id;
+            if (!organizerId) {
+                return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
             }
 
-            assignment.isActive = false;
-            await assignment.save();
+            const assignmentId = parseInt(req.params.assignmentId, 10);
+            const result = await scannerService.removeScanner(organizerId, assignmentId);
 
-            return res.json({ message: "Scanner desasignado del organizador" });
+            if (!result.success) {
+                return res.status(404).json({ code: "ASSIGNMENT_NOT_FOUND", message: result.message });
+            }
+
+            return res.json({ message: result.message });
         } catch (error) {
             logger.error("Error quitando scanner:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
@@ -165,130 +72,48 @@ export class ScannerController {
 
     static async validateTicket(req: CustomRequest, res: Response) {
         try {
-            const { code } = req.body;
             const scannerId = req.user?.id;
+            const roles = req.user?.roles || [];
             if (!scannerId) {
                 return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
             }
 
+            const { code } = req.body;
             if (!code) {
                 return res.status(400).json({ message: "Code is required" });
             }
 
-            const cleanCode = sanitizeTicketCode(code);
-            if (!cleanCode) {
-                return res.status(400).json({ message: "Code is required" });
+            const result = await validateTicketService(code, scannerId, roles);
+
+            if (!result.success) {
+                const statusMap: Record<string, number> = {
+                    INVALID_CODE: 400,
+                    NOT_FOUND: 404,
+                    FORBIDDEN: 403,
+                    ALREADY_USED: 409,
+                    CANCELLED: 409,
+                    INACTIVE_TICKET_TYPE: 409,
+                    INACTIVE_EVENT: 409,
+                    EVENT_PAST: 409,
+                    EVENT_NOT_STARTED: 409,
+                    RACE_CONDITION: 409
+                };
+                const status = statusMap[result.code || ""] || 400;
+                const payload: Record<string, any> = { message: result.message };
+                if (result.usedAt) payload.ticket = { usedAt: result.usedAt };
+                return res.status(status).json(payload);
             }
-
-            const ticket = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder("ticket")
-                .leftJoinAndSelect("ticket.user", "user")
-                .leftJoinAndSelect("ticket.ticketType", "ticketType")
-                .leftJoinAndSelect("ticketType.event", "event")
-                .select([
-                    "ticket.id",
-                    "ticket.codigo_unico",
-                    "ticket.status",
-                    "ticket.usedAt",
-                    "ticket.scannedById",
-                    "user.id",
-                    "user.firstname",
-                    "user.lastname",
-                    "ticketType.id",
-                    "ticketType.status",
-                    "ticketType.name",
-                    "event.id",
-                    "event.title",
-                    "event.date",
-                    "event.time",
-                    "event.active",
-                    "event.user_id"
-                ])
-                .where("ticket.codigo_unico = :code", { code: cleanCode })
-                .getOne();
-
-            // --- Validaciones de Existencia ---
-            if (!ticket) {
-                return res.status(404).json({ message: "Ticket inexistente" });
-            }
-
-            const userRoles = req.user?.roles || [];
-            const isAuthorized = await canValidateEvent(
-                scannerId,
-                userRoles,
-                ticket.ticketType.event.id,
-                ticket.ticketType.event.user_id
-            );
-
-            if (!isAuthorized) {
-                return res.status(403).json({ message: "No tienes permiso para validar tickets de este evento" });
-            }
-
-            // --- Validaciones de Estado ---
-            if (ticket.status === TicketStatus.USED) {
-                return res.status(409).json({
-                    message: "Entrada YA utilizada",
-                    ticket: { ...ticket, usedAt: ticket.usedAt } // Retornamos cuándo se usó
-                });
-            }
-
-            if (ticket.status === TicketStatus.CANCELLED) {
-                return res.status(409).json({ message: "Entrada anulada/cancelada" });
-            }
-
-            // Verify ticket type and event are still active
-            if (ticket.ticketType.status !== TicketTypeStatus.ACTIVE) {
-                return res.status(409).json({ message: "El tipo de entrada no está activo" });
-            }
-            if (!ticket.ticketType.event.active) {
-                return res.status(409).json({ message: "El evento no está activo" });
-            }
-
-            // --- 2. MEJORA: Validación de Evento (Opcional pero recomendada) ---
-            // Verifica que el evento no haya terminado hace días.
-            const event = ticket.ticketType.event;
-            const eventDate = getEventDateTime(event);
-            const now = new Date();
-            const hoursDiff = (now.getTime() - eventDate.getTime()) / (1000 * 60 * 60);
-
-            if (hoursDiff > 24) {
-                return res.status(409).json({
-                    message: `Este ticket es de un evento pasado: ${event.title} (${event.date})`
-                });
-            }
-            if (hoursDiff < -3) {
-                return res.status(409).json({
-                    message: `El evento aún no comenzó. No se puede validar hasta 3 horas antes del inicio.`
-                });
-            }
-
-            // --- Éxito ---
-            const usedAt = new Date();
-            const updateResult = await Ticket.update(
-                { id: ticket.id, status: TicketStatus.ACTIVE },
-                { status: TicketStatus.USED, usedAt, scannedById: scannerId }
-            );
-
-            if (!updateResult.affected) {
-                return res.status(409).json({ message: "Entrada YA utilizada" });
-            }
-
-            ticket.status = TicketStatus.USED;
-            ticket.usedAt = usedAt;
-            ticket.scannedById = scannerId;
 
             return res.json({
                 message: "Ticket válido - Acceso Permitido",
-                ticket
+                ticket: result.ticket
             });
-
         } catch (error) {
             logger.error("Error validando ticket:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
         }
     }
 
-    // El método getHistory está perfecto como está
     static async getHistory(req: CustomRequest, res: Response) {
         try {
             const scannerId = req.user?.id;
@@ -296,32 +121,8 @@ export class ScannerController {
                 return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
             }
 
-            const tickets = await AppDataSource.getRepository(Ticket)
-                .createQueryBuilder("ticket")
-                .leftJoinAndSelect("ticket.ticketType", "ticketType")
-                .leftJoinAndSelect("ticketType.event", "event")
-                .leftJoinAndSelect("ticket.user", "user")
-                .select([
-                    "ticket.id",
-                    "ticket.codigo_unico",
-                    "ticket.status",
-                    "ticket.usedAt",
-                    "ticket.scannedById",
-                    "ticketType.id",
-                    "ticketType.name",
-                    "event.id",
-                    "event.title",
-                    "event.date",
-                    "user.id",
-                    "user.firstname",
-                    "user.lastname"
-                ])
-                .where("ticket.scannedById = :scannerId", { scannerId })
-                .orderBy("ticket.usedAt", "DESC")
-                .take(20)
-                .getMany();
-
-            return res.json(tickets);
+            const history = await scannerService.getHistory(scannerId);
+            return res.json(history);
         } catch (error) {
             logger.error(error);
             return res.status(500).json({ message: "Internal server error" });
