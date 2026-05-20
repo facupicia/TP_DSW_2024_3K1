@@ -14,8 +14,16 @@ export const verifyToken = async (token: string) => {
         });
     } catch (error) {
         if (error instanceof Error) {
-            // Log error category without leaking the token value
             const name = error.name;
+            // Fallback: allow legacy tokens without iss/aud (e.g. pre-refactor tokens)
+            if (name === 'JsonWebTokenError' &&
+                (error.message.includes('issuer') || error.message.includes('audience'))) {
+                try {
+                    return jwt.verify(token, env.SECRET_KEY, { algorithms: ['HS256'] });
+                } catch (fallbackErr) {
+                    // fall through to normal error handling
+                }
+            }
             if (name === 'TokenExpiredError') {
                 logger.warn('JWT_VERIFY_EXPIRED');
             } else if (name === 'JsonWebTokenError') {

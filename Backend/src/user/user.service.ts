@@ -261,11 +261,13 @@ export async function remove(id: number): Promise<void> {
 export async function authenticate(email: string, password: string): Promise<{ user: User; token: string }> {
   const normalizedEmail = String(email).toLowerCase().trim();
 
-  const user = await User.findOne({
-    where: { email: normalizedEmail, active: true },
-    relations: ['roles'],
-    select: ["id", "password", "email", "firstname", "lastname", "active"]
-  });
+  // Must use QueryBuilder with addSelect because password has @Column({ select: false })
+  const user = await User.createQueryBuilder("user")
+    .leftJoinAndSelect("user.roles", "role")
+    .addSelect("user.password")
+    .where("user.email = :email", { email: normalizedEmail })
+    .andWhere("user.active = true")
+    .getOne();
 
   if (!user) {
     await bcrypt.compare(password, '$2b$12$dummy.hash.for.timing.mitigation.only');

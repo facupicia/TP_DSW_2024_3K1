@@ -91,19 +91,12 @@ async function authenticateToken(req: CustomRequest, options: AuthOptions) {
     let currentRoles = getCachedUser(tokenData.id);
 
     if (!currentRoles) {
-        const user = await User.findOne({
-            where: { id: tokenData.id },
-            relations: ['roles'],
-            select: {
-                id: true,
-                active: true,
-                deletedAt: true,
-                roles: {
-                    id: true,
-                    name: true
-                }
-            }
-        });
+        // Use QueryBuilder to avoid TypeORM select/relations quirks with @Column({ select: false })
+        const user = await User.createQueryBuilder('user')
+            .leftJoinAndSelect('user.roles', 'role')
+            .select(['user.id', 'user.active', 'user.deletedAt', 'role.id', 'role.name'])
+            .where('user.id = :id', { id: tokenData.id })
+            .getOne();
 
         if (!user || !user.active || user.deletedAt) {
             if (options.required) {
