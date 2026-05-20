@@ -1,19 +1,8 @@
 import { Request, Response } from "express";
 import { logger } from "../common/services/logger";
-import { randomUUID } from "crypto";
-import { Ticket, TicketStatus } from "./ticket.entity";
-import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { CustomRequest } from "../common/middleware/authToken";
-import { User } from "../user/user.entity";
-import { Event } from "../event/event.entity";
-import { PaymentStatus } from "../payment/payment.entity";
-import { generarQRUrl } from "../common/utils/qr";
-import enviarCorreoConQR from "../common/services/mailer";
-import { createTicketsForPurchase } from "./ticket.service";
-import { PaymentLog } from "../payment/payment.entity";
-import AppDataSource from "../db";
 import { validateTicket as validateTicketService } from "./ticket-validation.service";
-import { getEventDateTime } from "../common/utils/ticket";
+import * as ticketService from "./ticket.service";
 
 class HttpError extends Error {
     status: number;
@@ -25,285 +14,62 @@ class HttpError extends Error {
     }
 }
 
+function handleHttpError(error: any, res: Response) {
+    if (error instanceof HttpError) {
+        return res.status(error.status).json({ code: error.code, message: error.message });
+    }
+    logger.error("TICKET_CONTROLLER_ERROR", { error: error?.message });
+    return res.status(500).json({ message: "Error interno del servidor", error: error?.message });
+}
+
 export const createTicket = async (req: CustomRequest, res: Response) => {
-    // 0. Validaciones Previas (Fail Fast)
     const { cantidad, ticketTypeId } = req.body;
     const userId = req.user?.id;
 
-    if (!userId) {
-        return res.status(401).json({ message: "No autorizado. Token inválido o expirado." });
-    }
-
-    if (!ticketTypeId) {
-        return res.status(400).json({ message: "ID del tipo de ticket no proporcionado." });
-    }
+    if (!userId) return res.status(401).json({ message: "No autorizado. Token inválido o expirado." });
+    if (!ticketTypeId) return res.status(400).json({ message: "ID del tipo de ticket no proporcionado." });
 
     const cantidadTickets = parseInt(cantidad);
     if (isNaN(cantidadTickets) || cantidadTickets <= 0) {
         return res.status(400).json({ message: "Cantidad inválida." });
     }
 
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
-        // 1. Buscar Usuario
-        const user = await queryRunner.manager.findOne(User, {
-            where: { id: userId },
-            select: ['id', 'email', 'firstname', 'lastname', 'birth']
-        });
-        if (!user) {
-            throw new HttpError(404, 'USER_NOT_FOUND', "Usuario no encontrado");
-        }
-
-        // 2. Buscar TicketType (con bloqueo pesimista) y Evento
-        const ticketType = await queryRunner.manager.createQueryBuilder(TicketType, "tt")
-            .setLock("pessimistic_write")
-            .leftJoinAndSelect("tt.event", "event")
-            .where("tt.id = :id", { id: ticketTypeId })
-            .getOne();
-
-        if (!ticketType) {
-            throw new HttpError(404, 'TICKET_TYPE_NOT_FOUND', "Tipo de ticket no encontrado");
-        }
-
-        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
-            throw new HttpError(400, 'TICKET_TYPE_INACTIVE', "Este tipo de ticket no está disponible.");
-        }
-
-        const event = ticketType.event;
-        if (!event) {
-            throw new HttpError(404, 'EVENT_NOT_FOUND', "Evento asociado no encontrado");
-        }
-
-        if (!event.active) {
-            throw new HttpError(400, 'EVENT_INACTIVE', "El evento no está activo.");
-        }
-
-        // Verificar que el ticketType pertenezca al evento de la URL (si se provee)
-        const { id: eventIdParam } = req.params;
-        if (eventIdParam && event.id !== parseInt(eventIdParam)) {
-            throw new HttpError(400, 'TICKET_TYPE_MISMATCH', "El tipo de ticket no pertenece al evento especificado");
-        }
-
-        // 3. Verificar Stock
-        const capacidadDisponible = ticketType.capacity - ticketType.soldCount;
-
-        if (capacidadDisponible < cantidadTickets) {
-            throw new HttpError(400, 'NO_STOCK', `No hay suficientes boletos disponibles. Quedan ${capacidadDisponible} boletos.`);
-        }
-
-        // 3.1 Validar que el evento no haya comenzado
-        const eventDateTime = getEventDateTime(event);
-        if (new Date() > eventDateTime) {
-            throw new HttpError(400, 'EVENT_STARTED', 'Las ventas han cerrado. El evento ya comenzó.');
-        }
-
-        // 3.2 Validar edad mínima si aplica
-        if ((event as any).minAge && (event as any).minAge > 0) {
-            const birthDate = new Date(user.birth);
-            const today = new Date();
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--;
-            }
-
-            if (age < (event as any).minAge) {
-                throw new HttpError(403, 'AGE_RESTRICTED', `Debes tener al menos ${(event as any).minAge} años para comprar entradas a este evento.`);
-            }
-        }
-
-        // 4. Actualizar Stock atómicamente
-        const stockUpdate = await queryRunner.manager
-            .createQueryBuilder()
-            .update(TicketType)
-            .set({ soldCount: () => `"soldCount" + ${cantidadTickets}` })
-            .where('id = :id', { id: ticketType.id })
-            .andWhere('("soldCount" + :amount) <= capacity', { amount: cantidadTickets })
-            .execute();
-        if (!stockUpdate.affected) {
-            throw new HttpError(409, 'NO_STOCK', 'No hay stock suficiente para completar la compra.');
-        }
-
-        // 5. Crear Tickets
-        const tickets = await createTicketsForPurchase(ticketType, user, cantidadTickets);
-        await queryRunner.manager.save(Ticket, tickets);
-
-        await queryRunner.commitTransaction();
-
-        // 6. Enviar Correo DESPUÉS del commit
-        if (user.email) {
-            const dateObj = new Date(event.date);
-            const formattedDate = !isNaN(dateObj.getTime())
-                ? dateObj.toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                : String(event.date);
-
-            try {
-                await enviarCorreoConQR(user.email, tickets.map(ticket => ({
-                    qrCode: ticket.qrCode!,
-                    ticketId: ticket.id,
-                    eventTitle: event.title,
-                    eventDate: `${formattedDate} ${event.time}`,
-                    eventLocation: event.direccion,
-                    buyerName: `${user.firstname} ${user.lastname}`,
-                    ticketType: ticketType.name
-                })));
-            } catch (emailErr) {
-                logger.error("Error enviando email (no bloqueante):", emailErr);
-            }
-        }
-
-        return res.status(201).json({ message: `${cantidadTickets} ticket(s) creado(s) exitosamente` });
-
+        const result = await ticketService.purchase(userId, ticketTypeId, cantidadTickets, req.params.id);
+        return res.status(201).json({ message: `${result.quantity} ticket(s) creado(s) exitosamente` });
     } catch (error: any) {
-        if (queryRunner.isTransactionActive) {
-            await queryRunner.rollbackTransaction();
-        }
-        if (error instanceof HttpError) {
-            return res.status(error.status).json({ code: error.code, message: error.message });
-        }
-        return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
-    } finally {
-        await queryRunner.release();
+        return handleHttpError(error, res);
     }
-}
+};
 
 export const getTickets = async (req: CustomRequest, res: Response) => {
     try {
         const requesterId = req.user?.id;
         const requesterRoles = req.user?.roles || [];
-        if (!requesterId) {
-            return res.status(401).json({ message: "No autorizado" });
-        }
+        if (!requesterId) return res.status(401).json({ message: "No autorizado" });
 
         const requestedUserId = parseInt(req.params.id);
         const isAdmin = requesterRoles.includes('admin');
         const userID = isAdmin && !isNaN(requestedUserId) ? requestedUserId : requesterId;
         const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
 
-        const [tickets, total] = await AppDataSource.getRepository(Ticket)
-            .createQueryBuilder("ticket")
-            .leftJoinAndSelect("ticket.ticketType", "ticketType")
-            .leftJoinAndSelect("ticketType.event", "event")
-            .select([
-                "ticket.id",
-                "ticket.codigo_unico",
-                "ticket.qrCode",
-                "ticket.ticketTypeId",
-                "ticket.userId",
-                "ticket.status",
-                "ticket.purchasePrice",
-                "ticket.usedAt",
-                "ticket.createdAt",
-                "ticketType.id",
-                "ticketType.name",
-                "ticketType.price",
-                "ticketType.status",
-                "event.id",
-                "event.title",
-                "event.date",
-                "event.time",
-                "event.ciudad",
-                "event.direccion",
-                "event.image"
-            ])
-            .where("ticket.userId = :userID", { userID })
-            .orderBy("ticket.createdAt", "DESC")
-            .skip(skip)
-            .take(take)
-            .getManyAndCount();
-
-        const mappedTickets = tickets.map(t => ({
-            ...t,
-            event: t.ticketType?.event,
-            ticketTypeName: t.ticketType?.name
-        }));
-
-        return res.status(200).json({ data: mappedTickets, total });
+        const result = await ticketService.findByUser(userID, { skip, take });
+        return res.status(200).json({ data: result.tickets, total: result.total });
     } catch (error: any) {
-        return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+        return res.status(500).json({ message: "Error interno del servidor", error: error.message });
     }
-}
+};
 
 export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
-        if (!userId) {
-            return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'No autorizado' });
-        }
+        if (!userId) return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'No autorizado' });
 
-        if (!AppDataSource.isInitialized) await AppDataSource.initialize();
-
-        const logRepo = AppDataSource.getRepository(PaymentLog);
-        const ticketRepo = AppDataSource.getRepository(Ticket);
-
-        const lastLog = await logRepo
-            .createQueryBuilder("log")
-            .select(["log.id", "log.status", "log.ticketTypeId", "log.createdAt"])
-            .where("log.userId = :userId", { userId })
-            .orderBy("log.createdAt", "DESC")
-            .getOne();
-
-        if (!lastLog) {
-            return res.status(200).json({ tickets: [], status: 'no_logs' });
-        }
-
-        if (lastLog.status === PaymentStatus.FAILED) {
-            return res.status(200).json({ tickets: [], status: 'failed' });
-        }
-
-        if (lastLog.status !== PaymentStatus.COMPLETED) {
-            return res.status(200).json({ tickets: [], status: 'processing' });
-        }
-
-        // Tickets asociados al tipo de ticket del último pago
-        const tickets = await ticketRepo
-            .createQueryBuilder("ticket")
-            .leftJoinAndSelect("ticket.ticketType", "ticketType")
-            .leftJoinAndSelect("ticketType.event", "event")
-            .select([
-                "ticket.id",
-                "ticket.codigo_unico",
-                "ticket.qrCode",
-                "ticket.ticketTypeId",
-                "ticket.userId",
-                "ticket.status",
-                "ticket.purchasePrice",
-                "ticket.usedAt",
-                "ticket.createdAt",
-                "ticketType.id",
-                "ticketType.name",
-                "ticketType.price",
-                "event.id",
-                "event.title",
-                "event.date",
-                "event.time",
-                "event.ciudad",
-                "event.direccion",
-                "event.image"
-            ])
-            .where("ticket.userId = :userId", { userId })
-            .andWhere("ticket.ticketTypeId = :ticketTypeId", { ticketTypeId: lastLog.ticketTypeId })
-            .orderBy("ticket.createdAt", "DESC")
-            .take(10)
-            .getMany();
-
-        const mappedTickets = tickets.map(t => ({
-            ...t,
-            event: t.ticketType?.event,
-            ticketTypeName: t.ticketType?.name
-        }));
-
-        return res.status(200).json({
-            tickets: mappedTickets,
-            status: 'approved'
-        });
-
+        const result = await ticketService.findLastPurchase(userId);
+        return res.status(200).json(result);
     } catch (error: any) {
         logger.error("ERROR REAL:", error);
-        return res.status(500).json({ message: 'Error interno del servidor' });
+        return res.status(500).json({ message: "Error interno del servidor" });
     }
 };
 
@@ -313,24 +79,15 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
         const userRoles = req.user?.roles || [];
         const requesterId = req.user?.id;
 
-        if (!requesterId) {
-            return res.status(401).json({ message: "No autorizado", valid: false });
-        }
+        if (!requesterId) return res.status(401).json({ message: "No autorizado", valid: false });
 
         const result = await validateTicketService(code, requesterId, userRoles);
 
         if (!result.success) {
             const statusMap: Record<string, number> = {
-                INVALID_CODE: 400,
-                NOT_FOUND: 404,
-                FORBIDDEN: 403,
-                ALREADY_USED: 400,
-                CANCELLED: 400,
-                INACTIVE_TICKET_TYPE: 409,
-                INACTIVE_EVENT: 409,
-                EVENT_PAST: 409,
-                EVENT_NOT_STARTED: 409,
-                RACE_CONDITION: 409
+                INVALID_CODE: 400, NOT_FOUND: 404, FORBIDDEN: 403,
+                ALREADY_USED: 400, CANCELLED: 400, INACTIVE_TICKET_TYPE: 409,
+                INACTIVE_EVENT: 409, EVENT_PAST: 409, EVENT_NOT_STARTED: 409, RACE_CONDITION: 409
             };
             const status = statusMap[result.code || ""] || 400;
             const payload: Record<string, any> = { message: result.message, valid: false };
@@ -340,399 +97,53 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
 
         const ticket = result.ticket!;
         return res.json({
-            message: "Ticket válido. Acceso permitido.",
-            valid: true,
+            message: "Ticket válido. Acceso permitido.", valid: true,
             ticket: {
-                id: ticket.id,
-                event: ticket.ticketType?.event?.title,
+                id: ticket.id, event: ticket.ticketType?.event?.title,
                 ticketType: ticket.ticketType?.name,
-                user: `${ticket.user?.firstname} ${ticket.user?.lastname}`,
-                status: ticket.status
+                user: `${ticket.user?.firstname} ${ticket.user?.lastname}`, status: ticket.status
             }
         });
     } catch (error) {
-        if (error instanceof Error) {
-            return res.status(500).json({ message: error.message });
-        }
+        if (error instanceof Error) return res.status(500).json({ message: error.message });
         return res.status(500).json({ message: "Internal server error" });
     }
 };
 
 export const cancelTicket = async (req: CustomRequest, res: Response) => {
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
     try {
-        const { id } = req.params;
         const userId = req.user?.id;
-        const ticketId = Number(id);
+        const ticketId = Number(req.params.id);
 
-        if (!userId) {
-            await queryRunner.rollbackTransaction();
-            return res.status(401).json({ message: "No autorizado" });
-        }
-
+        if (!userId) return res.status(401).json({ message: "No autorizado" });
         if (!Number.isSafeInteger(ticketId) || ticketId <= 0) {
-            await queryRunner.rollbackTransaction();
             return res.status(400).json({ message: "ID de ticket inválido" });
         }
 
-        // Cancelar ticket con UPDATE condicional atómico
-        const updateResult = await queryRunner.manager.update(Ticket,
-            { id: ticketId, userId, status: TicketStatus.ACTIVE, purchasePrice: 0 },
-            { status: TicketStatus.CANCELLED }
-        );
+        const result = await ticketService.cancel(userId, ticketId);
+        if (result.success) return res.status(200).json({ message: result.message, ticketId });
 
-        if (updateResult.affected === 0) {
-            await queryRunner.rollbackTransaction();
-
-            // Determinar por qué falló el UPDATE para dar un mensaje útil
-            const ticket = await queryRunner.manager.findOne(Ticket, {
-                where: { id: ticketId, userId },
-                select: ["id", "status", "purchasePrice"]
-            });
-
-            if (!ticket) {
-                return res.status(404).json({ message: "Ticket no encontrado" });
-            }
-
-            if (ticket.status === TicketStatus.USED) {
-                return res.status(409).json({ message: "Ticket ya fue utilizado" });
-            }
-
-            if (ticket.status === TicketStatus.CANCELLED) {
-                return res.status(409).json({ message: "Ticket ya fue cancelado" });
-            }
-
-            if (Number(ticket.purchasePrice) > 0) {
-                return res.status(409).json({
-                    code: "PAID_TICKET_REFUND_REQUIRED",
-                    message: "Los tickets pagos deben cancelarse mediante el flujo de reembolso para mantener consistente el pago y el stock."
-                });
-            }
-
-            return res.status(409).json({ message: "No se pudo cancelar el ticket" });
-        }
-
-        // Obtener ticketTypeId del ticket cancelado para restaurar stock
-        const cancelledTicket = await queryRunner.manager.findOne(Ticket, {
-            where: { id: ticketId },
-            select: ['ticketTypeId']
-        });
-
-        if (cancelledTicket) {
-            await queryRunner.manager
-                .createQueryBuilder()
-                .update(TicketType)
-                .set({ soldCount: () => `GREATEST("soldCount" - 1, 0)` })
-                .where('id = :id', { id: cancelledTicket.ticketTypeId })
-                .execute();
-        }
-
-        await queryRunner.commitTransaction();
-        return res.status(200).json({ message: "Ticket cancelado", ticketId: ticketId });
-
+        const statusMap: Record<string, number> = {
+            PAID_TICKET_REFUND_REQUIRED: 409
+        };
+        return res.status(statusMap[result.code || ""] || 409).json({ message: result.message, code: result.code });
     } catch (error: any) {
-        await queryRunner.rollbackTransaction();
-        return res.status(500).json({ message: 'Error interno del servidor', error: error.message });
-    } finally {
-        await queryRunner.release();
+        return res.status(500).json({ message: "Error interno del servidor", error: error.message });
     }
-}
+};
 
 export const inviteGuests = async (req: CustomRequest, res: Response) => {
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-
     try {
         const userId = req.user?.id;
         const isAdmin = (req.user?.roles || []).includes("admin");
-
-        if (!userId) {
-            return res.status(401).json({ message: "No autorizado" });
-        }
+        if (!userId) return res.status(401).json({ message: "No autorizado" });
 
         const { ticketTypeId, emails } = req.body;
         const quantity = req.body.quantity ?? 1;
 
-        // ---------------------------------------------------------------------
-        // Validar cantidad
-        // ---------------------------------------------------------------------
-        const ticketQty = Number(quantity);
-
-        if (!Number.isInteger(ticketQty) || ticketQty < 1 || ticketQty > 10) {
-            return res.status(400).json({
-                message: "La cantidad debe ser un número entero entre 1 y 10 por invitado",
-            });
-        }
-
-        // ---------------------------------------------------------------------
-        // Validar emails
-        // ---------------------------------------------------------------------
-        if (!emails || !Array.isArray(emails) || emails.length === 0) {
-            return res.status(400).json({
-                message: "Debes proporcionar al menos un email",
-            });
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const errors: string[] = [];
-
-        const normalizedEmails = Array.from(
-            new Set(
-                emails
-                    .map((email: unknown) =>
-                        typeof email === "string" ? email.trim().toLowerCase() : ""
-                    )
-                    .filter(Boolean)
-            )
-        );
-
-        const validEmails = normalizedEmails.filter((email) => {
-            if (!emailRegex.test(email)) {
-                errors.push(`Email inválido: ${email}`);
-                return false;
-            }
-
-            return true;
-        });
-
-        if (validEmails.length === 0) {
-            return res.status(400).json({
-                message: "No hay emails válidos para invitar",
-                errors,
-            });
-        }
-
-        // ---------------------------------------------------------------------
-        // Límites anti-abuso
-        // ---------------------------------------------------------------------
-        const totalRequestedTickets = validEmails.length * ticketQty;
-
-        if (validEmails.length > 50 || totalRequestedTickets > 100) {
-            return res.status(400).json({
-                message: "Máximo 50 emails o 100 tickets por solicitud",
-            });
-        }
-
-        // ---------------------------------------------------------------------
-        // Obtener tipo de ticket + evento
-        // ---------------------------------------------------------------------
-        const ticketType = await AppDataSource.getRepository(TicketType).findOne({
-            where: { id: ticketTypeId },
-            relations: ["event"],
-        });
-
-        // Validar que el tipo de ticket sea gratuito
-        if (ticketType && Number(ticketType.price) > 0) {
-            return res.status(400).json({
-                message: "Solo se pueden invitar guests a tipos de entrada gratuitos",
-            });
-        }
-
-        if (!ticketType) {
-            return res.status(404).json({
-                message: "Tipo de ticket no encontrado",
-            });
-        }
-
-        if (!ticketType.event) {
-            return res.status(404).json({
-                message: "Evento asociado al tipo de ticket no encontrado",
-            });
-        }
-
-        // ---------------------------------------------------------------------
-        // Verificar ownership del evento
-        // ---------------------------------------------------------------------
-        if (ticketType.event.user_id !== userId && !isAdmin) {
-            return res.status(403).json({
-                message: "No tienes permiso para invitar a este evento",
-            });
-        }
-
-        const event = ticketType.event;
-
-        // Validar que el evento no haya pasado
-        const eventDateTime = getEventDateTime(event);
-        if (new Date() > eventDateTime) {
-            return res.status(400).json({
-                message: "No se pueden invitar guests a un evento que ya pasó",
-            });
-        }
-
-        // Validar edad mínima
-        if (event.minAge && event.minAge > 0) {
-            return res.status(400).json({
-                message: `Este evento requiere edad mínima de ${event.minAge} años. Las invitaciones no verifican edad.`,
-            });
-        }
-
-        const createdTickets: Array<{ email: string; quantity: number }> = [];
-        const ticketsToInsert: Ticket[] = [];
-        const emailTicketsMap: Record<string, any[]> = {};
-
-        // ---------------------------------------------------------------------
-        // Pre-generar tickets y QRs fuera de la transacción
-        // Así evitamos mantener locks de DB mientras se generan QRs.
-        // ---------------------------------------------------------------------
-        for (const email of validEmails) {
-            try {
-                const ticketsForThisEmail: any[] = [];
-
-                for (let i = 0; i < ticketQty; i++) {
-                    const codigo_unico = randomUUID();
-                    const qrCode = await generarQRUrl(codigo_unico);
-
-                    const ticket = new Ticket();
-
-                    ticket.ticketTypeId = ticketType.id;
-
-                    /**
-                     * Importante:
-                     * Esto mantiene tu lógica actual: el ticket queda asociado al organizador.
-                     *
-                     * Si en tu modelo `userId` representa al dueño real del ticket/asistente,
-                     * entonces conviene cambiar esto por:
-                     *
-                     * ticket.userId = null;
-                     * ticket.guestEmail = email;
-                     * ticket.createdByUserId = userId;
-                     *
-                     * Pero eso requiere que existan esas columnas en la entidad Ticket.
-                     */
-                    ticket.userId = userId;
-
-                    ticket.codigo_unico = codigo_unico;
-                    ticket.qrCode = qrCode;
-                    ticket.purchasePrice = 0;
-                    ticket.status = TicketStatus.ACTIVE;
-
-                    ticketsToInsert.push(ticket);
-
-                    ticketsForThisEmail.push({
-                        qrCode: ticket.qrCode,
-                        ticketId: null,
-                        eventTitle: event.title,
-                        eventDate: `${new Date(event.date).toLocaleDateString("es-AR", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                        })} ${event.time}`,
-                        eventLocation: event.direccion || event.ciudad || "",
-                        buyerName: "Invitado",
-                        ticketType: ticketType.name,
-                    });
-                }
-
-                emailTicketsMap[email] = ticketsForThisEmail;
-
-                createdTickets.push({
-                    email,
-                    quantity: ticketsForThisEmail.length,
-                });
-            } catch (ticketErr: any) {
-                errors.push(
-                    `Error creando ticket para ${email}: ${
-                        ticketErr?.message || "Error desconocido"
-                    }`
-                );
-            }
-        }
-
-        if (ticketsToInsert.length === 0) {
-            return res.status(400).json({
-                message: "No se pudo crear ninguna invitación",
-                errors,
-            });
-        }
-
-        const requestedTickets = ticketsToInsert.length;
-
-        // ---------------------------------------------------------------------
-        // Transacción: reservar stock + insertar tickets
-        // ---------------------------------------------------------------------
-        await queryRunner.startTransaction();
-
-        const stockUpdate = await queryRunner.manager
-            .createQueryBuilder()
-            .update(TicketType)
-            .set({
-                soldCount: () => `"soldCount" + ${requestedTickets}`,
-            })
-            .where("id = :id", { id: ticketType.id })
-            .andWhere(`"soldCount" + ${requestedTickets} <= "capacity"`)
-            .execute();
-
-        if (!stockUpdate.affected) {
-            const freshTicketType = await queryRunner.manager.findOne(TicketType, {
-                where: { id: ticketType.id },
-            });
-
-            await queryRunner.rollbackTransaction();
-
-            const availableStock = freshTicketType
-                ? Math.max(freshTicketType.capacity - freshTicketType.soldCount, 0)
-                : 0;
-
-            return res.status(400).json({
-                message: `Stock insuficiente. Disponibles: ${availableStock}, Solicitados: ${requestedTickets}`,
-            });
-        }
-
-        const savedTickets = await queryRunner.manager.save(Ticket, ticketsToInsert);
-
-        await queryRunner.commitTransaction();
-
-        // ---------------------------------------------------------------------
-        // Enviar emails después del commit
-        // Si falla un mail, no rompemos los tickets ya creados.
-        // ---------------------------------------------------------------------
-        let ticketIndex = 0;
-
-        for (const email of Object.keys(emailTicketsMap)) {
-            const ticketsForThisEmail = emailTicketsMap[email];
-
-            for (const ticketMailData of ticketsForThisEmail) {
-                if (ticketIndex < savedTickets.length) {
-                    ticketMailData.ticketId = savedTickets[ticketIndex].id;
-                    ticketIndex++;
-                }
-            }
-
-            try {
-                await enviarCorreoConQR(email, ticketsForThisEmail);
-            } catch (emailErr: any) {
-                logger.error(`Error enviando email a ${email}:`, emailErr);
-
-                errors.push(
-                    `Error enviando a ${email}: ${
-                        emailErr?.message || "Error desconocido"
-                    }`
-                );
-            }
-        }
-
-        return res.status(201).json({
-            message: `${savedTickets.length} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,
-            tickets: createdTickets,
-            totalTickets: savedTickets.length,
-            emailsSentWithErrors: errors.length > 0,
-            errors: errors.length > 0 ? errors : undefined,
-        });
+        const result = await ticketService.inviteGuests(userId, ticketTypeId, emails, quantity, isAdmin);
+        return res.status(201).json(result);
     } catch (error: any) {
-        if (queryRunner.isTransactionActive) {
-            await queryRunner.rollbackTransaction();
-        }
-
-        logger.error("Error inviting guests:", error);
-
-        return res.status(500).json({
-            message: "Error al enviar invitaciones",
-            error: error?.message || "Error desconocido",
-        });
-    } finally {
-        await queryRunner.release();
+        return handleHttpError(error, res);
     }
 };
