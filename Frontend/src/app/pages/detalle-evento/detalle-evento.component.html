@@ -67,6 +67,64 @@
                   </div>
                 </div>
               </div>
+              <!-- Ticket Types Table -->
+              <div class="border-t border-gray-100 pt-8">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Entradas disponibles</h2>
+                @if (evento.ticketTypes && evento.ticketTypes.length > 0) {
+                  <div class="space-y-3">
+                    @for (tt of evento.ticketTypes; track tt.id) {
+                      <div class="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 transition-all hover:shadow-sm"
+                        [class.opacity-60]="tt.status !== 'active' || getStockForTicketType(tt) <= 0">
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2 mb-1">
+                            <h3 class="text-base font-bold text-gray-900">{{ tt.name }}</h3>
+                            @if (tt.status !== 'active' || getStockForTicketType(tt) <= 0) {
+                              <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider">Agotado</span>
+                            }
+                            @if (getStockForTicketType(tt) > 0 && getStockForTicketType(tt) <= 10) {
+                              <span class="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">Quedan {{ getStockForTicketType(tt) }}</span>
+                            }
+                          </div>
+                          @if (tt.description) {
+                            <p class="text-sm text-gray-500 truncate">{{ tt.description }}</p>
+                          }
+                        </div>
+                        <div class="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[220px]">
+                          <div class="text-right">
+                            <span class="text-lg font-black text-gray-900">
+                              {{ tt.price > 0 ? ('$' + tt.price) : 'Gratis' }}
+                            </span>
+                          </div>
+                          <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                            <button type="button"
+                              [disabled]="(quantities[tt.id] || 0) <= 0"
+                              (click)="decrementQty(tt)"
+                              class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                              </svg>
+                            </button>
+                            <span class="text-base font-bold w-6 text-center tabular-nums">{{ quantities[tt.id] || 0 }}</span>
+                            <button type="button"
+                              [disabled]="tt.status !== 'active' || getStockForTicketType(tt) <= 0 || (quantities[tt.id] || 0) >= getMaxSelectable(tt)"
+                              (click)="incrementQty(tt)"
+                              class="w-8 h-8 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="bg-gray-50 rounded-2xl p-6 text-center">
+                    <p class="text-gray-500 font-medium">No hay entradas disponibles en este momento.</p>
+                  </div>
+                }
+              </div>
+
               <div class="prose prose-lg text-gray-600 leading-relaxed max-w-none border-t border-gray-100 pt-8">
                 <p class="whitespace-pre-line">{{ evento.description }}</p>
               </div>
@@ -126,13 +184,24 @@
                         </div>
                       </div>
                     }
-                    <div class="flex justify-between items-end mb-6 pb-6 border-b border-gray-100">
-                      <span class="text-gray-500 font-bold text-xs uppercase tracking-wider">Entrada General</span>
-                      <div class="text-right">
-                        <span class="text-3xl font-black text-gray-900 tracking-tight">
-                          {{ getMinPrice() > 0 ? ('$' + getMinPrice()) : 'Gratis' }}
-                        </span>
-                      </div>
+                    <div class="mb-6 pb-6 border-b border-gray-100 space-y-2">
+                      <span class="text-gray-500 font-bold text-xs uppercase tracking-wider">Tu selección</span>
+                      @if (hasActiveItems()) {
+                        <div class="space-y-1">
+                          @for (item of getCartItems(); track item.ticketTypeId) {
+                            <div class="flex justify-between text-sm">
+                              <span class="text-gray-700 font-medium">{{ item.quantity }}x {{ getTicketTypeName(item.ticketTypeId) }}</span>
+                              <span class="text-gray-900 font-bold">${{ getTicketTypePrice(item.ticketTypeId) * item.quantity }}</span>
+                            </div>
+                          }
+                        </div>
+                        <div class="flex justify-between items-end pt-2">
+                          <span class="text-gray-500 font-bold text-xs uppercase tracking-wider">Subtotal</span>
+                          <span class="text-2xl font-black text-gray-900 tracking-tight">${{ getCartTotal() }}</span>
+                        </div>
+                      } @else {
+                        <p class="text-sm text-gray-400">Seleccioná tus entradas para ver el total.</p>
+                      }
                     </div>
                     <ul class="space-y-3 mb-6">
                       <li class="flex items-center gap-3 text-sm font-medium text-gray-600">

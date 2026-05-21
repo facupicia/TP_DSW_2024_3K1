@@ -31,6 +31,10 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   imgPerfil: string | null = null;
   loading = true;
 
+  // Cart logic
+  quantities: Record<number, number> = {};
+  maxQuantityPerType = 10;
+
   // Countdown Logic
   countdownSubscription!: Subscription;
   timeRemaining = { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -138,6 +142,71 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     return 0;
   }
 
+  getStockForTicketType(tt: any): number {
+    return Math.max((tt.capacity || 0) - (tt.soldCount || 0), 0);
+  }
+
+  getMaxSelectable(tt: any): number {
+    const stock = this.getStockForTicketType(tt);
+    if (stock <= 0) return 0;
+    return Math.min(stock, this.maxQuantityPerType);
+  }
+
+  setQuantity(ticketTypeId: number, qty: number) {
+    this.quantities[ticketTypeId] = qty;
+  }
+
+  getCartItems(): Array<{ ticketTypeId: number; quantity: number }> {
+    if (!this.evento?.ticketTypes) return [];
+    return this.evento.ticketTypes
+      .filter((tt: any) => (this.quantities[tt.id] || 0) > 0)
+      .map((tt: any) => ({
+        ticketTypeId: tt.id,
+        quantity: this.quantities[tt.id]
+      }));
+  }
+
+  getCartTotal(): number {
+    if (!this.evento?.ticketTypes) return 0;
+    return this.evento.ticketTypes.reduce((sum: number, tt: any) => {
+      const qty = this.quantities[tt.id] || 0;
+      return sum + (Number(tt.price) * qty);
+    }, 0);
+  }
+
+  getCartCount(): number {
+    return Object.values(this.quantities).reduce((sum, q) => sum + q, 0);
+  }
+
+  hasActiveItems(): boolean {
+    return this.getCartCount() > 0;
+  }
+
+  getTicketTypeName(ticketTypeId: number): string {
+    const tt = this.evento?.ticketTypes?.find((t: any) => t.id === ticketTypeId);
+    return tt?.name || 'Entrada';
+  }
+
+  getTicketTypePrice(ticketTypeId: number): number {
+    const tt = this.evento?.ticketTypes?.find((t: any) => t.id === ticketTypeId);
+    return Number(tt?.price || 0);
+  }
+
+  incrementQty(tt: any) {
+    const current = this.quantities[tt.id] || 0;
+    const max = this.getMaxSelectable(tt);
+    if (current < max) {
+      this.setQuantity(tt.id, current + 1);
+    }
+  }
+
+  decrementQty(tt: any) {
+    const current = this.quantities[tt.id] || 0;
+    if (current > 0) {
+      this.setQuantity(tt.id, current - 1);
+    }
+  }
+
   isEventPast(): boolean {
     if (!this.evento?.date || !this.evento?.time) return false;
     const eventDateTime = new Date(`${this.evento.date}T${this.evento.time}`);
@@ -149,6 +218,13 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
       return {
         disabled: true,
         text: 'Evento Finalizado',
+        class: 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
+      };
+    }
+    if (!this.hasActiveItems()) {
+      return {
+        disabled: true,
+        text: 'Seleccioná tus entradas',
         class: 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-200'
       };
     }
@@ -171,6 +247,21 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   }
 
   reservarEntrada(eventId: number): void {
+    const cartItems = this.getCartItems();
+    if (cartItems.length === 0) {
+      this.toastService.warning('Seleccioná al menos una entrada para continuar.');
+      return;
+    }
+
+    // Persist cart so checkout can read it
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.setItem('eventCart', JSON.stringify({
+        eventId,
+        items: cartItems,
+        promoterCode: this.promoterCode || undefined
+      }));
+    }
+
     this.accesService.ensureCurrentUser().subscribe({
       next: (profile) => {
         if (!profile) {
@@ -187,13 +278,12 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
           }
         }
 
-        // Navigate to checkout with promoter code if present
         const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
         this.router.navigate([`/ticket/${eventId}`], { queryParams });
       },
       error: () => {
-      const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
-      this.router.navigate([`/ticket/${eventId}`], { queryParams });
+        const queryParams = this.promoterCode ? { promo: this.promoterCode } : {};
+        this.router.navigate([`/ticket/${eventId}`], { queryParams });
       }
     });
   }

@@ -1,6 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index, ManyToOne, JoinColumn, BaseEntity, Check, DeleteDateColumn } from 'typeorm';
 import { User } from '../user/user.entity';
-import { TicketType } from '../ticketType/ticketType.entity';
 
 export enum PaymentStatus {
   PROCESSING = 'processing',
@@ -16,9 +15,7 @@ export enum PaymentStatus {
 @Index('idx_payment_organizer_status', ['organizerId', 'status'])
 @Index('idx_payment_status_organizer', ['status', 'organizerId'])
 @Index('idx_payment_user_created', ['userId', 'createdAt'])
-@Index('idx_payment_ticket_type_status_created', ['ticketTypeId', 'status', 'createdAt'])
 @Check('"quantity" > 0')
-@Check('"unitPrice" >= 0')
 @Check('"totalAmount" > 0')
 @Check('"baseAmount" >= 0')
 @Check('"discountAmount" >= 0')
@@ -45,17 +42,10 @@ export class PaymentLog extends BaseEntity {
   @Column()
   userId: number;
 
-  @ManyToOne(() => TicketType, { nullable: false, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'ticketTypeId' })
-  ticketType: TicketType;
-
-  @Column()
-  ticketTypeId: number;
+  @Column({ type: 'jsonb', nullable: true })
+  items: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }> | null;
 
   /* ===================== PAYMENT AMOUNTS ===================== */
-
-  @Column({ type: 'numeric', precision: 12, scale: 2 })
-  unitPrice: number;
 
   @Column()
   quantity: number;

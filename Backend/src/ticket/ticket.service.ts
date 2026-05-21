@@ -272,7 +272,7 @@ export async function findLastPurchase(userId: number): Promise<{
 
     const lastLog = await logRepo
         .createQueryBuilder("log")
-        .select(["log.id", "log.status", "log.ticketTypeId", "log.createdAt"])
+        .select(["log.id", "log.status", "log.createdAt"])
         .where("log.userId = :userId", { userId })
         .orderBy("log.createdAt", "DESC")
         .getOne();
@@ -281,7 +281,7 @@ export async function findLastPurchase(userId: number): Promise<{
     if (lastLog.status === PaymentStatus.FAILED) return { tickets: [], status: 'failed' };
     if (lastLog.status !== PaymentStatus.COMPLETED) return { tickets: [], status: 'processing' };
 
-    const tickets = await ticketRepo
+    let tickets = await ticketRepo
         .createQueryBuilder("ticket")
         .leftJoinAndSelect("ticket.ticketType", "ticketType")
         .leftJoinAndSelect("ticketType.event", "event")
@@ -292,10 +292,31 @@ export async function findLastPurchase(userId: number): Promise<{
             "event.id", "event.title", "event.date", "event.time", "event.ciudad", "event.direccion", "event.image"
         ])
         .where("ticket.userId = :userId", { userId })
-        .andWhere("ticket.ticketTypeId = :ticketTypeId", { ticketTypeId: lastLog.ticketTypeId })
+        .andWhere("ticket.paymentLogId = :paymentLogId", { paymentLogId: lastLog.id })
         .orderBy("ticket.createdAt", "DESC")
         .take(10)
         .getMany();
+
+    // Fallback for legacy tickets without paymentLogId
+    if (tickets.length === 0) {
+        const fiveMinutesBefore = new Date(lastLog.createdAt.getTime() - 5 * 60 * 1000);
+        const fiveMinutesAfter = new Date(lastLog.createdAt.getTime() + 5 * 60 * 1000);
+        tickets = await ticketRepo
+            .createQueryBuilder("ticket")
+            .leftJoinAndSelect("ticket.ticketType", "ticketType")
+            .leftJoinAndSelect("ticketType.event", "event")
+            .select([
+                "ticket.id", "ticket.codigo_unico", "ticket.qrCode", "ticket.ticketTypeId",
+                "ticket.userId", "ticket.status", "ticket.purchasePrice", "ticket.usedAt", "ticket.createdAt",
+                "ticketType.id", "ticketType.name", "ticketType.price",
+                "event.id", "event.title", "event.date", "event.time", "event.ciudad", "event.direccion", "event.image"
+            ])
+            .where("ticket.userId = :userId", { userId })
+            .andWhere("ticket.createdAt BETWEEN :start AND :end", { start: fiveMinutesBefore, end: fiveMinutesAfter })
+            .orderBy("ticket.createdAt", "DESC")
+            .take(10)
+            .getMany();
+    }
 
     const mapped = tickets.map(t => ({
         ...t,

@@ -1,5 +1,6 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import bcrypt from 'bcrypt';
+import { In } from 'typeorm';
 import AppDataSource from '../db';
 import { User } from '../user/user.entity';
 import { TicketType, TicketTypeStatus } from '../ticketType/ticketType.entity';
@@ -21,10 +22,14 @@ import { findRolesByNames } from '../user/role.entity';
 // TYPES
 // ============================================================================
 
-export interface PreferenceInput {
-    userId?: number;
+export interface CartItem {
     ticketTypeId: number;
     quantity: number;
+}
+
+export interface PreferenceInput {
+    userId?: number;
+    items: CartItem[];
     promoterCode?: string;
     couponId?: number;
     couponCode?: string;
@@ -44,11 +49,9 @@ export interface PreferencePricing {
     baseAmount: number;
     discountAmount: number;
     totalAmount: number;
-    unitPrice: number;
     serviceFeePercent: number;
     serviceFeeAmount: number;
     buyerTotalAmount: number;
-    buyerUnitPrice: number;
     couponId?: number;
     discountPercent?: number;
 }
@@ -97,37 +100,66 @@ interface PurchasePayer {
 export async function validatePurchaseEligibility(
     input: PreferenceInput
 ): Promise<ValidationResult> {
-    const { userId, ticketTypeId, quantity, guestBuyer } = input;
-    
-    // Validar cantidad
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    const { userId, items, guestBuyer } = input;
+
+    if (!Array.isArray(items) || items.length === 0) {
         return {
             valid: false,
-            error: 'Cantidad inválida',
+            error: 'Debes seleccionar al menos un ticket.',
+            code: 'EMPTY_CART',
+            statusCode: 400
+        };
+    }
+
+    if (items.some(i => !Number.isInteger(i.quantity) || i.quantity <= 0 || i.quantity > 10)) {
+        return {
+            valid: false,
+            error: 'Cantidad inválida en uno o más tickets.',
             code: 'INVALID_QUANTITY',
             statusCode: 400
         };
     }
-    
+
+    // Detectar duplicados
+    const uniqueIds = new Set(items.map(i => i.ticketTypeId));
+    if (uniqueIds.size !== items.length) {
+        return {
+            valid: false,
+            error: 'No puedes agregar el mismo tipo de ticket más de una vez.',
+            code: 'DUPLICATE_TICKET_TYPE',
+            statusCode: 400
+        };
+    }
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     try {
-        // Obtener ticket type y usuario si corresponde
         const userRepo = queryRunner.manager.getRepository(User);
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        
-        const ticketType = await ticketTypeRepo.findOne({
-            where: { id: ticketTypeId },
+
+        const ticketTypeIds = items.map(i => i.ticketTypeId);
+        const ticketTypes = await ticketTypeRepo.find({
+            where: { id: In(ticketTypeIds) },
             relations: ['event', 'event.user']
         });
-        
-        if (!ticketType) {
+
+        if (ticketTypes.length !== ticketTypeIds.length) {
             return {
                 valid: false,
-                error: 'Tipo de ticket no encontrado',
+                error: 'Uno o más tipos de ticket no existen.',
                 code: 'NOT_FOUND',
                 statusCode: 404
+            };
+        }
+
+        const eventId = ticketTypes[0].event.id;
+        if (ticketTypes.some(tt => tt.event.id !== eventId)) {
+            return {
+                valid: false,
+                error: 'Todos los tickets deben ser del mismo evento.',
+                code: 'MULTIPLE_EVENTS',
+                statusCode: 400
             };
         }
 
@@ -142,35 +174,12 @@ export async function validatePurchaseEligibility(
                     statusCode: 404
                 };
             }
-
             birthDate = user.birth ? new Date(user.birth) : null;
         } else if (guestBuyer?.birth) {
             birthDate = new Date(`${guestBuyer.birth}T00:00:00`);
         }
-        
-        // Validar estado del ticket type
-        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
-            return {
-                valid: false,
-                error: 'Este tipo de ticket no está disponible',
-                code: 'TICKET_TYPE_INACTIVE',
-                statusCode: 400
-            };
-        }
-        
-        // Validar stock
-        const availableStock = ticketType.capacity - ticketType.soldCount;
-        if (availableStock < quantity) {
-            return {
-                valid: false,
-                error: `Sin stock. Quedan: ${availableStock}`,
-                code: 'NO_STOCK',
-                statusCode: 409
-            };
-        }
-        
-        // Validar que el evento no haya comenzado
-        const event = ticketType.event;
+
+        const event = ticketTypes[0].event;
         const eventDateTime = new Date(`${event.date}T${event.time}`);
         if (new Date() > eventDateTime) {
             return {
@@ -180,8 +189,7 @@ export async function validatePurchaseEligibility(
                 statusCode: 400
             };
         }
-        
-        // Validar edad mínima
+
         if (event.minAge && event.minAge > 0) {
             if (!birthDate || isNaN(birthDate.getTime())) {
                 return {
@@ -195,11 +203,11 @@ export async function validatePurchaseEligibility(
             const today = new Date();
             let age = today.getFullYear() - birthDate.getFullYear();
             const monthDiff = today.getMonth() - birthDate.getMonth();
-            
+
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
-            
+
             if (age < event.minAge) {
                 return {
                     valid: false,
@@ -209,9 +217,30 @@ export async function validatePurchaseEligibility(
                 };
             }
         }
-        
+
+        for (const tt of ticketTypes) {
+            if (tt.status !== TicketTypeStatus.ACTIVE) {
+                return {
+                    valid: false,
+                    error: `El tipo de ticket "${tt.name}" no está disponible`,
+                    code: 'TICKET_TYPE_INACTIVE',
+                    statusCode: 400
+                };
+            }
+            const item = items.find(i => i.ticketTypeId === tt.id)!;
+            const availableStock = tt.capacity - tt.soldCount;
+            if (availableStock < item.quantity) {
+                return {
+                    valid: false,
+                    error: `Sin stock para "${tt.name}". Quedan: ${availableStock}`,
+                    code: 'NO_STOCK',
+                    statusCode: 409
+                };
+            }
+        }
+
         return { valid: true };
-        
+
     } finally {
         await queryRunner.release();
     }
@@ -384,9 +413,9 @@ async function resolvePurchasePayer(_queryRunner: any, input: PreferenceInput): 
     };
 }
 
-function buildExternalReference(userId: number, ticketType: TicketType, quantity: number, promoterCode?: string): string {
+function buildExternalReference(userId: number, organizerId: number, promoterCode?: string): string {
     const promoterCodeStr = promoterCode ? `|${promoterCode}` : '';
-    return `${userId}|${ticketType.id}|${quantity}|${ticketType.event.user_id}${promoterCodeStr}`;
+    return `${userId}|${organizerId}${promoterCodeStr}`;
 }
 
 function calculateServiceFee(totalAmount: number, serviceFeePercent: number, minimumServiceFee: number): number {
@@ -399,32 +428,34 @@ function calculateServiceFee(totalAmount: number, serviceFeePercent: number, min
 }
 
 function calculatePricing(
-    unitPrice: number,
-    quantity: number,
+    ticketTypes: TicketType[],
+    items: CartItem[],
     coupon?: Coupon | null,
     serviceFeePercent = 0,
     minimumServiceFee = 0
 ): PreferencePricing {
-    const baseAmount = unitPrice * quantity;
+    let baseAmount = 0;
+    for (const item of items) {
+        const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
+        baseAmount += Number(tt.price) * item.quantity;
+    }
+
     const discountPercent = coupon?.discountPercent || 0;
     const discountAmount = discountPercent > 0
         ? Math.min(baseAmount, Math.round((baseAmount * discountPercent) / 100))
         : 0;
     const totalAmount = Math.max(baseAmount - discountAmount, 0);
     const rawServiceFeeAmount = calculateServiceFee(totalAmount, serviceFeePercent, minimumServiceFee);
-    const buyerUnitPrice = Number(((totalAmount + rawServiceFeeAmount) / quantity).toFixed(2));
-    const buyerTotalAmount = Number((buyerUnitPrice * quantity).toFixed(2));
+    const buyerTotalAmount = Number((totalAmount + rawServiceFeeAmount).toFixed(2));
     const serviceFeeAmount = Number((buyerTotalAmount - totalAmount).toFixed(2));
 
     return {
         baseAmount,
         discountAmount,
         totalAmount,
-        unitPrice: Number((totalAmount / quantity).toFixed(2)),
         serviceFeePercent,
         serviceFeeAmount,
         buyerTotalAmount,
-        buyerUnitPrice,
         couponId: coupon?.id,
         discountPercent: coupon?.discountPercent
     };
@@ -436,7 +467,7 @@ function calculatePricing(
 
 /**
  * Construye el body para crear una preferencia de MP
- * 
+ *
  * Nuevo modelo con cargo de servicio:
  * - El asistente paga: precio ticket + cargo de servicio
  * - El organizador recibe: precio ticket (exacto)
@@ -445,45 +476,51 @@ function calculatePricing(
 export function buildPreferenceBody(
     payer: { email: string; firstname: string; lastname: string },
     userId: number,
-    ticketType: TicketType,
-    quantity: number,
+    ticketTypes: TicketType[],
+    items: CartItem[],
     marketplaceInfo: MarketPlaceInfo,
     promoterCode?: string,
     coupon?: Coupon | null
 ): any {
     const config = getMPConfig();
-    
-    const originalUnitPrice = Number(ticketType.price);
+
     const pricing = calculatePricing(
-        originalUnitPrice,
-        quantity,
+        ticketTypes,
+        items,
         coupon,
         marketplaceInfo.serviceFeePercent,
         marketplaceInfo.minimumServiceFee
     );
-    
-    // Comisión de EventLife según el plan del organizador (FREE: 8%, PRO: 3%)
+
     const commissionPercent = marketplaceInfo.commissionPercent;
     const commissionAmount = Math.ceil((pricing.totalAmount * commissionPercent) / 100);
-    
+
     const clientUrl = sanitizeUrl(config.clientUrl);
     const notificationUrl = sanitizeUrl(config.notificationUrl);
-    
-    // Referencia externa para conciliación
-    // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode
-    const externalRef = buildExternalReference(userId, ticketType, quantity, promoterCode);
-    
+
+    const externalRef = buildExternalReference(userId, ticketTypes[0].event.user_id, promoterCode);
+
+    const mpItems = items.map(item => {
+        const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
+        const itemTotal = Number(tt.price) * item.quantity;
+        const itemShareOfDiscount = pricing.discountAmount > 0
+            ? Math.round((itemTotal / pricing.baseAmount) * pricing.discountAmount)
+            : 0;
+        const itemNet = Math.max(itemTotal - itemShareOfDiscount, 0);
+        const itemUnitPrice = item.quantity > 0 ? Number((itemNet / item.quantity).toFixed(2)) : 0;
+
+        return {
+            id: tt.id.toString(),
+            title: `${tt.event.title} - ${tt.name}`.substring(0, 255),
+            description: `Entrada para ${tt.event.title}`,
+            quantity: item.quantity,
+            unit_price: itemUnitPrice,
+            currency_id: 'ARS',
+        };
+    });
+
     const body: any = {
-        items: [
-            {
-                id: ticketType.id.toString(),
-                title: `${ticketType.event.title} - ${ticketType.name}`.substring(0, 255),
-                description: `Entrada para ${ticketType.event.title}`,
-                quantity: quantity,
-                unit_price: pricing.buyerUnitPrice,
-                currency_id: 'ARS',
-            }
-        ],
+        items: mpItems,
         payer: {
             email: payer.email,
             name: payer.firstname,
@@ -494,22 +531,16 @@ export function buildPreferenceBody(
             failure: `${clientUrl}/checkout/failure`,
             pending: `${clientUrl}/checkout/pending`,
         },
-        // auto_return solo si las URLs son HTTPS
         auto_return: clientUrl.startsWith('https') ? 'approved' : undefined,
         notification_url: notificationUrl || undefined,
         external_reference: externalRef,
-        
-        // IMPORTANTE: marketplace_fee es lo que EventLife recibe como comisión
-        // Este monto se transfiere automáticamente a la cuenta de EventLife
+
         marketplace_fee: commissionAmount,
-        
-        // Metadata para el webhook
+
         metadata: {
             user_id: Number(userId),
-            ticket_type_id: Number(ticketType.id),
-            event_id: Number(ticketType.event.id),
-            amount_tickets: Number(quantity),
-            organizer_id: ticketType.event.user_id,
+            event_id: Number(ticketTypes[0].event.id),
+            organizer_id: ticketTypes[0].event.user_id,
             organizer_plan: marketplaceInfo.planName,
             base_amount: pricing.baseAmount,
             discount_amount: pricing.discountAmount,
@@ -522,10 +553,11 @@ export function buildPreferenceBody(
             payment_model: 'marketplace',
             promoter_code: promoterCode || null,
             coupon_id: pricing.couponId || null,
-            coupon_discount_percent: pricing.discountPercent || null
+            coupon_discount_percent: pricing.discountPercent || null,
+            items: JSON.stringify(items.map(i => ({ ticketTypeId: i.ticketTypeId, quantity: i.quantity })))
         }
     };
-    
+
     return body;
 }
 
@@ -545,7 +577,7 @@ export function buildPreferenceBody(
  */
 interface PreparedPreference {
     purchasePayer: PurchasePayer;
-    ticketType: TicketType;
+    ticketTypes: TicketType[];
     pricing: PreferencePricing;
     body: any;
     externalReference: string;
@@ -557,9 +589,8 @@ async function preparePreference(
     input: PreferenceInput,
     options: { requireOrganizerToken: boolean }
 ): Promise<PreparedPreference> {
-    const { ticketTypeId, quantity } = input;
+    const { items } = input;
 
-    // Resolve payer OUTSIDE the DB transaction to avoid holding the pessimistic_write lock
     const purchasePayer = await resolvePurchasePayer(null, input);
 
     const queryRunner = AppDataSource.createQueryRunner();
@@ -569,45 +600,57 @@ async function preparePreference(
     try {
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
 
-        const ticketType = await ticketTypeRepo
-            .createQueryBuilder('ticketType')
-            .innerJoinAndSelect('ticketType.event', 'event')
-            .where('ticketType.id = :ticketTypeId', { ticketTypeId })
-            .setLock('pessimistic_write')
-            .getOne();
+        const ticketTypeIds = items.map(i => i.ticketTypeId).sort((a, b) => a - b);
+        const ticketTypes: TicketType[] = [];
+        for (const id of ticketTypeIds) {
+            const tt = await ticketTypeRepo
+                .createQueryBuilder('ticketType')
+                .innerJoinAndSelect('ticketType.event', 'event')
+                .where('ticketType.id = :id', { id })
+                .setLock('pessimistic_write')
+                .getOne();
 
-        if (!ticketType) {
-            throw new Error('TICKET_TYPE_NOT_FOUND');
+            if (!tt) {
+                throw new Error('TICKET_TYPE_NOT_FOUND');
+            }
+            ticketTypes.push(tt);
         }
 
-        if (ticketType.status !== TicketTypeStatus.ACTIVE) {
-            throw new Error('TICKET_TYPE_INACTIVE');
+        for (const tt of ticketTypes) {
+            if (tt.status !== TicketTypeStatus.ACTIVE) {
+                throw new Error('TICKET_TYPE_INACTIVE');
+            }
+            const item = items.find(i => i.ticketTypeId === tt.id)!;
+            const availableStock = tt.capacity - tt.soldCount;
+            if (availableStock < item.quantity) {
+                throw new Error('NO_STOCK');
+            }
         }
 
-        const availableStock = ticketType.capacity - ticketType.soldCount;
-        if (availableStock < quantity) {
-            throw new Error('NO_STOCK');
+        const eventId = ticketTypes[0].event.id;
+        if (ticketTypes.some(tt => tt.event.id !== eventId)) {
+            throw new Error('MULTIPLE_EVENTS');
         }
 
-        const eventDateTime = new Date(`${ticketType.event.date}T${ticketType.event.time}`);
+        const eventDateTime = new Date(`${ticketTypes[0].event.date}T${ticketTypes[0].event.time}`);
         if (new Date() > eventDateTime) {
             throw new Error('EVENT_STARTED');
         }
 
-        const marketplaceInfo = await getMarketPlaceInfo(ticketType.event.user_id);
+        const marketplaceInfo = await getMarketPlaceInfo(ticketTypes[0].event.user_id);
 
         if (options.requireOrganizerToken && !marketplaceInfo.organizerAccessToken) {
             logger.error('MARKETPLACE_NO_ORGANIZER_TOKEN', {
-                organizerId: ticketType.event.user_id,
-                eventId: ticketType.event.id
+                organizerId: ticketTypes[0].event.user_id,
+                eventId: ticketTypes[0].event.id
             });
             throw new Error('ORGANIZER_MP_NOT_LINKED');
         }
 
-        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketType.event.id);
+        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketTypes[0].event.id);
         const pricing = calculatePricing(
-            Number(ticketType.price),
-            quantity,
+            ticketTypes,
+            items,
             coupon,
             marketplaceInfo.serviceFeePercent,
             marketplaceInfo.minimumServiceFee
@@ -620,16 +663,15 @@ async function preparePreference(
         const body = buildPreferenceBody(
             purchasePayer.payer,
             purchasePayer.user.id,
-            ticketType,
-            quantity,
+            ticketTypes,
+            items,
             marketplaceInfo,
             input.promoterCode,
             coupon
         );
         const externalReference = buildExternalReference(
             purchasePayer.user.id,
-            ticketType,
-            quantity,
+            ticketTypes[0].event.user_id,
             input.promoterCode
         );
 
@@ -637,7 +679,7 @@ async function preparePreference(
 
         return {
             purchasePayer,
-            ticketType,
+            ticketTypes,
             pricing,
             body,
             externalReference,
@@ -657,9 +699,8 @@ async function preparePreference(
 export async function createMercadoPagoPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
-    const { ticketTypeId, quantity } = input;
     const prepared = await preparePreference(input, { requireOrganizerToken: true });
-    const { purchasePayer, ticketType, pricing, body, externalReference, marketplaceInfo } = prepared;
+    const { purchasePayer, ticketTypes, pricing, body, externalReference, marketplaceInfo } = prepared;
 
     const mpClient = new MercadoPagoConfig({
         accessToken: marketplaceInfo.organizerAccessToken!
@@ -669,9 +710,8 @@ export async function createMercadoPagoPreference(
 
     logger.info('PREFERENCE_CREATING', {
         userId: purchasePayer.user.id,
-        ticketTypeId,
-        quantity,
-        organizerId: ticketType.event.user_id,
+        items: input.items,
+        organizerId: ticketTypes[0].event.user_id,
         marketplaceFee: body.marketplace_fee,
         promoterCode: input.promoterCode,
         guestCheckout: purchasePayer.guestCheckout
@@ -686,7 +726,7 @@ export async function createMercadoPagoPreference(
     logger.info('PREFERENCE_CREATED', {
         preferenceId: result.id,
         userId: purchasePayer.user.id,
-        organizerId: ticketType.event.user_id
+        organizerId: ticketTypes[0].event.user_id
     });
 
     return {
@@ -706,13 +746,11 @@ export async function createMercadoPagoPreference(
 export async function createPlatformPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
-    const { ticketTypeId, quantity } = input;
     const prepared = await preparePreference(input, { requireOrganizerToken: false });
-    const { purchasePayer, ticketType, pricing, body, externalReference } = prepared;
+    const { purchasePayer, ticketTypes, pricing, body, externalReference } = prepared;
 
     const config = getMPConfig();
 
-    // Sin marketplace_fee al usar token de plataforma
     delete body.marketplace_fee;
 
     const mpClient = new MercadoPagoConfig({ accessToken: config.accessToken });
@@ -727,7 +765,7 @@ export async function createPlatformPreference(
     logger.info('PLATFORM_PREFERENCE_CREATED', {
         preferenceId: result.id,
         userId: purchasePayer.user.id,
-        organizerId: ticketType.event.user_id
+        organizerId: ticketTypes[0].event.user_id
     });
 
     return {

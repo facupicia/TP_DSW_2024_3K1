@@ -78,15 +78,33 @@ function isValidEmail(value: string): boolean {
  * Crea una preferencia de MercadoPago para la compra de tickets.
  * En el modelo marketplace, usa el token del organizador.
  */
+function validateCartItems(rawItems: any): { valid: boolean; items?: Array<{ ticketTypeId: number; quantity: number }>; error?: string } {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+        return { valid: false, error: 'Debes enviar un array de items (ticketTypeId + quantity).' };
+    }
+    const items: Array<{ ticketTypeId: number; quantity: number }> = [];
+    for (const raw of rawItems) {
+        const ticketTypeId = parsePositiveInteger(raw?.ticketTypeId);
+        const quantity = parsePositiveInteger(raw?.quantity);
+        if (!ticketTypeId || !quantity) {
+            return { valid: false, error: 'Cada item debe tener ticketTypeId y quantity válidos.' };
+        }
+        if (quantity > 10) {
+            return { valid: false, error: 'No puedes comprar más de 10 unidades por tipo de ticket.' };
+        }
+        items.push({ ticketTypeId, quantity });
+    }
+    return { valid: true, items };
+}
+
 export const createPreference = async (req: CustomRequest, res: Response) => {
     const guestBuyer = normalizeGuestBuyer(req.body?.buyer);
 
     try {
         const userId = req.user?.id;
-        const { ticketQuantity, ticketTypeId, promoterCode, couponId, couponCode } = req.body;
+        const { items: rawItems, promoterCode, couponId, couponCode } = req.body;
         const isGuestCheckout = !userId;
-        
-        // Validaciones básicas
+
         if (isGuestCheckout) {
             if (!guestBuyer?.firstname || !guestBuyer?.lastname || !guestBuyer?.email || !guestBuyer?.phone) {
                 return res.status(400).json({
@@ -102,55 +120,47 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 });
             }
         }
-        
-        const parsedTicketTypeId = parsePositiveInteger(ticketTypeId);
-        if (!parsedTicketTypeId) {
-            return res.status(400).json({ message: "ticketTypeId inválido." });
+
+        const cartValidation = validateCartItems(rawItems);
+        if (!cartValidation.valid) {
+            return res.status(400).json({ message: cartValidation.error });
         }
-        
-        const quantity = parsePositiveInteger(ticketQuantity);
-        if (!quantity) {
-            return res.status(400).json({ message: "Cantidad inválida." });
-        }
+        const items = cartValidation.items!;
 
         const parsedCouponId = couponId ? parsePositiveInteger(couponId) : undefined;
         if (couponId && !parsedCouponId) {
             return res.status(400).json({ code: "COUPON_INVALID", message: "Cupón inválido." });
         }
-        
-        // Validar elegibilidad de compra
+
         const validation = await validatePurchaseEligibility({
             userId,
-            ticketTypeId: parsedTicketTypeId,
-            quantity,
+            items,
             guestBuyer: guestBuyer || undefined
         });
-        
+
         if (!validation.valid) {
             return res.status(validation.statusCode || 400).json({
                 message: validation.error,
                 code: validation.code
             });
         }
-        
-        // Intentar crear preferencia con token del organizador (marketplace)
+
         try {
             const result = await createMercadoPagoPreference({
                 userId,
-                ticketTypeId: parsedTicketTypeId,
-                quantity,
+                items,
                 promoterCode,
                 couponId: parsedCouponId,
                 couponCode,
                 guestBuyer: guestBuyer || undefined
             });
             const ticketTypeRepo = AppDataSource.getRepository(TicketType);
-            const ticketType = await ticketTypeRepo.findOne({ where: { id: parsedTicketTypeId }, relations: ['event'] });
-            const marketplaceInfo = ticketType
-                ? await getMarketPlaceInfo(ticketType.event.user_id)
+            const firstTicketType = await ticketTypeRepo.findOne({ where: { id: items[0].ticketTypeId }, relations: ['event'] });
+            const marketplaceInfo = firstTicketType
+                ? await getMarketPlaceInfo(firstTicketType.event.user_id)
                 : { commissionPercent: 8, serviceFeePercent: 15, minimumServiceFee: 0, planName: 'FREE' };
             const commissionAmount = Math.ceil((result.pricing.totalAmount * marketplaceInfo.commissionPercent) / 100);
-            
+
             return res.status(200).json({
                 id: result.id,
                 init_point: result.initPoint,
@@ -174,22 +184,15 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                     organizer_net_amount: result.pricing.totalAmount
                 }
             });
-            
+
         } catch (error: any) {
-            // Si el error es que el organizador no tiene MP vinculado,
-            // podríamos usar el token de la plataforma como fallback
             if (error.message === 'ORGANIZER_MP_NOT_LINKED') {
                 logger.warn('PREFERENCE_USING_PLATFORM_TOKEN', {
                     userId,
-                    ticketTypeId,
+                    items,
                     reason: 'Organizer MP not linked'
                 });
-                
-                // Opcional: Usar token de plataforma
-                // const result = await createPlatformPreference({...});
-                // return res.status(200).json({...});
-                
-                // Por ahora, devolvemos error para forzar la vinculación
+
                 return res.status(400).json({
                     code: 'ORGANIZER_MP_NOT_LINKED',
                     message: 'El organizador de este evento no tiene asociada su cuenta de Mercado Pago. No es posible procesar el pago.'
@@ -241,18 +244,25 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                     message: 'Este tipo de entrada no está disponible.'
                 });
             }
-            
+
+            if (error.message === 'MULTIPLE_EVENTS') {
+                return res.status(400).json({
+                    code: 'MULTIPLE_EVENTS',
+                    message: 'Todos los tickets deben ser del mismo evento.'
+                });
+            }
+
             throw error;
         }
-        
+
     } catch (error: any) {
-        logger.error("ERROR_CREATING_PREFERENCE", { 
+        logger.error("ERROR_CREATING_PREFERENCE", {
             error: error?.message,
             userId: req.user?.id,
             guestEmail: guestBuyer?.email
         });
-        
-        return res.status(500).json({ 
+
+        return res.status(500).json({
             message: "Error al generar preferencia de pago",
             code: 'INTERNAL_ERROR'
         });

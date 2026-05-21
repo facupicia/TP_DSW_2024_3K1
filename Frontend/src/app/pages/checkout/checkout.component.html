@@ -30,121 +30,95 @@
           </div>
           <form [formGroup]="formCheckout" (ngSubmit)="comprarTickets()" class="space-y-8">
             <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 shadow-sm">
-              @if (ticketTypes.length > 0) {
-                <div class="mb-6">
-                  <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Tipo de
-                  Entrada</label>
-                  <select formControlName="ticketTypeId"
-                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none appearance-none cursor-pointer">
-                    @for (tt of ticketTypes; track tt) {
-                      <option [value]="tt.id"
-                        [disabled]="tt.status !== 'active' || (tt.capacity - (tt.soldCount || 0) <= 0)">
-                        {{ tt.name }} - ${{ tt.price }} {{ (tt.status !== 'active' || (tt.capacity -
-                        (tt.soldCount || 0)
-                      <= 0)) ? '(Agotado)' : '' }} </option>
-                    }
-                  </select>
+              <div class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                  <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest">Resumen de tu compra</label>
+                  @if (scarcityLabel) {
+                    <span [class]="scarcityLabel.color"
+                      class="px-3 py-1 rounded-full text-xs font-bold border animate-pulse shadow-sm">
+                      {{ scarcityLabel.text }}
+                    </span>
+                  }
                 </div>
-              }
-              <div class="flex justify-between items-center mb-6">
-                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest">Selecciona
-                Cantidad</label>
-                @if (scarcityLabel) {
-                  <span [class]="scarcityLabel.color"
-                    class="px-3 py-1 rounded-full text-xs font-bold border animate-pulse shadow-sm">
-                    {{ scarcityLabel.text }}
-                  </span>
-                }
-              </div>
-              <div class="flex items-center justify-between">
-                <div class="flex flex-col">
-                  <span class="text-xl font-bold text-gray-900">{{ selectedTicketType?.name || 'Entrada
-                  General' }}</span>
-                  <span class="text-sm text-gray-500">{{ selectedTicketType?.description || 'Acceso
-                  completo al evento' }}</span>
-                </div>
-                <div class="flex items-center gap-4 bg-gray-100 rounded-full p-1.5">
-                  <button type="button" (click)="decrementQuantity()"
-                    class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                    [disabled]="ticketQuantity <= 1">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M20 12H4" />
-                      </svg>
-                    </button>
-                    <span class="text-xl font-bold w-8 text-center tabular-nums">{{ ticketQuantity }}</span>
-                    <button type="button" (click)="incrementQuantity()"
-                      class="w-10 h-10 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
+                <div class="bg-gray-50 rounded-2xl p-4 space-y-2">
+                  @for (ci of cartItems; track ci.ticketType.id) {
+                    <div class="flex justify-between items-center text-gray-700">
+                      <span class="font-medium">{{ ci.quantity }}x {{ ci.ticketType.name }}</span>
+                      <span class="font-bold">${{ ci.ticketType.price * ci.quantity }}</span>
                     </div>
+                  }
+                </div>
+                <p class="text-xs text-gray-400 mt-2">
+                  <a [routerLink]="['/events', evento?.id]" class="underline hover:text-gray-600">¿Querés modificar tus entradas?</a>
+                </p>
+              </div>
+            </div>
+            @if (!isAuthenticated) {
+              <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 shadow-sm space-y-5">
+                <div>
+                  <h3 class="text-lg font-bold text-gray-900">Datos del comprador</h3>
+                  <p class="text-sm text-gray-500 mt-1">Te enviaremos las entradas al correo que completes aquí, sin obligarte a crear una cuenta.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nombre</label>
+                    <input formControlName="firstname" type="text" placeholder="Nombre"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Apellido</label>
+                    <input formControlName="lastname" type="text" placeholder="Apellido"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teléfono</label>
+                    <input formControlName="phone" type="tel" placeholder="4322-424234" (input)="formatGuestPhoneNumber($event)"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none"
+                      [class.ring-2]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
+                      [class.ring-red-100]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
+                      [class.bg-red-50]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched">
+                    @if (formCheckout.get('phone')?.hasError('pattern') && formCheckout.get('phone')?.touched) {
+                      <p class="text-xs text-red-500 mt-1">Ingresá un teléfono válido.</p>
+                    }
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                      Fecha de nacimiento
+                      @if (requiresBirthDate) {
+                        <span> *</span>
+                      }
+                    </label>
+                    <input formControlName="birth" type="date"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                    @if (requiresBirthDate) {
+                      <p class="text-xs text-gray-400 mt-1">La usamos para validar la edad mínima del evento.</p>
+                    }
                   </div>
                 </div>
-                @if (!isAuthenticated) {
-                  <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 shadow-sm space-y-5">
-                    <div>
-                      <h3 class="text-lg font-bold text-gray-900">Datos del comprador</h3>
-                      <p class="text-sm text-gray-500 mt-1">Te enviaremos las entradas al correo que completes aquí, sin obligarte a crear una cuenta.</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nombre</label>
-                        <input formControlName="firstname" type="text" placeholder="Nombre"
-                          class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
-                        </div>
-                        <div>
-                          <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Apellido</label>
-                          <input formControlName="lastname" type="text" placeholder="Apellido"
-                            class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
-                          </div>
-                          <div>
-                            <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teléfono</label>
-                            <input formControlName="phone" type="tel" placeholder="4322-424234" (input)="formatGuestPhoneNumber($event)"
-                              class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none"
-                              [class.ring-2]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
-                              [class.ring-red-100]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
-                              [class.bg-red-50]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched">
-                              @if (formCheckout.get('phone')?.hasError('pattern') && formCheckout.get('phone')?.touched) {
-                                <p class="text-xs text-red-500 mt-1">Ingresá un teléfono válido.</p>
-                              }
-                            </div>
-                            <div>
-                              <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-                                Fecha de nacimiento
-                                @if (requiresBirthDate) {
-                                  <span> *</span>
-                                }
-                              </label>
-                              <input formControlName="birth" type="date"
-                                class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
-                                @if (requiresBirthDate) {
-                                  <p class="text-xs text-gray-400 mt-1">La usamos para validar la edad mínima del evento.</p>
-                                }
-                              </div>
-                            </div>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Correo electrónico</label>
-                                <input formControlName="email" type="email" placeholder="usuario@email.com"
-                                  class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
-                                </div>
-                                <div>
-                                  <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Confirmar correo</label>
-                                  <input formControlName="confirmEmail" type="email" placeholder="usuario@email.com"
-                                    class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
-                                  </div>
-                                </div>
-                              </div>
-                            }
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Correo electrónico</label>
+                    <input formControlName="email" type="email" placeholder="usuario@email.com"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Confirmar correo</label>
+                    <input formControlName="confirmEmail" type="email" placeholder="usuario@email.com"
+                      class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
+                  </div>
+                </div>
+              </div>
+            }
                             <div class="bg-gray-50/80 rounded-[32px] p-8 border border-gray-100">
                               <h3 class="text-lg font-bold text-gray-900 mb-6">Detalle de Pago</h3>
                               <div class="space-y-4 mb-6 pb-6 border-b border-gray-200">
-                                <div class="flex justify-between items-center text-gray-600">
-                                  <span>{{ ticketQuantity }}x {{ selectedTicketType?.name || 'Entrada' }}</span>
-                                  <span class="font-medium">${{ baseAmount }}</span>
+                                <div class="space-y-1">
+                                  @for (ci of cartItems; track ci.ticketType.id) {
+                                    <div class="flex justify-between items-center text-gray-600">
+                                      <span>{{ ci.quantity }}x {{ ci.ticketType.name }}</span>
+                                      <span class="font-medium">${{ ci.ticketType.price * ci.quantity }}</span>
+                                    </div>
+                                  }
                                 </div>
                                 <!-- Coupon Section -->
                                 @if (!appliedCoupon) {

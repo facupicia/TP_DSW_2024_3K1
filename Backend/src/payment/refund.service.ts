@@ -116,7 +116,7 @@ export async function processRefund(
     const ticketRepo = AppDataSource.getRepository(Ticket);
     let ticketsToCancel = await ticketRepo
         .createQueryBuilder("ticket")
-        .select(["ticket.id"])
+        .select(["ticket.id", "ticket.ticketTypeId"])
         .where('"paymentLogId" = :paymentLogId', { paymentLogId: paymentLog.id })
         .andWhere('status = :active', { active: TicketStatus.ACTIVE })
         .getMany();
@@ -128,9 +128,8 @@ export async function processRefund(
 
         ticketsToCancel = await ticketRepo
             .createQueryBuilder("ticket")
-            .select(["ticket.id"])
+            .select(["ticket.id", "ticket.ticketTypeId"])
             .where('"userId" = :userId', { userId: paymentLog.userId })
-            .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
             .andWhere('status = :active', { active: TicketStatus.ACTIVE })
             .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
             .orderBy('"createdAt"', "DESC")
@@ -140,9 +139,8 @@ export async function processRefund(
         if (ticketsToCancel.length === 0) {
             ticketsToCancel = await ticketRepo
                 .createQueryBuilder("ticket")
-                .select(["ticket.id"])
+                .select(["ticket.id", "ticket.ticketTypeId"])
                 .where('"userId" = :userId', { userId: paymentLog.userId })
-                .andWhere('"ticketTypeId" = :ticketTypeId', { ticketTypeId: paymentLog.ticketTypeId })
                 .andWhere('status = :active', { active: TicketStatus.ACTIVE })
                 .orderBy('"createdAt"', "DESC")
                 .take(paymentLog.quantity)
@@ -241,13 +239,19 @@ export async function processRefund(
             );
         }
 
-        const cancelledCount = ticketsToCancel.length;
-        await queryRunner.manager.getRepository(TicketType)
-            .createQueryBuilder()
-            .update()
-            .set({ soldCount: () => `GREATEST("soldCount" - ${cancelledCount}, 0)` })
-            .where('id = :id', { id: paymentLog.ticketTypeId })
-            .execute();
+        // Restore stock per ticket type
+        const cancelledByType: Record<number, number> = {};
+        for (const t of ticketsToCancel) {
+            cancelledByType[t.ticketTypeId] = (cancelledByType[t.ticketTypeId] || 0) + 1;
+        }
+        for (const [ticketTypeId, count] of Object.entries(cancelledByType)) {
+            await queryRunner.manager.getRepository(TicketType)
+                .createQueryBuilder()
+                .update()
+                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
+                .where('id = :id', { id: Number(ticketTypeId) })
+                .execute();
+        }
 
         await queryRunner.commitTransaction();
 
@@ -255,7 +259,7 @@ export async function processRefund(
             paymentId,
             refundId,
             amount: requestedAmount,
-            cancelledTickets: cancelledCount
+            cancelledTickets: ticketsToCancel.length
         });
 
         return {

@@ -14,8 +14,7 @@ export class TicketService {
   private urlBase: string = environment.apiUrl + "/ticket/";
 
   comprarTicket(objeto: {
-    cantidad: number,
-    ticketTypeId: number,
+    items: Array<{ ticketTypeId: number; quantity: number }>,
     promoterCode?: string,
     couponId?: number,
     couponCode?: string,
@@ -27,11 +26,10 @@ export class TicketService {
       birth?: string;
     }
   }): Observable<any> {
-    const body: any = { 
-      ticketQuantity: objeto.cantidad, 
-      ticketTypeId: objeto.ticketTypeId 
+    const body: any = {
+      items: objeto.items
     };
-    
+
     if (objeto.promoterCode) {
       body.promoterCode = objeto.promoterCode;
     }

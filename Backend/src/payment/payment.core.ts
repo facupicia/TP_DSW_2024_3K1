@@ -39,10 +39,9 @@ export interface PaymentData {
 
 export interface ExtractedPaymentInfo {
     userId: number;
-    ticketTypeId: number;
-    quantity: number;
     organizerId: number;
-    promoterCode?: string; // Código del promotor que vendió
+    items: Array<{ ticketTypeId: number; quantity: number }>;
+    promoterCode?: string;
     couponId?: number;
 }
 
@@ -320,7 +319,7 @@ export async function waitForPaymentApproval(
 // ============================================================================
 
 /**
- * Extrae información del pago desde external_reference o metadata
+ * Extrae información del pago desde metadata o external_reference (legacy fallback)
  */
 export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo | null {
     const toPositiveInt = (value: unknown): number => {
@@ -328,57 +327,61 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
         return Number.isSafeInteger(n) && n > 0 ? n : 0;
     };
 
-    let userId = 0;
-    let ticketTypeId = 0;
-    let quantity = 0;
-    let organizerId = 0;
     const meta = payment.metadata || {};
-    let couponId = toPositiveInt(meta.coupon_id);
-    
-    // Prioridad 1: external_reference
-    // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
+    let userId = 0;
+    let organizerId = 0;
+    let items: Array<{ ticketTypeId: number; quantity: number }> = [];
     let promoterCode: string | undefined;
-    
-    if (payment.external_reference) {
+    let couponId = toPositiveInt(meta.coupon_id);
+
+    // Prioridad 1: metadata.items (nuevo formato multi-item)
+    if (meta.items) {
+        try {
+            const parsed = typeof meta.items === 'string' ? JSON.parse(meta.items) : meta.items;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                items = parsed
+                    .map((it: any) => ({
+                        ticketTypeId: toPositiveInt(it.ticketTypeId || it.ticket_type_id),
+                        quantity: toPositiveInt(it.quantity || it.amount_tickets)
+                    }))
+                    .filter((it: any) => it.ticketTypeId > 0 && it.quantity > 0);
+            }
+        } catch {
+            // ignore parse error
+        }
+        userId = toPositiveInt(meta.user_id);
+        organizerId = toPositiveInt(meta.organizer_id);
+    }
+
+    // Prioridad 2: external_reference (formato legacy: userId|ticketTypeId|quantity|organizerId|promoterCode)
+    if (items.length === 0 && payment.external_reference) {
         const ref = String(payment.external_reference);
         const parts = ref.split('|');
-        
-        // Formato: userId|ticketTypeId|quantity|organizerId|promoterCode(optional)
-        if (parts.length >= 3) {
-            userId = toPositiveInt(parts[0]);
-            ticketTypeId = toPositiveInt(parts[1]);
-            quantity = toPositiveInt(parts[2]);
-        }
+
         if (parts.length >= 4) {
+            userId = toPositiveInt(parts[0]);
+            const legacyTicketTypeId = toPositiveInt(parts[1]);
+            const legacyQuantity = toPositiveInt(parts[2]);
             organizerId = toPositiveInt(parts[3]);
-        }
-        if (parts.length >= 5) {
-            promoterCode = String(parts[4] || "").trim().slice(0, 50) || undefined;
+            if (legacyTicketTypeId > 0 && legacyQuantity > 0) {
+                items = [{ ticketTypeId: legacyTicketTypeId, quantity: legacyQuantity }];
+            }
+            if (parts.length >= 5) {
+                promoterCode = String(parts[4] || "").trim().slice(0, 50) || undefined;
+            }
         }
     }
-    
-    // Prioridad 2: Metadata (fallback)
-    if (!userId || !ticketTypeId) {
-        const additional = payment.additional_info || {};
-        const item = Array.isArray(additional.items) ? additional.items[0] : undefined;
-        
-        userId = toPositiveInt(meta.user_id) || userId;
-        ticketTypeId = toPositiveInt(meta.ticket_type_id || item?.id) || ticketTypeId;
-        quantity = toPositiveInt(meta.amount_tickets || item?.quantity) || quantity || 1;
-        organizerId = toPositiveInt(meta.organizer_id) || organizerId;
-    }
-    
-    // Validación
-    if (!userId || !ticketTypeId || !quantity || quantity <= 0 || quantity > 100) {
+
+    if (items.length === 0 || !userId || !organizerId) {
         logger.error('PAYMENT_EXTRACTION_FAILED', {
             hasExternalRef: !!payment.external_reference,
             metadataKeys: Object.keys(payment.metadata || {}),
-            extracted: { userId, ticketTypeId, quantity, organizerId, hasPromoterCode: !!promoterCode }
+            extracted: { userId, itemCount: items.length, organizerId, hasPromoterCode: !!promoterCode }
         });
         return null;
     }
-    
-    return { userId, ticketTypeId, quantity, organizerId, promoterCode, couponId: couponId || undefined };
+
+    return { userId, organizerId, items, promoterCode, couponId: couponId || undefined };
 }
 
 /**
@@ -481,9 +484,8 @@ export async function createPaymentLog(
         mpPaymentId: string;
         externalReference: string;
         userId: number;
-        ticketTypeId: number;
         organizerId: number;
-        unitPrice: number;
+        items: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }>;
         quantity: number;
         totalAmount: number;
         baseAmount?: number;
@@ -497,7 +499,7 @@ export async function createPaymentLog(
     }
 ): Promise<PaymentLog | null> {
     const logRepo = queryRunner.manager.getRepository(PaymentLog);
-    
+
     const log = logRepo.create({
         ...data,
         baseAmount: data.baseAmount ?? data.totalAmount,
@@ -507,12 +509,11 @@ export async function createPaymentLog(
         buyerTotalAmount: data.buyerTotalAmount ?? data.totalAmount,
         status: PaymentStatus.PROCESSING
     });
-    
+
     try {
         await logRepo.save(log);
         return log;
     } catch (error: any) {
-        // Error de unicidad = ya existe
         if (error?.code === '23505' || error?.message?.includes('unique')) {
             logger.info('PAYMENT_ALREADY_PROCESSED', { mpPaymentId: data.mpPaymentId });
             return null;
@@ -551,13 +552,12 @@ export async function processApprovedPayment(
         status: paymentData.status,
         transactionAmount: paymentData.transaction_amount
     });
-    
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-    
+
     try {
-        // 1. Extraer información del pago
         const info = extractPaymentInfo(paymentData);
         if (!info) {
             logger.error('PROCESS_PAYMENT_EXTRACTION_FAILED', {
@@ -568,49 +568,59 @@ export async function processApprovedPayment(
             });
             throw new Error('Failed to extract payment information');
         }
-        
+
         logger.info('PROCESS_PAYMENT_INFO_EXTRACTED', {
             paymentId,
             userId: info.userId,
-            ticketTypeId: info.ticketTypeId,
-            quantity: info.quantity,
+            itemCount: info.items.length,
             organizerId: info.organizerId,
             promoterCode: info.promoterCode
         });
-        
-        const { userId, ticketTypeId, quantity, organizerId, promoterCode, couponId } = info;
-        
-        // 2. Verificar que el usuario existe
+
+        const { userId, items, organizerId, promoterCode, couponId } = info;
+        const totalQuantity = items.reduce((sum, it) => sum + it.quantity, 0);
+
         const userRepo = queryRunner.manager.getRepository(User);
         const user = await userRepo.findOne({ where: { id: userId } });
         if (!user) {
             throw new Error(`User not found: ${userId}`);
         }
-        
-        // 3. Obtener ticket type con evento
+
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        const ticketType = await ticketTypeRepo.findOne({
-            where: { id: ticketTypeId },
-            relations: ['event']
-        });
-        
-        if (!ticketType) {
-            throw new Error(`TicketType not found: ${ticketTypeId}`);
+        const ticketTypes: TicketType[] = [];
+        for (const item of items) {
+            const tt = await ticketTypeRepo.findOne({
+                where: { id: item.ticketTypeId },
+                relations: ['event']
+            });
+            if (!tt) {
+                throw new Error(`TicketType not found: ${item.ticketTypeId}`);
+            }
+            ticketTypes.push(tt);
         }
-        
-        // 4. Verificar que el monto pagado coincida con lo esperado
-        const baseTotal = Number(ticketType.price) * quantity;
+
+        let baseTotal = 0;
+        const logItems: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }> = [];
+        for (const item of items) {
+            const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
+            baseTotal += Number(tt.price) * item.quantity;
+            logItems.push({
+                ticketTypeId: item.ticketTypeId,
+                quantity: item.quantity,
+                unitPrice: Number(tt.price)
+            });
+        }
+
         let expectedTotal = baseTotal;
         let discountAmount = 0;
         let coupon: Coupon | null = null;
+        const eventId = ticketTypes[0].event.id;
 
         if (couponId) {
             coupon = await queryRunner.manager.findOne(Coupon, {
-                where: { id: couponId, eventId: ticketType.event.id, isActive: true }
+                where: { id: couponId, eventId, isActive: true }
             });
 
-            // Si el pago ya fue capturado por MP, no rechazar por cupón inválido.
-            // Procesar sin descuento para evitar cobro sin tickets.
             if (coupon && coupon.expiresAt && new Date() > coupon.expiresAt) {
                 logger.warn('PAYMENT_COUPON_EXPIRED_BUT_PAID', { paymentId, couponId });
                 coupon = null;
@@ -637,9 +647,8 @@ export async function processApprovedPayment(
         const metadataBuyerTotal = Number(metadata.buyer_total_amount || 0);
         const expectedBuyerTotal = Number.isFinite(metadataBuyerTotal) && metadataBuyerTotal > 0
             ? metadataBuyerTotal
-            : expectedTotal;
-        
-        // Tolerancia de $0.01 ARS para diferencias de redondeo
+            : expectedTotal + serviceFeeAmount;
+
         const tolerance = 0.01;
         if (Math.abs(paidAmount - expectedBuyerTotal) > tolerance) {
             logger.error('PAYMENT_AMOUNT_MISMATCH', {
@@ -652,13 +661,11 @@ export async function processApprovedPayment(
             });
             throw new Error('Payment amount mismatch');
         }
-        
-        // 5. Obtener comisión del organizador
-        const actualOrganizerId = organizerId || ticketType.event.user_id;
+
+        const actualOrganizerId = organizerId || ticketTypes[0].event.user_id;
         const commission = await getCommissionInfo(actualOrganizerId);
         commission.amount = (expectedTotal * commission.percent) / 100;
-        
-        // 5.1 Buscar información del promotor si hay código
+
         let promoterInfo: { promoterId: number; commissionPercentage: number; commissionAmount: number } | null = null;
         if (promoterCode) {
             const promoterGroupRepo = queryRunner.manager.getRepository(PromoterGroup);
@@ -666,7 +673,7 @@ export async function processApprovedPayment(
                 where: { promoterCode, organizerId: actualOrganizerId, isActive: true },
                 relations: ['promoter']
             });
-            
+
             if (promoterGroup && promoterGroup.promoter) {
                 const commissionPercentage = parseFloat(promoterGroup.commissionPercentage.toString());
                 const commissionAmount = (expectedTotal * commissionPercentage) / 100;
@@ -675,7 +682,7 @@ export async function processApprovedPayment(
                     commissionPercentage,
                     commissionAmount
                 };
-                
+
                 logger.info('PAYMENT_PROMOTER_FOUND', {
                     paymentId,
                     promoterId: promoterGroup.promoterId,
@@ -687,16 +694,14 @@ export async function processApprovedPayment(
                 logger.warn('PAYMENT_PROMOTER_NOT_FOUND', { paymentId, promoterCode });
             }
         }
-        
-        // 6. Crear log de pago (idempotencia)
+
         const log = await createPaymentLog(queryRunner, {
             mpPaymentId: paymentId,
             externalReference: paymentData.external_reference || '',
             userId,
-            ticketTypeId,
             organizerId: actualOrganizerId,
-            unitPrice: Number((expectedTotal / quantity).toFixed(2)),
-            quantity,
+            items: logItems,
+            quantity: totalQuantity,
             totalAmount: expectedTotal,
             baseAmount: baseTotal,
             discountAmount,
@@ -707,56 +712,53 @@ export async function processApprovedPayment(
             commissionAmount: commission.amount,
             organizerPlanName: commission.planName
         });
-        
+
         if (!log) {
-            // Already processed (idempotency). Find existing log and tickets.
             await queryRunner.rollbackTransaction();
-            
+
             const existingLog = await AppDataSource.getRepository(PaymentLog).findOne({
                 where: { mpPaymentId: paymentId },
-                select: ['id', 'status', 'userId', 'ticketTypeId', 'createdAt']
+                select: ['id', 'status', 'userId', 'createdAt']
             });
-            
+
             if (existingLog && existingLog.status === PaymentStatus.COMPLETED) {
-                // Find tickets created for this payment log
                 let existingTickets = await AppDataSource.getRepository(Ticket).find({
                     where: { paymentLogId: existingLog.id },
                     relations: ['ticketType', 'ticketType.event']
                 });
-                
-                // Fallback for legacy tickets created around the same time as the log
+
                 if (existingTickets.length === 0) {
                     const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
                     const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
-                    
+
                     existingTickets = await AppDataSource.getRepository(Ticket).find({
                         where: {
                             userId: existingLog.userId,
-                            ticketTypeId: existingLog.ticketTypeId,
                             createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
                         },
                         relations: ['ticketType', 'ticketType.event']
                     });
                 }
-                
-                return { 
-                    success: true, 
+
+                return {
+                    success: true,
                     tickets: existingTickets,
                     logId: existingLog.id,
                     error: undefined
                 };
             }
-            
+
             return { success: false, error: 'Payment already processed' };
         }
-        
-        // 7. Actualizar stock atómicamente
-        const stockUpdated = await updateStockAtomic(queryRunner, ticketTypeId, quantity);
-        if (!stockUpdated) {
-            logger.warn('PAYMENT_NO_STOCK', { ticketTypeId, requested: quantity });
-            await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-            await queryRunner.commitTransaction();
-            return { success: false, error: 'No stock available', logId: log.id };
+
+        for (const item of items) {
+            const stockUpdated = await updateStockAtomic(queryRunner, item.ticketTypeId, item.quantity);
+            if (!stockUpdated) {
+                logger.warn('PAYMENT_NO_STOCK', { ticketTypeId: item.ticketTypeId, requested: item.quantity });
+                await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
+                await queryRunner.commitTransaction();
+                return { success: false, error: 'No stock available', logId: log.id };
+            }
         }
 
         if (coupon) {
@@ -769,60 +771,65 @@ export async function processApprovedPayment(
                 .execute();
 
             if (!couponUpdate.affected) {
-                // Restore stock and persist the failed payment log for audit/idempotency.
-                await queryRunner.manager
-                    .createQueryBuilder()
-                    .update(TicketType)
-                    .set({ soldCount: () => `GREATEST("soldCount" - ${quantity}, 0)` })
-                    .where('id = :id', { id: ticketTypeId })
-                    .execute();
+                for (const item of items) {
+                    await queryRunner.manager
+                        .createQueryBuilder()
+                        .update(TicketType)
+                        .set({ soldCount: () => `GREATEST("soldCount" - ${item.quantity}, 0)` })
+                        .where('id = :id', { id: item.ticketTypeId })
+                        .execute();
+                }
                 await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
                 await queryRunner.commitTransaction();
                 return { success: false, error: 'Coupon exhausted', logId: log.id };
             }
         }
-        
-        // 8. Crear tickets con información del promotor
-        const tickets = await createTicketsForPurchase(
-            ticketType, 
-            user, 
-            quantity,
-            promoterInfo ? {
-                soldByPromoterId: promoterInfo.promoterId,
-                promoterCommissionPercentage: promoterInfo.commissionPercentage,
-                promoterCommissionAmount: promoterInfo.commissionAmount,
-                promoterCode
-            } : undefined
-        );
-        const paidUnitPrice = Number((expectedTotal / quantity).toFixed(2));
-        tickets.forEach(ticket => {
-            ticket.purchasePrice = paidUnitPrice;
-            ticket.paymentLogId = log.id;
-        });
-        await queryRunner.manager.save(Ticket, tickets);
-        
-        // 9. Marcar como completado
+
+        const allTickets: Ticket[] = [];
+        for (const item of items) {
+            const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
+            const itemExpectedTotal = Number(tt.price) * item.quantity;
+            const paidUnitPrice = item.quantity > 0 ? Number((itemExpectedTotal / item.quantity).toFixed(2)) : 0;
+
+            const tickets = await createTicketsForPurchase(
+                tt,
+                user,
+                item.quantity,
+                promoterInfo ? {
+                    soldByPromoterId: promoterInfo.promoterId,
+                    promoterCommissionPercentage: promoterInfo.commissionPercentage,
+                    promoterCommissionAmount: promoterInfo.commissionAmount,
+                    promoterCode
+                } : undefined
+            );
+            tickets.forEach(ticket => {
+                ticket.purchasePrice = paidUnitPrice;
+                ticket.paymentLogId = log.id;
+            });
+            await queryRunner.manager.save(Ticket, tickets);
+            allTickets.push(...tickets);
+        }
+
         await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.COMPLETED);
-        
+
         await queryRunner.commitTransaction();
-        
+
         logger.info('PAYMENT_PROCESSED_SUCCESS', {
             paymentId,
             logId: log.id,
-            ticketsCreated: tickets.length,
+            ticketsCreated: allTickets.length,
             userId,
             organizerId: actualOrganizerId,
             promoterId: promoterInfo?.promoterId,
             promoterCommission: promoterInfo?.commissionAmount
         });
-        
-        // Enviar email asíncronamente (fuera de la transacción)
+
         if (user.email) {
             sendTicketEmail(
                 user.email,
-                tickets,
-                ticketType,
-                ticketType.event,
+                allTickets,
+                ticketTypes[0],
+                ticketTypes[0].event,
                 user
             ).catch(err => {
                 logger.error('PAYMENT_EMAIL_ERROR', { paymentId, error: err?.message });
@@ -840,24 +847,24 @@ export async function processApprovedPayment(
                     });
             }
         }
-        
-        return { 
-            success: true, 
-            tickets, 
+
+        return {
+            success: true,
+            tickets: allTickets,
             logId: log.id,
             promoterId: promoterInfo?.promoterId,
             promoterCommission: promoterInfo?.commissionAmount
         };
-        
+
     } catch (error: any) {
         await queryRunner.rollbackTransaction();
-        
+
         logger.error('PAYMENT_PROCESS_ERROR', {
             paymentId,
             error: error.message,
             stack: error.stack
         });
-        
+
         return { success: false, error: error.message };
     } finally {
         await queryRunner.release();

@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, OnDestroy, DestroyRef } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -18,7 +18,7 @@ import { PHONE_PATTERN } from '../../utils/validation';
 
 @Component({
     selector: 'app-checkout',
-    imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, EventImageFallbackDirective],
+    imports: [CommonModule, ReactiveFormsModule, FormsModule, HeaderComponent, DemoBannerComponent, EventImageFallbackDirective, RouterLink],
     templateUrl: './checkout.component.html',
     styleUrls: ['./checkout.component.css']
 })
@@ -38,14 +38,11 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   timerDisplay: string = '10:00';
   private timerSubscription!: Subscription;
 
-  ticketsRestantes: number = 100; // Será actualizado con el stock real del tipo
-
   private eventId: string | null = null;
   evento: any;
   ticketTypes: TicketType[] = [];
-  selectedTicketType: TicketType | null = null;
+  cartItems: Array<{ ticketType: TicketType; quantity: number }> = [];
 
-  ticketQuantity: number = 1;
   total: number = 0;
   loading = false;
   showSuccessMessage = false;
@@ -54,7 +51,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   paymentStatus: 'idle' | 'processing' | 'success' | 'failure' = 'idle';
 
   baseAmount: number = 0;
-  
+
   // Commission info from backend
   commissionPercent: number = 8;
   commissionAmount: number = 0;
@@ -75,11 +72,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   // Promoter code
   promoterCode = '';
   promoterCodeError = '';
-  promoterCodeFromUrl = false; // Track if code came from URL
+  promoterCodeFromUrl = false;
 
   public formCheckout: FormGroup = this.formBuild.group({
-    ticketTypeId: ['', Validators.required],
-    quantity: [1, [Validators.required, Validators.min(1)]],
     firstname: [''],
     lastname: [''],
     email: [''],
@@ -96,28 +91,36 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Check for promoter code in URL query params
     const promoCodeFromUrl = this.route.snapshot.queryParamMap.get('promo');
     if (promoCodeFromUrl) {
       this.promoterCode = promoCodeFromUrl;
       this.promoterCodeFromUrl = true;
     }
 
+    const storedCart = typeof window !== 'undefined' ? window.sessionStorage.getItem('eventCart') : null;
+    let parsedCart: any = null;
+    try {
+      parsedCart = storedCart ? JSON.parse(storedCart) : null;
+    } catch { /* ignore */ }
+
+    if (!parsedCart || parsedCart.eventId !== Number(this.eventId) || !Array.isArray(parsedCart.items) || parsedCart.items.length === 0) {
+      this.router.navigate([`/events/${this.eventId}`]);
+      return;
+    }
+
+    if (parsedCart.promoterCode && !this.promoterCode) {
+      this.promoterCode = parsedCart.promoterCode;
+    }
+
     this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
       this.isAuthenticated = !!user;
-      this.loadEvent();
+      this.loadEvent(parsedCart.items);
     });
 
-    // Escuchar cambios en el tipo de ticket
-    this.formCheckout.get('ticketTypeId')?.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(id => {
-      this.onTicketTypeChange(Number(id));
-    });
-
-    // Iniciar el temporizador apenas carga el checkout
     this.startTimer();
   }
 
-  private loadEvent(): void {
+  private loadEvent(cartItemInputs: Array<{ ticketTypeId: number; quantity: number }>): void {
     if (!this.eventId) return;
 
     this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
@@ -128,24 +131,19 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.organizerPlanName = evento.checkoutPricing?.planName || this.organizerPlanName;
       this.configureBuyerValidators();
 
-      // Auto-select first active ticket type
-      if (this.ticketTypes.length > 0) {
-        const firstActive = this.ticketTypes.find(t => t.status === 'active');
-        if (firstActive) {
-          this.formCheckout.patchValue({ ticketTypeId: firstActive.id });
-          this.onTicketTypeChange(firstActive.id!);
-        }
-      } else {
-        // Fallback for legacy events without ticketTypes (should not happen with new logic)
-        this.selectedTicketType = {
-          id: 0,
-          name: 'Entrada General',
-          price: evento.price || 0,
-          capacity: evento.capacity || 100,
-          status: 'active'
-        };
-        this.calculateTotal();
+      this.cartItems = cartItemInputs
+        .map(ci => {
+          const tt = this.ticketTypes.find(t => t.id === ci.ticketTypeId);
+          return tt ? { ticketType: tt, quantity: ci.quantity } : null;
+        })
+        .filter((x): x is { ticketType: TicketType; quantity: number } => !!x);
+
+      if (this.cartItems.length === 0) {
+        this.router.navigate([`/events/${this.eventId}`]);
+        return;
       }
+
+      this.calculateTotal();
     });
   }
 
@@ -218,20 +216,10 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     };
   }
 
-  onTicketTypeChange(id: number) {
-    this.selectedTicketType = this.ticketTypes.find(t => t.id == id) || null;
-    if (this.selectedTicketType) {
-      this.ticketsRestantes = this.selectedTicketType.capacity - (this.selectedTicketType.soldCount || 0);
-      this.calculateTotal();
-    }
-  }
-
   ngOnDestroy(): void {
-    // Limpiar timer al salir
     if (this.timerSubscription) this.timerSubscription.unsubscribe();
   }
 
-  // 1. LOGICA TEMPORIZADOR
   startTimer() {
     this.timerSubscription = interval(1000).subscribe(() => {
       if (this.timeLeft > 0) {
@@ -240,60 +228,30 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         const seconds = this.timeLeft % 60;
         this.timerDisplay = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
       } else {
-        // Tiempo agotado: Redirigir o mostrar alerta
-        this.showErrorMessage = true; // Reusamos tu variable de error
-        this.formCheckout.disable(); // Deshabilitar compra
+        this.showErrorMessage = true;
+        this.formCheckout.disable();
       }
     });
   }
 
-  // 2. LOGICA DE ESCASEZ (Getter inteligente)
   get scarcityLabel(): { text: string, color: string } | null {
-    // Si quedan menos de 20 entradas, mostramos alerta roja
-    if (this.ticketsRestantes < 20) {
+    const minStock = this.cartItems.reduce((min, ci) => {
+      const stock = ci.ticketType.capacity - (ci.ticketType.soldCount || 0);
+      return Math.min(min, stock);
+    }, Infinity);
+    if (minStock < 20) {
       return { text: '¡Solo quedan unas pocas!', color: 'text-red-600 bg-red-50 border-red-100' };
     }
-    // Si quedan menos de 100, alerta amarilla
-    if (this.ticketsRestantes < 100) {
+    if (minStock < 100) {
       return { text: 'Alta demanda 🔥', color: 'text-orange-600 bg-orange-50 border-orange-100' };
     }
-    // Si hay muchas, no mostramos nada (null)
     return null;
   }
 
-
-
-  incrementQuantity() {
-    if (this.selectedTicketType && this.ticketQuantity < this.ticketsRestantes) {
-      this.ticketQuantity++;
-      this.updateFormAndTotal();
-    }
-  }
-
-  decrementQuantity() {
-    if (this.ticketQuantity > 1) {
-      this.ticketQuantity--;
-      this.updateFormAndTotal();
-    }
-  }
-
-  updateFormAndTotal() {
-    this.formCheckout.patchValue({ quantity: this.ticketQuantity });
-    this.calculateTotal();
-  }
-
   calculateTotal() {
-    if (this.selectedTicketType) {
-      this.baseAmount = this.ticketQuantity * this.selectedTicketType.price;
-    } else if (this.evento && !this.ticketTypes.length) {
-      // Legacy fallback
-      this.baseAmount = this.ticketQuantity * (this.evento.price || 0);
-    }
-
-    // Total base definido por el organizador.
+    this.baseAmount = this.cartItems.reduce((sum, ci) => sum + (ci.ticketType.price * ci.quantity), 0);
     this.total = this.baseAmount;
 
-    // Apply coupon discount
     if (this.appliedCoupon) {
       this.discountAmount = Math.round((this.total * this.appliedCoupon.discountPercent) / 100);
       this.finalTotal = this.total - this.discountAmount;
@@ -374,7 +332,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.toastService.warning('Revisá los datos del comprador para continuar.');
       return;
     }
-    if (!this.selectedTicketType && this.ticketTypes.length > 0) return;
+    if (this.cartItems.length === 0) return;
     const guestBuyer = this.getGuestBuyer();
     if (!this.isAuthenticated && !guestBuyer) return;
 
@@ -382,12 +340,13 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     this.paymentStatus = 'processing';
 
     if (this.eventId) {
-      // 3. LOGICA MERCADO PAGO REAL (Marketplace)
-      const ticketTypeId = this.selectedTicketType?.id || 0;
+      const items = this.cartItems.map(ci => ({
+        ticketTypeId: ci.ticketType.id!,
+        quantity: ci.quantity
+      }));
 
-      this.ticketService.comprarTicket({ 
-        cantidad: this.ticketQuantity, 
-        ticketTypeId,
+      this.ticketService.comprarTicket({
+        items,
         promoterCode: this.promoterCode || undefined,
         couponId: this.appliedCoupon?.couponId,
         couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined,
@@ -413,8 +372,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 preferenceId: response.id,
                 external_reference: response.external_reference,
                 eventId: Number(this.eventId),
-                ticketTypeId: ticketTypeId,
-                quantity: this.ticketQuantity,
+                items: this.cartItems.map(ci => ({ ticketTypeId: ci.ticketType.id, quantity: ci.quantity })),
                 totalAmount: this.finalTotal,
                 serviceFeeAmount: this.serviceFeeAmount,
                 buyerTotalAmount: this.totalToPay,
