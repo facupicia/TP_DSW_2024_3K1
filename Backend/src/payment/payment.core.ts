@@ -1,14 +1,18 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
 import { Between } from 'typeorm';
+import { randomUUID } from 'crypto';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { User } from '../user/user.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
 import { Ticket } from '../ticket/ticket.entity';
+import { EventProduct } from '../extra/eventProduct.entity';
+import { ExtraItem, ExtraItemStatus } from '../extra/extraItem.entity';
 import { PromoterGroup } from '../promoter/promoter.entity';
 import { Coupon } from '../coupon/coupon.entity';
 import { getActiveSubscription } from '../subscription/subscription.service';
 import { createTicketsForPurchase, sendTicketEmail } from '../ticket/ticket.service';
+import { generarQRUrl } from '../common/utils/qr';
 import { logger } from '../common/services/logger';
 import { getMPConfig } from './mp.config';
 import { decryptFromString } from '../common/services/encryption';
@@ -40,7 +44,7 @@ export interface PaymentData {
 export interface ExtractedPaymentInfo {
     userId: number;
     organizerId: number;
-    items: Array<{ ticketTypeId: number; quantity: number }>;
+    items: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number }>;
     promoterCode?: string;
     couponId?: number;
 }
@@ -54,6 +58,7 @@ export interface CommissionInfo {
 export interface PaymentResult {
     success: boolean;
     tickets?: Ticket[];
+    extras?: ExtraItem[];
     error?: string;
     logId?: number;
     promoterId?: number;
@@ -330,21 +335,22 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     const meta = payment.metadata || {};
     let userId = 0;
     let organizerId = 0;
-    let items: Array<{ ticketTypeId: number; quantity: number }> = [];
+    let items: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number }> = [];
     let promoterCode: string | undefined;
     let couponId = toPositiveInt(meta.coupon_id);
 
-    // Prioridad 1: metadata.items (nuevo formato multi-item)
+    // Prioridad 1: metadata.items (nuevo formato polimórfico)
     if (meta.items) {
         try {
             const parsed = typeof meta.items === 'string' ? JSON.parse(meta.items) : meta.items;
             if (Array.isArray(parsed) && parsed.length > 0) {
                 items = parsed
                     .map((it: any) => ({
-                        ticketTypeId: toPositiveInt(it.ticketTypeId || it.ticket_type_id),
+                        type: (it.type === 'extra' ? 'extra' : 'ticket') as 'ticket' | 'extra',
+                        referenceId: toPositiveInt(it.referenceId || it.ticketTypeId || it.ticket_type_id || it.eventProductId || it.event_product_id),
                         quantity: toPositiveInt(it.quantity || it.amount_tickets)
                     }))
-                    .filter((it: any) => it.ticketTypeId > 0 && it.quantity > 0);
+                    .filter((it: any) => it.referenceId > 0 && it.quantity > 0);
             }
         } catch {
             // ignore parse error
@@ -364,7 +370,7 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
             const legacyQuantity = toPositiveInt(parts[2]);
             organizerId = toPositiveInt(parts[3]);
             if (legacyTicketTypeId > 0 && legacyQuantity > 0) {
-                items = [{ ticketTypeId: legacyTicketTypeId, quantity: legacyQuantity }];
+                items = [{ type: 'ticket', referenceId: legacyTicketTypeId, quantity: legacyQuantity }];
             }
             if (parts.length >= 5) {
                 promoterCode = String(parts[4] || "").trim().slice(0, 50) || undefined;
@@ -485,7 +491,7 @@ export async function createPaymentLog(
         externalReference: string;
         userId: number;
         organizerId: number;
-        items: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }>;
+        items: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number; unitPrice: number }>;
         quantity: number;
         totalAmount: number;
         baseAmount?: number;
@@ -583,40 +589,71 @@ export async function processApprovedPayment(
         const userRepo = queryRunner.manager.getRepository(User);
         const user = await userRepo.findOne({ where: { id: userId } });
         if (!user) {
-            throw new Error(`User not found: ${userId}`);
+            throw new Error('User not found: ' + userId);
         }
+
+        const ticketItems = items.filter(it => it.type === 'ticket');
+        const extraItems = items.filter(it => it.type === 'extra');
 
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         const ticketTypes: TicketType[] = [];
-        for (const item of items) {
+        for (const item of ticketItems) {
             const tt = await ticketTypeRepo.findOne({
-                where: { id: item.ticketTypeId },
+                where: { id: item.referenceId },
                 relations: ['event']
             });
             if (!tt) {
-                throw new Error(`TicketType not found: ${item.ticketTypeId}`);
+                throw new Error('TicketType not found: ' + item.referenceId);
             }
             ticketTypes.push(tt);
         }
 
-        let baseTotal = 0;
-        const logItems: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }> = [];
-        for (const item of items) {
-            const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
-            baseTotal += Number(tt.price) * item.quantity;
+        const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
+        const extras: EventProduct[] = [];
+        for (const item of extraItems) {
+            const ep = await eventProductRepo.findOne({
+                where: { id: item.referenceId },
+                relations: ['event', 'product']
+            });
+            if (!ep) {
+                throw new Error('EventProduct not found: ' + item.referenceId);
+            }
+            extras.push(ep);
+        }
+
+        let ticketBaseTotal = 0;
+        const logItems: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number; unitPrice: number }> = [];
+        for (const item of ticketItems) {
+            const tt = ticketTypes.find(t => t.id === item.referenceId)!;
+            ticketBaseTotal += Number(tt.price) * item.quantity;
             logItems.push({
-                ticketTypeId: item.ticketTypeId,
+                type: 'ticket',
+                referenceId: item.referenceId,
                 quantity: item.quantity,
                 unitPrice: Number(tt.price)
             });
         }
 
+        let extraBaseTotal = 0;
+        for (const item of extraItems) {
+            const ep = extras.find(e => e.id === item.referenceId)!;
+            extraBaseTotal += Number(ep.eventPrice) * item.quantity;
+            logItems.push({
+                type: 'extra',
+                referenceId: item.referenceId,
+                quantity: item.quantity,
+                unitPrice: Number(ep.eventPrice)
+            });
+        }
+
+        const baseTotal = ticketBaseTotal + extraBaseTotal;
+
         let expectedTotal = baseTotal;
         let discountAmount = 0;
         let coupon: Coupon | null = null;
-        const eventId = ticketTypes[0].event.id;
+        const eventId = ticketTypes.length > 0 ? ticketTypes[0].event.id : (extras.length > 0 ? extras[0].event.id : 0);
 
-        if (couponId) {
+        if (couponId && eventId) {
             coupon = await queryRunner.manager.findOne(Coupon, {
                 where: { id: couponId, eventId, isActive: true }
             });
@@ -631,8 +668,8 @@ export async function processApprovedPayment(
             }
 
             if (coupon) {
-                discountAmount = Math.min(baseTotal, Math.round((baseTotal * coupon.discountPercent) / 100));
-                expectedTotal = Math.max(baseTotal - discountAmount, 0);
+                discountAmount = Math.min(ticketBaseTotal, Math.round((ticketBaseTotal * coupon.discountPercent) / 100));
+                expectedTotal = Math.max(ticketBaseTotal - discountAmount, 0) + extraBaseTotal;
             }
         }
 
@@ -662,7 +699,7 @@ export async function processApprovedPayment(
             throw new Error('Payment amount mismatch');
         }
 
-        const actualOrganizerId = organizerId || ticketTypes[0].event.user_id;
+        const actualOrganizerId = organizerId || (ticketTypes.length > 0 ? ticketTypes[0].event.user_id : (extras.length > 0 ? extras[0].event.user_id : 0));
         const commission = await getCommissionInfo(actualOrganizerId);
         commission.amount = (expectedTotal * commission.percent) / 100;
 
@@ -727,7 +764,12 @@ export async function processApprovedPayment(
                     relations: ['ticketType', 'ticketType.event']
                 });
 
-                if (existingTickets.length === 0) {
+                let existingExtras = await AppDataSource.getRepository(ExtraItem).find({
+                    where: { paymentLogId: existingLog.id },
+                    relations: ['eventProduct', 'eventProduct.event']
+                });
+
+                if (existingTickets.length === 0 && existingExtras.length === 0) {
                     const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
                     const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
 
@@ -738,11 +780,20 @@ export async function processApprovedPayment(
                         },
                         relations: ['ticketType', 'ticketType.event']
                     });
+
+                    existingExtras = await AppDataSource.getRepository(ExtraItem).find({
+                        where: {
+                            userId: existingLog.userId,
+                            createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
+                        },
+                        relations: ['eventProduct', 'eventProduct.event']
+                    });
                 }
 
                 return {
                     success: true,
-                    tickets: existingTickets,
+                    tickets: existingTickets.length > 0 ? existingTickets : undefined,
+                    extras: existingExtras.length > 0 ? existingExtras : undefined,
                     logId: existingLog.id,
                     error: undefined
                 };
@@ -751,13 +802,33 @@ export async function processApprovedPayment(
             return { success: false, error: 'Payment already processed' };
         }
 
-        for (const item of items) {
-            const stockUpdated = await updateStockAtomic(queryRunner, item.ticketTypeId, item.quantity);
+        for (const item of ticketItems) {
+            const stockUpdated = await updateStockAtomic(queryRunner, item.referenceId, item.quantity);
             if (!stockUpdated) {
-                logger.warn('PAYMENT_NO_STOCK', { ticketTypeId: item.ticketTypeId, requested: item.quantity });
+                logger.warn('PAYMENT_NO_STOCK', { ticketTypeId: item.referenceId, requested: item.quantity });
                 await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
                 await queryRunner.commitTransaction();
                 return { success: false, error: 'No stock available', logId: log.id };
+            }
+        }
+
+        for (const item of extraItems) {
+            const ep = extras.find(e => e.id === item.referenceId)!;
+            if (ep.hasStock) {
+                const extraStockUpdate = await queryRunner.manager
+                    .createQueryBuilder()
+                    .update(EventProduct)
+                    .set({ soldCount: () => '"soldCount" + ' + item.quantity })
+                    .where('id = :id', { id: ep.id })
+                    .andWhere('("stock" - "soldCount") >= :qty', { qty: item.quantity })
+                    .execute();
+
+                if (!extraStockUpdate.affected) {
+                    logger.warn('PAYMENT_NO_EXTRA_STOCK', { eventProductId: ep.id, requested: item.quantity });
+                    await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
+                    await queryRunner.commitTransaction();
+                    return { success: false, error: 'No extra stock available', logId: log.id };
+                }
             }
         }
 
@@ -765,19 +836,30 @@ export async function processApprovedPayment(
             const couponUpdate = await queryRunner.manager
                 .createQueryBuilder()
                 .update(Coupon)
-                .set({ usedCount: () => `"usedCount" + 1` })
+                .set({ usedCount: () => '"usedCount" + 1' })
                 .where('id = :id', { id: coupon.id })
                 .andWhere('("maxUses" = 0 OR "usedCount" < "maxUses")')
                 .execute();
 
             if (!couponUpdate.affected) {
-                for (const item of items) {
+                for (const item of ticketItems) {
                     await queryRunner.manager
                         .createQueryBuilder()
                         .update(TicketType)
-                        .set({ soldCount: () => `GREATEST("soldCount" - ${item.quantity}, 0)` })
-                        .where('id = :id', { id: item.ticketTypeId })
+                        .set({ soldCount: () => 'GREATEST("soldCount" - ' + item.quantity + ', 0)' })
+                        .where('id = :id', { id: item.referenceId })
                         .execute();
+                }
+                for (const item of extraItems) {
+                    const ep = extras.find(e => e.id === item.referenceId)!;
+                    if (ep.hasStock) {
+                        await queryRunner.manager
+                            .createQueryBuilder()
+                            .update(EventProduct)
+                            .set({ soldCount: () => 'GREATEST("soldCount" - ' + item.quantity + ', 0)' })
+                            .where('id = :id', { id: ep.id })
+                            .execute();
+                    }
                 }
                 await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
                 await queryRunner.commitTransaction();
@@ -786,8 +868,8 @@ export async function processApprovedPayment(
         }
 
         const allTickets: Ticket[] = [];
-        for (const item of items) {
-            const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
+        for (const item of ticketItems) {
+            const tt = ticketTypes.find(t => t.id === item.referenceId)!;
             const itemExpectedTotal = Number(tt.price) * item.quantity;
             const paidUnitPrice = item.quantity > 0 ? Number((itemExpectedTotal / item.quantity).toFixed(2)) : 0;
 
@@ -810,6 +892,28 @@ export async function processApprovedPayment(
             allTickets.push(...tickets);
         }
 
+        const allExtras: ExtraItem[] = [];
+        for (const item of extraItems) {
+            const ep = extras.find(e => e.id === item.referenceId)!;
+            const loteTotal = Number(ep.eventPrice) * item.quantity;
+            const loteUnitPrice = item.quantity > 0 ? Number((loteTotal / item.quantity).toFixed(2)) : 0;
+
+            const codigoUnico = randomUUID();
+            const qrCode = await generarQRUrl(codigoUnico);
+            const extraItem = ExtraItem.create({
+                codigo_unico: codigoUnico,
+                qrCode,
+                eventProductId: ep.id,
+                userId: user.id,
+                paymentLogId: log.id,
+                quantity: item.quantity,
+                status: ExtraItemStatus.ACTIVE,
+                purchasePrice: loteUnitPrice
+            });
+            await queryRunner.manager.save(ExtraItem, extraItem);
+            allExtras.push(extraItem);
+        }
+
         await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.COMPLETED);
 
         await queryRunner.commitTransaction();
@@ -818,6 +922,7 @@ export async function processApprovedPayment(
             paymentId,
             logId: log.id,
             ticketsCreated: allTickets.length,
+            extrasCreated: allExtras.length,
             userId,
             organizerId: actualOrganizerId,
             promoterId: promoterInfo?.promoterId,
@@ -839,7 +944,7 @@ export async function processApprovedPayment(
                 createAccountClaimToken(user)
                     .then(claim => sendAccountClaimEmail(
                         user.email,
-                        `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+                        (user.firstname || '') + ' ' + (user.lastname || '').trim(),
                         claim.claimUrl
                     ))
                     .catch(err => {
@@ -850,7 +955,8 @@ export async function processApprovedPayment(
 
         return {
             success: true,
-            tickets: allTickets,
+            tickets: allTickets.length > 0 ? allTickets : undefined,
+            extras: allExtras.length > 0 ? allExtras : undefined,
             logId: log.id,
             promoterId: promoterInfo?.promoterId,
             promoterCommission: promoterInfo?.commissionAmount

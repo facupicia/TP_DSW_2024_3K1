@@ -109,7 +109,25 @@ export const getEvent = async (req: Request, res: Response) => {
         const safeUser = event.user ? { id: event.user.id, firstname: event.user.firstname, lastname: event.user.lastname, imgPerfil: event.user.imgPerfil } : null;
         const checkoutPricing = await eventService.getCheckoutPricing(event.user_id);
 
-        return res.json({ ...event, user: safeUser, checkoutPricing });
+        const safeEventProducts = event.eventProducts
+            ? event.eventProducts
+                .filter((ep: any) => ep.isActive)
+                .map((ep: any) => {
+                    const { event: _event, product: rawProduct, ...cleanEp } = ep;
+                    return {
+                        ...cleanEp,
+                        product: rawProduct ? {
+                            id: rawProduct.id,
+                            name: rawProduct.name,
+                            description: rawProduct.description,
+                            category: rawProduct.category,
+                            imageUrl: rawProduct.imageUrl
+                        } : null
+                    };
+                })
+            : [];
+
+        return res.json({ ...event, user: safeUser, checkoutPricing, eventProducts: safeEventProducts });
     } catch (error) {
         logger.error(error);
         return res.status(500).json({ message: "Error retrieving event" });

@@ -9,6 +9,7 @@ import { refreshOrganizerToken } from './mp-oauth.controller';
 import { logger } from '../common/services/logger';
 import { getMPConfig, sanitizeUrl } from './mp.config';
 import { Coupon } from '../coupon/coupon.entity';
+import { EventProduct } from '../extra/eventProduct.entity';
 import { findRolesByNames } from '../user/role.entity';
 
 /**
@@ -27,9 +28,15 @@ export interface CartItem {
     quantity: number;
 }
 
+export interface ExtraCartItem {
+    eventProductId: number;
+    quantity: number;
+}
+
 export interface PreferenceInput {
     userId?: number;
     items: CartItem[];
+    extraItems?: ExtraCartItem[];
     promoterCode?: string;
     couponId?: number;
     couponCode?: string;
@@ -100,7 +107,7 @@ interface PurchasePayer {
 export async function validatePurchaseEligibility(
     input: PreferenceInput
 ): Promise<ValidationResult> {
-    const { userId, items, guestBuyer } = input;
+    const { userId, items, extraItems, guestBuyer } = input;
 
     if (!Array.isArray(items) || items.length === 0) {
         return {
@@ -120,9 +127,9 @@ export async function validatePurchaseEligibility(
         };
     }
 
-    // Detectar duplicados
-    const uniqueIds = new Set(items.map(i => i.ticketTypeId));
-    if (uniqueIds.size !== items.length) {
+    // Detectar duplicados en tickets
+    const uniqueTicketIds = new Set(items.map(i => i.ticketTypeId));
+    if (uniqueTicketIds.size !== items.length) {
         return {
             valid: false,
             error: 'No puedes agregar el mismo tipo de ticket más de una vez.',
@@ -131,12 +138,34 @@ export async function validatePurchaseEligibility(
         };
     }
 
+    // Validar extras si existen
+    if (extraItems && extraItems.length > 0) {
+        if (extraItems.some(i => !Number.isInteger(i.quantity) || i.quantity <= 0 || i.quantity > 10)) {
+            return {
+                valid: false,
+                error: 'Cantidad inválida en uno o más extras.',
+                code: 'INVALID_EXTRA_QUANTITY',
+                statusCode: 400
+            };
+        }
+        const uniqueExtraIds = new Set(extraItems.map(i => i.eventProductId));
+        if (uniqueExtraIds.size !== extraItems.length) {
+            return {
+                valid: false,
+                error: 'No puedes agregar el mismo extra más de una vez.',
+                code: 'DUPLICATE_EXTRA',
+                statusCode: 400
+            };
+        }
+    }
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
 
     try {
         const userRepo = queryRunner.manager.getRepository(User);
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
+        const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
 
         const ticketTypeIds = items.map(i => i.ticketTypeId);
         const ticketTypes = await ticketTypeRepo.find({
@@ -161,6 +190,64 @@ export async function validatePurchaseEligibility(
                 code: 'MULTIPLE_EVENTS',
                 statusCode: 400
             };
+        }
+
+        let extras: EventProduct[] = [];
+        if (extraItems && extraItems.length > 0) {
+            const extraIds = extraItems.map(i => i.eventProductId);
+            extras = await eventProductRepo.find({
+                where: { id: In(extraIds) },
+                relations: ['event', 'product']
+            });
+
+            if (extras.length !== extraIds.length) {
+                return {
+                    valid: false,
+                    error: 'Uno o más extras no existen.',
+                    code: 'EXTRA_NOT_FOUND',
+                    statusCode: 404
+                };
+            }
+
+            if (extras.some(ep => ep.event.id !== eventId)) {
+                return {
+                    valid: false,
+                    error: 'Todos los extras deben ser del mismo evento que los tickets.',
+                    code: 'MULTIPLE_EVENTS',
+                    statusCode: 400
+                };
+            }
+
+            for (const ep of extras) {
+                if (!ep.isActive) {
+                    return {
+                        valid: false,
+                        error: `El extra "${ep.product.name}" no está disponible en este evento.`,
+                        code: 'EXTRA_INACTIVE',
+                        statusCode: 400
+                    };
+                }
+                const extraItem = extraItems.find(i => i.eventProductId === ep.id)!;
+                if (extraItem.quantity > ep.maxPerOrder) {
+                    return {
+                        valid: false,
+                        error: `Máximo ${ep.maxPerOrder} unidad(es) por orden para "${ep.product.name}".`,
+                        code: 'EXTRA_MAX_PER_ORDER',
+                        statusCode: 400
+                    };
+                }
+                if (ep.hasStock) {
+                    const availableStock = ep.stock - ep.soldCount;
+                    if (availableStock < extraItem.quantity) {
+                        return {
+                            valid: false,
+                            error: `Sin stock para "${ep.product.name}". Quedan: ${availableStock}`,
+                            code: 'NO_EXTRA_STOCK',
+                            statusCode: 409
+                        };
+                    }
+                }
+            }
         }
 
         let birthDate: Date | null = null;
@@ -430,22 +517,33 @@ function calculateServiceFee(totalAmount: number, serviceFeePercent: number, min
 function calculatePricing(
     ticketTypes: TicketType[],
     items: CartItem[],
+    extras: EventProduct[],
+    extraItems: ExtraCartItem[],
     coupon?: Coupon | null,
     serviceFeePercent = 0,
     minimumServiceFee = 0
 ): PreferencePricing {
-    let baseAmount = 0;
+    let ticketBaseAmount = 0;
     for (const item of items) {
         const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
-        baseAmount += Number(tt.price) * item.quantity;
+        ticketBaseAmount += Number(tt.price) * item.quantity;
     }
+
+    let extraBaseAmount = 0;
+    for (const item of extraItems) {
+        const ep = extras.find(e => e.id === item.eventProductId)!;
+        extraBaseAmount += Number(ep.eventPrice) * item.quantity;
+    }
+
+    const baseAmount = ticketBaseAmount + extraBaseAmount;
 
     const discountPercent = coupon?.discountPercent || 0;
     const discountAmount = discountPercent > 0
-        ? Math.min(baseAmount, Math.round((baseAmount * discountPercent) / 100))
+        ? Math.min(ticketBaseAmount, Math.round((ticketBaseAmount * discountPercent) / 100))
         : 0;
-    const totalAmount = Math.max(baseAmount - discountAmount, 0);
-    const rawServiceFeeAmount = calculateServiceFee(totalAmount, serviceFeePercent, minimumServiceFee);
+    const ticketNetAmount = Math.max(ticketBaseAmount - discountAmount, 0);
+    const totalAmount = ticketNetAmount + extraBaseAmount;
+    const rawServiceFeeAmount = calculateServiceFee(ticketNetAmount, serviceFeePercent, minimumServiceFee);
     const buyerTotalAmount = Number((totalAmount + rawServiceFeeAmount).toFixed(2));
     const serviceFeeAmount = Number((buyerTotalAmount - totalAmount).toFixed(2));
 
@@ -478,6 +576,8 @@ export function buildPreferenceBody(
     userId: number,
     ticketTypes: TicketType[],
     items: CartItem[],
+    extras: EventProduct[],
+    extraItems: ExtraCartItem[],
     marketplaceInfo: MarketPlaceInfo,
     promoterCode?: string,
     coupon?: Coupon | null
@@ -487,6 +587,8 @@ export function buildPreferenceBody(
     const pricing = calculatePricing(
         ticketTypes,
         items,
+        extras,
+        extraItems,
         coupon,
         marketplaceInfo.serviceFeePercent,
         marketplaceInfo.minimumServiceFee
@@ -503,14 +605,17 @@ export function buildPreferenceBody(
     const mpItems = items.map(item => {
         const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
         const itemTotal = Number(tt.price) * item.quantity;
-        const itemShareOfDiscount = pricing.discountAmount > 0
-            ? Math.round((itemTotal / pricing.baseAmount) * pricing.discountAmount)
+        const ticketBase = pricing.baseAmount - (extras.length > 0
+            ? extraItems.reduce((sum, ei) => sum + (extras.find(e => e.id === ei.eventProductId)?.eventPrice || 0) * ei.quantity, 0)
+            : 0);
+        const itemShareOfDiscount = pricing.discountAmount > 0 && ticketBase > 0
+            ? Math.round((itemTotal / ticketBase) * pricing.discountAmount)
             : 0;
         const itemNet = Math.max(itemTotal - itemShareOfDiscount, 0);
         const itemUnitPrice = item.quantity > 0 ? Number((itemNet / item.quantity).toFixed(2)) : 0;
 
         return {
-            id: tt.id.toString(),
+            id: `tt_${tt.id}`,
             title: `${tt.event.title} - ${tt.name}`.substring(0, 255),
             description: `Entrada para ${tt.event.title}`,
             quantity: item.quantity,
@@ -519,8 +624,25 @@ export function buildPreferenceBody(
         };
     });
 
+    const mpExtraItems = extraItems.map(item => {
+        const ep = extras.find(e => e.id === item.eventProductId)!;
+        return {
+            id: `ep_${ep.id}`,
+            title: `${ep.event.title} - ${ep.product.name}`.substring(0, 255),
+            description: `Extra para ${ep.event.title}`,
+            quantity: item.quantity,
+            unit_price: Number(ep.eventPrice),
+            currency_id: 'ARS',
+        };
+    });
+
+    const metadataItems = [
+        ...items.map(i => ({ type: 'ticket' as const, referenceId: i.ticketTypeId, quantity: i.quantity })),
+        ...extraItems.map(i => ({ type: 'extra' as const, referenceId: i.eventProductId, quantity: i.quantity }))
+    ];
+
     const body: any = {
-        items: mpItems,
+        items: [...mpItems, ...mpExtraItems],
         payer: {
             email: payer.email,
             name: payer.firstname,
@@ -554,7 +676,7 @@ export function buildPreferenceBody(
             promoter_code: promoterCode || null,
             coupon_id: pricing.couponId || null,
             coupon_discount_percent: pricing.discountPercent || null,
-            items: JSON.stringify(items.map(i => ({ ticketTypeId: i.ticketTypeId, quantity: i.quantity })))
+            items: JSON.stringify(metadataItems)
         }
     };
 
@@ -578,6 +700,8 @@ export function buildPreferenceBody(
 interface PreparedPreference {
     purchasePayer: PurchasePayer;
     ticketTypes: TicketType[];
+    extras: EventProduct[];
+    extraItems: ExtraCartItem[];
     pricing: PreferencePricing;
     body: any;
     externalReference: string;
@@ -589,7 +713,7 @@ async function preparePreference(
     input: PreferenceInput,
     options: { requireOrganizerToken: boolean }
 ): Promise<PreparedPreference> {
-    const { items } = input;
+    const { items, extraItems = [] } = input;
 
     const purchasePayer = await resolvePurchasePayer(null, input);
 
@@ -599,6 +723,7 @@ async function preparePreference(
 
     try {
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
+        const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
 
         const ticketTypeIds = items.map(i => i.ticketTypeId).sort((a, b) => a - b);
         const ticketTypes: TicketType[] = [];
@@ -632,6 +757,44 @@ async function preparePreference(
             throw new Error('MULTIPLE_EVENTS');
         }
 
+        const extras: EventProduct[] = [];
+        if (extraItems.length > 0) {
+            const extraIds = extraItems.map(i => i.eventProductId).sort((a, b) => a - b);
+            for (const id of extraIds) {
+                const ep = await eventProductRepo
+                    .createQueryBuilder('eventProduct')
+                    .innerJoinAndSelect('eventProduct.event', 'event')
+                    .innerJoinAndSelect('eventProduct.product', 'product')
+                    .where('eventProduct.id = :id', { id })
+                    .setLock('pessimistic_write')
+                    .getOne();
+
+                if (!ep) {
+                    throw new Error('EXTRA_NOT_FOUND');
+                }
+                extras.push(ep);
+            }
+
+            for (const ep of extras) {
+                if (!ep.isActive) {
+                    throw new Error('EXTRA_INACTIVE');
+                }
+                if (ep.event.id !== eventId) {
+                    throw new Error('MULTIPLE_EVENTS');
+                }
+                const item = extraItems.find(i => i.eventProductId === ep.id)!;
+                if (item.quantity > ep.maxPerOrder) {
+                    throw new Error('EXTRA_MAX_PER_ORDER');
+                }
+                if (ep.hasStock) {
+                    const availableStock = ep.stock - ep.soldCount;
+                    if (availableStock < item.quantity) {
+                        throw new Error('NO_EXTRA_STOCK');
+                    }
+                }
+            }
+        }
+
         const eventDateTime = new Date(`${ticketTypes[0].event.date}T${ticketTypes[0].event.time}`);
         if (new Date() > eventDateTime) {
             throw new Error('EVENT_STARTED');
@@ -651,6 +814,8 @@ async function preparePreference(
         const pricing = calculatePricing(
             ticketTypes,
             items,
+            extras,
+            extraItems,
             coupon,
             marketplaceInfo.serviceFeePercent,
             marketplaceInfo.minimumServiceFee
@@ -665,6 +830,8 @@ async function preparePreference(
             purchasePayer.user.id,
             ticketTypes,
             items,
+            extras,
+            extraItems,
             marketplaceInfo,
             input.promoterCode,
             coupon
@@ -680,6 +847,8 @@ async function preparePreference(
         return {
             purchasePayer,
             ticketTypes,
+            extras,
+            extraItems,
             pricing,
             body,
             externalReference,
@@ -700,7 +869,7 @@ export async function createMercadoPagoPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
     const prepared = await preparePreference(input, { requireOrganizerToken: true });
-    const { purchasePayer, ticketTypes, pricing, body, externalReference, marketplaceInfo } = prepared;
+    const { purchasePayer, ticketTypes, extras, extraItems, pricing, body, externalReference, marketplaceInfo } = prepared;
 
     const mpClient = new MercadoPagoConfig({
         accessToken: marketplaceInfo.organizerAccessToken!
@@ -711,6 +880,7 @@ export async function createMercadoPagoPreference(
     logger.info('PREFERENCE_CREATING', {
         userId: purchasePayer.user.id,
         items: input.items,
+        extraItems: input.extraItems,
         organizerId: ticketTypes[0].event.user_id,
         marketplaceFee: body.marketplace_fee,
         promoterCode: input.promoterCode,
@@ -747,7 +917,7 @@ export async function createPlatformPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
     const prepared = await preparePreference(input, { requireOrganizerToken: false });
-    const { purchasePayer, ticketTypes, pricing, body, externalReference } = prepared;
+    const { purchasePayer, ticketTypes, extras, extraItems, pricing, body, externalReference } = prepared;
 
     const config = getMPConfig();
 

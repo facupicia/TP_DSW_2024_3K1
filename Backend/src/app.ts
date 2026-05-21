@@ -16,6 +16,8 @@ import subscriptionRoutes from "./subscription/subscription.routes"
 import couponRoutes from "./coupon/coupon.routes"
 import promoterRoutes from "./promoter/promoter.routes"
 import uploadRoutes from "./upload/upload.routes"
+import productRoutes from "./product/product.routes"
+import extraRoutes from "./extra/extra.routes"
 import { adminRouter } from "./admin/admin.controller"
 
 // Utilities
@@ -134,6 +136,8 @@ app.use("/api/subscription", subscriptionRoutes)
 app.use("/api/coupon", couponRoutes)
 app.use("/api/promoter", promoterRoutes)
 app.use("/api/upload", uploadRoutes)
+app.use("/api/product", productRoutes)
+app.use("/api/extra", extraRoutes)
 app.use("/api/admin", adminRouter)
 
 // Global error handler (must be after routes)

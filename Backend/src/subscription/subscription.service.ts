@@ -3,6 +3,7 @@ import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 import { SubscriptionPlan } from "./subscription_plan.entity";
 import { UserSubscription, SubscriptionStatus } from "./user_subscription.entity";
+import { countProductsInCatalog } from "../product/product.service";
 import { MoreThanOrEqual, LessThanOrEqual, Between } from "typeorm";
 
 /**
@@ -58,6 +59,8 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
             commissionPercent: 8.00,
             serviceFeePercent: 15.00,
             minimumServiceFee: 0,
+            maxProductsInCatalog: 0,
+            canSellExtras: false,
             features: {
                 advancedDashboard: false,
                 exportSales: false,
@@ -193,12 +196,16 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
         serviceFeePercent: number;
         minimumServiceFee: number;
         features: any;
+        canSellExtras: boolean;
     };
     limits: {
         maxEventsPerMonth: number;
         maxTicketTypesPerEvent: number;
+        maxProductsInCatalog: number;
         eventsCreatedThisMonth: number;
         eventsRemaining: number;
+        productsInCatalog: number;
+        productsRemaining: number;
     };
     status: SubscriptionStatus;
     expiresAt: Date | null;
@@ -206,6 +213,7 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
     const subscription = await getActiveSubscription(userId);
     const plan = subscription.plan;
     const eventsThisMonth = await countEventsThisMonth(userId);
+    const productsInCatalog = await countProductsInCatalog(userId);
 
     return {
         plan: {
@@ -215,15 +223,21 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
             commissionPercent: Number(plan.commissionPercent),
             serviceFeePercent: Number(plan.serviceFeePercent),
             minimumServiceFee: Number(plan.minimumServiceFee),
-            features: plan.features
+            features: plan.features,
+            canSellExtras: plan.canSellExtras
         },
         limits: {
             maxEventsPerMonth: plan.maxEventsPerMonth,
             maxTicketTypesPerEvent: plan.maxTicketTypesPerEvent,
+            maxProductsInCatalog: plan.maxProductsInCatalog,
             eventsCreatedThisMonth: eventsThisMonth,
             eventsRemaining: plan.maxEventsPerMonth === -1
                 ? -1
-                : Math.max(0, plan.maxEventsPerMonth - eventsThisMonth)
+                : Math.max(0, plan.maxEventsPerMonth - eventsThisMonth),
+            productsInCatalog,
+            productsRemaining: plan.maxProductsInCatalog === -1
+                ? -1
+                : Math.max(0, plan.maxProductsInCatalog - productsInCatalog)
         },
         status: subscription.status,
         expiresAt: subscription.currentPeriodEnd

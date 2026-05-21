@@ -17,6 +17,7 @@ import { TicketType } from "../ticketType/ticketType.entity";
 import { User } from "../user/user.entity";
 import { Category } from "../category/category.entity";
 import { PromoterEventAssignment } from "../promoter/promoter.entity";
+import { EventProduct } from "../extra/eventProduct.entity";
 
 @Entity("event")
 @Index('idx_event_public_date', ['active', 'isPublic', 'date'])
@@ -97,6 +98,9 @@ export class Event extends BaseEntity {
 
     @OneToMany(() => PromoterEventAssignment, assignment => assignment.event)
     promoterAssignments: PromoterEventAssignment[];
+
+    @OneToMany(() => EventProduct, ep => ep.event)
+    eventProducts: EventProduct[];
 
     /* ===================== TIMESTAMPS ===================== */
 

@@ -383,7 +383,10 @@ export async function remove(userId: number, isAdmin: boolean, eventId: number):
 // QUERIES
 // ============================================================================
 export async function findById(id: number): Promise<Event | null> {
-    return Event.findOne({ where: { id, active: true, deletedAt: IsNull() }, relations: ["user", "category", "ticketTypes"] });
+    return Event.findOne({
+        where: { id, active: true, deletedAt: IsNull() },
+        relations: ["user", "category", "ticketTypes", "eventProducts", "eventProducts.product"]
+    });
 }
 
 export async function findPublic(params: { skip: number; take: number; page: number; limit: number }) {

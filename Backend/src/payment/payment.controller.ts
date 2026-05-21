@@ -97,12 +97,32 @@ function validateCartItems(rawItems: any): { valid: boolean; items?: Array<{ tic
     return { valid: true, items };
 }
 
+function validateExtraItems(rawExtras: any): { valid: boolean; extraItems?: Array<{ eventProductId: number; quantity: number }>; error?: string } {
+    if (!rawExtras) return { valid: true, extraItems: [] };
+    if (!Array.isArray(rawExtras)) {
+        return { valid: false, error: 'extraItems debe ser un array.' };
+    }
+    const extraItems: Array<{ eventProductId: number; quantity: number }> = [];
+    for (const raw of rawExtras) {
+        const eventProductId = parsePositiveInteger(raw?.eventProductId);
+        const quantity = parsePositiveInteger(raw?.quantity);
+        if (!eventProductId || !quantity) {
+            return { valid: false, error: 'Cada extra debe tener eventProductId y quantity válidos.' };
+        }
+        if (quantity > 10) {
+            return { valid: false, error: 'No puedes comprar más de 10 unidades por extra.' };
+        }
+        extraItems.push({ eventProductId, quantity });
+    }
+    return { valid: true, extraItems };
+}
+
 export const createPreference = async (req: CustomRequest, res: Response) => {
     const guestBuyer = normalizeGuestBuyer(req.body?.buyer);
 
     try {
         const userId = req.user?.id;
-        const { items: rawItems, promoterCode, couponId, couponCode } = req.body;
+        const { items: rawItems, extraItems: rawExtras, promoterCode, couponId, couponCode } = req.body;
         const isGuestCheckout = !userId;
 
         if (isGuestCheckout) {
@@ -127,6 +147,12 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         }
         const items = cartValidation.items!;
 
+        const extraValidation = validateExtraItems(rawExtras);
+        if (!extraValidation.valid) {
+            return res.status(400).json({ message: extraValidation.error });
+        }
+        const extraItems = extraValidation.extraItems!;
+
         const parsedCouponId = couponId ? parsePositiveInteger(couponId) : undefined;
         if (couponId && !parsedCouponId) {
             return res.status(400).json({ code: "COUPON_INVALID", message: "Cupón inválido." });
@@ -135,6 +161,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         const validation = await validatePurchaseEligibility({
             userId,
             items,
+            extraItems,
             guestBuyer: guestBuyer || undefined
         });
 
@@ -149,6 +176,7 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             const result = await createMercadoPagoPreference({
                 userId,
                 items,
+                extraItems,
                 promoterCode,
                 couponId: parsedCouponId,
                 couponCode,
@@ -228,6 +256,34 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
                 return res.status(409).json({
                     code: 'NO_STOCK',
                     message: 'Las entradas se agotaron mientras preparábamos tu compra.'
+                });
+            }
+
+            if (error.message === 'NO_EXTRA_STOCK') {
+                return res.status(409).json({
+                    code: 'NO_EXTRA_STOCK',
+                    message: 'Los extras se agotaron mientras preparábamos tu compra.'
+                });
+            }
+
+            if (error.message === 'EXTRA_NOT_FOUND') {
+                return res.status(404).json({
+                    code: 'EXTRA_NOT_FOUND',
+                    message: 'Uno de los extras no existe.'
+                });
+            }
+
+            if (error.message === 'EXTRA_INACTIVE') {
+                return res.status(400).json({
+                    code: 'EXTRA_INACTIVE',
+                    message: 'Uno de los extras no está disponible.'
+                });
+            }
+
+            if (error.message === 'EXTRA_MAX_PER_ORDER') {
+                return res.status(400).json({
+                    code: 'EXTRA_MAX_PER_ORDER',
+                    message: 'Superaste el límite máximo por orden para uno de los extras.'
                 });
             }
 

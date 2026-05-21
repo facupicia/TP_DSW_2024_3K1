@@ -4,6 +4,7 @@ import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
 import { Role } from "./role.entity";
 import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignment.entity";
+import { Product } from "../product/product.entity";
 @Entity()
 @Unique(['email'])
 @Unique(['mpUserId'])
@@ -133,5 +134,9 @@ export class User extends BaseEntity {
     /** Scanner team assignments owned by this organizer */
     @OneToMany(() => ScannerOrganizerAssignment, assignment => assignment.organizer)
     scannerAssignmentsOwned: ScannerOrganizerAssignment[];
+
+    /** Product catalog owned by this organizer */
+    @OneToMany(() => Product, product => product.organizer)
+    products: Product[];
 
 }

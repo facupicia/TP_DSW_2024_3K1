@@ -20,6 +20,9 @@ import { Coupon } from "../coupon/coupon.entity"
 import { PromoterGroup, PromoterEventAssignment } from "../promoter/promoter.entity"
 import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignment.entity"
 import { WebhookLog } from "../payment/webhook-log.entity"
+import { Product } from "../product/product.entity"
+import { EventProduct } from "../extra/eventProduct.entity"
+import { ExtraItem } from "../extra/extraItem.entity"
 import { env } from "./env";
 
 const connectionUrl = env.POSTGRES_URL || env.DATABASE_URL;
@@ -35,7 +38,7 @@ const AppDataSource = new DataSource({
     database: !connectionUrl ? env.PGDATABASE : undefined,
     synchronize: env.NODE_ENV === 'development' && env.DB_SYNC === 'true',
     logging: env.DB_LOGGING === 'true',
-    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog],
+    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
     migrations: [path.join(__dirname, '..', 'database', 'migrations', '[0-9]*.{ts,js}')],
     migrationsRun: isProduction,
     extra: {

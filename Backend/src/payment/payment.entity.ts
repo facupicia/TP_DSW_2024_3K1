@@ -43,7 +43,7 @@ export class PaymentLog extends BaseEntity {
   userId: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  items: Array<{ ticketTypeId: number; quantity: number; unitPrice: number }> | null;
+  items: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number; unitPrice: number }> | null;
 
   /* ===================== PAYMENT AMOUNTS ===================== */
 

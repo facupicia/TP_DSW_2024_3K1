@@ -4,6 +4,8 @@ import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
 import { Ticket, TicketStatus } from '../ticket/ticket.entity';
 import { TicketType } from '../ticketType/ticketType.entity';
+import { ExtraItem, ExtraItemStatus } from '../extra/extraItem.entity';
+import { EventProduct } from '../extra/eventProduct.entity';
 import { User } from '../user/user.entity';
 import { logger } from '../common/services/logger';
 import { decryptFromString } from '../common/services/encryption';
@@ -112,8 +114,10 @@ export async function processRefund(
         };
     }
 
-    // 2. Find tickets to cancel (needed for DB update later)
+    // 2. Find tickets and extras to cancel (needed for DB update later)
     const ticketRepo = AppDataSource.getRepository(Ticket);
+    const extraItemRepo = AppDataSource.getRepository(ExtraItem);
+
     let ticketsToCancel = await ticketRepo
         .createQueryBuilder("ticket")
         .select(["ticket.id", "ticket.ticketTypeId"])
@@ -121,7 +125,14 @@ export async function processRefund(
         .andWhere('status = :active', { active: TicketStatus.ACTIVE })
         .getMany();
 
-    if (ticketsToCancel.length === 0) {
+    let extrasToCancel = await extraItemRepo
+        .createQueryBuilder("extraItem")
+        .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
+        .where('"paymentLogId" = :paymentLogId', { paymentLogId: paymentLog.id })
+        .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
+        .getMany();
+
+    if (ticketsToCancel.length === 0 && extrasToCancel.length === 0) {
         const paymentTime = paymentLog.createdAt;
         const timeWindowStart = new Date(paymentTime.getTime() - 5 * 60 * 1000);
         const timeWindowEnd = new Date(paymentTime.getTime() + 5 * 60 * 1000);
@@ -136,7 +147,16 @@ export async function processRefund(
             .take(paymentLog.quantity)
             .getMany();
 
-        if (ticketsToCancel.length === 0) {
+        extrasToCancel = await extraItemRepo
+            .createQueryBuilder("extraItem")
+            .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
+            .where('"userId" = :userId', { userId: paymentLog.userId })
+            .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
+            .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
+            .orderBy('"createdAt"', "DESC")
+            .getMany();
+
+        if (ticketsToCancel.length === 0 && extrasToCancel.length === 0) {
             ticketsToCancel = await ticketRepo
                 .createQueryBuilder("ticket")
                 .select(["ticket.id", "ticket.ticketTypeId"])
@@ -144,6 +164,14 @@ export async function processRefund(
                 .andWhere('status = :active', { active: TicketStatus.ACTIVE })
                 .orderBy('"createdAt"', "DESC")
                 .take(paymentLog.quantity)
+                .getMany();
+
+            extrasToCancel = await extraItemRepo
+                .createQueryBuilder("extraItem")
+                .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
+                .where('"userId" = :userId', { userId: paymentLog.userId })
+                .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
+                .orderBy('"createdAt"', "DESC")
                 .getMany();
         }
     }
@@ -239,6 +267,13 @@ export async function processRefund(
             );
         }
 
+        if (extrasToCancel.length > 0) {
+            await queryRunner.manager.getRepository(ExtraItem).update(
+                { id: In(extrasToCancel.map(extra => extra.id)) },
+                { status: ExtraItemStatus.CANCELLED }
+            );
+        }
+
         // Restore stock per ticket type
         const cancelledByType: Record<number, number> = {};
         for (const t of ticketsToCancel) {
@@ -250,6 +285,20 @@ export async function processRefund(
                 .update()
                 .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
                 .where('id = :id', { id: Number(ticketTypeId) })
+                .execute();
+        }
+
+        // Restore stock per event product
+        const cancelledByExtra: Record<number, number> = {};
+        for (const e of extrasToCancel) {
+            cancelledByExtra[e.eventProductId] = (cancelledByExtra[e.eventProductId] || 0) + e.quantity;
+        }
+        for (const [eventProductId, count] of Object.entries(cancelledByExtra)) {
+            await queryRunner.manager.getRepository(EventProduct)
+                .createQueryBuilder()
+                .update()
+                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
+                .where('id = :id', { id: Number(eventProductId) })
                 .execute();
         }
 

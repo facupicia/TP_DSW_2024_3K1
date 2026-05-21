@@ -20,6 +20,7 @@ import {
 @Check('"minimumServiceFee" >= 0')
 @Check('"maxEventsPerMonth" >= -1')
 @Check('"maxTicketTypesPerEvent" >= -1')
+@Check('"maxProductsInCatalog" >= -1')
 export class SubscriptionPlan extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -48,6 +49,14 @@ export class SubscriptionPlan extends BaseEntity {
     /** Max ticket types per event (-1 = unlimited) */
     @Column({ default: 1 })
     maxTicketTypesPerEvent: number;
+
+    /** Max products in organizer catalog (-1 = unlimited) */
+    @Column({ default: 0 })
+    maxProductsInCatalog: number;
+
+    /** Whether this plan allows selling extras/addons at events */
+    @Column({ default: false })
+    canSellExtras: boolean;
 
     /** Commission percentage charged on each ticket sale */
     @Column({ type: 'decimal', precision: 5, scale: 2 })

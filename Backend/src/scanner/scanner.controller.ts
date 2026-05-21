@@ -104,10 +104,13 @@ export class ScannerController {
                 return res.status(status).json(payload);
             }
 
-            return res.json({
-                message: "Ticket válido - Acceso Permitido",
-                ticket: result.ticket
-            });
+            const responsePayload: any = {
+                message: result.type === 'extra' ? "Extra válido - Canje Permitido" : "Ticket válido - Acceso Permitido",
+                type: result.type || 'ticket'
+            };
+            if (result.ticket) responsePayload.ticket = result.ticket;
+            if (result.extra) responsePayload.extra = result.extra;
+            return res.json(responsePayload);
         } catch (error) {
             logger.error("Error validando ticket:", error);
             return res.status(500).json({ message: "Error interno del servidor" });
