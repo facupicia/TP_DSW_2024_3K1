@@ -84,6 +84,18 @@
             </div>
           </div>
         }
+        @if (scanResult.extra) {
+          <div class="bg-gray-100/50 rounded-2xl p-4 text-left space-y-2">
+            <div class="flex justify-between">
+              <span class="text-xs font-bold text-gray-400 uppercase">Asistente</span>
+              <span class="text-sm font-bold text-gray-900">{{ scanResult.extra.user?.firstname }} {{ scanResult.extra.user?.lastname }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-xs font-bold text-gray-400 uppercase">Extra</span>
+              <span class="text-sm font-bold text-gray-900">{{ scanResult.extra.eventProduct?.product?.name || 'Extra' }} x{{ scanResult.extra.quantity }}</span>
+            </div>
+          </div>
+        }
       </div>
     </div>
   }

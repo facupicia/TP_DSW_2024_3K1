@@ -33,6 +33,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
 
   // Cart logic
   quantities: Record<number, number> = {};
+  extraQuantities: Record<number, number> = {};
   maxQuantityPerType = 10;
 
   // Countdown Logic
@@ -166,20 +167,45 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
       }));
   }
 
+  getExtraCartItems(): Array<{ eventProductId: number; quantity: number }> {
+    if (!this.evento?.eventProducts) return [];
+    return this.evento.eventProducts
+      .filter((ep: any) => (this.extraQuantities[ep.id] || 0) > 0)
+      .map((ep: any) => ({
+        eventProductId: ep.id,
+        quantity: this.extraQuantities[ep.id]
+      }));
+  }
+
   getCartTotal(): number {
-    if (!this.evento?.ticketTypes) return 0;
-    return this.evento.ticketTypes.reduce((sum: number, tt: any) => {
-      const qty = this.quantities[tt.id] || 0;
-      return sum + (Number(tt.price) * qty);
-    }, 0);
+    let total = 0;
+    if (this.evento?.ticketTypes) {
+      total += this.evento.ticketTypes.reduce((sum: number, tt: any) => {
+        const qty = this.quantities[tt.id] || 0;
+        return sum + (Number(tt.price) * qty);
+      }, 0);
+    }
+    if (this.evento?.eventProducts) {
+      total += this.evento.eventProducts.reduce((sum: number, ep: any) => {
+        const qty = this.extraQuantities[ep.id] || 0;
+        return sum + (Number(ep.eventPrice) * qty);
+      }, 0);
+    }
+    return total;
   }
 
   getCartCount(): number {
-    return Object.values(this.quantities).reduce((sum, q) => sum + q, 0);
+    const ticketCount = Object.values(this.quantities).reduce((sum, q) => sum + q, 0);
+    const extraCount = Object.values(this.extraQuantities).reduce((sum, q) => sum + q, 0);
+    return ticketCount + extraCount;
   }
 
   hasActiveItems(): boolean {
     return this.getCartCount() > 0;
+  }
+
+  hasActiveTickets(): boolean {
+    return Object.values(this.quantities).some(q => q > 0);
   }
 
   getTicketTypeName(ticketTypeId: number): string {
@@ -235,6 +261,46 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     };
   }
 
+  getExtraStock(ep: any): number {
+    if (!ep.hasStock) return 999;
+    return Math.max((ep.stock || 0) - (ep.soldCount || 0), 0);
+  }
+
+  getMaxExtraSelectable(ep: any): number {
+    const stock = this.getExtraStock(ep);
+    if (stock <= 0) return 0;
+    return Math.min(stock, ep.maxPerOrder || 10);
+  }
+
+  setExtraQuantity(eventProductId: number, qty: number) {
+    this.extraQuantities[eventProductId] = qty;
+  }
+
+  incrementExtraQty(ep: any) {
+    const current = this.extraQuantities[ep.id] || 0;
+    const max = this.getMaxExtraSelectable(ep);
+    if (current < max) {
+      this.setExtraQuantity(ep.id, current + 1);
+    }
+  }
+
+  decrementExtraQty(ep: any) {
+    const current = this.extraQuantities[ep.id] || 0;
+    if (current > 0) {
+      this.setExtraQuantity(ep.id, current - 1);
+    }
+  }
+
+  getExtraName(epId: number): string {
+    const ep = this.evento?.eventProducts?.find((e: any) => e.id === epId);
+    return ep?.product?.name || 'Extra';
+  }
+
+  getExtraPrice(epId: number): number {
+    const ep = this.evento?.eventProducts?.find((e: any) => e.id === epId);
+    return Number(ep?.eventPrice || 0);
+  }
+
   private calculateAge(birthDate: Date): number {
     const birth = new Date(birthDate);
     const today = new Date();
@@ -253,11 +319,14 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const extraItems = this.getExtraCartItems();
+
     // Persist cart so checkout can read it
     if (typeof window !== 'undefined' && window.sessionStorage) {
       window.sessionStorage.setItem('eventCart', JSON.stringify({
         eventId,
         items: cartItems,
+        extraItems,
         promoterCode: this.promoterCode || undefined
       }));
     }

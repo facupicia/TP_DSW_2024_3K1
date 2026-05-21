@@ -26,6 +26,7 @@ export const routes: Routes = [
     { path: "settings", loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), title: 'Configuración', canActivate: [authGuard] },
     { path: "create-event", loadComponent: () => import('./pages/registrar-evento/registrar-evento.component').then(m => m.RegistrarEventoComponent), title: 'Crear Evento', canActivate: [authGuard] },
     { path: "my-events", loadComponent: () => import('./pages/mis-eventos/mis-eventos.component').then(m => m.MisEventosComponent), title: 'Mis Eventos', canActivate: [authGuard, organizerGuard] },
+    { path: "my-catalog", loadComponent: () => import('./pages/mi-catalogo/mi-catalogo.component').then(m => m.MiCatalogoComponent), title: 'Mi Catálogo', canActivate: [authGuard, organizerGuard] },
     { path: "edit-event/:id", loadComponent: () => import('./pages/registrar-evento/registrar-evento.component').then(m => m.RegistrarEventoComponent), title: 'Editar Evento', canActivate: [authGuard, organizerGuard] },
     { path: "event/:id", loadComponent: () => import('./pages/detalle-evento/detalle-evento.component').then(m => m.DetalleEventoComponent), title: 'Ver Evento' },
     { path: "events", loadComponent: () => import('./pages/explorador-eventos/explorador-eventos.component').then(m => m.ExploradorEventosComponent), title: 'Explorar Eventos' },

@@ -125,6 +125,52 @@
                 }
               </div>
 
+              <!-- Extras Section -->
+              <div class="border-t border-gray-100 pt-8" *ngIf="evento.eventProducts && evento.eventProducts.length > 0">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Extras para tu experiencia</h2>
+                <div class="space-y-3">
+                  @for (ep of evento.eventProducts; track ep.id) {
+                    <div class="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 transition-all hover:shadow-sm"
+                      [class.opacity-60]="!ep.isActive || getExtraStock(ep) <= 0">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                          <h3 class="text-base font-bold text-gray-900">{{ ep.product.name }}</h3>
+                          @if (!ep.isActive || getExtraStock(ep) <= 0) {
+                            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider">Agotado</span>
+                          }
+                          @if (ep.hasStock && getExtraStock(ep) > 0 && getExtraStock(ep) <= 10) {
+                            <span class="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">Quedan {{ getExtraStock(ep) }}</span>
+                          }
+                        </div>
+                        @if (ep.product.description) {
+                          <p class="text-sm text-gray-500 truncate">{{ ep.product.description }}</p>
+                        }
+                      </div>
+                      <div class="flex items-center justify-between sm:justify-end gap-4 sm:min-w-[220px]">
+                        <div class="text-right">
+                          <span class="text-lg font-black text-gray-900">${{ ep.eventPrice }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
+                          <button type="button"
+                            [disabled]="(extraQuantities[ep.id] || 0) <= 0"
+                            (click)="decrementExtraQty(ep)"
+                            class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
+                          </button>
+                          <span class="text-base font-bold w-6 text-center tabular-nums">{{ extraQuantities[ep.id] || 0 }}</span>
+                          <button type="button"
+                            [disabled]="!ep.isActive || getExtraStock(ep) <= 0 || (extraQuantities[ep.id] || 0) >= getMaxExtraSelectable(ep)"
+                            (click)="incrementExtraQty(ep)"
+                            class="w-8 h-8 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
               <div class="prose prose-lg text-gray-600 leading-relaxed max-w-none border-t border-gray-100 pt-8">
                 <p class="whitespace-pre-line">{{ evento.description }}</p>
               </div>
@@ -192,6 +238,12 @@
                             <div class="flex justify-between text-sm">
                               <span class="text-gray-700 font-medium">{{ item.quantity }}x {{ getTicketTypeName(item.ticketTypeId) }}</span>
                               <span class="text-gray-900 font-bold">${{ getTicketTypePrice(item.ticketTypeId) * item.quantity }}</span>
+                            </div>
+                          }
+                          @for (item of getExtraCartItems(); track item.eventProductId) {
+                            <div class="flex justify-between text-sm">
+                              <span class="text-gray-700 font-medium">{{ item.quantity }}x {{ getExtraName(item.eventProductId) }}</span>
+                              <span class="text-gray-900 font-bold">${{ getExtraPrice(item.eventProductId) * item.quantity }}</span>
                             </div>
                           }
                         </div>

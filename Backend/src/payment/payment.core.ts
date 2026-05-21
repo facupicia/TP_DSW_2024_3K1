@@ -17,7 +17,7 @@ import { logger } from '../common/services/logger';
 import { getMPConfig } from './mp.config';
 import { decryptFromString } from '../common/services/encryption';
 import { createAccountClaimToken } from '../user/accountClaim.service';
-import { sendAccountClaimEmail } from '../common/services/mailer';
+import { sendAccountClaimEmail, enviarCorreoConExtras } from '../common/services/mailer';
 
 /**
  * Payment Core Service
@@ -939,6 +939,26 @@ export async function processApprovedPayment(
             ).catch(err => {
                 logger.error('PAYMENT_EMAIL_ERROR', { paymentId, error: err?.message });
             });
+
+            if (allExtras.length > 0) {
+                const eventForExtras = allExtras[0].eventProduct?.event || (ticketTypes.length > 0 ? ticketTypes[0].event : null);
+                if (eventForExtras) {
+                    enviarCorreoConExtras(
+                        user.email,
+                        allExtras.map(e => ({
+                            qrCode: e.qrCode!,
+                            productName: e.eventProduct.product.name,
+                            quantity: e.quantity,
+                            eventTitle: eventForExtras.title,
+                            eventDate: `${eventForExtras.date} ${eventForExtras.time}`,
+                            eventLocation: eventForExtras.direccion || '',
+                            buyerName: `${user.firstname || ''} ${user.lastname || ''}`.trim()
+                        }))
+                    ).catch(err => {
+                        logger.error('PAYMENT_EXTRA_EMAIL_ERROR', { paymentId, error: err?.message });
+                    });
+                }
+            }
 
             if (user.isGuestAccount) {
                 createAccountClaimToken(user)

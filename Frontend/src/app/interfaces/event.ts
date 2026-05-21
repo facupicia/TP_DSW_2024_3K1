@@ -1,6 +1,7 @@
 
 
 import { Categoria } from './categoria';
+import { EventProduct } from './product';
 
 export interface TicketType {
     id?: number;
@@ -37,6 +38,7 @@ export interface Evento {
     categoria_name?: string;
     category?: Categoria | any;
     ticketTypes?: TicketType[];
+    eventProducts?: EventProduct[];
     checkoutPricing?: {
         serviceFeePercent: number;
         minimumServiceFee: number;

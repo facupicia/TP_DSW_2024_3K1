@@ -283,4 +283,83 @@ export const sendAccountClaimEmail = async (
   }
 };
 
+export interface IExtraVoucher {
+    qrCode: string;
+    productName: string;
+    quantity: number;
+    eventTitle: string;
+    eventDate: string;
+    eventLocation: string;
+    buyerName: string;
+}
+
+export const enviarCorreoConExtras = async (email: string, extras: IExtraVoucher[]) => {
+    const apiKey = env.BREVO_API_KEY;
+    if (!apiKey) {
+        logger.error("MAILER_MISSING_BREVO_KEY");
+        return null;
+    }
+
+    try {
+        const eventName = extras[0]?.eventTitle || "Evento";
+        const escapedEventName = escapeHtml(eventName);
+        const vouchersHtml = extras.map(e => `
+            <div style="background: #f9fafb; padding: 16px; border-radius: 8px; margin: 12px 0; text-align: left;">
+                <p style="margin: 0 0 8px; font-size: 16px; font-weight: bold; color: #111;">${escapeHtml(e.productName)} x${e.quantity}</p>
+                <img src="${e.qrCode}" alt="QR" style="width: 120px; height: 120px; border-radius: 8px;" />
+                <p style="margin: 8px 0 0; font-size: 12px; color: #666;">Canjeá este QR en el evento</p>
+            </div>
+        `).join('');
+
+        const htmlContent = `
+            <html>
+                <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h1 style="color: #0084f0;">¡Tus Extras están confirmados!</h1>
+                        <p>Hola ${escapeHtml(extras[0]?.buyerName || '')},</p>
+                        <p>Compraste <strong>${extras.length}</strong> voucher(s) de extras para <strong>${escapedEventName}</strong>.</p>
+                        <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
+                        ${vouchersHtml}
+                        <p style="font-size: 12px; color: #999; margin-top: 40px;">EventLife App</p>
+                    </div>
+                </body>
+            </html>
+        `;
+
+        const body = {
+            sender: {
+                name: "Event Life",
+                email: env.MAIL_FROM || "no-reply@eventlife.com",
+            },
+            to: [{ email }],
+            subject: `Tus Extras para ${eventName} 🛒`,
+            htmlContent: htmlContent,
+        };
+
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: {
+                accept: "application/json",
+                "api-key": apiKey,
+                "content-type": "application/json",
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(10000)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            logger.error("MAILER_EXTRAS_ERROR", { error: errorText });
+            return null;
+        }
+
+        const data = await response.json();
+        logger.info("MAILER_EXTRAS_SENT", { messageId: (data as any)?.messageId });
+        return data;
+    } catch (error) {
+        logger.error("MAILER_EXTRAS_SEND_ERROR", { error: (error as Error).message });
+        return null;
+    }
+};
+
 export default enviarCorreoConQR;

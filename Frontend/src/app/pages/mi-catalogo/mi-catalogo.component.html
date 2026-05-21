@@ -1,0 +1,73 @@
+<app-header></app-header>
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Mi Catálogo de Productos</h1>
+        <button (click)="openCreate()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+            + Nuevo Producto
+        </button>
+    </div>
+
+    <div *ngIf="loading" class="text-center py-12 text-gray-500">Cargando...</div>
+
+    <div *ngIf="!loading && products.length === 0" class="text-center py-12 text-gray-500">
+        Tu catálogo está vacío. Agregá productos para ofrecerlos en tus eventos.
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div *ngFor="let product of products" class="bg-white rounded-xl shadow border p-4 flex flex-col">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                    {{ product.name[0] }}
+                </div>
+                <div>
+                    <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
+                    <span class="text-xs text-gray-500">{{ categoryLabel(product.category) }}</span>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 mb-2 flex-1">{{ product.description || 'Sin descripción' }}</p>
+            <div class="flex items-center justify-between mt-2">
+                <span class="font-bold text-gray-900">${{ product.basePrice | number:'1.0-0' }}</span>
+                <div class="flex gap-2">
+                    <button (click)="openEdit(product)" class="text-sm text-indigo-600 hover:underline">Editar</button>
+                    <button (click)="deleteProduct(product.id)" class="text-sm text-red-600 hover:underline">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal form -->
+<div *ngIf="showForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+        <h2 class="text-lg font-bold mb-4">{{ editingProduct ? 'Editar' : 'Nuevo' }} Producto</h2>
+        <div class="space-y-3">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                <input [(ngModel)]="newProduct.name" class="w-full border rounded-lg px-3 py-2" placeholder="Ej. Combo Cerveza" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                <select [(ngModel)]="newProduct.category" class="w-full border rounded-lg px-3 py-2">
+                    <option *ngFor="let c of categories" [value]="c.value">{{ c.label }}</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Precio base</label>
+                <input type="number" [(ngModel)]="newProduct.basePrice" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                <textarea [(ngModel)]="newProduct.description" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">URL de imagen (opcional)</label>
+                <input [(ngModel)]="newProduct.imageUrl" class="w-full border rounded-lg px-3 py-2" />
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-6">
+            <button (click)="closeForm()" class="px-4 py-2 rounded-lg border hover:bg-gray-50">Cancelar</button>
+            <button (click)="saveProduct()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Guardar</button>
+        </div>
+    </div>
+</div>

@@ -15,6 +15,7 @@ export class TicketService {
 
   comprarTicket(objeto: {
     items: Array<{ ticketTypeId: number; quantity: number }>,
+    extraItems?: Array<{ eventProductId: number; quantity: number }>,
     promoterCode?: string,
     couponId?: number,
     couponCode?: string,
@@ -29,6 +30,10 @@ export class TicketService {
     const body: any = {
       items: objeto.items
     };
+
+    if (objeto.extraItems && objeto.extraItems.length > 0) {
+      body.extraItems = objeto.extraItems;
+    }
 
     if (objeto.promoterCode) {
       body.promoterCode = objeto.promoterCode;

@@ -7,7 +7,10 @@ import { CouponService, Coupon } from '../../services/coupon.service';
 import { TicketService } from '../../services/ticket.service';
 import { EventService } from '../../services/event.service';
 import { ToastService } from '../../services/toast.service';
+import { ProductService } from '../../services/product.service';
+import { ExtraService } from '../../services/extra.service';
 import { Evento, TicketType } from '../../interfaces/event';
+import { Product, EventProduct } from '../../interfaces/product';
 
 @Component({
     selector: 'app-event-config',
@@ -22,13 +25,26 @@ export class EventConfigComponent implements OnInit {
     private ticketService = inject(TicketService);
     private eventService = inject(EventService);
     private toastService = inject(ToastService);
+    private productService = inject(ProductService);
+    private extraService = inject(ExtraService);
 
     eventId!: number;
     event: Evento | null = null;
     isLoading = true;
 
     // Active tab
-    activeTab: 'coupons' | 'invitations' = 'coupons';
+    activeTab: 'coupons' | 'invitations' | 'extras' = 'coupons';
+
+    // Extras
+    catalog: Product[] = [];
+    eventExtras: EventProduct[] = [];
+    loadingExtras = false;
+    showExtraForm = false;
+    selectedProductId: number | null = null;
+    newExtraPrice: number = 0;
+    newExtraHasStock = false;
+    newExtraStock = 0;
+    newExtraMaxPerOrder = 10;
 
     // Coupons
     coupons: Coupon[] = [];
@@ -58,6 +74,8 @@ export class EventConfigComponent implements OnInit {
         this.eventId = Number(idParam);
         this.loadEvent();
         this.loadCoupons();
+        this.loadCatalog();
+        this.loadEventExtras();
     }
 
     loadEvent(): void {
@@ -197,6 +215,89 @@ export class EventConfigComponent implements OnInit {
                 this.toastService.error(err.error?.message || 'Error al enviar invitaciones');
                 this.sendingInvites = false;
             }
+        });
+    }
+
+    // ========== EXTRAS ==========
+
+    loadCatalog(): void {
+        this.productService.getMyCatalog().subscribe({
+            next: (products) => { this.catalog = products; },
+            error: () => { /* ignore */ }
+        });
+    }
+
+    loadEventExtras(): void {
+        this.loadingExtras = true;
+        this.extraService.getEventExtras(this.eventId).subscribe({
+            next: (extras) => {
+                this.eventExtras = extras;
+                this.loadingExtras = false;
+            },
+            error: () => {
+                this.loadingExtras = false;
+            }
+        });
+    }
+
+    openExtraForm(): void {
+        this.showExtraForm = true;
+        this.selectedProductId = null;
+        this.newExtraPrice = 0;
+        this.newExtraHasStock = false;
+        this.newExtraStock = 0;
+        this.newExtraMaxPerOrder = 10;
+    }
+
+    addExtra(): void {
+        if (!this.selectedProductId) {
+            this.toastService.warning('Selecciona un producto del catálogo');
+            return;
+        }
+        if (this.newExtraPrice == null || this.newExtraPrice < 0) {
+            this.toastService.warning('Ingresa un precio válido');
+            return;
+        }
+
+        const product = this.catalog.find(p => p.id === this.selectedProductId);
+        if (!product) return;
+
+        this.extraService.addExtraToEvent(this.eventId, {
+            productId: this.selectedProductId,
+            eventPrice: this.newExtraPrice,
+            hasStock: this.newExtraHasStock,
+            stock: this.newExtraHasStock ? this.newExtraStock : undefined,
+            maxPerOrder: this.newExtraMaxPerOrder
+        }).subscribe({
+            next: () => {
+                this.toastService.success(`"${product.name}" agregado al evento`);
+                this.showExtraForm = false;
+                this.loadEventExtras();
+            },
+            error: (err) => {
+                this.toastService.error(err.error?.message || 'Error al agregar extra');
+            }
+        });
+    }
+
+    toggleExtra(extra: EventProduct): void {
+        this.extraService.updateEventExtra(extra.id, { isActive: !extra.isActive }).subscribe({
+            next: () => {
+                this.toastService.success(extra.isActive ? 'Extra desactivado' : 'Extra activado');
+                this.loadEventExtras();
+            },
+            error: () => this.toastService.error('Error al actualizar extra')
+        });
+    }
+
+    removeExtra(extra: EventProduct): void {
+        if (!confirm(`¿Eliminar "${extra.product.name}" de este evento?`)) return;
+        this.extraService.removeExtraFromEvent(extra.id).subscribe({
+            next: () => {
+                this.toastService.success('Extra eliminado del evento');
+                this.loadEventExtras();
+            },
+            error: () => this.toastService.error('Error al eliminar extra')
         });
     }
 

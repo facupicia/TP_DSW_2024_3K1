@@ -41,6 +41,11 @@
           : 'flex-1 py-3 px-4 rounded-xl text-gray-600 font-medium text-sm hover:bg-gray-100 transition-all'">
         ✉️ Invitaciones
       </button>
+            <button (click)="activeTab = 'extras'" [class]="activeTab === 'extras' 
+          ? 'flex-1 py-3 px-4 rounded-xl bg-black text-white font-bold text-sm transition-all'
+          : 'flex-1 py-3 px-4 rounded-xl text-gray-600 font-medium text-sm hover:bg-gray-100 transition-all'">
+        🛒 Extras
+      </button>
     </div>
 
     <!-- Loading -->
@@ -268,6 +273,102 @@
                           </div>
                         </div>
                       }
+
+                  <!-- EXTRAS TAB -->
+                  @if (!isLoading && activeTab === 'extras') {
+                    <div class="space-y-6 animate-fade-in-up">
+                      <div class="flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-gray-900">Extras del Evento</h2>
+                        <button (click)="openExtraForm()" class="px-4 py-2 bg-black text-white rounded-full text-sm font-bold hover:bg-gray-800 transition-all flex items-center gap-2">
+                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Agregar Extra
+                        </button>
+                      </div>
+
+                      @if (showExtraForm) {
+                        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm animate-fade-in-up">
+                          <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">Nuevo Extra</h3>
+                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Producto del catálogo</label>
+                              <select [(ngModel)]="selectedProductId" class="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/10 outline-none">
+                                <option [ngValue]="null">Seleccionar...</option>
+                                @for (p of catalog; track p) {
+                                  <option [ngValue]="p.id">{{ p.name }} - {{ p.basePrice | currency:'ARS':'symbol':'1.0-0' }}</option>
+                                }
+                              </select>
+                            </div>
+                            <div>
+                              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Precio en este evento</label>
+                              <input type="number" [(ngModel)]="newExtraPrice" min="0" class="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/10 outline-none">
+                            </div>
+                            <div>
+                              <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Máximo por orden</label>
+                              <input type="number" [(ngModel)]="newExtraMaxPerOrder" min="1" max="10" class="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/10 outline-none">
+                            </div>
+                            <div class="flex items-center gap-4">
+                              <label class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                                <input type="checkbox" [(ngModel)]="newExtraHasStock" class="rounded">
+                                Usar stock
+                              </label>
+                              @if (newExtraHasStock) {
+                                <input type="number" [(ngModel)]="newExtraStock" min="0" placeholder="Stock" class="w-24 bg-gray-50 border-none rounded-xl py-2 px-3 text-gray-900 font-medium focus:ring-2 focus:ring-black/10 outline-none">
+                              }
+                            </div>
+                          </div>
+                          <div class="flex gap-2 justify-end">
+                            <button (click)="showExtraForm = false" class="px-4 py-2 text-gray-600 font-medium hover:text-gray-900 transition-colors">Cancelar</button>
+                            <button (click)="addExtra()" class="px-6 py-2 bg-blue-600 text-white rounded-full font-bold hover:bg-blue-700 transition-all">Agregar</button>
+                          </div>
+                        </div>
+                      }
+
+                      @if (loadingExtras) {
+                        <div class="text-center py-10 text-gray-400">Cargando extras...</div>
+                      }
+                      @if (!loadingExtras && eventExtras.length === 0) {
+                        <div class="text-center py-16 bg-white rounded-2xl border border-gray-100">
+                          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-2xl">🛒</span>
+                          </div>
+                          <p class="text-gray-500">No hay extras configurados</p>
+                          <p class="text-sm text-gray-400">Agregá bebidas, combos, estacionamiento y más</p>
+                        </div>
+                      }
+                      @if (!loadingExtras && eventExtras.length > 0) {
+                        <div class="space-y-3">
+                          @for (extra of eventExtras; track extra) {
+                            <div class="bg-white rounded-2xl p-4 border border-gray-100 flex items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                              <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold" [class]="extra.isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'">
+                                  {{ extra.product.name[0] }}
+                                </div>
+                                <div>
+                                  <p class="font-bold text-gray-900">{{ extra.product.name }}</p>
+                                  <p class="text-sm text-gray-500">{{ extra.eventPrice | currency:'ARS':'symbol':'1.0-0' }} · {{ extra.hasStock ? (extra.stock - extra.soldCount) + ' disponibles' : 'Sin límite de stock' }} · Máx. {{ extra.maxPerOrder }} por orden</p>
+                                </div>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <button (click)="toggleExtra(extra)" [title]="extra.isActive ? 'Desactivar' : 'Activar'" class="w-10 h-10 rounded-full flex items-center justify-center transition-colors" [class]="extra.isActive ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'">
+                                  @if (extra.isActive) {
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                  }
+                                  @if (!extra.isActive) {
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                                  }
+                                </button>
+                                <button (click)="removeExtra(extra)" title="Eliminar" class="w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors">
+                                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
 
                     </div>
                   </main>

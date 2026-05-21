@@ -41,9 +41,12 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private eventId: string | null = null;
   evento: any;
   ticketTypes: TicketType[] = [];
+  eventProducts: any[] = [];
   cartItems: Array<{ ticketType: TicketType; quantity: number }> = [];
+  extraCartItems: Array<{ eventProduct: any; quantity: number }> = [];
 
   total: number = 0;
+  extraTotal: number = 0;
   loading = false;
   showSuccessMessage = false;
   showErrorMessage = false;
@@ -114,18 +117,22 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
       this.isAuthenticated = !!user;
-      this.loadEvent(parsedCart.items);
+      this.loadEvent(parsedCart.items, parsedCart.extraItems || []);
     });
 
     this.startTimer();
   }
 
-  private loadEvent(cartItemInputs: Array<{ ticketTypeId: number; quantity: number }>): void {
+  private loadEvent(
+    cartItemInputs: Array<{ ticketTypeId: number; quantity: number }>,
+    extraItemInputs: Array<{ eventProductId: number; quantity: number }> = []
+  ): void {
     if (!this.eventId) return;
 
     this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
       this.evento = evento;
       this.ticketTypes = evento.ticketTypes || [];
+      this.eventProducts = evento.eventProducts || [];
       this.serviceFeePercent = Number(evento.checkoutPricing?.serviceFeePercent ?? 15);
       this.minimumServiceFee = Number(evento.checkoutPricing?.minimumServiceFee ?? 0);
       this.organizerPlanName = evento.checkoutPricing?.planName || this.organizerPlanName;
@@ -137,6 +144,13 @@ export class CheckoutComponent implements OnInit, OnDestroy {
           return tt ? { ticketType: tt, quantity: ci.quantity } : null;
         })
         .filter((x): x is { ticketType: TicketType; quantity: number } => !!x);
+
+      this.extraCartItems = extraItemInputs
+        .map(ei => {
+          const ep = this.eventProducts.find((e: any) => e.id === ei.eventProductId);
+          return ep ? { eventProduct: ep, quantity: ei.quantity } : null;
+        })
+        .filter((x): x is { eventProduct: any; quantity: number } => !!x);
 
       if (this.cartItems.length === 0) {
         this.router.navigate([`/events/${this.eventId}`]);
@@ -250,18 +264,21 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
   calculateTotal() {
     this.baseAmount = this.cartItems.reduce((sum, ci) => sum + (ci.ticketType.price * ci.quantity), 0);
-    this.total = this.baseAmount;
+    this.extraTotal = this.extraCartItems.reduce((sum, ei) => sum + (ei.eventProduct.eventPrice * ei.quantity), 0);
+    this.total = this.baseAmount + this.extraTotal;
 
+    const ticketBaseForDiscount = this.baseAmount;
     if (this.appliedCoupon) {
-      this.discountAmount = Math.round((this.total * this.appliedCoupon.discountPercent) / 100);
-      this.finalTotal = this.total - this.discountAmount;
+      this.discountAmount = Math.round((ticketBaseForDiscount * this.appliedCoupon.discountPercent) / 100);
+      this.finalTotal = ticketBaseForDiscount - this.discountAmount + this.extraTotal;
     } else {
       this.discountAmount = 0;
       this.finalTotal = this.total;
     }
 
-    if (this.finalTotal > 0 && this.serviceFeePercent > 0) {
-      const percentFee = Math.ceil((this.finalTotal * this.serviceFeePercent) / 100);
+    const ticketNet = ticketBaseForDiscount - this.discountAmount;
+    if (ticketNet > 0 && this.serviceFeePercent > 0) {
+      const percentFee = Math.ceil((ticketNet * this.serviceFeePercent) / 100);
       this.serviceFeeAmount = Math.max(percentFee, Math.ceil(this.minimumServiceFee || 0));
     } else {
       this.serviceFeeAmount = 0;
@@ -344,9 +361,14 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         ticketTypeId: ci.ticketType.id!,
         quantity: ci.quantity
       }));
+      const extraItems = this.extraCartItems.map(ei => ({
+        eventProductId: ei.eventProduct.id!,
+        quantity: ei.quantity
+      }));
 
       this.ticketService.comprarTicket({
         items,
+        extraItems: extraItems.length > 0 ? extraItems : undefined,
         promoterCode: this.promoterCode || undefined,
         couponId: this.appliedCoupon?.couponId,
         couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined,
