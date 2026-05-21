@@ -24,7 +24,7 @@ const getHighestRoleLevel = (roles: string[]): number => {
 };
 
 /**
- * Check if user has sufficient role level based on hierarchy
+ * Check if user has at least one of the required roles.
  * Uses roles embedded in JWT (req.user.roles) to avoid DB round-trip.
  */
 export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: CustomRequest, res: Response, next: NextFunction) => {
@@ -33,7 +33,6 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
             return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
         }
 
-        // Roles are already verified and attached by authToken middleware
         let userRoles: string[] = req.user.roles || ['user'];
         if (typeof userRoles === 'string') {
             userRoles = (userRoles as any).split(',');
@@ -43,14 +42,9 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
         }
 
         const requiredRolesArray = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
+        const hasRole = requiredRolesArray.some(role => userRoles.includes(role));
 
-        const userHighestLevel = getHighestRoleLevel(userRoles);
-        const requiredLevels = requiredRolesArray.map(role => ROLE_HIERARCHY[role] || 0);
-        // Use Math.max so that passing multiple required roles enforces the *strongest* one.
-        // This prevents accidental privilege reduction (e.g. ['admin','user'] -> user).
-        const minRequiredLevel = Math.max(...requiredLevels);
-
-        if (userHighestLevel >= minRequiredLevel) {
+        if (hasRole) {
             (req as any).userRoles = userRoles;
             return next();
         }
