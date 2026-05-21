@@ -14,6 +14,7 @@ export const routes: Routes = [
     { path: "terms", loadComponent: () => import('./pages/terms/terms.component').then(m => m.TermsComponent), title: 'Términos y Condiciones' },
     { path: "support", loadComponent: () => import('./pages/support/support.component').then(m => m.SupportComponent), title: 'Soporte' },
     { path: "subscription", loadComponent: () => import('./components/subscription-banner/subscription-landing.component').then(m => m.SubscriptionLandingComponent), title: 'Suscripción' },
+    { path: "productores", loadComponent: () => import('./pages/producers-landing/producers-landing.component').then(m => m.ProducersLandingComponent), title: 'Para Productores' },
     { path: "privacidad", redirectTo: "privacy", pathMatch: "full" },
     { path: "terminos", redirectTo: "terms", pathMatch: "full" },
     { path: "soporte", redirectTo: "support", pathMatch: "full" },
