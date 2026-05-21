@@ -1,9 +1,9 @@
 import AppDataSource from "../db";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
+import { Product } from "../product/product.entity";
 import { SubscriptionPlan } from "./subscription_plan.entity";
 import { UserSubscription, SubscriptionStatus } from "./user_subscription.entity";
-import { countProductsInCatalog } from "../product/product.service";
 import { MoreThanOrEqual, LessThanOrEqual, Between } from "typeorm";
 
 /**
@@ -213,7 +213,7 @@ export const getSubscriptionLimits = async (userId: number): Promise<{
     const subscription = await getActiveSubscription(userId);
     const plan = subscription.plan;
     const eventsThisMonth = await countEventsThisMonth(userId);
-    const productsInCatalog = await countProductsInCatalog(userId);
+    const productsInCatalog = await Product.count({ where: { organizerId: userId } });
 
     return {
         plan: {
