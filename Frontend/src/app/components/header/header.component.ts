@@ -1,5 +1,5 @@
-import { CommonModule } from '@angular/common';
-import { Component, HostListener, inject, OnDestroy, OnInit, ChangeDetectorRef, NgZone, Input } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { Component, HostListener, inject, OnDestroy, OnInit, ChangeDetectorRef, NgZone, Input, PLATFORM_ID } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
@@ -20,6 +20,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private accesService = inject(AuthService);
   private cd = inject(ChangeDetectorRef);
   private ngZone = inject(NgZone);
+  private platformId = inject(PLATFORM_ID);
   private subscriptionService = inject(SubscriptionService);
   private promoterService = inject(PromoterService);
   private eventService = inject(EventService);
@@ -53,26 +54,31 @@ export class HeaderComponent implements OnInit, OnDestroy {
       this.manageScrollLock();
     });
     this.subscriptions.push(routerSub);
-    this.loadCategories();
 
-    // Cargar suscripción y verificar eventos UNA SOLA VEZ cuando hay usuario
-    const userSub = this.user$.subscribe(user => {
-      if (user) {
-        this.loadSubscription();
-        // Solo verificar eventos si es organizador y aún no verificamos
-        const userRoles = user.roles || [user.rol] || ['user'];
-        if (hasRoleLevel(userRoles, 'organizer') && !this.hasEventsChecked) {
-          this.hasEventsChecked = true;
-          this.checkHasEvents();
+    // Estas operaciones dependen del browser (localStorage, backend disponible)
+    // y deben saltarse durante SSR/prerender para evitar timeouts en el build
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadCategories();
+
+      // Cargar suscripción y verificar eventos UNA SOLA VEZ cuando hay usuario
+      const userSub = this.user$.subscribe(user => {
+        if (user) {
+          this.loadSubscription();
+          // Solo verificar eventos si es organizador y aún no verificamos
+          const userRoles = user.roles || [user.rol] || ['user'];
+          if (hasRoleLevel(userRoles, 'organizer') && !this.hasEventsChecked) {
+            this.hasEventsChecked = true;
+            this.checkHasEvents();
+          }
+        } else {
+          this.subscription = null;
+          this.isPro = false;
+          this.hasEvents = false;
+          this.hasEventsChecked = false; // Reset para cuando vuelva a loguear
         }
-      } else {
-        this.subscription = null;
-        this.isPro = false;
-        this.hasEvents = false;
-        this.hasEventsChecked = false; // Reset para cuando vuelva a loguear
-      }
-    });
-    this.subscriptions.push(userSub);
+      });
+      this.subscriptions.push(userSub);
+    }
   }
 
   // --- DETECCIÓN DE SCROLL (Efecto Apple) ---
