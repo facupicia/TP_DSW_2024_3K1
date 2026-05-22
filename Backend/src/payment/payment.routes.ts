@@ -82,10 +82,24 @@ router.get("/status", statusRateLimiter, getPaymentStatus);
  * NOTA: No requiere auth token - los webhooks vienen directamente de MP.
  */
 
-router.post("/webhook", createValidateMPWebhookSignature('payment'), paymentWebhook);
+/**
+ * Intercepta webhooks de merchant_order antes de la validación de firma.
+ * MercadoPago envía merchant_order webhooks que no procesamos; además,
+ * en algunos casos su firma difiere del formato estándar de payment,
+ * generando 401 innecesarios y reintentos de MP.
+ */
+function skipMerchantOrderWebhook(req: any, res: any, next: any) {
+    const topic = req.query?.topic || req.query?.type || req.body?.type || req.body?.topic;
+    if (topic === 'merchant_order' || req.body?.type === 'merchant_order') {
+        return res.status(200).json({ received: true, ignored: true });
+    }
+    next();
+}
+
+router.post("/webhook", skipMerchantOrderWebhook, createValidateMPWebhookSignature('payment'), paymentWebhook);
 
 // GET webhook - para notificaciones GET de MP  
-router.get("/webhook", createValidateMPWebhookSignature('payment'), paymentWebhook);
+router.get("/webhook", skipMerchantOrderWebhook, createValidateMPWebhookSignature('payment'), paymentWebhook);
 
 /* ==================== MP OAUTH ROUTES ==================== */
 

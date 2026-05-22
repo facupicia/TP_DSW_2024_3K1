@@ -1,73 +1,262 @@
-<app-header></app-header>
+<main class="min-h-screen bg-gray-50/50 relative overflow-hidden flex flex-col">
 
-<div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Mi Catálogo de Productos</h1>
-        <button (click)="openCreate()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
-            + Nuevo Producto
-        </button>
+  <div class="relative z-50">
+    <app-header></app-header>
+  </div>
+
+  <div class="xmb-light-container">
+    <div class="smoke-wave wave-blue"></div>
+    <div class="smoke-wave wave-purple"></div>
+    <div class="smoke-wave wave-cyan"></div>
+  </div>
+
+  <div class="flex-1 pt-32 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative z-10 w-full pb-20">
+
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 animate-fade-in-up">
+      <a [routerLink]="['/profile']"
+        class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </a>
+      <div>
+        <h1 class="text-4xl font-bold text-gray-900 tracking-tight mb-2">Mi Catálogo</h1>
+        <p class="text-gray-500 text-lg">Gestiona los productos que ofreces en tus eventos.</p>
+      </div>
+
+      <button (click)="openCreate()"
+        class="group flex items-center gap-2 bg-black text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-gray-800 transition-all hover:scale-105 active:scale-95">
+        <svg class="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Nuevo Producto
+      </button>
     </div>
 
-    <div *ngIf="loading" class="text-center py-12 text-gray-500">Cargando...</div>
+    <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-2xl p-4 mb-8 flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm animate-fade-in-up"
+      style="animation-delay: 0.1s;">
 
-    <div *ngIf="!loading && products.length === 0" class="text-center py-12 text-gray-500">
-        Tu catálogo está vacío. Agregá productos para ofrecerlos en tus eventos.
+      <div class="relative w-full md:w-96 group">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none"
+            viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input type="text" [(ngModel)]="searchTerm" (input)="filterProducts()"
+          placeholder="Buscar productos..."
+          class="block w-full pl-10 pr-3 py-2 bg-gray-50 border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+      </div>
+
+      <div class="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+        @for (cat of categories; track cat.value) {
+          <button (click)="setCategory(cat.value)"
+            class="px-4 py-2 rounded-xl text-sm font-bold transition-colors whitespace-nowrap flex items-center gap-1.5"
+            [ngClass]="activeCategory === cat.value
+              ? 'bg-black text-white shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'">
+            {{ cat.label }}
+          </button>
+        }
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div *ngFor="let product of products" class="bg-white rounded-xl shadow border p-4 flex flex-col">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
-                    {{ product.name[0] }}
-                </div>
-                <div>
-                    <h3 class="font-semibold text-gray-900">{{ product.name }}</h3>
-                    <span class="text-xs text-gray-500">{{ categoryLabel(product.category) }}</span>
-                </div>
+    @if (loading) {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        @for (_ of [1,2,3,4,5,6]; track _) {
+          <div class="bg-white rounded-[24px] overflow-hidden border border-gray-100 shadow-sm animate-pulse">
+            <div class="h-48 bg-gray-200"></div>
+            <div class="p-6 space-y-3">
+              <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div class="h-3 bg-gray-100 rounded w-full"></div>
+              <div class="h-3 bg-gray-100 rounded w-1/2"></div>
             </div>
-            <p class="text-sm text-gray-600 mb-2 flex-1">{{ product.description || 'Sin descripción' }}</p>
-            <div class="flex items-center justify-between mt-2">
-                <span class="font-bold text-gray-900">${{ product.basePrice | number:'1.0-0' }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (!loading && filteredProducts.length > 0) {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up" style="animation-delay: 0.2s;">
+        @for (product of filteredProducts; track product.id) {
+          <div class="product-card group bg-white rounded-[24px] overflow-hidden border border-gray-100 shadow-sm relative flex flex-col h-full">
+
+            @if (product.imageUrl) {
+              <div class="h-48 relative overflow-hidden">
+                <img appEventImageFallback [src]="product.imageUrl" [alt]="product.name"
+                  class="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                <span class="absolute top-4 right-4 px-3 py-1 {{ getCategoryColor(product.category) }} backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-full border border-white/10">
+                  {{ categoryLabel(product.category) }}
+                </span>
+              </div>
+            }
+
+            @if (!product.imageUrl) {
+              <div class="h-32 relative flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                <span class="text-5xl font-black text-gray-200 select-none">{{ product.name[0].toUpperCase() }}</span>
+                <span class="absolute top-4 right-4 px-3 py-1 {{ getCategoryColor(product.category) }} backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest rounded-full border border-white/10">
+                  {{ categoryLabel(product.category) }}
+                </span>
+              </div>
+            }
+
+            <div class="p-6 flex-1 flex flex-col">
+              <div class="flex-1">
+                <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tight line-clamp-2" [title]="product.name">
+                  {{ product.name }}
+                </h3>
+                <p class="text-sm text-gray-500 line-clamp-2">{{ product.description || 'Sin descripción' }}</p>
+              </div>
+
+              <div class="pt-4 border-t border-gray-100 flex items-center justify-between mt-4">
+                <span class="font-bold text-gray-900 text-lg">${{ product.basePrice | number:'1.0-0' }}</span>
                 <div class="flex gap-2">
-                    <button (click)="openEdit(product)" class="text-sm text-indigo-600 hover:underline">Editar</button>
-                    <button (click)="deleteProduct(product.id)" class="text-sm text-red-600 hover:underline">Eliminar</button>
+                  <button (click)="openEdit(product)"
+                    class="action-btn w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100"
+                    title="Editar">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  <button (click)="deleteProduct(product.id)"
+                    class="action-btn w-10 h-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
+                    title="Eliminar">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
+              </div>
             </div>
-        </div>
-    </div>
-</div>
+          </div>
+        }
+      </div>
+    }
 
-<!-- Modal form -->
-<div *ngIf="showForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-    <div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
-        <h2 class="text-lg font-bold mb-4">{{ editingProduct ? 'Editar' : 'Nuevo' }} Producto</h2>
-        <div class="space-y-3">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                <input [(ngModel)]="newProduct.name" class="w-full border rounded-lg px-3 py-2" placeholder="Ej. Combo Cerveza" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
-                <select [(ngModel)]="newProduct.category" class="w-full border rounded-lg px-3 py-2">
-                    <option *ngFor="let c of categories" [value]="c.value">{{ c.label }}</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Precio base</label>
-                <input type="number" [(ngModel)]="newProduct.basePrice" class="w-full border rounded-lg px-3 py-2" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
-                <textarea [(ngModel)]="newProduct.description" class="w-full border rounded-lg px-3 py-2" rows="2"></textarea>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">URL de imagen (opcional)</label>
-                <input [(ngModel)]="newProduct.imageUrl" class="w-full border rounded-lg px-3 py-2" />
-            </div>
+    @if (!loading && filteredProducts.length === 0) {
+      <div class="text-center py-20 animate-fade-in-up">
+        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          </svg>
         </div>
-        <div class="flex justify-end gap-2 mt-6">
-            <button (click)="closeForm()" class="px-4 py-2 rounded-lg border hover:bg-gray-50">Cancelar</button>
-            <button (click)="saveProduct()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Guardar</button>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">
+          {{ products.length === 0 ? 'Tu catálogo está vacío' : 'No se encontraron resultados' }}
+        </h3>
+        <p class="text-gray-500 mb-8 max-w-md mx-auto">
+          {{ products.length === 0 ? 'Agregá productos para ofrecerlos en tus eventos.' : 'Probá buscando con otro término o categoría.' }}
+        </p>
+        @if (products.length === 0) {
+          <button (click)="openCreate()"
+            class="px-8 py-3 bg-black text-white rounded-full font-bold shadow-lg hover:scale-105 transition-transform">
+            Crear mi primer producto
+          </button>
+        }
+      </div>
+    }
+
+  </div>
+</main>
+
+@if (showForm) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" (click)="closeForm()"></div>
+    <div class="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-scale-in">
+      <h2 class="text-2xl font-bold text-gray-900 mb-6">{{ editingProduct ? 'Editar' : 'Nuevo' }} Producto</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1.5">Nombre</label>
+          <input [(ngModel)]="newProduct.name"
+            class="block w-full px-4 py-2.5 bg-gray-50 border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
+            placeholder="Ej. Combo Cerveza" />
         </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1.5">Categoría</label>
+          <select [(ngModel)]="newProduct.category"
+            class="block w-full px-4 py-2.5 bg-gray-50 border-none rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all">
+            @for (c of categories.slice(1); track c.value) {
+              <option [value]="c.value">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1.5">Precio base</label>
+          <div class="relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+            <input type="number" [(ngModel)]="newProduct.basePrice"
+              class="block w-full pl-8 pr-4 py-2.5 bg-gray-50 border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all"
+              placeholder="0" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1.5">Descripción</label>
+          <textarea [(ngModel)]="newProduct.description" rows="3"
+            class="block w-full px-4 py-2.5 bg-gray-50 border-none rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all resize-none"
+            placeholder="Describí tu producto..."></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-bold text-gray-700 mb-1.5">Imagen del producto</label>
+          <input #productImageInput type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+            class="hidden" (change)="onImageSelected($event)">
+          <div class="flex flex-col gap-3">
+            @if (getImagePreview()) {
+              <div class="relative w-full h-40 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
+                <img [src]="getImagePreview()" alt="Preview"
+                  class="absolute inset-0 w-full h-full object-cover">
+                <button type="button" (click)="clearSelectedImage()"
+                  class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            }
+            <div class="flex gap-2">
+              <button type="button" (click)="productImageInput.click()"
+                class="flex-1 bg-gray-50 border border-gray-100 rounded-2xl py-3 px-5 text-gray-900 font-bold hover:bg-white focus:ring-2 focus:ring-black/5 transition-all shadow-inner text-sm">
+                Seleccionar imagen
+              </button>
+              @if (selectedImageFile) {
+                <button type="button" (click)="clearSelectedImage()"
+                  class="px-5 py-3 rounded-2xl bg-white border border-gray-200 text-gray-500 text-sm font-bold hover:bg-gray-50 transition-all">
+                  Quitar
+                </button>
+              }
+            </div>
+            <p class="text-[10px] text-gray-400 ml-2">
+              {{ selectedImageFile ? selectedImageFile.name : 'JPG, PNG, WebP o GIF hasta 8MB.' }}
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-8">
+        <button (click)="closeForm()"
+          class="px-6 py-2.5 rounded-full border-2 border-gray-200 font-bold text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
+          Cancelar
+        </button>
+        <button (click)="saveProduct()" [disabled]="saving"
+          class="px-6 py-2.5 rounded-full bg-black text-white font-bold shadow-lg hover:bg-gray-800 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+          @if (saving) {
+            <span class="flex items-center gap-2">
+              <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Guardando...
+            </span>
+          } @else {
+            {{ editingProduct ? 'Guardar Cambios' : 'Crear Producto' }}
+          }
+        </button>
+      </div>
     </div>
-</div>
+  </div>
+}

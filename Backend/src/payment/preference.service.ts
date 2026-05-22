@@ -641,8 +641,20 @@ export function buildPreferenceBody(
         ...extraItems.map(i => ({ type: 'extra' as const, referenceId: i.eventProductId, quantity: i.quantity }))
     ];
 
+    const mpItemsWithFee = [...mpItems, ...mpExtraItems];
+    if (pricing.serviceFeeAmount > 0) {
+        mpItemsWithFee.push({
+            id: 'service_fee',
+            title: 'Cargo de servicio',
+            description: `Cargo de servicio (${pricing.serviceFeePercent}%)`,
+            quantity: 1,
+            unit_price: pricing.serviceFeeAmount,
+            currency_id: 'ARS',
+        });
+    }
+
     const body: any = {
-        items: [...mpItems, ...mpExtraItems],
+        items: mpItemsWithFee,
         payer: {
             email: payer.email,
             name: payer.firstname,

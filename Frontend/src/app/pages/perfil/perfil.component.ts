@@ -238,6 +238,7 @@ export class PerfilComponent implements OnInit {
   irAlScanner() { this.router.navigate(['/scanner']); }
   gestionarPromotores() { this.router.navigate(['/promoter/management']); }
   gestionarScanners() { this.router.navigate(['/scanner/management']); }
+  miCatalogo() { this.router.navigate(['/my-catalog']); }
 
   logout() {
     this.profileService.logout();

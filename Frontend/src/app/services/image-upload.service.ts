@@ -3,7 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export type ImageUploadKind = 'event' | 'profile';
+export type ImageUploadKind = 'event' | 'profile' | 'product';
 
 export interface ImageUploadResponse {
   url: string;

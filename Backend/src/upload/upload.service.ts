@@ -1,11 +1,12 @@
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import { env } from "../config/env";
 
-export type ImageUploadKind = "event" | "profile";
+export type ImageUploadKind = "event" | "profile" | "product";
 
 const folders: Record<ImageUploadKind, string> = {
     event: "eventlife/events",
     profile: "eventlife/profiles",
+    product: "eventlife/products",
 };
 
 export interface UploadedImage {

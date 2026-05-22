@@ -72,7 +72,10 @@
                     <p class="text-sm text-slate-500 mt-1">
                       {{ group.eventDate | date:'mediumDate' }} ·
                       <span class="font-medium text-slate-700">
-                        {{ group.tickets.length }} entrada{{ group.tickets.length > 1 ? 's' : '' }}
+                        {{ group.tickets.length }} entrada{{ group.tickets.length !== 1 ? 's' : '' }}
+                        @if (group.extras.length > 0) {
+                          , {{ group.extras.length }} extra{{ group.extras.length !== 1 ? 's' : '' }}
+                        }
                       </span>
                     </p>
                   </div>
@@ -96,6 +99,35 @@
                       </app-ticket-card>
                     }
                   </div>
+
+                  @if (group.extras.length > 0) {
+                    <div class="mt-6 pt-4 border-t border-slate-200/60">
+                      <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">Extras</h3>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
+                        @for (extra of group.extras; track extra.id) {
+                          <div class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                              <span class="font-semibold text-slate-800">{{ extra.eventProduct?.product?.name ?? 'Extra' }}</span>
+                              <span class="text-xs px-2 py-1 rounded-full font-medium"
+                                [ngClass]="extra.status === 'used' ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-700'">
+                                {{ extra.status === 'used' ? 'Usado' : 'Activo' }}
+                              </span>
+                            </div>
+                            <div class="text-sm text-slate-500">
+                              Cantidad: <span class="font-medium text-slate-700">{{ extra.quantity }}</span>
+                            </div>
+                            <div class="flex justify-center">
+                              <img [src]="extra.qrCode" class="w-32 h-32 object-contain mix-blend-multiply" />
+                            </div>
+                            <div class="text-center">
+                              <p class="text-[10px] text-slate-400 uppercase font-mono tracking-widest">Código Único</p>
+                              <p class="font-mono font-bold text-sm">{{ extra.codigo_unico }}</p>
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
             </div>

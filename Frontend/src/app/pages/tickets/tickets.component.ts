@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, inject, OnInit, DestroyRef } from '@angular/core';
 import { TicketService } from '../../services/ticket.service';
+import { ExtraService } from '../../services/extra.service';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -9,6 +10,7 @@ import * as htmlToImage from 'html-to-image';
 import { ToastService } from '../../services/toast.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../services/auth.service';
+import { forkJoin } from 'rxjs';
 
 interface EventGroup {
   eventTitle: string;
@@ -17,6 +19,7 @@ interface EventGroup {
   eventImage: string;
   eventId: number;
   tickets: any[];
+  extras: any[];
 }
 
 @Component({
@@ -27,6 +30,7 @@ interface EventGroup {
 })
 export class TicketsComponent implements OnInit {
   private tickService = inject(TicketService);
+  private extraService = inject(ExtraService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private toastService = inject(ToastService);
@@ -131,9 +135,12 @@ export class TicketsComponent implements OnInit {
 
 
   cargarTickets() {
-    this.tickService.getTicketsByUser(Number(this.userID)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (data) => {
-        this.agruparTicketsPorEvento(data);
+    forkJoin({
+      tickets: this.tickService.getTicketsByUser(Number(this.userID)),
+      extras: this.extraService.getMyExtras()
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: ({ tickets, extras }) => {
+        this.agruparTicketsPorEvento(tickets, extras);
         this.loading = false;
       },
       error: () => {
@@ -143,8 +150,11 @@ export class TicketsComponent implements OnInit {
     });
   }
 
-  agruparTicketsPorEvento(tickets: any[]) {
-    if (!tickets || tickets.length === 0) {
+  agruparTicketsPorEvento(tickets: any[], extras: any[]) {
+    const hasTickets = tickets && tickets.length > 0;
+    const hasExtras = extras && extras.length > 0;
+
+    if (!hasTickets && !hasExtras) {
       this.hasTickets = false;
       return;
     }
@@ -152,20 +162,31 @@ export class TicketsComponent implements OnInit {
     this.hasTickets = true;
     const groups: { [key: number]: EventGroup } = {};
 
-    tickets.forEach(ticket => {
-      const evtId = ticket.eventId ?? ticket.event?.id ?? -1;
-
+    const ensureGroup = (evtId: number, evt: any) => {
       if (!groups[evtId]) {
         groups[evtId] = {
-          eventTitle: ticket.event?.title ?? ticket.titleEvent ?? 'Evento',
-          eventDate: ticket.event?.date ?? '',
-          ciudad: ticket.event?.ciudad ?? '',
-          eventImage: ticket.event?.image ?? '',
+          eventTitle: evt?.title ?? 'Evento',
+          eventDate: evt?.date ?? '',
+          ciudad: evt?.ciudad ?? '',
+          eventImage: evt?.image ?? '',
           eventId: evtId,
-          tickets: []
+          tickets: [],
+          extras: []
         };
       }
+    };
+
+    tickets.forEach(ticket => {
+      const evtId = ticket.eventId ?? ticket.event?.id ?? -1;
+      ensureGroup(evtId, ticket.event);
       groups[evtId].tickets.push(ticket);
+    });
+
+    extras.forEach(extra => {
+      const evt = extra.eventProduct?.event;
+      const evtId = evt?.id ?? -1;
+      ensureGroup(evtId, evt);
+      groups[evtId].extras.push(extra);
     });
 
     this.groupedTickets = Object.values(groups);

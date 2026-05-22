@@ -89,6 +89,8 @@ export const getMySubscription = async (req: CustomRequest, res: Response) => {
                     commissionPercent: Number(subscription.plan.commissionPercent),
                     serviceFeePercent: Number(subscription.plan.serviceFeePercent),
                     minimumServiceFee: Number(subscription.plan.minimumServiceFee),
+                    maxProductsInCatalog: subscription.plan.maxProductsInCatalog,
+                    canSellExtras: subscription.plan.canSellExtras,
                     features: subscription.plan.features,
                     monthlyPrice: Number(subscription.plan.monthlyPrice),
                     yearlyPrice: subscription.plan.yearlyPrice 

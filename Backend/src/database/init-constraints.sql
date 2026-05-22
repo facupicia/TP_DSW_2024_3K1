@@ -30,7 +30,7 @@ ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_total;
 ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_total CHECK ("totalAmount" > 0);
 
 ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_unit_price;
-ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_unit_price CHECK ("unitPrice" >= 0);
+ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_unit_price CHECK ("unitPrice" IS NULL OR "unitPrice" >= 0);
 
 ALTER TABLE "payment_log" DROP CONSTRAINT IF EXISTS chk_payment_base_amount;
 ALTER TABLE "payment_log" ADD CONSTRAINT chk_payment_base_amount CHECK ("baseAmount" >= 0);

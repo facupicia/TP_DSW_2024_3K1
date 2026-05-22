@@ -1,7 +1,9 @@
 import { EventProduct } from "./eventProduct.entity";
 import { Product } from "../product/product.entity";
+import { ExtraItem, ExtraItemStatus } from "./extraItem.entity";
 import AppDataSource from "../db";
 import { getActiveSubscription } from "../subscription/subscription.service";
+import { IsNull, Not } from "typeorm";
 
 /**
  * Get active event products for a public event detail page.
@@ -150,4 +152,19 @@ export const deactivateEventProduct = async (
 
     eventProduct.isActive = false;
     await eventProduct.save();
+};
+
+/**
+ * Get extra items (vouchers) purchased by a user.
+ */
+export const getUserExtraItems = async (userId: number): Promise<ExtraItem[]> => {
+    return ExtraItem.find({
+        where: {
+            userId,
+            status: Not(ExtraItemStatus.CANCELLED),
+            deletedAt: IsNull()
+        },
+        relations: ["eventProduct", "eventProduct.product", "eventProduct.event"],
+        order: { createdAt: "DESC" }
+    });
 };

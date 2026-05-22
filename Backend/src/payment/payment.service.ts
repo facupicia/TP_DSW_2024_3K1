@@ -152,9 +152,13 @@ export const processPaymentTransaction = async (paymentId: string) => {
                 mpPaymentId: String(paymentId),
                 externalReference: String(payment.external_reference || ''),
                 userId,
-                ticketTypeId,
-                organizerId, // Marketplace audit: who receives the payment
-                unitPrice: Number(ticketType.price),
+                organizerId,
+                items: [{
+                    type: 'ticket' as const,
+                    referenceId: ticketTypeId,
+                    quantity: amount,
+                    unitPrice: Number(ticketType.price)
+                }],
                 quantity: amount,
                 totalAmount,
                 baseAmount: totalAmount,

@@ -7,12 +7,16 @@ import {
     getEventExtras,
     addExtraToEvent,
     updateEventExtra,
-    removeExtraFromEvent
+    removeExtraFromEvent,
+    getMyExtras
 } from "./extra.controller";
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
 
 const router = Router();
+
+// GET /api/extra/my-extras - Listar extras comprados por el usuario (auth)
+router.get("/my-extras", checkAuthToken, getMyExtras);
 
 // GET /api/extra/event/:eventId - Listar extras activos de un evento (público)
 router.get("/event/:eventId", getEventExtras);

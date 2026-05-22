@@ -6,7 +6,8 @@ import {
     getActiveEventProducts,
     createEventProduct,
     updateEventProduct,
-    deactivateEventProduct
+    deactivateEventProduct,
+    getUserExtraItems
 } from "./extra.service";
 
 /* ======================================================
@@ -174,6 +175,28 @@ export const removeExtraFromEvent = async (req: CustomRequest, res: Response) =>
         return res.status(500).json({
             code: "INTERNAL_ERROR",
             message: "Error al eliminar extra del evento"
+        });
+    }
+};
+
+/* ======================================================
+   GET MY PURCHASED EXTRAS (VOUCHERS)
+====================================================== */
+export const getMyExtras = async (req: CustomRequest, res: Response) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+        }
+
+        const extras = await getUserExtraItems(userId);
+        return res.json(extras);
+
+    } catch (error) {
+        logger.error("Error fetching user extras:", error);
+        return res.status(500).json({
+            code: "INTERNAL_ERROR",
+            message: "Error al obtener extras del usuario"
         });
     }
 };

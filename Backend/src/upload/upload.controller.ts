@@ -2,7 +2,7 @@ import { Response } from "express";
 import { CustomRequest } from "../common/middleware/authToken";
 import { ImageUploadKind, uploadImageBuffer } from "./upload.service";
 
-const validKinds = new Set<ImageUploadKind>(["event", "profile"]);
+const validKinds = new Set<ImageUploadKind>(["event", "profile", "product"]);
 
 export async function uploadImage(req: CustomRequest, res: Response) {
     try {
@@ -11,7 +11,7 @@ export async function uploadImage(req: CustomRequest, res: Response) {
         if (!validKinds.has(kind)) {
             return res.status(400).json({
                 code: "INVALID_UPLOAD_KIND",
-                message: "kind must be event or profile",
+                message: "kind must be event, profile or product",
             });
         }
 

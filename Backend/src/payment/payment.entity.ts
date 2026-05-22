@@ -53,6 +53,9 @@ export class PaymentLog extends BaseEntity {
   @Column({ type: 'numeric', precision: 12, scale: 2 })
   totalAmount: number;
 
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true, default: 0 })
+  unitPrice?: number;
+
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   baseAmount: number;
 

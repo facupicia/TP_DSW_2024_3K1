@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { EventProduct } from '../interfaces/product';
+import { EventProduct, ExtraItem } from '../interfaces/product';
 
 @Injectable({
     providedIn: 'root'
@@ -26,5 +26,9 @@ export class ExtraService {
 
     removeExtraFromEvent(extraId: number): Observable<void> {
         return this.http.delete<void>(`${this.urlBase}/${extraId}`);
+    }
+
+    getMyExtras(): Observable<ExtraItem[]> {
+        return this.http.get<ExtraItem[]>(`${this.urlBase}/my-extras`);
     }
 }
