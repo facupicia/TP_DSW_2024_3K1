@@ -1,0 +1,30 @@
+<div class="w-full">
+  <!-- Header de sección -->
+  <div class="flex items-center justify-between mb-5 px-1">
+    <div>
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">{{ title }}</h2>
+      <p class="text-xs text-slate-500 mt-0.5 font-medium">{{ subtitle }}</p>
+    </div>
+    <span class="text-xs text-slate-500 font-mono px-2 py-1 rounded-lg bg-white/60 border border-slate-200 backdrop-blur-sm">
+      {{ items.length }}
+    </span>
+  </div>
+
+  <!-- Carrusel en móvil / Grid en desktop -->
+  <div class="wallet-scroll-container">
+    @for (item of items; track item.ticket.id || item.ticket.codigo_unico) {
+      <div class="wallet-card-wrapper">
+        <app-ticket-flip-card
+          [ticket]="item.ticket"
+          [group]="item.group"
+          [status]="status"
+          (onShare)="onShare(item)">
+        </app-ticket-flip-card>
+      </div>
+    } @empty {
+      <div class="w-full text-center py-12 text-slate-500">
+        No hay tickets en esta sección.
+      </div>
+    }
+  </div>
+</div>

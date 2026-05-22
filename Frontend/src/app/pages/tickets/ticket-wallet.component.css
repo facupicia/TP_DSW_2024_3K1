@@ -1,0 +1,50 @@
+/* ========== MOBILE: Carrusel horizontal tipo wallet ========== */
+.wallet-scroll-container {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  padding-top: 0.5rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.wallet-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.wallet-card-wrapper {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  width: 85vw;
+  height: 500px;
+}
+
+/* ========== DESKTOP: Grilla responsive ========== */
+@media (min-width: 640px) {
+  .wallet-scroll-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    overflow-x: visible;
+    gap: 1.5rem;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .wallet-card-wrapper {
+    width: 100%;
+    height: 500px;
+    scroll-snap-align: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .wallet-scroll-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

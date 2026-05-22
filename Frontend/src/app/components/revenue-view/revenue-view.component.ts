@@ -57,6 +57,41 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
         <app-trend-chart
           [config]="{ title: '📈 Evolución de Ingresos', showSelector: true, height: 350, showLegend: true }">
         </app-trend-chart>
+        <!-- Extras Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div class="revenue-card" style="border-left: 4px solid #F97316;">
+            <div class="card-icon">🛍️</div>
+            <div class="card-content">
+              <p class="card-label">Extras Vendidos</p>
+              <p class="card-value">{{ overview.marketplace.extrasSold }}</p>
+              <p class="card-subtitle">{{ overview.extras.voucherStatus.used }} canjeados</p>
+            </div>
+          </div>
+          <div class="revenue-card" style="border-left: 4px solid #FB923C;">
+            <div class="card-icon">💎</div>
+            <div class="card-content">
+              <p class="card-label">Revenue Extras</p>
+              <p class="card-value">{{ overview.marketplace.extrasRevenue | currency }}</p>
+              <p class="card-subtitle">{{ getExtrasOfGmvPercentage() }}% del GMV</p>
+            </div>
+          </div>
+          <div class="revenue-card" style="border-left: 4px solid #FBBF24;">
+            <div class="card-icon">📦</div>
+            <div class="card-content">
+              <p class="card-label">Items Totales</p>
+              <p class="card-value">{{ overview.marketplace.totalItemsSold }}</p>
+              <p class="card-subtitle">Tickets + Extras</p>
+            </div>
+          </div>
+          <div class="revenue-card" style="border-left: 4px solid #A3E635;">
+            <div class="card-icon">🎯</div>
+            <div class="card-content">
+              <p class="card-label">Canje Extras</p>
+              <p class="card-value">{{ getExtrasRedemptionRate() }}%</p>
+              <p class="card-subtitle">{{ overview.extras.voucherStatus.active }} activos</p>
+            </div>
+          </div>
+        </div>
         <!-- Breakdown Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Revenue Breakdown Donut -->
@@ -85,6 +120,11 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
                 <span class="legend-dot subscription"></span>
                 <span class="legend-label">Suscripciones</span>
                 <span class="legend-value">{{ overview.revenue.subscriptionRevenue | currency }}</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot extras"></span>
+                <span class="legend-label">Extras</span>
+                <span class="legend-value">{{ overview.marketplace.extrasRevenue | currency }}</span>
               </div>
             </div>
           </div>
@@ -223,6 +263,7 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
 
     .legend-dot.commission { background: #3B82F6; }
     .legend-dot.subscription { background: #8B5CF6; }
+    .legend-dot.extras { background: #F59E0B; }
 
     .legend-label {
       font-size: 0.875rem;
@@ -332,15 +373,16 @@ export class RevenueViewComponent {
     return {
       series: [
         this.overview.revenue.commissionRevenue,
-        this.overview.revenue.subscriptionRevenue
+        this.overview.revenue.subscriptionRevenue,
+        this.overview.marketplace.extrasRevenue
       ],
       chart: {
         type: 'donut',
         height: 250,
         fontFamily: 'inherit'
       },
-      labels: ['Comisiones', 'Suscripciones'],
-      colors: ['#3B82F6', '#8B5CF6'],
+      labels: ['Comisiones', 'Suscripciones', 'Extras'],
+      colors: ['#3B82F6', '#8B5CF6', '#F59E0B'],
       plotOptions: {
         pie: {
           donut: {
@@ -368,6 +410,18 @@ export class RevenueViewComponent {
       legend: { show: false },
       dataLabels: { enabled: false }
     };
+  }
+
+  getExtrasOfGmvPercentage(): string {
+    if (!this.overview || this.overview.revenue.gmv === 0) return '0';
+    return ((this.overview.marketplace.extrasRevenue / this.overview.revenue.gmv) * 100).toFixed(1);
+  }
+
+  getExtrasRedemptionRate(): number {
+    if (!this.overview) return 0;
+    const total = this.overview.extras.voucherStatus.active + this.overview.extras.voucherStatus.used + this.overview.extras.voucherStatus.cancelled;
+    if (total === 0) return 0;
+    return Math.round((this.overview.extras.voucherStatus.used / total) * 100);
   }
 
   getCommissionPercentage(): string {

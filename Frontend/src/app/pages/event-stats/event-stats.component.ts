@@ -44,6 +44,14 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   ticketTypeData: any[] = [];
   salesByDayData: any[] = [];
 
+  // Extras data
+  extrasData: { extrasSold: number, extrasRevenue: number, extrasUsedCount: number, extrasAttendanceRate: number } = {
+    extrasSold: 0, extrasRevenue: 0, extrasUsedCount: 0, extrasAttendanceRate: 0
+  };
+  extraTypeData: any[] = [];
+  extrasSalesByDayData: any[] = [];
+  extraStockVsSoldData: any[] = [];
+
   // --- CONFIGURACIÓN DE GRÁFICOS ---
 
   // 1. Curva de Ventas (Ritmo)
@@ -94,6 +102,30 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     grid: { show: false },
     colors: ['#0ea5e9'],
     title: { text: 'Top Ubicaciones', style: { fontSize: '14px', color: '#64748b', fontWeight: 600 } }
+  };
+
+  // 5. Extras by Category (Donut)
+  extraTypeOptions: any = {
+    series: [],
+    chart: { type: 'donut', height: 320, fontFamily: 'inherit' },
+    labels: [],
+    colors: ['#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981'],
+    plotOptions: { pie: { donut: { size: '70%', labels: { show: true, total: { show: true, label: 'Total', fontSize: '14px', fontWeight: 600 } } } } },
+    dataLabels: { enabled: false },
+    legend: { position: 'bottom' },
+    title: { text: 'Extras por Categoría', style: { fontSize: '14px', color: '#64748b', fontWeight: 600 } }
+  };
+
+  // 6. Stock vs Sold (Bar horizontal)
+  extraStockOptions: any = {
+    series: [],
+    chart: { type: 'bar', height: 250, toolbar: { show: false }, fontFamily: 'inherit' },
+    plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: '50%' } },
+    dataLabels: { enabled: true, textAnchor: 'start', style: { colors: ['#fff'] }, formatter: (val: number) => val },
+    xaxis: { categories: [], labels: { show: false }, axisBorder: { show: false } },
+    grid: { show: false },
+    colors: ['#f97316'],
+    title: { text: 'Stock vs Vendido', style: { fontSize: '14px', color: '#64748b', fontWeight: 600 } }
   };
 
   refresh$: Subscription | null = null;
@@ -179,26 +211,41 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     this.ticketTypeData = data.ticketTypeDistribution || [];
     this.salesByDayData = data.salesByDay || [];
 
+    // Extras data
+    this.extrasData = {
+      extrasSold: data.extrasSold || 0,
+      extrasRevenue: data.extrasRevenue || 0,
+      extrasUsedCount: data.extrasUsedCount || 0,
+      extrasAttendanceRate: data.extrasAttendanceRate || 0
+    };
+    this.extraTypeData = data.extraTypeDistribution || [];
+    this.extrasSalesByDayData = data.extrasSalesByDay || [];
+    this.extraStockVsSoldData = data.extraStockVsSold || [];
+
     this.updateCharts();
   }
 
   updateCharts() {
-    // 1. SALES CURVE - Usar datos REALES si existen, sino generar placeholder
-    if (this.salesByDayData && this.salesByDayData.length > 0) {
-      const reversed = [...this.salesByDayData].reverse(); // Ordenar cronológicamente
-      this.salesCurveOptions = {
-        ...this.salesCurveOptions,
-        series: [{ name: 'Ventas', data: reversed.map((s: any) => s.count) }],
-        xaxis: { ...this.salesCurveOptions.xaxis, categories: reversed.map((s: any) => s.date?.substring(5, 10) || 'N/A') }
-      };
-    } else {
-      // Placeholder si no hay datos
-      this.salesCurveOptions = {
-        ...this.salesCurveOptions,
-        series: [{ name: 'Ventas', data: [] }],
-        xaxis: { ...this.salesCurveOptions.xaxis, categories: [] }
-      };
-    }
+    // 1. SALES CURVE - Series dobles: tickets + extras
+    const reversed = [...this.salesByDayData].reverse();
+    const extrasReversed = [...this.extrasSalesByDayData].reverse();
+    const allDates = new Set<string>();
+    reversed.forEach((s: any) => allDates.add(s.date?.substring(5, 10) || 'N/A'));
+    extrasReversed.forEach((s: any) => allDates.add(s.date?.substring(5, 10) || 'N/A'));
+    const categories = Array.from(allDates).sort();
+
+    const ticketMap = new Map(reversed.map((s: any) => [s.date?.substring(5, 10) || 'N/A', s.count]));
+    const extrasMap = new Map(extrasReversed.map((s: any) => [s.date?.substring(5, 10) || 'N/A', s.count]));
+
+    this.salesCurveOptions = {
+      ...this.salesCurveOptions,
+      series: [
+        { name: 'Tickets', data: categories.map(d => ticketMap.get(d) || 0) },
+        { name: 'Extras', data: categories.map(d => extrasMap.get(d) || 0) }
+      ],
+      colors: ['#10b981', '#f59e0b'],
+      xaxis: { ...this.salesCurveOptions.xaxis, categories }
+    };
 
     // 2. TICKET TYPES - Usar datos REALES
     if (this.ticketTypeData && this.ticketTypeData.length > 0) {
@@ -234,5 +281,38 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       series: [{ name: 'Participantes', data: sortedCities.map(d => d.value) }],
       xaxis: { ...this.locationChartOptions.xaxis, categories: sortedCities.map(d => d.name) }
     };
+
+    // 5. EXTRAS BY CATEGORY
+    if (this.extraTypeData && this.extraTypeData.length > 0) {
+      this.extraTypeOptions = {
+        ...this.extraTypeOptions,
+        labels: this.extraTypeData.map((t: any) => t.category),
+        series: this.extraTypeData.map((t: any) => t.count)
+      };
+    } else {
+      this.extraTypeOptions = {
+        ...this.extraTypeOptions,
+        labels: ['Sin datos'],
+        series: [0]
+      };
+    }
+
+    // 6. STOCK VS SOLD
+    if (this.extraStockVsSoldData && this.extraStockVsSoldData.length > 0) {
+      const sorted = [...this.extraStockVsSoldData]
+        .sort((a: any, b: any) => (b.soldCount || 0) - (a.soldCount || 0))
+        .slice(0, 5);
+      this.extraStockOptions = {
+        ...this.extraStockOptions,
+        series: [{ name: 'Vendidos', data: sorted.map((s: any) => s.soldCount || 0) }],
+        xaxis: { ...this.extraStockOptions.xaxis, categories: sorted.map((s: any) => s.name) }
+      };
+    } else {
+      this.extraStockOptions = {
+        ...this.extraStockOptions,
+        series: [{ name: 'Vendidos', data: [] }],
+        xaxis: { ...this.extraStockOptions.xaxis, categories: [] }
+      };
+    }
   }
 }

@@ -1,18 +1,18 @@
-import { ChangeDetectorRef, Component, inject, OnInit, DestroyRef } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, DestroyRef, HostListener } from '@angular/core';
 import { TicketService } from '../../services/ticket.service';
 import { ExtraService } from '../../services/extra.service';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
 import { FormsModule } from '@angular/forms';
-import { TicketCardComponent } from './ticket-card.component';
-import * as htmlToImage from 'html-to-image';
 import { ToastService } from '../../services/toast.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../services/auth.service';
 import { forkJoin } from 'rxjs';
+import { TicketFlipCardComponent, TicketDisplayStatus } from './ticket-flip-card.component';
+import * as htmlToImage from 'html-to-image';
 
-interface EventGroup {
+export interface EventGroup {
   eventTitle: string;
   eventDate: string;
   ciudad: string;
@@ -23,10 +23,16 @@ interface EventGroup {
 }
 
 @Component({
-    selector: 'app-tickets',
-    imports: [CommonModule, HeaderComponent, FormsModule, TicketCardComponent, RouterLink],
-    templateUrl: './tickets.component.html',
-    styleUrl: './tickets.component.css'
+  selector: 'app-tickets',
+  imports: [
+    CommonModule,
+    HeaderComponent,
+    FormsModule,
+    RouterLink,
+    TicketFlipCardComponent
+  ],
+  templateUrl: './tickets.component.html',
+  styleUrl: './tickets.component.css'
 })
 export class TicketsComponent implements OnInit {
   private tickService = inject(TicketService);
@@ -36,6 +42,7 @@ export class TicketsComponent implements OnInit {
   private toastService = inject(ToastService);
   private destroyRef = inject(DestroyRef);
   private authService = inject(AuthService);
+  private cdr = inject(ChangeDetectorRef);
 
   private userID: string | null = null;
 
@@ -51,12 +58,8 @@ export class TicketsComponent implements OnInit {
   sharingEventLocation = '';
   sharingQrCode = '';
   sharingTicketCode = '';
-  sharingEventStatus = '';
 
-  private cdr = inject(ChangeDetectorRef);
-
-  // CAMBIO CLAVE: Usamos 'expanded' en lugar de 'collapsed'
-  // Al iniciar vacío (new Set()), todo estará cerrado por defecto.
+  // Acordeón: solo los eventos en este set están expandidos
   expanded: Set<number> = new Set();
 
   ngOnInit(): void {
@@ -81,8 +84,15 @@ export class TicketsComponent implements OnInit {
     }
   }
 
+  @HostListener('document:ticketShare', ['$event'])
+  onTicketShare(event: any) {
+    const { ticket, group } = event.detail;
+    if (ticket && group) {
+      this.compartirTicketNativo(ticket, group);
+    }
+  }
+
   async compartirTicketNativo(ticket: any, group: EventGroup) {
-    // 1. Llenar datos
     this.sharingEventTitle = group.eventTitle;
     this.sharingEventImage = group.eventImage || 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30';
     this.sharingEventDate = group.eventDate;
@@ -90,30 +100,24 @@ export class TicketsComponent implements OnInit {
     this.sharingQrCode = ticket.qrCode;
     this.sharingTicketCode = ticket.codigo_unico;
 
-    // 2. Forzar actualización del DOM
     this.cdr.detectChanges();
 
-    // Esperar un momento para que el DOM se actualice y las imágenes carguen
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     const element = document.getElementById('ticket-to-share');
     if (!element) return;
 
     try {
-      // 3. GENERAR IMAGEN (PNG)
-      // html-to-image maneja mejor las esperas de carga de imágenes internas
       const dataUrl = await htmlToImage.toPng(element, {
         backgroundColor: '#ffffff',
-        cacheBust: true, // Ayuda a que no cachee imágenes rotas
-        pixelRatio: 2,   // Alta calidad (Retina)
+        cacheBust: true,
+        pixelRatio: 2,
         skipAutoScale: true
       });
 
-      // 4. Convertir Base64 a Archivo para compartir
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `ticket-${ticket.codigo_unico}.png`, { type: 'image/png' });
 
-      // 5. Compartir
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
@@ -121,18 +125,15 @@ export class TicketsComponent implements OnInit {
           text: `Entrada para ${group.eventTitle}`
         });
       } else {
-        // Fallback
         const link = document.createElement('a');
         link.download = `ticket-${ticket.codigo_unico}.png`;
         link.href = dataUrl;
         link.click();
       }
-
     } catch (error) {
       this.toastService.error('No se pudo crear la imagen del ticket. Intenta de nuevo.');
     }
   }
-
 
   cargarTickets() {
     forkJoin({
@@ -144,7 +145,6 @@ export class TicketsComponent implements OnInit {
         this.loading = false;
       },
       error: () => {
-        // Error handled by interceptor
         this.loading = false;
       },
     });
@@ -167,7 +167,7 @@ export class TicketsComponent implements OnInit {
         groups[evtId] = {
           eventTitle: evt?.title ?? 'Evento',
           eventDate: evt?.date ?? '',
-          ciudad: evt?.ciudad ?? '',
+          ciudad: evt?.ciudad ?? evt?.city ?? '',
           eventImage: evt?.image ?? '',
           eventId: evtId,
           tickets: [],
@@ -190,7 +190,29 @@ export class TicketsComponent implements OnInit {
     });
 
     this.groupedTickets = Object.values(groups);
+
+    // Ordenar: eventos futuros primero, luego pasados
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    this.groupedTickets.sort((a, b) => {
+      const da = new Date(a.eventDate).getTime();
+      const db = new Date(b.eventDate).getTime();
+      const aIsFuture = da >= now.getTime();
+      const bIsFuture = db >= now.getTime();
+
+      if (aIsFuture && !bIsFuture) return -1;
+      if (!aIsFuture && bIsFuture) return 1;
+      return db - da; // Más recientes primero
+    });
+
     this.aplicarFiltroOrden();
+
+    // Expandir automáticamente el primer evento futuro si existe
+    const firstFuture = this.filteredGroups.find(g => new Date(g.eventDate).getTime() >= now.getTime());
+    if (firstFuture) {
+      this.expanded.add(firstFuture.eventId);
+    }
   }
 
   aplicarFiltroOrden() {
@@ -202,33 +224,34 @@ export class TicketsComponent implements OnInit {
         (g.ciudad || '').toLowerCase().includes(term)
       );
     }
-    // Ordenar por fecha más reciente primero
-    groups.sort((a, b) => {
-      const da = new Date(a.eventDate).getTime();
-      const db = new Date(b.eventDate).getTime();
-      return db - da;
-    });
     this.filteredGroups = groups;
   }
 
-  // LÓGICA INVERTIDA: Si está, lo saca (cierra). Si no, lo agrega (abre).
   toggleGroup(id: number) {
     if (this.expanded.has(id)) {
       this.expanded.delete(id);
     } else {
-      // Opcional: Si quieres modo "Acordeón estricto" (solo uno abierto a la vez), descomenta esto:
-      // this.expanded.clear(); 
       this.expanded.add(id);
     }
   }
 
-  // Helper para el HTML
   isExpanded(id: number): boolean {
     return this.expanded.has(id);
   }
 
+  getTicketStatus(ticket: any, eventDate: string): TicketDisplayStatus {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const evtDate = new Date(eventDate).getTime();
+
+    if (ticket.status === 'used') return 'used';
+    if (evtDate < now.getTime()) return 'past';
+    return 'active';
+  }
+
   trackGroup(_i: number, g: EventGroup) { return g.eventId; }
   trackTicket(_i: number, t: any) { return t.id || t.codigo_unico; }
+  trackExtra(_i: number, e: any) { return e.id; }
 
   irAEventos() {
     this.router.navigate(['/events']);

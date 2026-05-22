@@ -5,6 +5,8 @@ import { User } from "../user/user.entity";
 import { Role, getRoleNames } from "../user/role.entity";
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket, TicketStatus } from "../ticket/ticket.entity";
+import { ExtraItem, ExtraItemStatus } from "../extra/extraItem.entity";
+import { EventProduct } from "../extra/eventProduct.entity";
 import AppDataSource from "../db";
 import { canCreateEvent, canCreateTicketTypes, getActiveSubscription } from "../subscription/subscription.service";
 import { UserSubscription, SubscriptionStatus } from "../subscription/user_subscription.entity";
@@ -500,7 +502,7 @@ export async function getCreatorStats(userId: number, period: string) {
     const totalEvents = await Event.count({ where: { user_id: userId, active: true } });
 
     if (totalEvents === 0) {
-        return { totalRevenue: 0, totalTickets: 0, avgPrice: 0, totalEvents, revenueGrowth: 0, ticketsGrowth: 0, topEvents: [], recentActivity: [] };
+        return { totalRevenue: 0, totalTickets: 0, avgPrice: 0, totalEvents, revenueGrowth: 0, ticketsGrowth: 0, topEvents: [], recentActivity: [], totalExtrasRevenue: 0, totalExtrasSold: 0, avgExtraPrice: 0, extrasGrowth: 0 };
     }
 
     const currentStats = await AppDataSource.getRepository(Ticket)
@@ -534,6 +536,43 @@ export async function getCreatorStats(userId: number, period: string) {
     const currentTickets = parseInt(currentStats?.totalTickets || '0');
     const revenueGrowth = previousStats.totalRevenue > 0 ? ((currentRevenue - previousStats.totalRevenue) / previousStats.totalRevenue) * 100 : 0;
     const ticketsGrowth = previousStats.totalTickets > 0 ? ((currentTickets - previousStats.totalTickets) / previousStats.totalTickets) * 100 : 0;
+
+    // Extras metrics (current period)
+    const currentExtrasStats = await AppDataSource.getRepository(ExtraItem)
+        .createQueryBuilder('ei')
+        .innerJoin('ei.eventProduct', 'ep')
+        .innerJoin('ep.event', 'e')
+        .select(['COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "totalExtrasRevenue"', 'COALESCE(SUM(ei.quantity), 0) as "totalExtrasSold"', 'AVG(ei."purchasePrice") as "avgExtraPrice"'])
+        .where('e.user_id = :userId', { userId })
+        .andWhere('e.active = true')
+        .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+        .andWhere('ei."deletedAt" IS NULL')
+        .andWhere('ei."createdAt" >= :startDate', { startDate })
+        .getRawOne();
+
+    let previousExtrasStats = { totalExtrasRevenue: 0, totalExtrasSold: 0 };
+    if (period !== 'all') {
+        const prevExtras = await AppDataSource.getRepository(ExtraItem)
+            .createQueryBuilder('ei')
+            .innerJoin('ei.eventProduct', 'ep')
+            .innerJoin('ep.event', 'e')
+            .select(['COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "totalExtrasRevenue"', 'COALESCE(SUM(ei.quantity), 0) as "totalExtrasSold"'])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+            .andWhere('ei."deletedAt" IS NULL')
+            .andWhere('ei."createdAt" >= :previousStartDate', { previousStartDate })
+            .andWhere('ei."createdAt" < :previousEndDate', { previousEndDate })
+            .getRawOne();
+        previousExtrasStats = {
+            totalExtrasRevenue: parseFloat(prevExtras?.totalExtrasRevenue || '0'),
+            totalExtrasSold: parseInt(prevExtras?.totalExtrasSold || '0')
+        };
+    }
+
+    const currentExtrasRevenue = parseFloat(currentExtrasStats?.totalExtrasRevenue || '0');
+    const currentExtrasSold = parseInt(currentExtrasStats?.totalExtrasSold || '0');
+    const extrasGrowth = previousExtrasStats.totalExtrasSold > 0 ? ((currentExtrasSold - previousExtrasStats.totalExtrasSold) / previousExtrasStats.totalExtrasSold) * 100 : 0;
 
     const topEventsRaw = await AppDataSource.getRepository(Ticket)
         .createQueryBuilder('t')
@@ -571,7 +610,11 @@ export async function getCreatorStats(userId: number, period: string) {
         revenueGrowth: parseFloat(revenueGrowth.toFixed(1)),
         ticketsGrowth: parseFloat(ticketsGrowth.toFixed(1)),
         topEvents: topEvents.sort((a, b) => b.revenue - a.revenue),
-        recentActivity: recentActivity.map(r => ({ ticketId: r.ticketId, eventTitle: r.eventTitle || 'Unknown', ticketType: r.ticketType || 'General', price: parseFloat(r.price || '0'), soldAt: r.soldAt }))
+        recentActivity: recentActivity.map(r => ({ ticketId: r.ticketId, eventTitle: r.eventTitle || 'Unknown', ticketType: r.ticketType || 'General', price: parseFloat(r.price || '0'), soldAt: r.soldAt })),
+        totalExtrasRevenue: currentExtrasRevenue,
+        totalExtrasSold: currentExtrasSold,
+        avgExtraPrice: parseFloat(currentExtrasStats?.avgExtraPrice || '0'),
+        extrasGrowth: parseFloat(extrasGrowth.toFixed(1))
     };
 }
 
@@ -589,13 +632,42 @@ export async function getComparativeStats(userId: number) {
         .orderBy('e.date', 'DESC')
         .getRawMany();
 
-    return comparative.map(c => ({
-        eventId: parseInt(c.eventId),
-        title: c.title,
-        participants: parseInt(c.participants) || 0,
-        revenue: parseFloat(c.revenue) || 0,
-        attendanceRate: (parseInt(c.participants) || 0) > 0 ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0) : 0
-    }));
+    // Fetch extras per event in parallel
+    const eventIds = comparative.map(c => parseInt(c.eventId));
+    let extrasMap = new Map<number, { extrasSold: number; extrasRevenue: number; extrasUsedCount: number }>();
+    if (eventIds.length > 0) {
+        const extrasRaw = await AppDataSource.getRepository(ExtraItem)
+            .createQueryBuilder('ei')
+            .innerJoin('ei.eventProduct', 'ep')
+            .select(['ep."eventId" as "eventId"', 'COUNT(ei.id) as "extrasSold"', 'COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "extrasRevenue"', `SUM(CASE WHEN ei.status = 'used' THEN 1 ELSE 0 END) as "extrasUsedCount"`])
+            .where('ep."eventId" IN (:...eventIds)', { eventIds })
+            .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+            .andWhere('ei."deletedAt" IS NULL')
+            .groupBy('ep."eventId"')
+            .getRawMany();
+        extrasRaw.forEach((row: any) => {
+            extrasMap.set(parseInt(row.eventId), {
+                extrasSold: parseInt(row.extrasSold) || 0,
+                extrasRevenue: parseFloat(row.extrasRevenue) || 0,
+                extrasUsedCount: parseInt(row.extrasUsedCount) || 0
+            });
+        });
+    }
+
+    return comparative.map(c => {
+        const extras = extrasMap.get(parseInt(c.eventId)) || { extrasSold: 0, extrasRevenue: 0, extrasUsedCount: 0 };
+        return {
+            eventId: parseInt(c.eventId),
+            title: c.title,
+            participants: parseInt(c.participants) || 0,
+            revenue: parseFloat(c.revenue) || 0,
+            attendanceRate: (parseInt(c.participants) || 0) > 0 ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0) : 0,
+            extrasSold: extras.extrasSold,
+            extrasRevenue: extras.extrasRevenue,
+            extrasUsedCount: extras.extrasUsedCount,
+            extrasAttendanceRate: extras.extrasSold > 0 ? extras.extrasUsedCount / extras.extrasSold : 0
+        };
+    });
 }
 
 export async function getPlatformStats(period: string) {
@@ -639,13 +711,23 @@ export async function getPlatformStats(period: string) {
         .orderBy('date', 'ASC')
         .getRawMany();
 
+    const extrasStats = await AppDataSource.getRepository(ExtraItem)
+        .createQueryBuilder('ei')
+        .select(['COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "extrasRevenue"', 'COALESCE(SUM(ei.quantity), 0) as "extrasSold"'])
+        .where('ei."createdAt" >= :startDate', { startDate })
+        .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+        .andWhere('ei."deletedAt" IS NULL')
+        .getRawOne();
+
     return {
         overview: {
             totalEvents,
             upcomingEvents,
             totalTickets: parseInt(ticketStats?.totalTickets || '0'),
             totalRevenue: parseFloat(ticketStats?.totalRevenue || '0'),
-            avgTicketPrice: parseFloat(ticketStats?.avgPrice || '0')
+            avgTicketPrice: parseFloat(ticketStats?.avgPrice || '0'),
+            extrasSold: parseInt(extrasStats?.extrasSold || '0'),
+            extrasRevenue: parseFloat(extrasStats?.extrasRevenue || '0')
         },
         topCategories: topCategories.map(c => ({ category: c.category, count: parseInt(c.count) })),
         topCities: topCities.map(c => ({ city: c.city, count: parseInt(c.count) })),
@@ -714,6 +796,51 @@ export async function getEventStats(eventId: number) {
     interface AgeRow { ageGroup: string; count: string; }
     ageRows.forEach((row: AgeRow) => { ages[row.ageGroup] = parseInt(row.count) || 0; });
 
+    // Extras metrics for this event
+    const extrasStats = await AppDataSource.getRepository(ExtraItem)
+        .createQueryBuilder('ei')
+        .innerJoin('ei.eventProduct', 'ep')
+        .select(['COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "extrasRevenue"', 'COALESCE(SUM(ei.quantity), 0) as "extrasSold"', `SUM(CASE WHEN ei.status = 'used' THEN 1 ELSE 0 END) as "extrasUsedCount"`])
+        .where('ep."eventId" = :eventId', { eventId })
+        .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+        .andWhere('ei."deletedAt" IS NULL')
+        .getRawOne();
+
+    const extrasSold = parseInt(extrasStats?.extrasSold || '0');
+    const extrasRevenue = parseFloat(extrasStats?.extrasRevenue || '0');
+    const extrasUsedCount = parseInt(extrasStats?.extrasUsedCount || '0');
+
+    const extrasSalesByDay = await AppDataSource.getRepository(ExtraItem)
+        .createQueryBuilder('ei')
+        .innerJoin('ei.eventProduct', 'ep')
+        .select(['DATE(ei."createdAt") as date', 'COUNT(ei.id) as count'])
+        .where('ep."eventId" = :eventId', { eventId })
+        .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+        .andWhere('ei."deletedAt" IS NULL')
+        .groupBy('DATE(ei."createdAt")')
+        .orderBy('date', 'DESC')
+        .limit(7)
+        .getRawMany();
+
+    const extraTypeDistribution = await AppDataSource.getRepository(ExtraItem)
+        .createQueryBuilder('ei')
+        .innerJoin('ei.eventProduct', 'ep')
+        .innerJoin('ep.product', 'p')
+        .select(['p.category as category', 'COUNT(ei.id) as count', 'COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as revenue'])
+        .where('ep."eventId" = :eventId', { eventId })
+        .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+        .andWhere('ei."deletedAt" IS NULL')
+        .groupBy('p.category')
+        .getRawMany();
+
+    const extraStockVsSold = await AppDataSource.getRepository(EventProduct)
+        .createQueryBuilder('ep')
+        .innerJoin('ep.product', 'p')
+        .select(['p.name as name', 'p.category as category', 'ep."soldCount" as "soldCount"', 'ep.stock as stock', 'ep."hasStock" as "hasStock"'])
+        .where('ep."eventId" = :eventId', { eventId })
+        .andWhere('ep."isActive" = true')
+        .getRawMany();
+
     return {
         title: event.title,
         totalParticipants: totalTickets,
@@ -722,7 +849,14 @@ export async function getEventStats(eventId: number) {
         checkInCount: usedCount,
         ticketTypeDistribution,
         salesByDay: salesByDay.map((s: RawDayRow) => ({ date: s.date, count: parseInt(s.count) })),
-        demographics: { ages, ciudades: cityRows.map((row: RawCityRow) => ({ name: row.name, value: parseInt(row.value) || 0 })) }
+        demographics: { ages, ciudades: cityRows.map((row: RawCityRow) => ({ name: row.name, value: parseInt(row.value) || 0 })) },
+        extrasSold,
+        extrasRevenue,
+        extrasUsedCount,
+        extrasAttendanceRate: extrasSold > 0 ? extrasUsedCount / extrasSold : 0,
+        extrasSalesByDay: extrasSalesByDay.map((s: any) => ({ date: s.date, count: parseInt(s.count) })),
+        extraTypeDistribution: extraTypeDistribution.map((t: any) => ({ category: t.category, count: parseInt(t.count), revenue: parseFloat(t.revenue) })),
+        extraStockVsSold: extraStockVsSold.map((s: any) => ({ name: s.name, category: s.category, soldCount: parseInt(s.soldCount) || 0, stock: parseInt(s.stock) || 0, hasStock: s.hasStock }))
     };
 }
 
@@ -747,15 +881,43 @@ export async function getCreatorStatsData(userId: number, _period: string) {
         .orderBy('e.date', 'DESC')
         .getRawMany();
 
-    return statsRaw.map(c => ({
-        eventId: parseInt(c.eventId),
-        title: c.title,
-        date: c.date,
-        category: c.category || 'Sin categoría',
-        participants: parseInt(c.participants) || 0,
-        revenue: parseFloat(c.revenue) || 0,
-        attendanceRate: (parseInt(c.participants) || 0) > 0 ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0) : 0
-    }));
+    const eventIds = statsRaw.map(c => parseInt(c.eventId));
+    let extrasMap = new Map<number, { extrasSold: number; extrasRevenue: number; extrasUsedCount: number }>();
+    if (eventIds.length > 0) {
+        const extrasRaw = await AppDataSource.getRepository(ExtraItem)
+            .createQueryBuilder('ei')
+            .innerJoin('ei.eventProduct', 'ep')
+            .select(['ep."eventId" as "eventId"', 'COUNT(ei.id) as "extrasSold"', 'COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "extrasRevenue"', `SUM(CASE WHEN ei.status = 'used' THEN 1 ELSE 0 END) as "extrasUsedCount"`])
+            .where('ep."eventId" IN (:...eventIds)', { eventIds })
+            .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+            .andWhere('ei."deletedAt" IS NULL')
+            .groupBy('ep."eventId"')
+            .getRawMany();
+        extrasRaw.forEach((row: any) => {
+            extrasMap.set(parseInt(row.eventId), {
+                extrasSold: parseInt(row.extrasSold) || 0,
+                extrasRevenue: parseFloat(row.extrasRevenue) || 0,
+                extrasUsedCount: parseInt(row.extrasUsedCount) || 0
+            });
+        });
+    }
+
+    return statsRaw.map(c => {
+        const extras = extrasMap.get(parseInt(c.eventId)) || { extrasSold: 0, extrasRevenue: 0, extrasUsedCount: 0 };
+        return {
+            eventId: parseInt(c.eventId),
+            title: c.title,
+            date: c.date,
+            category: c.category || 'Sin categoría',
+            participants: parseInt(c.participants) || 0,
+            revenue: parseFloat(c.revenue) || 0,
+            attendanceRate: (parseInt(c.participants) || 0) > 0 ? (parseInt(c.usedCount) || 0) / (parseInt(c.participants) || 0) : 0,
+            extrasSold: extras.extrasSold,
+            extrasRevenue: extras.extrasRevenue,
+            extrasUsedCount: extras.extrasUsedCount,
+            extrasAttendanceRate: extras.extrasSold > 0 ? extras.extrasUsedCount / extras.extrasSold : 0
+        };
+    });
 }
 
 export async function getCheckoutPricing(userId: number) {
@@ -772,20 +934,35 @@ export async function getCheckoutPricing(userId: number) {
 }
 
 export async function getSSEInitialData(userId: number) {
-    const stats = await AppDataSource.getRepository(Ticket)
-        .createQueryBuilder('t')
-        .innerJoin('t.ticketType', 'tt')
-        .innerJoin('tt.event', 'e')
-        .select(['COUNT(t.id) as "totalTickets"', 'SUM(t.purchasePrice) as "totalRevenue"', 'MAX(t.createdAt) as "lastSaleAt"'])
-        .where('e.user_id = :userId', { userId })
-        .andWhere('e.active = true')
-        .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
-        .getRawOne();
+    const [stats, extrasStats] = await Promise.all([
+        AppDataSource.getRepository(Ticket)
+            .createQueryBuilder('t')
+            .innerJoin('t.ticketType', 'tt')
+            .innerJoin('tt.event', 'e')
+            .select(['COUNT(t.id) as "totalTickets"', 'SUM(t.purchasePrice) as "totalRevenue"', 'MAX(t.createdAt) as "lastSaleAt"'])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .andWhere('t.status != :cancelled', { cancelled: TicketStatus.CANCELLED })
+            .getRawOne(),
+        AppDataSource.getRepository(ExtraItem)
+            .createQueryBuilder('ei')
+            .innerJoin('ei.eventProduct', 'ep')
+            .innerJoin('ep.event', 'e')
+            .select(['COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as "extrasRevenue"', 'COALESCE(SUM(ei.quantity), 0) as "extrasSold"', 'MAX(ei."createdAt") as "lastExtraSaleAt"'])
+            .where('e.user_id = :userId', { userId })
+            .andWhere('e.active = true')
+            .andWhere('ei.status != :cancelled', { cancelled: ExtraItemStatus.CANCELLED })
+            .andWhere('ei."deletedAt" IS NULL')
+            .getRawOne()
+    ]);
 
     return {
         totalRevenue: parseFloat(stats?.totalRevenue || '0'),
         totalTickets: parseInt(stats?.totalTickets || '0'),
-        lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null
+        lastSaleAt: stats?.lastSaleAt ? new Date(stats.lastSaleAt) : null,
+        extrasRevenue: parseFloat(extrasStats?.extrasRevenue || '0'),
+        extrasSold: parseInt(extrasStats?.extrasSold || '0'),
+        lastExtraSaleAt: extrasStats?.lastExtraSaleAt ? new Date(extrasStats.lastExtraSaleAt) : null
     };
 }
 

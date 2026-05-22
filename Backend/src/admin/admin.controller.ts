@@ -254,6 +254,34 @@ router.get(
 );
 
 /**
+ * GET /api/admin/metrics/extras
+ * Get extras/vouchers metrics
+ */
+router.get(
+    '/metrics/extras',
+    checkAuthToken,
+    checkRoleAuth('admin'),
+    async (req: CustomRequest, res: Response) => {
+        try {
+            const dateRange = parseDateRange(req);
+            const metrics = await adminService.getExtrasMetrics(dateRange);
+
+            res.json({
+                success: true,
+                data: metrics
+            });
+        } catch (error: any) {
+            logger.error('Extras metrics error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching extras metrics',
+                error: error.message
+            });
+        }
+    }
+);
+
+/**
  * GET /api/admin/metrics/top-events
  * Get best-performing events
  */

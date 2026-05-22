@@ -143,6 +143,45 @@
                   </div>
                 </div>
               </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden group">
+                  <div class="relative z-10">
+                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Extras Vendidos</p>
+                    <h3 class="text-3xl font-black text-slate-900">{{ totalExtrasSold }}</h3>
+                    @if (metrics.extrasGrowth !== 0) {
+                      <div class="flex items-center gap-1 mt-2">
+                        <span class="text-xs font-bold px-2 py-0.5 rounded-full"
+                          [class.bg-green-100]="metrics.extrasGrowth > 0"
+                          [class.text-green-700]="metrics.extrasGrowth > 0"
+                          [class.bg-red-100]="metrics.extrasGrowth < 0"
+                          [class.text-red-700]="metrics.extrasGrowth < 0">
+                          {{ metrics.extrasGrowth > 0 ? '+' : '' }}{{ metrics.extrasGrowth }}%
+                        </span>
+                        <span class="text-xs text-slate-400">vs período anterior</span>
+                      </div>
+                    }
+                  </div>
+                  <div class="absolute right-[-20px] top-[-20px] w-24 h-24 bg-orange-500/5 rounded-full group-hover:scale-125 transition-transform"></div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
+                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Revenue Extras</p>
+                  <h3 class="text-3xl font-black text-slate-900">{{ totalExtrasRevenue | currency:'USD':'symbol':'1.0-0' }}</h3>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="bg-orange-100 text-orange-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {{ metrics.totalExtrasSold }} vendidos
+                    </span>
+                  </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100">
+                  <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Extra Promedio</p>
+                  <h3 class="text-3xl font-black text-slate-900">{{ avgExtraPrice | currency:'USD':'symbol':'1.0-0' }}</h3>
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                      {{ metrics.totalEvents }} eventos
+                    </span>
+                  </div>
+                </div>
+              </div>
             }
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -224,6 +263,28 @@
                 }
               </div>
 
+              <!-- Top Extras - PRO -->
+              <div
+                class="bg-white p-6 rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 relative overflow-hidden">
+                <!-- Overlay FREE -->
+                @if (!isPro) {
+                  <div
+                    class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
+                    <span class="text-3xl mb-2">🔒</span>
+                    <p class="font-bold text-slate-700 text-center">Extras PRO</p>
+                    <p class="text-xs text-slate-500 mb-3 text-center px-4">Top productos extra vendidos</p>
+                  </div>
+                }
+                <h3 class="text-slate-900 font-bold mb-4">Top Extras Vendidos</h3>
+                @defer (on viewport) {
+                  <apx-chart [series]="extrasChartOptions.series" [chart]="extrasChartOptions.chart"
+                    [plotOptions]="extrasChartOptions.plotOptions" [xaxis]="extrasChartOptions.xaxis"
+                  [colors]="extrasChartOptions.colors" [dataLabels]="extrasChartOptions.dataLabels"></apx-chart>
+                } @placeholder {
+                  <div class="h-56 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                }
+              </div>
+
               <!-- Detalle Reciente - Limitado para FREE -->
               <div
                 class="lg:col-span-2 bg-white rounded-2xl shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07)] border border-slate-100 overflow-hidden flex flex-col relative">
@@ -239,7 +300,9 @@
                       <tr>
                         <th class="p-4 text-xs font-bold text-slate-400 uppercase">Evento</th>
                         <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Tickets</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Extras</th>
                         <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Ingresos</th>
+                        <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Extras $</th>
                         <th class="p-4 text-xs font-bold text-slate-400 uppercase text-right">Estado</th>
                       </tr>
                     </thead>
@@ -250,7 +313,10 @@
                           class="hover:bg-slate-50/50 transition-colors">
                           <td class="p-4 font-bold text-slate-700">{{ row.title }}</td>
                           <td class="p-4 text-right text-slate-600">{{ row.participants }}</td>
+                          <td class="p-4 text-right text-orange-600">{{ row.extrasSold || 0 }}</td>
                           <td class="p-4 text-right font-mono text-slate-900">{{ row.revenue |
+                          currency:'USD':'symbol':'1.0-0' }}</td>
+                          <td class="p-4 text-right font-mono text-amber-700">{{ (row.extrasRevenue || 0) |
                           currency:'USD':'symbol':'1.0-0' }}</td>
                           <td class="p-4 text-right">
                                     <span class="px-2 py-1 rounded-full text-xs font-bold" [ngClass]="{

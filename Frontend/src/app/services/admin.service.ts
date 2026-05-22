@@ -24,6 +24,9 @@ export interface MarketplaceMetrics {
     totalTransactions: number;
     successfulPayments: number;
     failedPayments: number;
+    extrasSold: number;
+    extrasRevenue: number;
+    totalItemsSold: number;
 }
 
 export interface CommissionMetrics {
@@ -69,6 +72,7 @@ export interface TrendDataPoint {
     subscriptions: number;
     gmv: number;
     transactions: number;
+    extrasRevenue: number;
 }
 
 export interface EventRanking {
@@ -78,6 +82,17 @@ export interface EventRanking {
     ticketsSold: number;
     totalRevenue: number;
     platformCommission: number;
+    extrasSold: number;
+    extrasRevenue: number;
+}
+
+export interface ExtrasMetrics {
+    extrasSold: number;
+    extrasRevenue: number;
+    topProducts: Array<{ name: string; category: string; totalSold: number; revenue: number }>;
+    revenueByCategory: Array<{ category: string; revenue: number; count: number }>;
+    voucherStatus: { active: number; used: number; cancelled: number };
+    topOrganizersWithExtras: Array<{ organizerName: string; extrasSold: number; revenue: number }>;
 }
 
 export interface OverviewResponse {
@@ -87,6 +102,7 @@ export interface OverviewResponse {
     commissions: CommissionMetrics;
     users: UserMetrics;
     events: EventMetrics;
+    extras: ExtrasMetrics;
     period: { startDate: Date | null; endDate: Date | null };
 }
 
@@ -188,5 +204,13 @@ export class AdminService {
         let params = this.buildParams(dateRange);
         params = params.set('limit', limit.toString());
         return this.http.get<{ success: boolean; data: CommissionMetrics['topOrganizers'] }>(`${this.apiUrl}/top-organizers`, { params });
+    }
+
+    /**
+     * Get extras/vouchers metrics
+     */
+    getExtrasMetrics(dateRange?: DateRange): Observable<{ success: boolean; data: ExtrasMetrics }> {
+        const params = this.buildParams(dateRange);
+        return this.http.get<{ success: boolean; data: ExtrasMetrics }>(`${this.apiUrl}/extras`, { params });
     }
 }

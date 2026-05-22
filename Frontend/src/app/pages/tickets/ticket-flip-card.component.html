@@ -1,0 +1,211 @@
+<div class="flip-scene"
+     (mousemove)="onMouseMove($event)"
+     (mouseleave)="onMouseLeave()">
+
+  <div #cardInner
+       class="flip-card-inner"
+       [class.is-flipped]="isFlipped"
+       [style.transform]="isFlipped
+         ? 'rotateY(180deg)'
+         : 'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)'">
+
+    <!-- ========== FRENTE (Movie Poster Style) ========== -->
+    <div class="flip-card-face flip-card-front relative">
+
+      <!-- Imagen del evento a pantalla completa -->
+      <img [src]="eventImage"
+           [alt]="eventTitle"
+           class="absolute inset-0 w-full h-full object-cover"
+           loading="lazy">
+
+      <!-- Degradado oscuro sutil desde abajo para legibilidad -->
+      <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+
+      <!-- Badge de estado (esquina superior derecha) -->
+      <div class="absolute top-3 right-3 z-10">
+        <span *ngIf="status === 'active'"
+              class="px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase text-white bg-emerald-500/90 rounded-full shadow-lg backdrop-blur-sm">
+          Activo
+        </span>
+        <span *ngIf="status === 'used'"
+              class="px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase text-white bg-amber-500/90 rounded-full shadow-lg backdrop-blur-sm">
+          Usado
+        </span>
+        <span *ngIf="status === 'past'"
+              class="px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase text-white bg-slate-500/80 rounded-full shadow-lg backdrop-blur-sm">
+          Pasado
+        </span>
+      </div>
+
+      <!-- Sello grande "USED" para usados/pasados -->
+      <div *ngIf="status !== 'active'" class="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+        <div class="transform -rotate-12 opacity-20 border-[4px] rounded-full w-48 h-48 flex items-center justify-center"
+             [class.border-amber-500]="status === 'used'"
+             [class.border-white]="status === 'past'">
+          <span class="text-4xl font-black uppercase tracking-widest"
+                [class.text-amber-500]="status === 'used'"
+                [class.text-white]="status === 'past'">
+            {{ status === 'used' ? 'USED' : 'PASSED' }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Info del evento sobre la imagen (parte inferior) -->
+      <div class="absolute bottom-0 left-0 right-0 p-5 z-10">
+        <!-- Notches tipo ticket físico -->
+        <div class="ticket-notch ticket-notch-left"></div>
+        <div class="ticket-notch ticket-notch-right"></div>
+
+        <p class="text-[10px] font-semibold text-white/80 tracking-widest uppercase mb-1">
+          {{ eventDate | date:'EEE, dd MMM' }}
+          <span *ngIf="eventTime"> · {{ eventTime }}</span>
+        </p>
+        <h3 class="text-2xl font-black text-white leading-tight mb-2 drop-shadow-lg line-clamp-2">
+          {{ eventTitle }}
+        </h3>
+        <div class="flex items-center text-xs text-white/70 gap-1.5">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span class="truncate">{{ eventLocation }}</span>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-white/10 flex justify-between items-end">
+          <div>
+            <p class="text-[9px] text-white/50 uppercase tracking-wider mb-0.5">Entrada</p>
+            <p class="text-sm font-bold text-white">{{ ticketTypeName }}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[9px] text-white/50 uppercase tracking-wider mb-0.5">Código</p>
+            <p class="text-xs font-mono text-white/80">{{ uniqueCode | slice:0:8 }}...</p>
+          </div>
+        </div>
+
+        <!-- Hint interactivo (solo activos) -->
+        <div *ngIf="status === 'active'" class="mt-3 text-center">
+          <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-[9px] text-white/70 uppercase tracking-[0.15em]">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
+            </svg>
+            Tocar para escanear
+          </span>
+        </div>
+      </div>
+
+      <!-- Shine overlay en hover -->
+      <div class="shine-overlay"
+           [class.active]="isHovering && !isFlipped"
+           [style.background]="'radial-gradient(circle at ' + shineX + '% ' + shineY + '%, rgba(255,255,255,0.3) 0%, transparent 50%)'">
+      </div>
+    </div>
+
+    <!-- ========== DORSO (Limpio y funcional) ========== -->
+    <div class="flip-card-face flip-card-back relative">
+
+      <!-- Header -->
+      <div class="px-5 pt-5 pb-2 shrink-0">
+        <p class="text-[10px] text-slate-400 uppercase tracking-widest font-bold text-center">EventLife Ticket</p>
+      </div>
+
+      <!-- Contenido -->
+      <div class="flex-1 flex flex-col items-center justify-center p-5 relative">
+
+        <!-- ACTIVO: QR funcional -->
+        <ng-container *ngIf="status === 'active'">
+          <div class="relative bg-white p-3 rounded-2xl shadow-lg border border-slate-100 mb-4">
+            <img [src]="qrCode"
+                 alt="Código QR de acceso"
+                 class="w-40 h-40 object-contain"
+                 loading="lazy">
+            <!-- Esquinas decorativas -->
+            <div class="absolute -top-1 -left-1 w-3 h-3 border-t-2 border-l-2 border-slate-800 rounded-tl"></div>
+            <div class="absolute -top-1 -right-1 w-3 h-3 border-t-2 border-r-2 border-slate-800 rounded-tr"></div>
+            <div class="absolute -bottom-1 -left-1 w-3 h-3 border-b-2 border-l-2 border-slate-800 rounded-bl"></div>
+            <div class="absolute -bottom-1 -right-1 w-3 h-3 border-b-2 border-r-2 border-slate-800 rounded-br"></div>
+          </div>
+
+          <p class="text-center text-slate-400 text-xs mb-5 font-mono tracking-wide">
+            {{ uniqueCode }}
+          </p>
+
+          <div class="w-full space-y-3">
+            <div class="flex justify-between text-xs px-1">
+              <span class="text-slate-400">Evento</span>
+              <span class="text-slate-700 font-medium text-right truncate max-w-[180px]">{{ eventTitle }}</span>
+            </div>
+            <div class="flex justify-between text-xs px-1">
+              <span class="text-slate-400">Fecha</span>
+              <span class="text-slate-700 font-medium">{{ eventDate | date:'shortDate' }}</span>
+            </div>
+            <div class="flex justify-between text-xs px-1">
+              <span class="text-slate-400">Tipo</span>
+              <span class="text-slate-700 font-medium">{{ ticketTypeName }}</span>
+            </div>
+          </div>
+
+          <div class="mt-5 w-full">
+            <button (click)="compartir($event)"
+                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-all active:scale-[0.98] text-sm font-medium shadow-lg">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+              </svg>
+              Compartir Entrada
+            </button>
+          </div>
+        </ng-container>
+
+        <!-- USADO: Sello -->
+        <ng-container *ngIf="status === 'used'">
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+            <div class="w-48 h-48 border-[4px] border-amber-400 rounded-full flex items-center justify-center transform -rotate-12">
+              <span class="text-4xl font-black text-amber-500 uppercase tracking-widest">USED</span>
+            </div>
+          </div>
+          <div class="text-center z-10">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center">
+              <svg class="w-7 h-7 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+            </div>
+            <h5 class="text-lg font-bold text-slate-900 mb-1">Entrada Canjeada</h5>
+            <p class="text-slate-500 text-xs max-w-[200px] mx-auto">Este ticket fue utilizado para el evento.</p>
+          </div>
+        </ng-container>
+
+        <!-- PASADO: Recuerdo -->
+        <ng-container *ngIf="status === 'past'">
+          <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+            <div class="w-48 h-48 border-[3px] border-slate-300 rounded-full flex items-center justify-center transform -rotate-12">
+              <span class="text-3xl font-black text-slate-400 uppercase tracking-widest">MEM<br>ORY</span>
+            </div>
+          </div>
+          <div class="text-center z-10">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-blue-50 border-2 border-blue-200 flex items-center justify-center">
+              <svg class="w-7 h-7 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+              </svg>
+            </div>
+            <h5 class="text-lg font-bold text-slate-900 mb-1">Recuerdo Guardado</h5>
+            <p class="text-slate-500 text-xs max-w-[200px] mx-auto mb-3">Gracias por ser parte de esta experiencia.</p>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 text-[10px] font-semibold uppercase tracking-wider rounded-md border border-blue-100">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              Experiencia Completada
+            </span>
+          </div>
+        </ng-container>
+
+      </div>
+
+      <!-- Footer Dorso -->
+      <div class="p-3 border-t border-slate-100 text-center shrink-0">
+        <p class="text-[9px] text-slate-400 uppercase tracking-widest">Ticket ID: {{ ticket?.id }} · EventLife</p>
+      </div>
+    </div>
+
+  </div>
+</div>

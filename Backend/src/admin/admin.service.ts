@@ -42,6 +42,9 @@ export interface MarketplaceMetrics {
     totalTransactions: number;
     successfulPayments: number;
     failedPayments: number;
+    extrasSold: number;
+    extrasRevenue: number;
+    totalItemsSold: number;
 }
 
 export interface CommissionMetrics {
@@ -87,6 +90,16 @@ export interface TrendDataPoint {
     subscriptions: number;
     gmv: number;
     transactions: number;
+    extrasRevenue: number;
+}
+
+export interface ExtrasMetrics {
+    extrasSold: number;
+    extrasRevenue: number;
+    topProducts: Array<{ name: string; category: string; totalSold: number; revenue: number }>;
+    revenueByCategory: Array<{ category: string; revenue: number; count: number }>;
+    voucherStatus: { active: number; used: number; cancelled: number };
+    topOrganizersWithExtras: Array<{ organizerName: string; extrasSold: number; revenue: number }>;
 }
 
 export interface OrganizerRanking {
@@ -104,6 +117,8 @@ export interface EventRanking {
     ticketsSold: number;
     totalRevenue: number;
     platformCommission: number;
+    extrasSold: number;
+    extrasRevenue: number;
 }
 
 export class AdminService {
@@ -215,13 +230,34 @@ export class AdminService {
         ${dateFilter}
       `;
 
-            const result = await queryRunner.query(metricsQuery, params);
+            // Extras metrics (parallel query)
+            let extrasDateFilter = `WHERE status != 'cancelled' AND "deletedAt" IS NULL`;
+            const extrasParams: any[] = [];
+            if (dateRange?.startDate && dateRange?.endDate) {
+                extrasDateFilter += ` AND "createdAt" >= $1 AND "createdAt" <= $2`;
+                extrasParams.push(dateRange.startDate, dateRange.endDate);
+            }
+            const extrasQuery = `
+        SELECT 
+          COALESCE(SUM(quantity), 0) AS "extrasSold",
+          COALESCE(SUM("purchasePrice" * quantity), 0) AS "extrasRevenue"
+        FROM extra_item
+        ${extrasDateFilter}
+      `;
+
+            const [result, extrasResult] = await Promise.all([
+                queryRunner.query(metricsQuery, params),
+                queryRunner.query(extrasQuery, extrasParams)
+            ]);
             const data = result[0];
+            const extrasData = extrasResult[0];
 
             const ticketsSold = parseInt(data?.ticketsSold || 0);
             const grossRevenue = parseFloat(data?.grossRevenue || 0);
             const totalTransactions = parseInt(data?.totalTransactions || 0);
             const averageTicketPrice = ticketsSold > 0 ? grossRevenue / ticketsSold : 0;
+            const extrasSold = parseInt(extrasData?.extrasSold || 0);
+            const extrasRevenue = parseFloat(extrasData?.extrasRevenue || 0);
 
             return {
                 ticketsSold,
@@ -229,7 +265,10 @@ export class AdminService {
                 averageTicketPrice: parseFloat(averageTicketPrice.toFixed(2)),
                 totalTransactions,
                 successfulPayments: parseInt(data?.successfulPayments || 0),
-                failedPayments: parseInt(data?.failedPayments || 0)
+                failedPayments: parseInt(data?.failedPayments || 0),
+                extrasSold,
+                extrasRevenue: parseFloat(extrasRevenue.toFixed(2)),
+                totalItemsSold: ticketsSold + extrasSold
             };
 
         } finally {
@@ -469,14 +508,35 @@ export class AdminService {
         ORDER BY period ASC
       `;
 
-            const result = await queryRunner.query(query, [truncate, interval]);
+            const extrasQuery = `
+        SELECT 
+          DATE_TRUNC($1, ei."createdAt") AS period,
+          COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) AS "extrasRevenue"
+        FROM extra_item ei
+        WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL
+          AND ei."createdAt" >= NOW() - ($2::interval)
+        GROUP BY period
+        ORDER BY period ASC
+      `;
+
+            const [result, extrasResult] = await Promise.all([
+                queryRunner.query(query, [truncate, interval]),
+                queryRunner.query(extrasQuery, [truncate, interval])
+            ]);
+
+            // Merge extras into main result by period
+            const extrasMap = new Map<string, number>();
+            extrasResult.forEach((row: any) => {
+                extrasMap.set(row.period, parseFloat(row.extrasRevenue || 0));
+            });
 
             return result.map((row: any) => ({
                 period: row.period,
                 commission: parseFloat(row.commission || 0),
                 subscriptions: 0, // TODO: Calculate subscription revenue per period
                 gmv: parseFloat(row.gmv || 0),
-                transactions: parseInt(row.transactions || 0)
+                transactions: parseInt(row.transactions || 0),
+                extrasRevenue: extrasMap.get(row.period) || 0
             }));
 
         } finally {
@@ -506,12 +566,21 @@ export class AdminService {
           e.organizer,
           COUNT(pl.id) AS "ticketsSold",
           SUM(pl."totalAmount") AS "totalRevenue",
-          SUM(pl."commissionAmount") AS "platformCommission"
+          SUM(pl."commissionAmount") AS "platformCommission",
+          COALESCE(ee."extrasSold", 0) AS "extrasSold",
+          COALESCE(ee."extrasRevenue", 0) AS "extrasRevenue"
         FROM payment_log pl
         INNER JOIN ticket_type tt ON pl."ticketTypeId" = tt.id
         INNER JOIN event e ON tt."eventId" = e.id
+        LEFT JOIN (
+          SELECT ep."eventId", COUNT(ei.id) AS "extrasSold", SUM(ei."purchasePrice" * ei.quantity) AS "extrasRevenue"
+          FROM extra_item ei
+          INNER JOIN event_product ep ON ei."eventProductId" = ep.id
+          WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL
+          GROUP BY ep."eventId"
+        ) ee ON ee."eventId" = e.id
         ${whereClause}
-        GROUP BY e.id, e.title, e.organizer
+        GROUP BY e.id, e.title, e.organizer, ee."extrasSold", ee."extrasRevenue"
         ORDER BY "totalRevenue" DESC
         LIMIT $${params.length + 1}
       `;
@@ -524,8 +593,120 @@ export class AdminService {
                 organizer: row.organizer,
                 ticketsSold: parseInt(row.ticketsSold),
                 totalRevenue: parseFloat(row.totalRevenue),
-                platformCommission: parseFloat(row.platformCommission)
+                platformCommission: parseFloat(row.platformCommission),
+                extrasSold: parseInt(row.extrasSold || 0),
+                extrasRevenue: parseFloat(row.extrasRevenue || 0)
             }));
+
+        } finally {
+            await queryRunner.release();
+        }
+    }
+
+    /**
+     * Get extras/vouchers metrics
+     */
+    async getExtrasMetrics(dateRange?: DateRange): Promise<ExtrasMetrics> {
+        const queryRunner = AppDataSource.createQueryRunner();
+
+        try {
+            let dateClause = '';
+            const params: any[] = [];
+
+            if (dateRange?.startDate && dateRange?.endDate) {
+                dateClause = `AND ei."createdAt" >= $1 AND ei."createdAt" <= $2`;
+                params.push(dateRange.startDate, dateRange.endDate);
+            }
+
+            const topProductsQuery = `
+        SELECT p.name, p.category, COUNT(ei.id) as "totalSold",
+          COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as revenue
+        FROM extra_item ei
+        INNER JOIN event_product ep ON ei."eventProductId" = ep.id
+        INNER JOIN product p ON ep."productId" = p.id
+        WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL ${dateClause}
+        GROUP BY p.id, p.name, p.category
+        ORDER BY "totalSold" DESC
+        LIMIT 10
+      `;
+
+            const revenueByCategoryQuery = `
+        SELECT p.category, COUNT(ei.id) as count,
+          COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as revenue
+        FROM extra_item ei
+        INNER JOIN event_product ep ON ei."eventProductId" = ep.id
+        INNER JOIN product p ON ep."productId" = p.id
+        WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL ${dateClause}
+        GROUP BY p.category
+      `;
+
+            const voucherStatusQuery = `
+        SELECT 
+          COUNT(*) FILTER (WHERE status = 'active') as active,
+          COUNT(*) FILTER (WHERE status = 'used') as used,
+          COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled
+        FROM extra_item
+        WHERE "deletedAt" IS NULL
+      `;
+
+            const topOrganizersQuery = `
+        SELECT u.firstname || ' ' || u.lastname as "organizerName",
+          COUNT(ei.id) as "extrasSold",
+          COALESCE(SUM(ei."purchasePrice" * ei.quantity), 0) as revenue
+        FROM extra_item ei
+        INNER JOIN event_product ep ON ei."eventProductId" = ep.id
+        INNER JOIN event e ON ep."eventId" = e.id
+        INNER JOIN "user" u ON e."user_id" = u.id
+        WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL ${dateClause}
+        GROUP BY u.id, u.firstname, u.lastname
+        ORDER BY "extrasSold" DESC
+        LIMIT 5
+      `;
+
+            const totalsQuery = `
+        SELECT 
+          COALESCE(SUM(quantity), 0) as "extrasSold",
+          COALESCE(SUM("purchasePrice" * quantity), 0) as "extrasRevenue"
+        FROM extra_item
+        WHERE status != 'cancelled' AND "deletedAt" IS NULL
+          ${dateClause.replace(/ei\./g, '')}
+      `;
+
+            const [topProducts, revenueByCategory, voucherStatus, topOrganizers, totals] = await Promise.all([
+                queryRunner.query(topProductsQuery, [...params]),
+                queryRunner.query(revenueByCategoryQuery, [...params]),
+                queryRunner.query(voucherStatusQuery),
+                queryRunner.query(topOrganizersQuery, [...params]),
+                queryRunner.query(totalsQuery, [...params])
+            ]);
+
+            const totalsData = totals[0] || {};
+
+            return {
+                extrasSold: parseInt(totalsData.extrasSold || 0),
+                extrasRevenue: parseFloat(totalsData.extrasRevenue || 0),
+                topProducts: topProducts.map((p: any) => ({
+                    name: p.name,
+                    category: p.category,
+                    totalSold: parseInt(p.totalSold || 0),
+                    revenue: parseFloat(p.revenue || 0)
+                })),
+                revenueByCategory: revenueByCategory.map((c: any) => ({
+                    category: c.category,
+                    count: parseInt(c.count || 0),
+                    revenue: parseFloat(c.revenue || 0)
+                })),
+                voucherStatus: {
+                    active: parseInt(voucherStatus[0]?.active || 0),
+                    used: parseInt(voucherStatus[0]?.used || 0),
+                    cancelled: parseInt(voucherStatus[0]?.cancelled || 0)
+                },
+                topOrganizersWithExtras: topOrganizers.map((o: any) => ({
+                    organizerName: o.organizerName,
+                    extrasSold: parseInt(o.extrasSold || 0),
+                    revenue: parseFloat(o.revenue || 0)
+                }))
+            };
 
         } finally {
             await queryRunner.release();
@@ -550,13 +731,15 @@ export class AdminService {
                     marketplaceMetrics,
                     commissionMetrics,
                     userMetrics,
-                    eventMetrics
+                    eventMetrics,
+                    extrasMetrics
                 ] = await Promise.all([
                     this.getSubscriptionMetrics(dateRange),
                     this.getMarketplaceMetrics(dateRange),
                     this.getCommissionMetrics(dateRange, 5),
                     this.getUserMetrics(dateRange),
-                    this.getEventMetrics(dateRange)
+                    this.getEventMetrics(dateRange),
+                    this.getExtrasMetrics(dateRange)
                 ]);
 
                 const revenueOverview = this.deriveRevenueOverview(
@@ -572,6 +755,7 @@ export class AdminService {
                     commissions: commissionMetrics,
                     users: userMetrics,
                     events: eventMetrics,
+                    extras: extrasMetrics,
                     period: dateRange || { startDate: null, endDate: null }
                 };
             },

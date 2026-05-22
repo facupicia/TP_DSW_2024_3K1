@@ -102,6 +102,34 @@
                   <div class="text-2xl font-black text-slate-900">{{ data.attendanceRate | percent }}</div>
                 </div>
               </div>
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all relative overflow-hidden">
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Extras Vendidos</span>
+                </div>
+                <div class="text-2xl font-black text-slate-900">{{ extrasData.extrasSold }}</div>
+              </div>
+              <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-all relative overflow-hidden">
+                <div class="flex items-center gap-3 mb-2">
+                  <div class="p-2 bg-lime-50 text-lime-600 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Canje Extras</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                  <div class="text-2xl font-black text-slate-900">{{ extrasData.extrasUsedCount }}</div>
+                  <div class="text-xs font-bold text-green-600 mb-1">{{ (extrasData.extrasAttendanceRate * 100).toFixed(0) }}%</div>
+                </div>
+                <div class="w-full bg-slate-100 h-1.5 mt-3 rounded-full overflow-hidden">
+                  <div class="bg-amber-500 h-full rounded-full transition-all duration-1000" [style.width.%]="extrasData.extrasAttendanceRate * 100"></div>
+                </div>
+              </div>
             }
 
             @if (!isLoading) {
@@ -179,6 +207,47 @@
                       [plotOptions]="locationChartOptions.plotOptions" [xaxis]="locationChartOptions.xaxis"
                       [colors]="locationChartOptions.colors" [grid]="locationChartOptions.grid"
                     [title]="locationChartOptions.title" [dataLabels]="locationChartOptions.dataLabels"></apx-chart>
+                  } @placeholder {
+                    <div class="h-56 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (!isLoading) {
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Extras by Category - PRO -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 flex flex-col justify-center relative overflow-hidden">
+                  @if (!isPro) {
+                    <div class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
+                      <span class="text-3xl mb-2">🔒</span>
+                      <p class="font-bold text-slate-700 text-center">Extras PRO</p>
+                      <p class="text-xs text-slate-500 mb-3 text-center px-4">Distribución por categoría</p>
+                    </div>
+                  }
+                  @defer (on viewport) {
+                    <apx-chart [series]="extraTypeOptions.series" [chart]="extraTypeOptions.chart"
+                      [labels]="extraTypeOptions.labels" [colors]="extraTypeOptions.colors"
+                      [plotOptions]="extraTypeOptions.plotOptions" [legend]="extraTypeOptions.legend"
+                    [title]="extraTypeOptions.title"></apx-chart>
+                  } @placeholder {
+                    <div class="h-56 w-full rounded-xl bg-slate-100 animate-pulse"></div>
+                  }
+                </div>
+                <!-- Stock vs Sold - PRO -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-6 relative overflow-hidden">
+                  @if (!isPro) {
+                    <div class="absolute inset-0 z-20 backdrop-blur-sm bg-white/70 rounded-2xl flex flex-col items-center justify-center">
+                      <span class="text-3xl mb-2">🔒</span>
+                      <p class="font-bold text-slate-700 text-center">Stock PRO</p>
+                      <p class="text-xs text-slate-500 mb-3 text-center px-4">Control de inventario de extras</p>
+                    </div>
+                  }
+                  @defer (on viewport) {
+                    <apx-chart [series]="extraStockOptions.series" [chart]="extraStockOptions.chart"
+                      [plotOptions]="extraStockOptions.plotOptions" [xaxis]="extraStockOptions.xaxis"
+                      [colors]="extraStockOptions.colors" [grid]="extraStockOptions.grid"
+                    [title]="extraStockOptions.title" [dataLabels]="extraStockOptions.dataLabels"></apx-chart>
                   } @placeholder {
                     <div class="h-56 w-full rounded-xl bg-slate-100 animate-pulse"></div>
                   }

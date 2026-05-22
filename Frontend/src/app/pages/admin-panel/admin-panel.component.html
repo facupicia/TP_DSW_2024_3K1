@@ -322,26 +322,45 @@
                                               </div>
                                             }
                                             @if (!loadingMetrics && overview) {
-                                              <div class="space-y-6">
-                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
-                                                    <p class="text-3xl font-bold text-gray-900">{{ overview.marketplace.grossRevenue | currency }}</p>
-                                                  </div>
-                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
-                                                    <p class="text-3xl font-bold text-blue-600">{{ overview.marketplace.ticketsSold }}</p>
-                                                  </div>
-                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
-                                                    <p class="text-3xl font-bold text-purple-600">{{ overview.marketplace.averageTicketPrice | currency }}</p>
-                                                  </div>
-                                                  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                                                    <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
-                                                    <p class="text-3xl font-bold text-green-600">{{ overview.marketplace.totalTransactions }}</p>
-                                                  </div>
-                                                </div>
-                                                <!-- Payment Status -->
+                                               <div class="space-y-6">
+                                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">GMV Total</p>
+                                                     <p class="text-3xl font-bold text-gray-900">{{ overview.marketplace.grossRevenue | currency }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Tickets Vendidos</p>
+                                                     <p class="text-3xl font-bold text-blue-600">{{ overview.marketplace.ticketsSold }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Precio Promedio</p>
+                                                     <p class="text-3xl font-bold text-purple-600">{{ overview.marketplace.averageTicketPrice | currency }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Transacciones</p>
+                                                     <p class="text-3xl font-bold text-green-600">{{ overview.marketplace.totalTransactions }}</p>
+                                                   </div>
+                                                 </div>
+                                                 <!-- Extras Metrics -->
+                                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-orange-500">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Extras Vendidos</p>
+                                                     <p class="text-3xl font-bold text-orange-600">{{ overview.marketplace.extrasSold }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-amber-500">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Revenue Extras</p>
+                                                     <p class="text-3xl font-bold text-amber-600">{{ overview.marketplace.extrasRevenue | currency }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-yellow-500">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Items Totales</p>
+                                                     <p class="text-3xl font-bold text-yellow-600">{{ overview.marketplace.totalItemsSold }}</p>
+                                                   </div>
+                                                   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 border-l-4 border-l-lime-500">
+                                                     <p class="text-sm text-gray-500 uppercase font-bold tracking-wider mb-2">Vouchers Activos</p>
+                                                     <p class="text-3xl font-bold text-lime-600">{{ overview.extras.voucherStatus.active }}</p>
+                                                   </div>
+                                                 </div>
+                                                 <!-- Payment Status -->
                                                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                                                   <h3 class="text-lg font-bold text-gray-900 mb-4">Estado de Pagos</h3>
                                                   <div class="grid grid-cols-2 gap-4">

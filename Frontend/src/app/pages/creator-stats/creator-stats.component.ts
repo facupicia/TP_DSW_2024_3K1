@@ -23,6 +23,10 @@ interface KPIMetrics {
     revenueGrowth: number;
     ticketsGrowth: number;
     totalEvents: number;
+    totalExtrasRevenue: number;
+    totalExtrasSold: number;
+    avgExtraPrice: number;
+    extrasGrowth: number;
 }
 
 // Using 'any' for chart options to avoid Angular template index signature issues
@@ -139,7 +143,11 @@ export class CreatorStatsComponent implements OnInit {
         avgTicketPrice: 0,
         revenueGrowth: 0,
         ticketsGrowth: 0,
-        totalEvents: 0
+        totalEvents: 0,
+        totalExtrasRevenue: 0,
+        totalExtrasSold: 0,
+        avgExtraPrice: 0,
+        extrasGrowth: 0
     };
     recentActivity: any[] = [];
 
@@ -150,11 +158,15 @@ export class CreatorStatsComponent implements OnInit {
     revenueChartOptions = createRevenueChartOptions();
     retentionChartOptions = createRetentionChartOptions();
     topEventsChartOptions = createTopEventsChartOptions();
+    extrasChartOptions = createTopEventsChartOptions();
 
     // Computed getters for template
     get totalRevenue(): number { return this.metrics.totalRevenue; }
     get totalTicketsSold(): number { return this.metrics.totalTicketsSold; }
     get avgTicketPrice(): number { return this.metrics.avgTicketPrice; }
+    get totalExtrasRevenue(): number { return this.metrics.totalExtrasRevenue; }
+    get totalExtrasSold(): number { return this.metrics.totalExtrasSold; }
+    get avgExtraPrice(): number { return this.metrics.avgExtraPrice; }
 
     /* ========== LIFECYCLE ========== */
 
@@ -195,7 +207,11 @@ export class CreatorStatsComponent implements OnInit {
                     revenueGrowth: 0, 
                     ticketsGrowth: 0,
                     topEvents: [],
-                    recentActivity: []
+                    recentActivity: [],
+                    totalExtrasRevenue: 0,
+                    totalExtrasSold: 0,
+                    avgExtraPrice: 0,
+                    extrasGrowth: 0
                 }))
             )
         }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -209,7 +225,11 @@ export class CreatorStatsComponent implements OnInit {
                     avgTicketPrice: data.metrics.avgPrice,
                     revenueGrowth: data.metrics.revenueGrowth,
                     ticketsGrowth: data.metrics.ticketsGrowth,
-                    totalEvents: data.metrics.totalEvents
+                    totalEvents: data.metrics.totalEvents,
+                    totalExtrasRevenue: data.metrics.totalExtrasRevenue || 0,
+                    totalExtrasSold: data.metrics.totalExtrasSold || 0,
+                    avgExtraPrice: data.metrics.avgExtraPrice || 0,
+                    extrasGrowth: data.metrics.extrasGrowth || 0
                 };
                 
                 this.recentActivity = data.metrics.recentActivity || [];
@@ -231,6 +251,20 @@ export class CreatorStatsComponent implements OnInit {
         this.updateRevenueChart();
         this.updateRetentionChart();
         this.updateTopEventsChart();
+        this.updateExtrasChart();
+    }
+
+    private updateExtrasChart(): void {
+        const sorted = [...this.comparative]
+            .sort((a, b) => (b.extrasSold || 0) - (a.extrasSold || 0))
+            .slice(0, 5)
+            .filter(c => (c.extrasSold || 0) > 0);
+
+        this.extrasChartOptions = {
+            ...this.extrasChartOptions,
+            series: [{ name: 'Extras', data: sorted.map(s => s.extrasSold || 0) }],
+            xaxis: { ...this.extrasChartOptions['xaxis'], categories: sorted.map(s => s.title) }
+        };
     }
 
     private updateRevenueChart(): void {
@@ -238,10 +272,15 @@ export class CreatorStatsComponent implements OnInit {
             c.title.length > 12 ? c.title.substring(0, 12) + '...' : c.title
         );
         const revenueData = this.comparative.map(c => c.revenue || 0);
+        const extrasRevenueData = this.comparative.map(c => c.extrasRevenue || 0);
 
         this.revenueChartOptions = {
             ...this.revenueChartOptions,
-            series: [{ name: 'Ingresos', data: revenueData }],
+            series: [
+                { name: 'Tickets', data: revenueData },
+                { name: 'Extras', data: extrasRevenueData }
+            ],
+            colors: ['#3b82f6', '#f59e0b'],
             xaxis: { ...this.revenueChartOptions['xaxis'], categories }
         };
     }
@@ -250,10 +289,14 @@ export class CreatorStatsComponent implements OnInit {
         const avgAttendance = this.comparative.length > 0
             ? this.comparative.reduce((acc, curr) => acc + (curr.attendanceRate || 0), 0) / this.comparative.length
             : 0;
+        const avgExtrasAttendance = this.comparative.length > 0
+            ? this.comparative.reduce((acc, curr) => acc + (curr.extrasAttendanceRate || 0), 0) / this.comparative.length
+            : 0;
+        const combined = (avgAttendance + avgExtrasAttendance) / 2;
 
         this.retentionChartOptions = {
             ...this.retentionChartOptions,
-            series: [parseFloat((avgAttendance * 100).toFixed(1))]
+            series: [parseFloat((combined * 100).toFixed(1))]
         };
     }
 

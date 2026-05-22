@@ -1,0 +1,108 @@
+/* ========== SCENE & FLIP ========== */
+.flip-scene {
+  width: 100%;
+  height: 100%;
+  perspective: 1200px;
+  cursor: default;
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.flip-card-inner.is-flipped {
+  transform: rotateY(180deg) !important;
+}
+
+/* ========== FACES ========== */
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.flip-card-front {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
+}
+
+.flip-card-back {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transform: rotateY(180deg);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.12);
+}
+
+/* ========== NOTCHES (Ticket físico) ========== */
+.ticket-notch {
+  position: absolute;
+  top: 40%;
+  width: 1.25rem;
+  height: 1.25rem;
+  background-color: #ffffff;
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.ticket-notch-left { left: -0.625rem; }
+.ticket-notch-right { right: -0.625rem; }
+
+/* ========== SHINE OVERLAY (desktop hover only) ========== */
+.shine-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 1.25rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 20;
+  mix-blend-mode: soft-light;
+}
+
+.shine-overlay.active {
+  opacity: 1;
+}
+
+/* ========== STAMP RING (Used/Past) ========== */
+.stamp-ring {
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='100' cy='100' r='90'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='100' cy='100' r='90'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+}
+
+/* ========== LINE CLAMP ========== */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ========== REDUCED MOTION ========== */
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner {
+    transition: none;
+  }
+}

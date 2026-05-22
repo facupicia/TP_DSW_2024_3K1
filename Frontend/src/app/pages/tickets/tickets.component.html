@@ -12,7 +12,7 @@
   <div class="pt-28 px-4 sm:px-6 max-w-5xl mx-auto relative z-10">
 
     <div class="mb-10 text-center animate-fade-in-up">
-      <a [routerLink]="['/profile']" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95">
+      <a [routerLink]="['/profile']" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-slate-500 hover:text-slate-900 shadow-sm border border-gray-200 transition-all hover:scale-105 active:scale-95 mb-4 mx-auto">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m15 18-6-6 6-6" />
@@ -30,158 +30,191 @@
 
     @if (!loading && hasTickets) {
       <div class="mb-8 animate-fade-in-up">
-      <div class="relative rounded-2xl bg-white/60 backdrop-blur-xl
-                  border border-white/40 shadow-lg">
+        <div class="relative rounded-2xl bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg">
           <input [(ngModel)]="searchTerm" (ngModelChange)="aplicarFiltroOrden()" type="text"
-          placeholder="Buscar tickets..." class="w-full pl-12 pr-4 py-4 rounded-2xl
-                   bg-transparent text-slate-900 placeholder-slate-400
-                   focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
-            <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2">
-              <path stroke="currentColor" stroke-width="2" fill="none" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+            placeholder="Buscar tickets..." class="w-full pl-12 pr-4 py-4 rounded-2xl
+                     bg-transparent text-slate-900 placeholder-slate-400
+                     focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
+          <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
         </div>
-      }
+      </div>
+    }
 
-      @if (loading) {
-        <div class="space-y-4 animate-pulse">
-          <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
-          <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
-        </div>
-      }
+    @if (loading) {
+      <div class="space-y-4 animate-pulse">
+        <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
+        <div class="h-24 rounded-3xl bg-white/60 backdrop-blur border"></div>
+      </div>
+    }
 
-      @if (!loading && hasTickets) {
-        <div class="space-y-4">
-          @for (group of filteredGroups; track trackGroup($index, group)) {
-            <div>
-        <div (click)="toggleGroup(group.eventId)" class="relative rounded-3xl overflow-hidden cursor-pointer
-                   bg-white/60 backdrop-blur-xl
-                   border border-white/40
-                   shadow-lg transition-all active:scale-[0.98]" [class.shadow-blue-200]="isExpanded(group.eventId)">
-                <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500 transition-opacity"
-                  [style.opacity]="isExpanded(group.eventId) ? '1' : '0'">
-                </div>
-                <div class="flex items-center gap-4 p-4">
-                  <div class="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-slate-200">
-                    <img [src]="group.eventImage" class="w-full h-full object-cover" />
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <h2 class="font-bold text-slate-900 truncate" [class.text-blue-600]="isExpanded(group.eventId)">
-                      {{ group.eventTitle }}
-                    </h2>
-                    <p class="text-sm text-slate-500 mt-1">
-                      {{ group.eventDate | date:'mediumDate' }} ·
-                      <span class="font-medium text-slate-700">
-                        {{ group.tickets.length }} entrada{{ group.tickets.length !== 1 ? 's' : '' }}
-                        @if (group.extras.length > 0) {
-                          , {{ group.extras.length }} extra{{ group.extras.length !== 1 ? 's' : '' }}
-                        }
-                      </span>
-                    </p>
-                  </div>
-            <div class="w-10 h-10 rounded-full flex items-center justify-center
-                       bg-white/70 border border-white/50 transition-transform"
-                    [class.rotate-180]="isExpanded(group.eventId)">
-                    <svg class="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
+    @if (!loading && hasTickets) {
+      <div class="space-y-4">
+        @for (group of filteredGroups; track trackGroup($index, group)) {
+          <div>
+            <!-- Evento Header (Acordeón trigger) -->
+            <div (click)="toggleGroup(group.eventId)"
+                 class="relative rounded-3xl overflow-hidden cursor-pointer
+                        bg-white/60 backdrop-blur-xl
+                        border border-white/40
+                        shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
+                 [class.ring-2]="isExpanded(group.eventId)"
+                 [class.ring-blue-400]="isExpanded(group.eventId)">
+              <div class="absolute left-0 top-0 bottom-0 w-1 transition-all duration-300 rounded-l-3xl"
+                   [class.bg-blue-500]="isExpanded(group.eventId)"
+                   [class.opacity-0]="!isExpanded(group.eventId)">
               </div>
-        <div class="grid transition-[grid-template-rows,opacity] duration-500 ease-out" [ngClass]="isExpanded(group.eventId)
-    ? 'grid-rows-[1fr] opacity-100'
-    : 'grid-rows-[0fr] opacity-0'">
-                <div class="overflow-hidden">
-                  <div class="pt-5 grid grid-cols-1 sm:grid-cols-2 gap-6 justify-items-center">
-                    @for (ticket of group.tickets; track trackTicket($index, ticket)) {
-                      <app-ticket-card [ticket]="ticket"
-                        [group]="group" (onShare)="compartirTicketNativo(ticket, group)">
-                      </app-ticket-card>
-                    }
-                  </div>
-
-                  @if (group.extras.length > 0) {
-                    <div class="mt-6 pt-4 border-t border-slate-200/60">
-                      <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 text-center">Extras</h3>
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
-                        @for (extra of group.extras; track extra.id) {
-                          <div class="w-full max-w-sm bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex flex-col gap-3">
-                            <div class="flex items-center justify-between">
-                              <span class="font-semibold text-slate-800">{{ extra.eventProduct?.product?.name ?? 'Extra' }}</span>
-                              <span class="text-xs px-2 py-1 rounded-full font-medium"
-                                [ngClass]="extra.status === 'used' ? 'bg-slate-100 text-slate-500' : 'bg-green-100 text-green-700'">
-                                {{ extra.status === 'used' ? 'Usado' : 'Activo' }}
-                              </span>
-                            </div>
-                            <div class="text-sm text-slate-500">
-                              Cantidad: <span class="font-medium text-slate-700">{{ extra.quantity }}</span>
-                            </div>
-                            <div class="flex justify-center">
-                              <img [src]="extra.qrCode" class="w-32 h-32 object-contain mix-blend-multiply" />
-                            </div>
-                            <div class="text-center">
-                              <p class="text-[10px] text-slate-400 uppercase font-mono tracking-widest">Código Único</p>
-                              <p class="font-mono font-bold text-sm">{{ extra.codigo_unico }}</p>
-                            </div>
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  }
+              <div class="flex items-center gap-4 p-4">
+                <div class="w-14 h-14 rounded-2xl overflow-hidden shrink-0 bg-slate-200 shadow-inner">
+                  <img [src]="group.eventImage" class="w-full h-full object-cover" [alt]="group.eventTitle" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h2 class="font-bold text-slate-900 truncate" [class.text-blue-600]="isExpanded(group.eventId)">
+                    {{ group.eventTitle }}
+                  </h2>
+                  <p class="text-sm text-slate-500 mt-1">
+                    {{ group.eventDate | date:'mediumDate' }} ·
+                    <span class="font-medium text-slate-700">
+                      {{ group.tickets.length }} entrada{{ group.tickets.length !== 1 ? 's' : '' }}
+                      @if (group.extras.length > 0) {
+                        , {{ group.extras.length }} extra{{ group.extras.length !== 1 ? 's' : '' }}
+                      }
+                    </span>
+                  </p>
+                </div>
+                <div class="w-10 h-10 rounded-full flex items-center justify-center
+                           bg-white/70 border border-white/50 transition-transform duration-300"
+                     [class.rotate-180]="isExpanded(group.eventId)">
+                  <svg class="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </div>
             </div>
-          }
-        </div>
-      }
 
-      @if (!loading && !hasTickets) {
-        <div class="text-center py-24 animate-fade-in-up">
-          <div
-            class="w-24 h-24 mx-auto rounded-full bg-white/60 backdrop-blur border flex items-center justify-center mb-6">
-            <svg class="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-width="1.5" d="M20 12H4" />
-            </svg>
+            <!-- Contenido expandible -->
+            <div class="grid transition-[grid-template-rows,opacity] duration-500 ease-out"
+                 [ngClass]="isExpanded(group.eventId)
+                     ? 'grid-rows-[1fr] opacity-100 mt-4'
+                     : 'grid-rows-[0fr] opacity-0 mt-0'">
+              <div class="overflow-hidden">
+                <div class="pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-center">
+                  @for (ticket of group.tickets; track trackTicket($index, ticket)) {
+                    <div class="w-full max-w-[340px] h-[500px]">
+                      <app-ticket-flip-card
+                        [ticket]="ticket"
+                        [group]="group"
+                        [status]="getTicketStatus(ticket, group.eventDate)"
+                        (onShare)="compartirTicketNativo(ticket, group)">
+                      </app-ticket-flip-card>
+                    </div>
+                  }
+                </div>
+
+                <!-- Extras del evento -->
+                @if (group.extras.length > 0) {
+                  <div class="mt-6 pt-4 border-t border-slate-200/60">
+                    <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 px-1">
+                      Extras para este evento
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      @for (extra of group.extras; track trackExtra($index, extra)) {
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/50 backdrop-blur border border-white/40 shadow-sm">
+                          <div class="w-10 h-10 rounded-lg overflow-hidden bg-slate-100 shrink-0 flex items-center justify-center">
+                            <img *ngIf="extra.eventProduct?.product?.imageUrl"
+                                 [src]="extra.eventProduct.product.imageUrl"
+                                 class="w-full h-full object-cover"
+                                 [alt]="extra.eventProduct?.product?.name">
+                            <svg *ngIf="!extra.eventProduct?.product?.imageUrl" class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                            </svg>
+                          </div>
+                          <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between">
+                              <span class="text-sm font-medium text-slate-800 truncate">
+                                {{ extra.eventProduct?.product?.name ?? 'Extra' }}
+                              </span>
+                              <span class="text-xs px-2 py-0.5 rounded-full font-medium ml-2 shrink-0"
+                                    [class.bg-green-100]="extra.status === 'active'"
+                                    [class.text-green-700]="extra.status === 'active'"
+                                    [class.bg-slate-100]="extra.status !== 'active'"
+                                    [class.text-slate-500]="extra.status !== 'active'">
+                                {{ extra.status === 'active' ? 'Activo' : (extra.status === 'used' ? 'Usado' : 'Cancelado') }}
+                              </span>
+                            </div>
+                            <div class="flex items-center gap-3 mt-1">
+                              <span class="text-xs text-slate-500">x{{ extra.quantity }}</span>
+                              <span class="text-xs font-mono text-slate-400">{{ extra.codigo_unico | slice:0:10 }}...</span>
+                            </div>
+                          </div>
+                          <div class="shrink-0 text-right">
+                            <img *ngIf="extra.qrCode && extra.status === 'active'"
+                                 [src]="extra.qrCode"
+                                 class="w-10 h-10 object-contain"
+                                 alt="QR">
+                            <svg *ngIf="extra.status !== 'active'" class="w-5 h-5 text-slate-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
           </div>
-          <h3 class="text-xl font-bold text-slate-800">Sin tickets aún</h3>
-          <p class="text-slate-500 mt-2 mb-6">Explorá eventos y empezá tu colección</p>
-          <button (click)="irAEventos()"
-            class="px-8 py-3 rounded-full bg-blue-600 text-white font-semibold shadow-lg active:scale-95">
-            Explorar eventos
-          </button>
-        </div>
-      }
-
-    </div>
-
-
-    <div id="ticket-export-container" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
-      <div id="ticket-to-share"
-        class="w-[350px] bg-white text-black p-6 rounded-3xl border border-gray-200 flex flex-col items-center gap-4 shadow-xl">
-
-        <div class="w-full h-40 rounded-2xl overflow-hidden relative mb-2">
-          <img [src]="sharingEventImage" class="w-full h-full object-cover">
-          <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <h2 class="text-white font-bold text-2xl text-center px-4">{{ sharingEventTitle }}</h2>
-          </div>
-        </div>
-
-        <div class="text-center w-full border-b border-dashed border-gray-300 pb-4">
-          <p class="text-sm text-gray-500 uppercase tracking-widest font-bold">Fecha</p>
-          <p class="text-lg font-bold text-gray-900">{{ sharingEventDate | date:'fullDate' }}</p>
-          <p class="text-sm text-gray-400 mt-1">{{ sharingEventLocation }}</p>
-        </div>
-
-        <div class="bg-gray-100 p-4 rounded-xl">
-          <img [src]="sharingQrCode" class="w-48 h-48 mix-blend-multiply">
-        </div>
-
-        <div class="text-center">
-          <p class="text-xs text-gray-400 uppercase font-mono tracking-widest">Código Único</p>
-          <p class="font-mono font-bold text-lg">{{ sharingTicketCode }}</p>
-          <p class="text-[10px] text-gray-400 mt-2">Ticket válido para 1 persona • EventLife</p>
-        </div>
-
+        }
       </div>
+    }
+
+    @if (!loading && !hasTickets) {
+      <div class="text-center py-24 animate-fade-in-up">
+        <div class="w-24 h-24 mx-auto rounded-full bg-white/60 backdrop-blur border flex items-center justify-center mb-6">
+          <svg class="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-width="1.5" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-slate-800">Sin tickets aún</h3>
+        <p class="text-slate-500 mt-2 mb-6">Explorá eventos y empezá tu colección</p>
+        <button (click)="irAEventos()"
+          class="px-8 py-3 rounded-full bg-blue-600 text-white font-semibold shadow-lg active:scale-95">
+          Explorar eventos
+        </button>
+      </div>
+    }
+
+  </div>
+
+  <!-- Hidden export container for html-to-image -->
+  <div id="ticket-export-container" class="fixed top-0 left-0 -z-50 opacity-0 pointer-events-none">
+    <div id="ticket-to-share"
+      class="w-[350px] bg-white text-black p-6 rounded-3xl border border-gray-200 flex flex-col items-center gap-4 shadow-xl">
+
+      <div class="w-full h-40 rounded-2xl overflow-hidden relative mb-2">
+        <img [src]="sharingEventImage" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+          <h2 class="text-white font-bold text-2xl text-center px-4">{{ sharingEventTitle }}</h2>
+        </div>
+      </div>
+
+      <div class="text-center w-full border-b border-dashed border-gray-300 pb-4">
+        <p class="text-sm text-gray-500 uppercase tracking-widest font-bold">Fecha</p>
+        <p class="text-lg font-bold text-gray-900">{{ sharingEventDate | date:'fullDate' }}</p>
+        <p class="text-sm text-gray-400 mt-1">{{ sharingEventLocation }}</p>
+      </div>
+
+      <div class="bg-gray-100 p-4 rounded-xl">
+        <img [src]="sharingQrCode" class="w-48 h-48 mix-blend-multiply">
+      </div>
+
+      <div class="text-center">
+        <p class="text-xs text-gray-400 uppercase font-mono tracking-widest">Código Único</p>
+        <p class="font-mono font-bold text-lg">{{ sharingTicketCode }}</p>
+        <p class="text-[10px] text-gray-400 mt-2">Ticket válido para 1 persona · EventLife</p>
+      </div>
+
     </div>
-  </main>
+  </div>
+</main>

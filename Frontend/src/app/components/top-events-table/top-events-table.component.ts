@@ -44,7 +44,9 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
                 <th class="rank-col">#</th>
                 <th>Evento</th>
                 <th class="num-col">Tickets</th>
+                <th class="num-col">Extras</th>
                 <th class="num-col">Revenue</th>
+                <th class="num-col">Extras $</th>
                 <th class="num-col">Comisión</th>
               </tr>
             </thead>
@@ -64,7 +66,13 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
                     <span class="tickets-count">{{ event.ticketsSold }}</span>
                   </td>
                   <td class="num-col">
+                    <span class="extras-count">{{ event.extrasSold }}</span>
+                  </td>
+                  <td class="num-col">
                     <span class="revenue-value">{{ event.totalRevenue | currency }}</span>
+                  </td>
+                  <td class="num-col">
+                    <span class="extras-value">{{ event.extrasRevenue | currency }}</span>
                   </td>
                   <td class="num-col">
                     <span class="commission-value">{{ event.platformCommission | currency }}</span>
@@ -252,9 +260,19 @@ import { CurrencyFormatterPipe } from '../../pipes/formatter.pipes';
       color: #6B7280;
     }
 
+    .extras-count {
+      font-weight: 600;
+      color: #F97316;
+    }
+
     .revenue-value {
       font-weight: 700;
       color: #111827;
+    }
+
+    .extras-value {
+      font-weight: 700;
+      color: #F59E0B;
     }
 
     .commission-value {

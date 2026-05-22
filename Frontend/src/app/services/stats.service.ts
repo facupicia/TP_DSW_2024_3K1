@@ -15,6 +15,10 @@ export interface ComparativeData {
     attendanceRate: number;
     eventId?: number;
     date?: string;
+    extrasRevenue?: number;
+    extrasSold?: number;
+    extrasUsedCount?: number;
+    extrasAttendanceRate?: number;
 }
 
 export interface ComparativeResponse {
@@ -30,6 +34,10 @@ export interface MetricsResponse {
     ticketsGrowth: number;
     topEvents?: any[];
     recentActivity?: any[];
+    totalExtrasRevenue?: number;
+    totalExtrasSold?: number;
+    avgExtraPrice?: number;
+    extrasGrowth?: number;
 }
 
 /* ============================================================================

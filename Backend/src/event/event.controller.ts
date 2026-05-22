@@ -255,7 +255,9 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         interval = setInterval(async () => {
             try {
                 const newData = await eventService.getSSEUpdatedData(userId!);
-                if (newData.lastSaleAt && (!currentData.lastSaleAt || newData.lastSaleAt > currentData.lastSaleAt)) {
+                const hasNewTicketSale = newData.lastSaleAt && (!currentData.lastSaleAt || newData.lastSaleAt > currentData.lastSaleAt);
+                const hasNewExtraSale = newData.lastExtraSaleAt && (!currentData.lastExtraSaleAt || newData.lastExtraSaleAt > currentData.lastExtraSaleAt);
+                if (hasNewTicketSale || hasNewExtraSale) {
                     currentData = newData;
                     res.write(`data: ${JSON.stringify({ type: 'update', data: newData })}\n\n`);
                 }

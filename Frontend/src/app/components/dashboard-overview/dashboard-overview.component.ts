@@ -138,6 +138,54 @@ import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatt
         <div class="mt-8">
           <app-top-events-table [dateRange]="dateRange" [refreshKey]="refreshKey"></app-top-events-table>
         </div>
+        <!-- Extras Metrics -->
+        <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Top Products Extra -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">🛍️ Top Productos Extra</h3>
+            <div class="space-y-3">
+              @for (prod of overview.extras.topProducts.slice(0, 5); track prod; let i = $index) {
+                <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                  <div class="flex items-center gap-3">
+                    <span class="text-gray-400 font-mono text-sm">#{{ i + 1 }}</span>
+                    <div class="flex-1">
+                      <p class="font-bold text-gray-900 text-sm">{{ prod.name }}</p>
+                      <p class="text-xs text-gray-500 capitalize">{{ prod.category }}</p>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold text-orange-600">{{ prod.totalSold }}</p>
+                    <p class="text-xs text-gray-500">{{ prod.revenue | currency }}</p>
+                  </div>
+                </div>
+              }
+              @if (overview.extras.topProducts.length === 0) {
+                <p class="text-gray-400 text-sm text-center py-4">No hay datos de extras</p>
+              }
+            </div>
+          </div>
+          <!-- Extras by Category -->
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <h3 class="text-lg font-bold text-gray-900 mb-4">📦 Extras por Categoría</h3>
+            <div class="space-y-3">
+              @for (cat of overview.extras.revenueByCategory; track cat) {
+                <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                  <div class="flex items-center gap-3">
+                    <span class="text-lg">{{ cat.category === 'drink' ? '🥤' : (cat.category === 'food' ? '🍔' : (cat.category === 'parking' ? '🅿️' : (cat.category === 'merch' ? '👕' : (cat.category === 'combo' ? '📦' : '🎁')))) }}</span>
+                    <p class="font-bold text-gray-900 text-sm capitalize">{{ cat.category }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="font-bold text-gray-900">{{ cat.revenue | currency }}</p>
+                    <p class="text-xs text-gray-500">{{ cat.count }} vendidos</p>
+                  </div>
+                </div>
+              }
+              @if (overview.extras.revenueByCategory.length === 0) {
+                <p class="text-gray-400 text-sm text-center py-4">No hay datos de categorías</p>
+              }
+            </div>
+          </div>
+        </div>
         <!-- Event Stats Summary -->
         <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white rounded-xl border border-gray-100 p-4 text-center">
@@ -228,6 +276,22 @@ export class DashboardOverviewComponent {
         icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
         gradient: 'bg-gradient-to-br from-pink-50 to-rose-50 border-pink-100',
         textColor: 'pink-700'
+      },
+      {
+        title: 'Vouchers Vendidos',
+        value: this.overview.marketplace.extrasSold.toLocaleString(),
+        subtitle: currencyPipe.transform(this.overview.marketplace.extrasRevenue) + ' revenue',
+        icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+        gradient: 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-100',
+        textColor: 'orange-700'
+      },
+      {
+        title: 'Revenue Extras',
+        value: currencyPipe.transform(this.overview.marketplace.extrasRevenue),
+        subtitle: this.overview.marketplace.totalItemsSold.toLocaleString() + ' items totales',
+        icon: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+        gradient: 'bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-100',
+        textColor: 'amber-700'
       }
     ];
   }
