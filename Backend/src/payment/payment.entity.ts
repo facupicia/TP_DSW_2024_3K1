@@ -15,6 +15,7 @@ export enum PaymentStatus {
 @Index('idx_payment_organizer_status', ['organizerId', 'status'])
 @Index('idx_payment_status_organizer', ['status', 'organizerId'])
 @Index('idx_payment_user_created', ['userId', 'createdAt'])
+@Index('idx_payment_external_ref', ['externalReference'])
 @Check('"quantity" > 0')
 @Check('"totalAmount" > 0')
 @Check('"baseAmount" >= 0')
@@ -23,16 +24,16 @@ export enum PaymentStatus {
 @Check('"serviceFeeAmount" >= 0')
 @Check('"buyerTotalAmount" > 0')
 @Check('"commissionPercent" >= 0 AND "commissionPercent" <= 100')
+@Check('"commissionAmount" >= 0')
 @Check('"refundAmount" IS NULL OR "refundAmount" >= 0')
 export class PaymentLog extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ type: 'varchar', length: 100 })
   mpPaymentId: string;
 
-  @Column({ nullable: true })
-  @Index('idx_payment_external_ref')
+  @Column({ type: 'varchar', length: 255, nullable: true })
   externalReference?: string;
 
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })

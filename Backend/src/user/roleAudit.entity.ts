@@ -6,15 +6,15 @@ export class RoleAudit extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'adminId' })
   admin: User;
 
-  @Column()
+  @Column({ nullable: true })
   @Index('idx_role_audit_admin')
   adminId: number;
 
-  @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'userId' })
   targetUser: User;
 

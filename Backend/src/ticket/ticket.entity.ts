@@ -32,6 +32,7 @@ export enum TicketStatus {
 @Check('"purchasePrice" >= 0')
 @Check('"promoterCommissionPercentage" IS NULL OR ("promoterCommissionPercentage" >= 0 AND "promoterCommissionPercentage" <= 100)')
 @Check('"promoterCommissionAmount" IS NULL OR "promoterCommissionAmount" >= 0')
+@Check('"status" IN (\'active\', \'used\', \'cancelled\')')
 export class Ticket extends BaseEntity {
 
     @PrimaryGeneratedColumn()

@@ -25,6 +25,7 @@ export enum SubscriptionStatus {
  */
 @Entity('user_subscription')
 @Index(['userId', 'status'])
+@Index('idx_subscription_plan', ['planId'])
 export class UserSubscription extends BaseEntity {
 
     @PrimaryGeneratedColumn()

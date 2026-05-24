@@ -26,7 +26,7 @@ import { PromoterEventAssignment } from "../promoter/promoter.entity";
 @Index('idx_event_destacado_active_date', ['destacado', 'active', 'date'])
 @Index('idx_event_date', ['date'])
 @Index('idx_event_title', ['title'])
-@Check('"minAge" >= 0')
+@Check('"minAge" >= 0 AND "minAge" <= 99')
 export class Event extends BaseEntity {
 
     @PrimaryGeneratedColumn()
@@ -50,7 +50,7 @@ export class Event extends BaseEntity {
     @Column({ type: "varchar", length: 255 })
     organizer: string;
 
-    @Column({ type: "varchar", nullable: true })
+    @Column({ type: "varchar", length: 2048, nullable: true })
     image: string;
 
     @Column({ type: "date" })

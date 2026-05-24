@@ -34,11 +34,11 @@ export class SubscriptionPlan extends BaseEntity {
     displayName: string;
 
     /** Monthly price in ARS (0 for free plan) */
-    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
     monthlyPrice: number;
 
     /** Yearly price in ARS (null if not offered) */
-    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
     yearlyPrice: number;
 
     /** Max events an organizer can create per month (-1 = unlimited) */
@@ -58,7 +58,7 @@ export class SubscriptionPlan extends BaseEntity {
     serviceFeePercent: number;
 
     /** Minimum service fee in ARS when serviceFeePercent is greater than zero */
-    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
     minimumServiceFee: number;
 
     /** JSON object with feature flags */

@@ -16,6 +16,7 @@ import { User } from "../user/user.entity";
 @Unique("uq_scanner_organizer_assignment", ["organizerId", "scannerId"])
 @Index("idx_scanner_organizer_active", ["organizerId", "isActive"])
 @Index("idx_scanner_user_active", ["scannerId", "isActive"])
+@Index("idx_scanner_assigned_by", ["assignedById"])
 export class ScannerOrganizerAssignment extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;

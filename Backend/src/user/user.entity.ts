@@ -21,11 +21,13 @@ export class User extends BaseEntity {
     lastname: string;
 
     @Column({
+        type: 'varchar',
+        length: 2048,
         default: "https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_960_720.png"
     })
     imgPerfil: string;
 
-    @Column()
+    @Column({ type: 'varchar', length: 30 })
     phone: string;
 
     @Column({ nullable: true })
@@ -43,7 +45,7 @@ export class User extends BaseEntity {
     @Column({ type: 'date' })
     birth: Date;
 
-    @Column()
+    @Column({ type: 'varchar', length: 254 })
     email: string;
 
     @Column({ select: false })

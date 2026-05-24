@@ -13,9 +13,10 @@ export enum TicketTypeStatus {
 @Index('idx_ticket_type_event_status', ['eventId', 'status'])
 @Unique(['eventId', 'name'])
 @Check('"price" >= 0')
-@Check('"capacity" >= 0')
+@Check('"capacity" > 0')
 @Check('"soldCount" >= 0')
 @Check('"soldCount" <= "capacity"')
+@Check('"status" IN (\'active\', \'sold_out\', \'paused\', \'disabled\')')
 export class TicketType extends BaseEntity {
 
     @PrimaryGeneratedColumn()
