@@ -11,10 +11,12 @@ import { checkRoleAuth } from "../common/middleware/checkRole"
 
 const router = Router()
 
+import { globalRateLimiter } from "../common/middleware/rateLimit";
+
 /* ==================== PUBLIC ROUTES ==================== */
-router.get("/", getEvents)  // Ruta pública para listar eventos
-router.get("/explore", getEvents)
-router.get("/search", getEventByName)
+router.get("/", globalRateLimiter, getEvents)  // Ruta pública para listar eventos
+router.get("/explore", globalRateLimiter, getEvents)
+router.get("/search", globalRateLimiter, getEventByName)
 router.get("/count", checkAuthToken, checkRoleAuth(["admin"]), getEventsNumber)
 
 /* ==================== STATISTICS ROUTES (before /:id) ==================== */

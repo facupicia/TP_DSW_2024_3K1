@@ -13,6 +13,9 @@ import { logger } from "../common/services/logger";
 import { env } from "../config/env";
 import AppDataSource from "../db";
 import { Roles } from "../schemas/schema.user";
+import { getPagination } from "../common/services/pagination";
+import { RoleAudit } from "./roleAudit.entity";
+import { getClientIP, getReadableLocationFromIP } from "../common/services/geolocation";
 
 export interface RegisterData {
   firstname: string;
@@ -106,7 +109,6 @@ export async function register(data: RegisterData): Promise<User> {
 }
 
 export async function search(params: UserSearchParams): Promise<Paginated<UserSummary>> {
-  const { getPagination } = await import("../common/services/pagination");
   const { page, limit, skip, take } = getPagination({ page: params.page, limit: params.limit }, 20, 50);
   const search = (params.search || "").trim();
   const role = (params.role || "").trim();
@@ -426,7 +428,6 @@ export async function updateRoles(
 }
 
 async function logRoleChange(adminId: number, userId: number, prevRole: string, newRole: string, ip: string) {
-  const { RoleAudit } = await import("./roleAudit.entity");
   const audit = new RoleAudit();
   audit.adminId = adminId;
   audit.userId = userId;
@@ -483,7 +484,6 @@ export async function authenticateGoogle(credential: string, clientIP?: string):
 
   if (!user) {
     isNewUser = true;
-    const { getClientIP, getReadableLocationFromIP } = await import("../common/services/geolocation");
     const resolvedIP = clientIP || '127.0.0.1';
     const location = getReadableLocationFromIP(resolvedIP);
 

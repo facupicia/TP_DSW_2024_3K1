@@ -9,7 +9,10 @@ import { env } from '../config/env';
  */
 
 const requiredEnvVars = [
-    'MP_ACCESS_TOKEN',
+    'MP_ACCESS_TOKEN'
+] as const;
+
+const oauthRequiredEnvVars = [
     'MP_CLIENT_ID',
     'MP_CLIENT_SECRET'
 ] as const;
@@ -50,8 +53,8 @@ export function getMPConfig(): MPConfig {
 
     cachedConfig = {
         accessToken: env.MP_ACCESS_TOKEN,
-        clientId: env.MP_CLIENT_ID!,
-        clientSecret: env.MP_CLIENT_SECRET!,
+        clientId: env.MP_CLIENT_ID || '',
+        clientSecret: env.MP_CLIENT_SECRET || '',
         webhookSecret: env.MP_WEBHOOK_SECRET,
         subscriptionWebhookSecret: env.MP_SUBSCRIPTION_WEBHOOK_SECRET,
         subscriptionAccessToken: env.MP_ACCESS_TOKEN_SUSCRIPCION,
@@ -62,6 +65,24 @@ export function getMPConfig(): MPConfig {
     };
 
     return cachedConfig;
+}
+
+/**
+ * Valida que las variables de OAuth estén configuradas.
+ * Lanza error solo cuando se intenta usar el flujo OAuth.
+ */
+export function validateOAuthConfig(): void {
+    const missing: string[] = [];
+    for (const envVar of oauthRequiredEnvVars) {
+        if (!(env as any)[envVar]) {
+            missing.push(envVar);
+        }
+    }
+    if (missing.length > 0) {
+        throw new Error(
+            `Missing required MercadoPago OAuth environment variables: ${missing.join(', ')}`
+        );
+    }
 }
 
 /**

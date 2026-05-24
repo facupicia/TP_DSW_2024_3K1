@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
+import { getPagination } from "../common/services/pagination";
 import {
     addPromoter as addPromoterSvc,
     listPromoters,
@@ -80,7 +81,7 @@ export const getMyPromoters = async (req: CustomRequest, res: Response) => {
     if (!auth) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
 
     try {
-        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const { skip, take } = getPagination(req.query, 50, 100);
         const result = await listPromoters(auth.organizerId, skip, take);
         return res.status(200).json(result);
     } catch (error: any) {

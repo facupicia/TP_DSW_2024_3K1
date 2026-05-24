@@ -12,6 +12,7 @@ import { checkRoleAuth } from "../common/middleware/checkRole";
 import { 
     createValidateMPWebhookSignature 
 } from "./mp-webhook.middleware";
+import { processRefund, getRefundStatus } from "./refund.service";
 
 const preferenceRateLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
@@ -138,7 +139,6 @@ router.post("/mp/disconnect", checkAuthToken, disconnectMp);
  * Body: { amount?: number, reason?: string }
  */
 router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
-    const { processRefund } = await import('./refund.service');
     const result = await processRefund(req.params.paymentId, {
         amount: req.body?.amount,
         reason: req.body?.reason,
@@ -154,7 +154,6 @@ router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAu
  * Verifica si un pago puede ser reembolsado.
  */
 router.get("/refund-status/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
-    const { getRefundStatus } = await import('./refund.service');
     const result = await getRefundStatus(req.params.paymentId, req.user?.id, req.user?.roles || []);
     res.status(200).json(result);
 });

@@ -5,6 +5,7 @@ import { Event } from "./event.entity";
 import { User } from "../user/user.entity";
 import PDFDocument from "pdfkit";
 import * as eventService from "./event.service";
+import { getPagination } from "../common/services/pagination";
 
 class HttpError extends Error {
     status: number;
@@ -121,7 +122,7 @@ export const getEvent = async (req: Request, res: Response) => {
    ====================================================== */
 export const getEvents = async (req: Request, res: Response) => {
     try {
-        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 200);
+        const { skip, take, page, limit } = getPagination(req.query, 50, 200);
         const result = await eventService.findPublic({ skip, take, page, limit });
 
         res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
@@ -151,7 +152,7 @@ export const getEventsNumber = async (_req: Request, res: Response) => {
 export const getEventByName = async (req: Request, res: Response) => {
     try {
         const rawTitle = req.query.title || req.query.search;
-        const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const { skip, take, page, limit } = getPagination(req.query, 50, 100);
         if (!rawTitle) return res.json({ data: [], total: 0, page, limit, totalPages: 1 });
 
         const result = await eventService.searchByName(String(rawTitle), { skip, take, page, limit });
@@ -168,7 +169,7 @@ export const getEventsByUser = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: "Unauthorized" });
-        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const { skip, take } = getPagination(req.query, 50, 100);
 
         const [events, total] = await eventService.findByOrganizer(userId, { skip, take });
         return res.json({ data: events, total });

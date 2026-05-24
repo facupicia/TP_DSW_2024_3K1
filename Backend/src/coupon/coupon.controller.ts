@@ -4,6 +4,7 @@ import { Coupon } from "./coupon.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../common/middleware/authToken";
 import AppDataSource from "../db";
+import { getPagination } from "../common/services/pagination";
 
 /**
  * CREATE COUPON (Organizer only)
@@ -102,7 +103,7 @@ export const getCouponsByEvent = async (req: CustomRequest, res: Response) => {
             return res.status(404).json({ message: "Evento no encontrado o no te pertenece" });
         }
 
-        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const { skip, take } = getPagination(req.query, 50, 100);
         const [coupons, total] = await Coupon.findAndCount({
             where: { eventId },
             order: { createdAt: "DESC" },

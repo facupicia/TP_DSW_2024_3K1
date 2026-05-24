@@ -8,12 +8,13 @@ import { createCategorySchema } from "../schemas/schema.category";
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
 import { schemaValidation } from "../common/middleware/schemaValidacion";
+import { globalRateLimiter } from "../common/middleware/rateLimit";
 
 const router = Router()
 
 
-router.post("/new", schemaValidation(createCategorySchema), checkAuthToken, checkRoleAuth(["admin"]), createCategory)
-router.get("/", getCategories)
+router.post("/new", checkAuthToken, checkRoleAuth(["admin"]), schemaValidation(createCategorySchema), createCategory)
+router.get("/", globalRateLimiter, getCategories)
 router.delete("/:id", checkAuthToken, checkRoleAuth(["admin"]), deleteCategory)
 router.get("/:id", checkAuthToken, checkRoleAuth(["admin"]), getCategoryByID)
 

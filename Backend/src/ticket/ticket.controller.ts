@@ -3,6 +3,7 @@ import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
 import { validateTicket as validateTicketService } from "./ticket-validation.service";
 import * as ticketService from "./ticket.service";
+import { getPagination } from "../common/services/pagination";
 
 class HttpError extends Error {
     status: number;
@@ -51,7 +52,7 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
         const requestedUserId = parseInt(req.params.id);
         const isAdmin = requesterRoles.includes('admin');
         const userID = isAdmin && !isNaN(requestedUserId) ? requestedUserId : requesterId;
-        const { skip, take } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
+        const { skip, take } = getPagination(req.query, 50, 100);
 
         const result = await ticketService.findByUser(userID, { skip, take });
         return res.status(200).json({ data: result.tickets, total: result.total });
