@@ -3,15 +3,14 @@
  * All endpoints related to ticket purchases and management
  */
 import { Router } from "express"
-import { validateTicket, getTickets, createTicket, cancelTicket, getLastPurchaseTickets, inviteGuests } from "./ticket.controller"
+import { getTickets, createTicket, cancelTicket, getLastPurchaseTickets, inviteGuests } from "./ticket.controller"
 import { checkAuthToken } from "../common/middleware/authToken"
-import { checkExactRole, checkRoleAuth } from "../common/middleware/checkRole"
+import { checkRoleAuth } from "../common/middleware/checkRole"
 import { schemaValidation } from "../common/middleware/schemaValidacion"
-import { createTicketSchema, cancelTicketSchema, validateTicketSchema, inviteGuestsSchema, getTicketsSchema } from "../schemas/schema.ticket"
+import { createTicketSchema, cancelTicketSchema, inviteGuestsSchema, getTicketsSchema } from "../schemas/schema.ticket"
 
 const router = Router()
 
-router.put("/validate", checkAuthToken, checkExactRole(["scanner", "admin", "organizer"]), schemaValidation(validateTicketSchema), validateTicket)
 router.get("/last-purchase", checkAuthToken, checkRoleAuth(["user", "admin", "scanner", "organizer", "rrpp"]), getLastPurchaseTickets)
 router.post("/invite", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(inviteGuestsSchema), inviteGuests)
 router.post("/buy/:id", checkAuthToken, schemaValidation(createTicketSchema), (_req, res) => {

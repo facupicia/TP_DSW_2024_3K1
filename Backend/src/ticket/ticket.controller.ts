@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
-import { validateTicket as validateTicketService } from "./ticket-validation.service";
 import * as ticketService from "./ticket.service";
 import { getPagination } from "../common/services/pagination";
 
@@ -72,43 +71,6 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
     } catch (error: any) {
         logger.error("ERROR REAL:", error);
         return res.status(500).json({ message: "Error interno del servidor" });
-    }
-};
-
-export const validateTicket = async (req: CustomRequest, res: Response) => {
-    try {
-        const { code } = req.body;
-        const userRoles = req.user?.roles || [];
-        const requesterId = req.user?.id;
-
-        if (!requesterId) return res.status(401).json({ message: "No autorizado", valid: false });
-
-        const result = await validateTicketService(code, requesterId, userRoles);
-
-        if (!result.success) {
-            const statusMap: Record<string, number> = {
-                INVALID_CODE: 400, NOT_FOUND: 404, FORBIDDEN: 403,
-                ALREADY_USED: 400, CANCELLED: 400, INACTIVE_TICKET_TYPE: 409,
-                INACTIVE_EVENT: 409, EVENT_PAST: 409, EVENT_NOT_STARTED: 409, RACE_CONDITION: 409
-            };
-            const status = statusMap[result.code || ""] || 400;
-            const payload: Record<string, any> = { message: result.message, valid: false };
-            if (result.usedAt) payload.usedAt = result.usedAt;
-            return res.status(status).json(payload);
-        }
-
-        const ticket = result.ticket!;
-        return res.json({
-            message: "Ticket válido. Acceso permitido.", valid: true,
-            ticket: {
-                id: ticket.id, event: ticket.ticketType?.event?.title,
-                ticketType: ticket.ticketType?.name,
-                user: `${ticket.user?.firstname} ${ticket.user?.lastname}`, status: ticket.status
-            }
-        });
-    } catch (error) {
-        if (error instanceof Error) return res.status(500).json({ message: error.message });
-        return res.status(500).json({ message: "Internal server error" });
     }
 };
 

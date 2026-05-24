@@ -30,7 +30,7 @@ router.get("/stats/event/:id", checkAuthToken, checkRoleAuth(["organizer", "admi
 
 /* ==================== PROTECTED ROUTES ==================== */
 router.post("/new", checkAuthToken, checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]), schemaValidation(createEventSchema), createEvent)
-router.get("/my-events", checkAuthToken, checkRoleAuth(["organizer", "admin", "user", "rrpp"]), getEventsByUser)
+router.get("/my-events", checkAuthToken, checkRoleAuth(["organizer", "admin"]), getEventsByUser)
 
 /* ==================== DYNAMIC ROUTES (must be last) ==================== */
 router.post("/:id/buy", checkAuthToken, (_req, res) => {

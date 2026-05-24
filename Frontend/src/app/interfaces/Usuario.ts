@@ -3,15 +3,14 @@ export interface Usuario {
   email: string;
   firstname: string;
   lastname: string;
-  password: string;
+  password?: string;
   phone: string;
-  location?: string;  // Optional for backward compatibility
   pais?: string;
   provincia?: string;
   ciudad?: string;
   birth: string;
-  roles?: string[];  // Array of roles: user can have multiple roles
-  rol?: string;      // Backward compatibility: highest role
+  roles?: string[];
+  rol?: string;
   imgPerfil?: string;
   active?: boolean;
   address?: string;
