@@ -1,4 +1,4 @@
-import { Component, ViewChild, inject, OnInit } from '@angular/core';
+import { Component, ViewChild, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ZXingScannerModule } from '@zxing/ngx-scanner';
 import { ScannerService } from '../../services/scanner.service';
@@ -12,7 +12,7 @@ import { RouterLink } from '@angular/router';
     templateUrl: './scanner.component.html',
     styleUrls: ['./scanner.component.css']
 })
-export class ScannerComponent implements OnInit {
+export class ScannerComponent implements OnInit, OnDestroy {
     scannerService = inject(ScannerService);
     toastService = inject(ToastService);
 
@@ -46,6 +46,16 @@ export class ScannerComponent implements OnInit {
     ngOnInit() {
         this.audioSuccess.volume = 0.6;
         this.audioError.volume = 0.6;
+    }
+
+    ngOnDestroy() {
+        this.audioSuccess.pause();
+        this.audioSuccess.src = '';
+        this.audioError.pause();
+        this.audioError.src = '';
+        if (this.cooldownTimer) {
+            clearTimeout(this.cooldownTimer);
+        }
     }
 
     loadHistory() {

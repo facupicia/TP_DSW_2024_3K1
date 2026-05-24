@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getMPConfig } from './mp.config';
 import { logger } from '../common/services/logger';
 import { env } from '../config/env';
+import { getClientIP } from '../common/services/geolocation';
 
 declare global {
     namespace Express {
@@ -17,17 +18,6 @@ declare global {
  * 
  * Valida la firma de los webhooks de MercadoPago.
  */
-
-/**
- * Extrae la IP real del request
- */
-function getClientIP(req: Request): string {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') {
-        return forwarded.split(',')[0].trim();
-    }
-    return req.socket.remoteAddress || 'unknown';
-}
 
 function firstValue(value: unknown): string | undefined {
     if (Array.isArray(value)) {

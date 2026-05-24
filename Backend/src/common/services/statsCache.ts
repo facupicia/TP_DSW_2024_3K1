@@ -6,7 +6,7 @@ import { getRedis } from "./redis";
 import { logger } from "./logger";
 
 const DEFAULT_TTL = 300; // 5 minutes in seconds
-const LONG_TTL = 600; // 10 minutes for expensive queries
+const LONG_TTL = 120; // 2 minutes for expensive queries (financial data should not be stale)
 
 /**
  * Generate cache key for stats

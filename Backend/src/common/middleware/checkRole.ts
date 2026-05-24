@@ -1,26 +1,17 @@
 import { Response, NextFunction } from "express";
 import { logger } from "../services/logger";
 import { CustomRequest as AuthRequest } from "./authToken";
+import { hasRoleLevel, getHighestRole } from "../../schemas/schema.user";
 
 export interface CustomRequest extends AuthRequest { }
-
-/**
- * Role hierarchy levels (higher number = more permissions)
- * admin > organizer > scanner > rrpp > user
- */
-const ROLE_HIERARCHY: Record<string, number> = {
-    'user': 1,
-    'rrpp': 2,
-    'scanner': 3,
-    'organizer': 4,
-    'admin': 5
-};
 
 /**
  * Get the highest role level from a list of roles
  */
 const getHighestRoleLevel = (roles: string[]): number => {
-    return Math.max(...roles.map(role => ROLE_HIERARCHY[role] || 0));
+    const highest = getHighestRole(roles);
+    const map: Record<string, number> = { user: 1, rrpp: 2, scanner: 3, organizer: 4, admin: 5 };
+    return map[highest] || 0;
 };
 
 /**

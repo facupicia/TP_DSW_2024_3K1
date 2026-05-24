@@ -24,6 +24,7 @@ import { Event } from "../event/event.entity";
 @Index('idx_promoter_group_promoter_active', ['promoterId', 'isActive'])
 @Index('idx_promoter_group_organizer_promoter', ['organizerId', 'promoterId'])
 @Unique(['organizerId', 'promoterId'])
+@Unique(['organizerId', 'promoterCode'])
 @Check('"commissionPercentage" >= 0 AND "commissionPercentage" <= 100')
 export class PromoterGroup extends BaseEntity {
     @PrimaryGeneratedColumn()
@@ -53,8 +54,8 @@ export class PromoterGroup extends BaseEntity {
     @Column({ type: "decimal", precision: 5, scale: 2, default: 10.00 })
     commissionPercentage: number;
 
-    /** Custom code for the promoter (for tracking/links) */
-    @Column({ type: "varchar", length: 50, nullable: true, unique: true })
+    /** Custom code for the promoter (for tracking/links) - unique per organizer */
+    @Column({ type: "varchar", length: 50, nullable: true })
     promoterCode: string | null;
 
     /** Whether this promoter assignment is active */
