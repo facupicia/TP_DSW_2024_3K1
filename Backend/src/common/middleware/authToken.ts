@@ -14,7 +14,8 @@ export interface IPayload {
 // Extender la interfaz Request para incluir la propiedad id
 export interface CustomRequest extends Request {
     id?: number;
-    user?: IPayload
+    user?: IPayload;
+    file?: Express.Multer.File;
 }
 
 const payloadSchema = z.object({
