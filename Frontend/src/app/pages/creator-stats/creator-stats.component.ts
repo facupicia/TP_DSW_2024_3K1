@@ -296,72 +296,91 @@ export class CreatorStatsComponent implements OnInit {
 
         this.toastService.info('Generando PDF...');
 
-        // Create a simple PDF-ready HTML and trigger print
-        const printWindow = window.open('', '_blank');
+        // Build HTML safely using textContent approach via DOM API
+        const htmlContent = this.buildSafeReportHtml(reportData);
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
         if (printWindow) {
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Reporte de Estadísticas</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 40px; }
-                        h1 { color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
-                        .metrics { display: flex; gap: 20px; margin: 20px 0; }
-                        .metric { background: #f3f4f6; padding: 20px; border-radius: 8px; }
-                        .metric-label { font-size: 12px; color: #6b7280; }
-                        .metric-value { font-size: 24px; font-weight: bold; color: #1f2937; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-                        th { background: #f9fafb; font-weight: 600; }
-                    </style>
-                </head>
-                <body>
-                    <h1>📊 Reporte de Estadísticas - ${reportData.period}</h1>
-                    <div class="metrics">
-                        <div class="metric">
-                            <div class="metric-label">Ingresos Totales</div>
-                            <div class="metric-value">$${reportData.metrics.totalRevenue.toLocaleString()}</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-label">Tickets Vendidos</div>
-                            <div class="metric-value">${reportData.metrics.totalTicketsSold}</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-label">Ticket Promedio</div>
-                            <div class="metric-value">$${reportData.metrics.avgTicketPrice.toFixed(0)}</div>
-                        </div>
-                    </div>
-                    <h2>Detalle por Evento</h2>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Evento</th>
-                                <th>Tickets</th>
-                                <th>Ingresos</th>
-                                <th>Ocupación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${reportData.events.map(e => `
-                                <tr>
-                                    <td>${e.title}</td>
-                                    <td>${e.participants}</td>
-                                    <td>$${e.revenue.toLocaleString()}</td>
-                                    <td>${(e.attendanceRate * 100).toFixed(0)}%</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    <p style="margin-top: 40px; color: #9ca3af; font-size: 12px;">
-                        Generado el ${new Date().toLocaleString()}
-                    </p>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-            printWindow.print();
+            printWindow.addEventListener('load', () => {
+                printWindow.print();
+            });
         }
+    }
+
+    private buildSafeReportHtml(reportData: any): string {
+        // Escape helper to prevent XSS
+        const esc = (str: string | number | undefined): string => {
+            if (str === undefined || str === null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        };
+
+        const rows = reportData.events.map((e: any) => `
+            <tr>
+                <td>${esc(e.title)}</td>
+                <td>${esc(e.participants)}</td>
+                <td>$${esc(e.revenue?.toLocaleString())}</td>
+                <td>${esc((e.attendanceRate * 100).toFixed(0))}%</td>
+            </tr>
+        `).join('');
+
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Reporte de Estadísticas</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 40px; }
+        h1 { color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+        .metrics { display: flex; gap: 20px; margin: 20px 0; }
+        .metric { background: #f3f4f6; padding: 20px; border-radius: 8px; }
+        .metric-label { font-size: 12px; color: #6b7280; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #1f2937; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <h1>Reporte de Estadísticas - ${esc(reportData.period)}</h1>
+    <div class="metrics">
+        <div class="metric">
+            <div class="metric-label">Ingresos Totales</div>
+            <div class="metric-value">$${esc(reportData.metrics.totalRevenue?.toLocaleString())}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Tickets Vendidos</div>
+            <div class="metric-value">${esc(reportData.metrics.totalTicketsSold)}</div>
+        </div>
+        <div class="metric">
+            <div class="metric-label">Ticket Promedio</div>
+            <div class="metric-value">$${esc(reportData.metrics.avgTicketPrice?.toFixed(0))}</div>
+        </div>
+    </div>
+    <h2>Detalle por Evento</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Evento</th>
+                <th>Tickets</th>
+                <th>Ingresos</th>
+                <th>Ocupación</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows}
+        </tbody>
+    </table>
+    <p style="margin-top: 40px; color: #9ca3af; font-size: 12px;">
+        Generado el ${esc(new Date().toLocaleString())}
+    </p>
+</body>
+</html>`;
     }
 
     exportCsv(): void {

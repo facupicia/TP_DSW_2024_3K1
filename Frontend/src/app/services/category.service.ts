@@ -16,7 +16,7 @@ export class CategoryService {
   constructor() { }
 
   cargarCategoria(objeto: string) {
-    return this.http.post(`${this.urlBase}/new`, objeto)
+    return this.http.post(`${this.urlBase}/new`, { name: objeto })
   }
 
   getCategories(): Observable<Categoria[]> {

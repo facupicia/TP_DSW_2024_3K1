@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EventLife — Informe de Auditoría de Seguridad</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              950: '#0a0c10',
+              900: '#111318',
+              850: '#181b21',
+              800: '#1e2129',
+              700: '#2a2e38',
+              600: '#3d424f',
+              500: '#565d6e',
+              400: '#7a8299',
+              300: '#9ba3b8',
+              200: '#c1c7d4',
+              100: '#e2e5ec',
+              50: '#f1f3f7',
+            },
+            critical: { DEFAULT: '#ef4444', dark: '#b91c1c', light: '#fca5a5' },
+            high:     { DEFAULT: '#f97316', dark: '#c2410c', light: '#fdba74' },
+            medium:   { DEFAULT: '#eab308', dark: '#a16207', light: '#fde047' },
+            low:      { DEFAULT: '#3b82f6', dark: '#1d4ed8', light: '#93c5fd' },
+          },
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style type="text/tailwindcss">
+    @layer base {
+      html { scroll-behavior: smooth; }
+      body {
+        background-color: #0a0c10;
+        color: #e2e5ec;
+        font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-track { background: #111318; }
+      ::-webkit-scrollbar-thumb { background: #3d424f; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #565d6e; }
+    }
+    @layer components {
+      .glow-critical { box-shadow: 0 0 20px rgba(239,68,68,0.15); }
+      .glow-high     { box-shadow: 0 0 20px rgba(249,115,22,0.15); }
+      .glow-medium   { box-shadow: 0 0 20px rgba(234,179,8,0.15); }
+      .glow-low      { box-shadow: 0 0 20px rgba(59,130,246,0.15); }
+      .glow-success  { box-shadow: 0 0 20px rgba(34,197,94,0.15); }
+      .glow-danger   { box-shadow: 0 0 20px rgba(239,68,68,0.15); }
+      .nav-link {
+        @apply flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-400 rounded-lg transition-all duration-200 hover:bg-slate-800 hover:text-slate-100;
+      }
+      .nav-link.active {
+        @apply bg-slate-800 text-white shadow-lg;
+      }
+      .section-title {
+        @apply text-2xl font-bold text-white mb-6 flex items-center gap-3;
+      }
+      .card {
+        @apply bg-slate-900 border border-slate-800 rounded-xl p-6 transition-all duration-300 hover:border-slate-600;
+      }
+      .severity-badge {
+        @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold uppercase tracking-wide;
+      }
+    }
+    @layer utilities {
+      .text-shadow-sm { text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    }
+  </style>
+
+  <style>
+    /* Print styles */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; color: #111 !important; }
+      .card { background: #f8f9fa !important; border-color: #dee2e6 !important; color: #111 !important; }
+      .section-title { color: #111 !important; }
+      canvas { max-height: 300px !important; }
+      #sidebar, #mobile-toggle { display: none !important; }
+      #main-content { margin-left: 0 !important; padding: 1rem !important; }
+    }
+
+    /* Glow animations */
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(239,68,68,0.1); }
+      50% { box-shadow: 0 0 25px rgba(239,68,68,0.25); }
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    /* Scroll reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Custom chart tooltip */
+    .chart-container {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
+    /* Progress bar stripe animation */
+    @keyframes progress-stripe {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 0; }
+    }
+    .progress-striped {
+      background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
+      background-size: 40px 40px;
+      animation: progress-stripe 1s linear infinite;
+    }
+  </style>
+</head>
+
+<body class="antialiased">
+
+  <!-- Mobile Toggle -->
+  <button id="mobile-toggle" class="no-print fixed top-4 left-4 z-50 lg:hidden bg-slate-800 text-white p-3 rounded-lg shadow-lg border border-slate-700" aria-label="Toggle navigation">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="no-print fixed left-0 top-0 h-full w-64 bg-slate-950 border-r border-slate-800 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 flex flex-col">
+    <div class="p-6 border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+          <i class="fas fa-shield-halved"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-white leading-tight text-sm">EventLife</h1>
+          <p class="text-xs text-slate-500 font-mono">AUDITORÍA 2024</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+      <a href="#resumen" class="nav-link active" onclick="setActive(this)">
+        <i class="fas fa-chart-pie w-5 text-center"></i>
+        <span>Resumen Ejecutivo</span>
+      </a>
+      <a href="#graficos" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-chart-bar w-5 text-center"></i>
+        <span>Gráficos</span>
+      </a>
+      <a href="#criticos" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-bug w-5 text-center text-red-400"></i>
+        <span>Issues Críticos</span>
+      </a>
+      <a href="#altos" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-triangle-exclamation w-5 text-center text-orange-400"></i>
+        <span>Alta Prioridad</span>
+      </a>
+      <a href="#flujos" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-code-branch w-5 text-center text-blue-400"></i>
+        <span>Flujos Funcionales</span>
+      </a>
+      <a href="#plan" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-list-check w-5 text-center text-green-400"></i>
+        <span>Plan de Acción</span>
+      </a>
+      <a href="#detalle" class="nav-link" onclick="setActive(this)">
+        <i class="fas fa-table w-5 text-center text-slate-400"></i>
+        <span>Detalle por Capa</span>
+      </a>
+    </nav>
+
+    <div class="p-4 border-t border-slate-800">
+      <div class="bg-slate-900 rounded-lg p-3 border border-slate-800">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400 font-medium">Riesgo Global</span>
+          <span class="text-xs font-bold text-red-400">ALTO</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-2">
+          <div class="bg-gradient-to-r from-red-500 to-orange-500 h-2 rounded-full" style="width: 78%"></div>
+        </div>
+      </div>
+      <div class="mt-3 text-center">
+        <span class="text-[10px] text-slate-600 font-mono uppercase tracking-wider">Generado: 24 May 2026</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div id="mobile-overlay" class="no-print fixed inset-0 bg-black/50 z-30 hidden lg:hidden backdrop-blur-sm"></div>
+
+  <!-- Main Content -->
+  <main id="main-content" class="lg:ml-64 min-h-screen p-6 lg:p-10 transition-all duration-300">
+
+    <!-- Header -->
+    <header class="mb-10 reveal">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-3 mb-2">
+            <span class="px-2.5 py-1 rounded-md bg-red-500/10 text-red-400 text-xs font-bold uppercase tracking-wider border border-red-500/20">
+              <i class="fas fa-circle-exclamation mr-1"></i> Crítico
+            </span>
+            <span class="text-slate-500 text-sm">Full-Stack Security Audit</span>
+          </div>
+          <h1 class="text-3xl lg:text-4xl font-bold text-white text-shadow-sm">Informe de Auditoría EventLife</h1>
+          <p class="text-slate-400 mt-2 max-w-2xl">Análisis integral de seguridad, rendimiento y arquitectura del stack completo: Node.js/Express, Angular, PostgreSQL y sinergia entre capas.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button onclick="window.print()" class="no-print px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors border border-slate-700 flex items-center gap-2">
+            <i class="fas fa-print"></i> Imprimir
+          </button>
+          <div class="text-right hidden lg:block">
+            <div class="text-2xl font-bold text-white font-mono">137</div>
+            <div class="text-xs text-slate-500 uppercase tracking-wider">Issues totales</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Summary Cards -->
+    <section id="resumen" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-chart-pie text-blue-400"></i> Resumen Ejecutivo</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <!-- Backend -->
+        <div class="card glow-danger border-l-4 border-l-red-500 hover:-translate-y-1">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400">
+              <i class="fas fa-server"></i>
+            </div>
+            <span class="text-2xl font-bold text-white font-mono">41</span>
+          </div>
+          <h3 class="font-semibold text-slate-200 mb-3">Backend</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <span class="text-slate-400 flex-1">Crítico</span>
+              <span class="text-white font-mono font-bold">5</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span class="text-slate-400 flex-1">Alto</span>
+              <span class="text-white font-mono font-bold">10</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+              <span class="text-slate-400 flex-1">Medio</span>
+              <span class="text-white font-mono font-bold">14</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-slate-400 flex-1">Bajo</span>
+              <span class="text-white font-mono font-bold">12</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Frontend -->
+        <div class="card glow-high border-l-4 border-l-orange-500 hover:-translate-y-1">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+              <i class="fas fa-laptop-code"></i>
+            </div>
+            <span class="text-2xl font-bold text-white font-mono">38</span>
+          </div>
+          <h3 class="font-semibold text-slate-200 mb-3">Frontend</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <span class="text-slate-400 flex-1">Crítico</span>
+              <span class="text-white font-mono font-bold">5</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span class="text-slate-400 flex-1">Alto</span>
+              <span class="text-white font-mono font-bold">8</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+              <span class="text-slate-400 flex-1">Medio</span>
+              <span class="text-white font-mono font-bold">10</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-slate-400 flex-1">Bajo</span>
+              <span class="text-white font-mono font-bold">15</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database -->
+        <div class="card glow-critical border-l-4 border-l-red-600 hover:-translate-y-1">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-10 h-10 rounded-lg bg-red-600/10 flex items-center justify-center text-red-500">
+              <i class="fas fa-database"></i>
+            </div>
+            <span class="text-2xl font-bold text-white font-mono">39</span>
+          </div>
+          <h3 class="font-semibold text-slate-200 mb-3">Base de Datos</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <span class="text-slate-400 flex-1">Crítico</span>
+              <span class="text-white font-mono font-bold">7</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span class="text-slate-400 flex-1">Alto</span>
+              <span class="text-white font-mono font-bold">13</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+              <span class="text-slate-400 flex-1">Medio</span>
+              <span class="text-white font-mono font-bold">10</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-slate-400 flex-1">Bajo</span>
+              <span class="text-white font-mono font-bold">9</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Synergy -->
+        <div class="card glow-medium border-l-4 border-l-yellow-500 hover:-translate-y-1">
+          <div class="flex items-start justify-between mb-4">
+            <div class="w-10 h-10 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-400">
+              <i class="fas fa-link"></i>
+            </div>
+            <span class="text-2xl font-bold text-white font-mono">19</span>
+          </div>
+          <h3 class="font-semibold text-slate-200 mb-3">Sinergia</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <span class="text-slate-400 flex-1">Crítico</span>
+              <span class="text-white font-mono font-bold">3</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span class="text-slate-400 flex-1">Alto</span>
+              <span class="text-white font-mono font-bold">4</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+              <span class="text-slate-400 flex-1">Medio</span>
+              <span class="text-white font-mono font-bold">6</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-slate-400 flex-1">Bajo</span>
+              <span class="text-white font-mono font-bold">6</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Charts Section -->
+    <section id="graficos" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-chart-bar text-purple-400"></i> Visualización de Datos</h2>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Severity Distribution (Pie) -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200">Distribución por Severidad</h3>
+            <span class="text-xs text-slate-500 font-mono">Total: 137</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="severityPieChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Issues by Layer (Bar) -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200">Issues por Capa</h3>
+            <span class="text-xs text-slate-500 font-mono">Backend | Frontend | DB | Synergy</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="layerBarChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Dimension Risk Scores (Radar) -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200">Puntaje de Riesgo por Dimensión</h3>
+            <span class="text-xs text-slate-500 font-mono">0-100</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="riskRadarChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Category Distribution (Doughnut) -->
+        <div class="card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold text-slate-200">Distribución por Categoría</h3>
+            <span class="text-xs text-slate-500 font-mono">Porcentaje</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="categoryDoughnutChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Severity Progress Bars -->
+    <section class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-bars-progress text-emerald-400"></i> Progreso por Severidad</h2>
+      <div class="card space-y-6">
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-red-400 flex items-center gap-2"><i class="fas fa-circle text-[8px]"></i> Crítico</span>
+            <span class="text-sm font-mono text-white">20 / 137 (14.6%)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-red-600 to-red-400 h-3 rounded-full progress-striped transition-all duration-1000" style="width: 0%" data-width="14.6%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-orange-400 flex items-center gap-2"><i class="fas fa-circle text-[8px]"></i> Alto</span>
+            <span class="text-sm font-mono text-white">35 / 137 (25.5%)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-orange-600 to-orange-400 h-3 rounded-full progress-striped transition-all duration-1000" style="width: 0%" data-width="25.5%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-yellow-400 flex items-center gap-2"><i class="fas fa-circle text-[8px]"></i> Medio</span>
+            <span class="text-sm font-mono text-white">40 / 137 (29.2%)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-yellow-600 to-yellow-400 h-3 rounded-full progress-striped transition-all duration-1000" style="width: 0%" data-width="29.2%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm font-medium text-blue-400 flex items-center gap-2"><i class="fas fa-circle text-[8px]"></i> Bajo</span>
+            <span class="text-sm font-mono text-white">42 / 137 (30.7%)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-400 h-3 rounded-full progress-striped transition-all duration-1000" style="width: 0%" data-width="30.7%"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Top 5 Critical Issues -->
+    <section id="criticos" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-bug text-red-500"></i> Top 5 Issues Críticos</h2>
+      <div class="space-y-5">
+
+        <!-- Issue 1 -->
+        <div class="card glow-danger border-l-4 border-l-red-500 animate-pulse-glow">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xl font-bold border border-red-500/20">1</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h3 class="text-lg font-bold text-white">Ghost Stock in Payment Preferences</h3>
+                <span class="severity-badge bg-red-500/10 text-red-400 border border-red-500/20">Backend</span>
+                <span class="severity-badge bg-red-500/20 text-red-300 border border-red-500/30">Crítico</span>
+              </div>
+              <p class="text-slate-300 leading-relaxed mb-3">
+                La transacción del backend valida stock pero <strong>no lo reserva atómicamente</strong>. Dos usuarios pueden pagar por el último ticket disponible; uno recibe el dinero cobrado pero sin entrega. El stock se reduce solo después del webhook, creando una ventana de race condition.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Race Condition</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Stock Management</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">MercadoPago</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500 mb-1">Impacto</div>
+              <div class="text-red-400 font-bold text-sm">Financiero + UX</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Issue 2 -->
+        <div class="card glow-danger border-l-4 border-l-red-500">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xl font-bold border border-red-500/20">2</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h3 class="text-lg font-bold text-white">Category Creation Completely Broken</h3>
+                <span class="severity-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">Sinergia</span>
+                <span class="severity-badge bg-red-500/20 text-red-300 border border-red-500/30">Crítico</span>
+              </div>
+              <p class="text-slate-300 leading-relaxed mb-3">
+                El frontend envía un <code class="bg-slate-800 px-1.5 py-0.5 rounded text-red-300 font-mono text-sm">string</code> raw como payload, pero el backend espera un objeto <code class="bg-slate-800 px-1.5 py-0.5 rounded text-blue-300 font-mono text-sm">{ name: string }</code>. La validación Zod falla silenciosamente y la categoría nunca se crea.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Contract Mismatch</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Zod Validation</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Feature Broken</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500 mb-1">Impacto</div>
+              <div class="text-red-400 font-bold text-sm">Feature Inoperable</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Issue 3 -->
+        <div class="card glow-danger border-l-4 border-l-red-500">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xl font-bold border border-red-500/20">3</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h3 class="text-lg font-bold text-white">Registration Fields Mismatch</h3>
+                <span class="severity-badge bg-purple-500/10 text-purple-400 border border-purple-500/20">Sinergia</span>
+                <span class="severity-badge bg-red-500/20 text-red-300 border border-red-500/30">Crítico</span>
+              </div>
+              <p class="text-slate-300 leading-relaxed mb-3">
+                Los campos <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono text-sm">pais</code>, <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono text-sm">provincia</code>, <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono text-sm">ciudad</code> y <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono text-sm">address</code> son opcionales en el formulario del frontend pero <strong>requeridos</strong> en el schema Zod del backend. El registro falla silenciosamente sin feedback al usuario.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Zod Schema</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">UX Failure</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Form Validation</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500 mb-1">Impacto</div>
+              <div class="text-red-400 font-bold text-sm">User Acquisition</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Issue 4 -->
+        <div class="card glow-danger border-l-4 border-l-red-500">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xl font-bold border border-red-500/20">4</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h3 class="text-lg font-bold text-white">document.write XSS in PDF Export</h3>
+                <span class="severity-badge bg-orange-500/10 text-orange-400 border border-orange-500/20">Frontend</span>
+                <span class="severity-badge bg-red-500/20 text-red-300 border border-red-500/30">Crítico</span>
+              </div>
+              <p class="text-slate-300 leading-relaxed mb-3">
+                La función <code class="bg-slate-800 px-1.5 py-0.5 rounded text-orange-300 font-mono text-sm">exportPdf()</code> inyecta HTML con datos de usuario directamente mediante <code class="bg-slate-800 px-1.5 py-0.5 rounded text-red-300 font-mono text-sm">document.write()</code>. Un título de evento malicioso puede ejecutar JavaScript arbitrario (Cross-Site Scripting).
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">XSS</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">document.write</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">User Input</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500 mb-1">Impacto</div>
+              <div class="text-red-400 font-bold text-sm">Seguridad</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Issue 5 -->
+        <div class="card glow-danger border-l-4 border-l-red-500">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-400 text-xl font-bold border border-red-500/20">5</div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <h3 class="text-lg font-bold text-white">console.error Exposed in Production</h3>
+                <span class="severity-badge bg-blue-500/10 text-blue-400 border border-blue-500/20">Backend</span>
+                <span class="severity-badge bg-red-500/20 text-red-300 border border-red-500/30">Crítico</span>
+              </div>
+              <p class="text-slate-300 leading-relaxed mb-3">
+                Múltiples controladores usan <code class="bg-slate-800 px-1.5 py-0.5 rounded text-red-300 font-mono text-sm">console.error()</code> en lugar del logger estructurado. Esto filtra PII (datos personales) y stack traces a los logs de producción, potencialmente accesibles por terceros.
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">PII Leak</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Logging</span>
+                <span class="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono border border-slate-700">Information Disclosure</span>
+              </div>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500 mb-1">Impacto</div>
+              <div class="text-red-400 font-bold text-sm">Privacidad</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- High Priority Summary -->
+    <section id="altos" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-triangle-exclamation text-orange-500"></i> Resumen de Alta Prioridad</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div class="card glow-high border-l-4 border-l-orange-500">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+              <i class="fas fa-server text-sm"></i>
+            </div>
+            <h3 class="font-bold text-slate-200">Backend</h3>
+            <span class="ml-auto text-orange-400 font-mono font-bold">10</span>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>N+1 query en <code class="text-orange-300 font-mono">getEvents</code> sin joins ni DataLoader</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>QR codes generados secuencialmente dentro de transacción DB</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Dynamic imports (<code class="text-orange-300 font-mono">await import("crypto")</code>) en cada request</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span><code class="text-orange-300 font-mono">geolocation.ts</code> es un placeholder sin implementación</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Rate limiting ausente en endpoints públicos de eventos</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Configuración de MercadoPago mezcla sandbox y producción</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Validación de Redis en tiempo de request (no startup)</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card glow-high border-l-4 border-l-orange-500">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+              <i class="fas fa-laptop-code text-sm"></i>
+            </div>
+            <h3 class="font-bold text-slate-200">Frontend</h3>
+            <span class="ml-auto text-orange-400 font-mono font-bold">8</span>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Race condition en refresh token (múltiples requests simultáneos)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>SSE sin guardia de carga: UI intenta usar datos antes de ready</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span><code class="text-orange-300 font-mono">Math.min(Infinity, ...)</code> como lógica de paginación</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span><code class="text-orange-300 font-mono">comprarTicket()</code> bypassea PaymentService directamente</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Stack traces de error expuestos en builds de producción</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Hardcodeo de 200 eventos en límite de listado</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card glow-high border-l-4 border-l-orange-500">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+              <i class="fas fa-database text-sm"></i>
+            </div>
+            <h3 class="font-bold text-slate-200">Base de Datos</h3>
+            <span class="ml-auto text-orange-400 font-mono font-bold">13</span>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Índices faltantes en Foreign Keys (N+1 silencioso)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Búsqueda <code class="text-orange-300 font-mono">LIKE '%term%'</code> sin índice trigram</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Columnas <code class="text-orange-300 font-mono">VARCHAR</code> sin longitudes definidas</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Precision inconsistente en decimales (monetarios)</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Sin enum a nivel DB para campos de estado</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>8 entidades sin soft delete (<code class="text-orange-300 font-mono">@DeleteDateColumn</code>)</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="card glow-high border-l-4 border-l-orange-500">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400">
+              <i class="fas fa-link text-sm"></i>
+            </div>
+            <h3 class="font-bold text-slate-200">Sinergia</h3>
+            <span class="ml-auto text-orange-400 font-mono font-bold">4</span>
+          </div>
+          <ul class="space-y-3 text-sm text-slate-300">
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span><code class="text-orange-300 font-mono">searchEventsByName()</code> no extrae <code class="text-orange-300 font-mono">response.data</code></span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Método <code class="text-orange-300 font-mono">getPaymentStatus()</code> inexistente en frontend</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span>Guardia <code class="text-orange-300 font-mono">/my-events</code> mismatch con backend</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <i class="fas fa-chevron-right text-[10px] text-orange-500 mt-1.5"></i>
+              <span><code class="text-orange-300 font-mono">borrarEvento()</code>: type mismatch en respuesta</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Working / Broken Flows -->
+    <section id="flujos" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-code-branch text-blue-400"></i> Estado de Flujos Funcionales</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Working -->
+        <div class="card glow-success border-l-4 border-l-green-500">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400">
+              <i class="fas fa-check-circle text-lg"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Flujos Operativos</h3>
+          </div>
+          <div class="space-y-4">
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+              <i class="fas fa-shield-halved text-green-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">JWT + Refresh Token</h4>
+                <p class="text-xs text-slate-400 mt-1">Rotación con deduplicación de tokens y blacklist en Redis funcionando correctamente.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+              <i class="fas fa-credit-card text-green-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">MercadoPago con Idempotencia</h4>
+                <p class="text-xs text-slate-400 mt-1">Claves de idempotencia evitan duplicados en reintentos de webhook.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+              <i class="fas fa-qrcode text-green-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Validación QR</h4>
+                <p class="text-xs text-slate-400 mt-1">Chequeo de timestamptz, evento activo y tipo de ticket activo.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-green-500/5 border border-green-500/10">
+              <i class="fas fa-signal text-green-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Event Stats SSE</h4>
+                <p class="text-xs text-slate-400 mt-1">Server-Sent Events con límite de 3 conexiones por usuario y cleanup robusto.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Broken -->
+        <div class="card glow-danger border-l-4 border-l-red-500">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400">
+              <i class="fas fa-times-circle text-lg"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white">Flujos Rotos</h3>
+          </div>
+          <div class="space-y-4">
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+              <i class="fas fa-tags text-red-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Creación de Categorías</h4>
+                <p class="text-xs text-slate-400 mt-1">Completamente roto por mismatch de payload (string vs object).</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+              <i class="fas fa-magnifying-glass text-red-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Búsqueda de Eventos por Nombre</h4>
+                <p class="text-xs text-slate-400 mt-1">No retorna resultados por falta de <code class="text-red-300 font-mono">response.data</code> extraction.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+              <i class="fas fa-clock text-red-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Polling de Estado de Pago</h4>
+                <p class="text-xs text-slate-400 mt-1">Método <code class="text-red-300 font-mono">getPaymentStatus()</code> no existe en el servicio frontend.</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+              <i class="fas fa-user-tag text-red-400 mt-0.5"></i>
+              <div>
+                <h4 class="font-semibold text-slate-200 text-sm">Sincronización de Nombre del Organizador</h4>
+                <p class="text-xs text-slate-400 mt-1">Campo denormalizado en evento; queda desactualizado (stale) al cambiar perfil.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Plan -->
+    <section id="plan" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-list-check text-green-400"></i> Plan de Acción</h2>
+      <div class="space-y-6">
+
+        <!-- Phase 1 -->
+        <div class="card glow-danger border-l-4 border-l-red-500 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-red-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 border border-red-500/20">
+              <span class="font-bold font-mono text-lg">P1</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-bold text-white">Fase 1 — Sprint 1</h3>
+                <span class="severity-badge bg-red-500/10 text-red-400 border border-red-500/20">6 Fixes Críticos</span>
+              </div>
+              <p class="text-slate-400 text-sm mt-1">Reservar stock atómico, corregir payload de categoría, alinear campos de registro, tipar <code class="text-slate-300 font-mono">isNewUser</code>, reemplazar <code class="text-slate-300 font-mono">document.write</code>, agregar <code class="text-slate-300 font-mono">noopener</code>.</p>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500">Severidad</div>
+              <div class="text-red-400 font-bold">Crítico</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 mt-2">
+            <div class="bg-gradient-to-r from-red-500 to-red-400 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Phase 2 -->
+        <div class="card glow-high border-l-4 border-l-orange-500 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400 border border-orange-500/20">
+              <span class="font-bold font-mono text-lg">P2</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-bold text-white">Fase 2 — Sprint 2</h3>
+                <span class="severity-badge bg-orange-500/10 text-orange-400 border border-orange-500/20">7 Fixes Altos</span>
+              </div>
+              <p class="text-slate-400 text-sm mt-1">Generar migración baseline, fix <code class="text-slate-300 font-mono">searchEventsByName</code>, agregar <code class="text-slate-300 font-mono">getPaymentStatus</code>, mover generación QR fuera de transacción, reemplazar <code class="text-slate-300 font-mono">console.error</code>, agregar índices DB.</p>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500">Severidad</div>
+              <div class="text-orange-400 font-bold">Alto</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 mt-2">
+            <div class="bg-gradient-to-r from-orange-500 to-orange-400 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Phase 3 -->
+        <div class="card glow-medium border-l-4 border-l-yellow-500 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400 border border-yellow-500/20">
+              <span class="font-bold font-mono text-lg">P3</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-bold text-white">Fase 3 — Sprint 3</h3>
+                <span class="severity-badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">Mejoras Medias</span>
+              </div>
+              <p class="text-slate-400 text-sm mt-1">Tipar interfaces compartidas, consolidar duplicados, agregar constraints DB, migrar a <code class="text-slate-300 font-mono">OnPush</code> en componentes Angular, agregar <code class="text-slate-300 font-mono">aria-labels</code> accesibilidad.</p>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500">Severidad</div>
+              <div class="text-yellow-400 font-bold">Medio</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 mt-2">
+            <div class="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Phase 4 -->
+        <div class="card glow-low border-l-4 border-l-blue-500 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20">
+              <span class="font-bold font-mono text-lg">P4</span>
+            </div>
+            <div class="flex-1">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-bold text-white">Fase 4 — Sprint 4</h3>
+                <span class="severity-badge bg-blue-500/10 text-blue-400 border border-blue-500/20">Limpieza</span>
+              </div>
+              <p class="text-slate-400 text-sm mt-1">Eliminar código muerto, estandarizar tipos TypeScript, corregir atributo <code class="text-slate-300 font-mono">lang</code> del HTML, optimizar imports, revisar warnings de compilación.</p>
+            </div>
+            <div class="flex-shrink-0 lg:text-right">
+              <div class="text-xs text-slate-500">Severidad</div>
+              <div class="text-blue-400 font-bold">Bajo</div>
+            </div>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 mt-2">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-400 h-2 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Detailed Table -->
+    <section id="detalle" class="mb-12 reveal">
+      <h2 class="section-title"><i class="fas fa-table text-slate-400"></i> Detalle por Capa</h2>
+      <div class="card overflow-hidden p-0">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs text-slate-400 uppercase bg-slate-850 sticky top-0 z-10">
+              <tr>
+                <th class="px-6 py-4 font-semibold">Capa</th>
+                <th class="px-6 py-4 font-semibold text-center">Crítico</th>
+                <th class="px-6 py-4 font-semibold text-center">Alto</th>
+                <th class="px-6 py-4 font-semibold text-center">Medio</th>
+                <th class="px-6 py-4 font-semibold text-center">Bajo</th>
+                <th class="px-6 py-4 font-semibold text-center">Total</th>
+                <th class="px-6 py-4 font-semibold text-right">% del Total</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr class="hover:bg-slate-850/50 transition-colors">
+                <td class="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                  <i class="fas fa-server text-red-400 w-5 text-center"></i> Backend
+                </td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-red-500/10 text-red-400 font-mono text-xs font-bold">5</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-orange-500/10 text-orange-400 font-mono text-xs font-bold">10</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 font-mono text-xs font-bold">14</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 font-mono text-xs font-bold">12</span></td>
+                <td class="px-6 py-4 text-center font-mono font-bold text-white">41</td>
+                <td class="px-6 py-4 text-right text-slate-400 font-mono">29.9%</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50 transition-colors">
+                <td class="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                  <i class="fas fa-laptop-code text-orange-400 w-5 text-center"></i> Frontend
+                </td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-red-500/10 text-red-400 font-mono text-xs font-bold">5</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-orange-500/10 text-orange-400 font-mono text-xs font-bold">8</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 font-mono text-xs font-bold">10</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 font-mono text-xs font-bold">15</span></td>
+                <td class="px-6 py-4 text-center font-mono font-bold text-white">38</td>
+                <td class="px-6 py-4 text-right text-slate-400 font-mono">27.7%</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50 transition-colors">
+                <td class="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                  <i class="fas fa-database text-red-500 w-5 text-center"></i> Database
+                </td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-red-500/10 text-red-400 font-mono text-xs font-bold">7</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-orange-500/10 text-orange-400 font-mono text-xs font-bold">13</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 font-mono text-xs font-bold">10</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 font-mono text-xs font-bold">9</span></td>
+                <td class="px-6 py-4 text-center font-mono font-bold text-white">39</td>
+                <td class="px-6 py-4 text-right text-slate-400 font-mono">28.5%</td>
+              </tr>
+              <tr class="hover:bg-slate-850/50 transition-colors">
+                <td class="px-6 py-4 font-medium text-slate-200 flex items-center gap-2">
+                  <i class="fas fa-link text-yellow-400 w-5 text-center"></i> Synergy
+                </td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-red-500/10 text-red-400 font-mono text-xs font-bold">3</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-orange-500/10 text-orange-400 font-mono text-xs font-bold">4</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-yellow-500/10 text-yellow-400 font-mono text-xs font-bold">6</span></td>
+                <td class="px-6 py-4 text-center"><span class="px-2 py-1 rounded bg-blue-500/10 text-blue-400 font-mono text-xs font-bold">6</span></td>
+                <td class="px-6 py-4 text-center font-mono font-bold text-white">19</td>
+                <td class="px-6 py-4 text-right text-slate-400 font-mono">13.9%</td>
+              </tr>
+              <tr class="bg-slate-850/80 font-semibold">
+                <td class="px-6 py-4 text-slate-100">Total</td>
+                <td class="px-6 py-4 text-center"><span class="text-red-400 font-mono">20</span></td>
+                <td class="px-6 py-4 text-center"><span class="text-orange-400 font-mono">35</span></td>
+                <td class="px-6 py-4 text-center"><span class="text-yellow-400 font-mono">40</span></td>
+                <td class="px-6 py-4 text-center"><span class="text-blue-400 font-mono">42</span></td>
+                <td class="px-6 py-4 text-center font-mono text-white text-lg">137</td>
+                <td class="px-6 py-4 text-right text-slate-300 font-mono">100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 pt-8 pb-4 text-center text-slate-500 text-sm reveal">
+      <div class="flex items-center justify-center gap-6 mb-4">
+        <span class="flex items-center gap-2"><i class="fas fa-shield-halved text-slate-600"></i> EventLife Audit</span>
+        <span class="flex items-center gap-2"><i class="fas fa-code-branch text-slate-600"></i> v1.0.0</span>
+        <span class="flex items-center gap-2"><i class="fas fa-calendar text-slate-600"></i> Mayo 2026</span>
+      </div>
+      <p class="font-mono text-xs text-slate-600">
+        Generado para el Trabajo Práctico de Desarrollo de Software 2024 — UTN<br>
+        Picia Facundo (48072) · Tomas Yasparra (48083)
+      </p>
+    </footer>
+
+  </main>
+
+  <!-- Scripts -->
+  <script>
+    // Sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const mobileToggle = document.getElementById('mobile-toggle');
+    const mobileOverlay = document.getElementById('mobile-overlay');
+
+    function toggleSidebar() {
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+      if (isOpen) {
+        sidebar.classList.add('-translate-x-full');
+        mobileOverlay.classList.add('hidden');
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        mobileOverlay.classList.remove('hidden');
+      }
+    }
+
+    mobileToggle.addEventListener('click', toggleSidebar);
+    mobileOverlay.addEventListener('click', toggleSidebar);
+
+    // Active nav link
+    function setActive(el) {
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      el.classList.add('active');
+      if (window.innerWidth < 1024) toggleSidebar();
+    }
+
+    // Scroll spy
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (scrollY >= sectionTop - 200) current = section.getAttribute('id');
+      });
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+      });
+    });
+
+    // Reveal on scroll
+    const revealElements = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+    revealElements.forEach(el => revealObserver.observe(el));
+
+    // Animate progress bars after reveal
+    setTimeout(() => {
+      document.querySelectorAll('[data-width]').forEach(bar => {
+        bar.style.width = bar.getAttribute('data-width');
+      });
+    }, 500);
+
+    // Chart.js global defaults
+    Chart.defaults.color = '#9ba3b8';
+    Chart.defaults.borderColor = '#2a2e38';
+    Chart.defaults.font.family = "'Inter', sans-serif";
+
+    // 1. Severity Distribution (Pie)
+    const severityPieCtx = document.getElementById('severityPieChart').getContext('2d');
+    new Chart(severityPieCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Crítico', 'Alto', 'Medio', 'Bajo'],
+        datasets: [{
+          data: [20, 35, 40, 42],
+          backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+          borderColor: '#111318',
+          borderWidth: 2,
+          hoverOffset: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } },
+          tooltip: {
+            backgroundColor: '#181b21',
+            titleColor: '#fff',
+            bodyColor: '#c1c7d4',
+            borderColor: '#2a2e38',
+            borderWidth: 1,
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a,b)=>a+b,0);
+                const pct = ((context.raw / total) * 100).toFixed(1);
+                return ` ${context.label}: ${context.raw} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // 2. Issues by Layer (Bar)
+    const layerBarCtx = document.getElementById('layerBarChart').getContext('2d');
+    new Chart(layerBarCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Backend', 'Frontend', 'Database', 'Synergy'],
+        datasets: [
+          { label: 'Crítico', data: [5, 5, 7, 3], backgroundColor: '#ef4444', borderRadius: 4 },
+          { label: 'Alto', data: [10, 8, 13, 4], backgroundColor: '#f97316', borderRadius: 4 },
+          { label: 'Medio', data: [14, 10, 10, 6], backgroundColor: '#eab308', borderRadius: 4 },
+          { label: 'Bajo', data: [12, 15, 9, 6], backgroundColor: '#3b82f6', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { stacked: true, grid: { display: false } },
+          y: { stacked: true, grid: { color: '#2a2e38' } }
+        },
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true } },
+          tooltip: {
+            backgroundColor: '#181b21',
+            titleColor: '#fff',
+            bodyColor: '#c1c7d4',
+            borderColor: '#2a2e38',
+            borderWidth: 1
+          }
+        }
+      }
+    });
+
+    // 3. Dimension Risk Scores (Radar)
+    const riskRadarCtx = document.getElementById('riskRadarChart').getContext('2d');
+    new Chart(riskRadarCtx, {
+      type: 'radar',
+      data: {
+        labels: ['Seguridad', 'Rendimiento', 'Arquitectura', 'UX/Accesibilidad', 'Datos/DB', 'Integración'],
+        datasets: [{
+          label: 'Puntaje de Riesgo',
+          data: [85, 72, 68, 55, 78, 62],
+          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+          borderColor: '#ef4444',
+          pointBackgroundColor: '#ef4444',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#ef4444',
+          borderWidth: 2,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          r: {
+            angleLines: { color: '#2a2e38' },
+            grid: { color: '#2a2e38' },
+            pointLabels: { color: '#c1c7d4', font: { size: 12 } },
+            ticks: { display: false, backdropColor: 'transparent' },
+            suggestedMin: 0,
+            suggestedMax: 100
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#181b21',
+            titleColor: '#fff',
+            bodyColor: '#c1c7d4',
+            borderColor: '#2a2e38',
+            borderWidth: 1,
+            callbacks: {
+              label: (ctx) => ` ${ctx.raw}/100 riesgo`
+            }
+          }
+        }
+      }
+    });
+
+    // 4. Category Distribution (Doughnut)
+    const categoryDoughnutCtx = document.getElementById('categoryDoughnutChart').getContext('2d');
+    new Chart(categoryDoughnutCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Backend', 'Frontend', 'Database', 'Synergy'],
+        datasets: [{
+          data: [41, 38, 39, 19],
+          backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6'],
+          borderColor: '#111318',
+          borderWidth: 2,
+          hoverOffset: 10
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } },
+          tooltip: {
+            backgroundColor: '#181b21',
+            titleColor: '#fff',
+            bodyColor: '#c1c7d4',
+            borderColor: '#2a2e38',
+            borderWidth: 1,
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a,b)=>a+b,0);
+                const pct = ((context.raw / total) * 100).toFixed(1);
+                return ` ${context.label}: ${context.raw} issues (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

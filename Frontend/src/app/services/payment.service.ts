@@ -18,6 +18,7 @@ export interface MpConnectResponse {
 export interface PreferenceResponse {
     id: string;
     init_point: string;
+    external_reference?: string;
     marketplace?: boolean;
     guest_checkout?: boolean;
     delivery_email?: string;
@@ -94,6 +95,15 @@ export class PaymentService {
             couponId,
             couponCode,
             buyer
+        });
+    }
+
+    /**
+     * Consulta el estado de un pago por external_reference
+     */
+    getPaymentStatus(externalReference: string): Observable<{ status: string }> {
+        return this.http.get<{ status: string }>(`${this.baseUrl}/status`, {
+            params: { external_reference: externalReference }
         });
     }
 

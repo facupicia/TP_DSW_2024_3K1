@@ -21,7 +21,7 @@ export interface PublicUser {
 
 export interface Evento {
     destacado: boolean;
-    user_id: number;
+    user_id?: number;
     id?: number;
     title: string;
     description: string;

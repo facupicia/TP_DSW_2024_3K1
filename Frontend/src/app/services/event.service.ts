@@ -50,8 +50,8 @@ export class EventService {
     );
   }
 
-  borrarEvento(id: number): Observable<Evento> {
-    return this.http.delete<Evento>(`${this.urlBase}/${id}`).pipe(
+  borrarEvento(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.urlBase}/${id}`).pipe(
       tap(() => this.clearEventsCache())
     );
   }
@@ -62,10 +62,11 @@ export class EventService {
     );
   }
 
-  searchEventsByName(searchTerm: string): Observable<any> {
+  searchEventsByName(searchTerm: string): Observable<Evento[]> {
     const params = new HttpParams().set('search', searchTerm);
-    return this.http.get<any>(`${this.urlBase}/search`, { params }).pipe(
-      tap((events: any[]) => {
+    return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/search`, { params }).pipe(
+      map(response => response.data || []),
+      tap((events: Evento[]) => {
         if (Array.isArray(events)) {
           events.forEach(e => {
             if (e.category && !e.categoria_name) {

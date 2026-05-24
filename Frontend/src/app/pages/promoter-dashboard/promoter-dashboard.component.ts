@@ -118,7 +118,7 @@ export class PromoterDashboardComponent implements OnInit {
   shareViaWhatsApp(event: AssignedEvent): void {
     const text = `¡Hola! Te invito a este evento: ${event.title}. Compra tu entrada aquí: ${event.shareableLink}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(whatsappUrl, '_blank');
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   }
 
   formatCurrency(amount: number): string {
