@@ -8,7 +8,7 @@ import * as userService from "./user.service";
 
 function handleServiceError(error: any, res: Response) {
   const code = error?.code || "INTERNAL_ERROR";
-  const message = error?.message || "Internal server error";
+  const rawMessage = error?.message || "Internal server error";
 
   const statusMap: Record<string, number> = {
     EMAIL_ALREADY_EXISTS: 409,
@@ -28,8 +28,11 @@ function handleServiceError(error: any, res: Response) {
   };
 
   const status = statusMap[code] || 500;
+  const isDev = process.env.NODE_ENV === 'development';
+  const message = (status >= 500 && !isDev) ? "Internal server error" : rawMessage;
+
   if (status >= 500) {
-    logger.error("SERVICE_ERROR", { code, message });
+    logger.error("SERVICE_ERROR", { code, message: rawMessage });
   }
 
   if (code === "NO_CHANGES" || code === "QUERY_REQUIRED") {

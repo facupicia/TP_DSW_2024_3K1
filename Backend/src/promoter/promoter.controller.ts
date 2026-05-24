@@ -18,10 +18,12 @@ import {
 function handleServiceError(error: any, res: Response) {
     const status = error.status || 500;
     const code = error.code || "INTERNAL_ERROR";
+    const isDev = process.env.NODE_ENV === 'development';
+    const message = (status >= 500 && !isDev) ? "Error interno del servidor" : (error.message || "Error interno del servidor");
     if (status >= 500) {
         logger.error("Promoter service error:", error);
     }
-    return res.status(status).json({ code, message: error.message || "Error interno del servidor" });
+    return res.status(status).json({ code, message });
 }
 
 function checkOrganizerAuth(req: CustomRequest): { organizerId: number; isAdmin: boolean } | null {

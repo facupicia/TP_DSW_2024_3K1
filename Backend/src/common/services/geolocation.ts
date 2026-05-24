@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import geoip from 'geoip-lite';
 
 export const getClientIP = (req: Request): string => {
     const forwarded = req.headers['x-forwarded-for'];
@@ -9,8 +10,19 @@ export const getClientIP = (req: Request): string => {
 };
 
 export const getReadableLocationFromIP = (ip: string) => {
-    // Placeholder implementation
-    // TODO: Integrate with a real GeoIP service (e.g., maxmind, ipapi)
+    try {
+        // geoip-lite may not resolve private/local IPs
+        const lookup = geoip.lookup(ip);
+        if (lookup) {
+            return {
+                pais: lookup.country || '',
+                provincia: lookup.region || '',
+                ciudad: lookup.city || ''
+            };
+        }
+    } catch {
+        // geoip-lite not available or failed
+    }
     return {
         pais: '',
         provincia: '',

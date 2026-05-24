@@ -408,6 +408,7 @@ export async function findPublic(params: { skip: number; take: number; page: num
     const [events, total] = await AppDataSource.getRepository(Event)
         .createQueryBuilder("event")
         .leftJoinAndSelect("event.category", "category")
+        .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
         .where("event.active = :active", { active: true })
         .andWhere("event.isPublic = :isPublic", { isPublic: true })
         .andWhere(FUTURE_EVENT_SQL)

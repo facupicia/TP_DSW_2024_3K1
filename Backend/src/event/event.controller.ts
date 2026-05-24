@@ -22,7 +22,8 @@ function handleServiceError(error: any, res: Response) {
         return res.status(error.status).json({ code: error.code, message: error.message });
     }
     logger.error("EVENT_CONTROLLER_ERROR", { error: error?.message });
-    return res.status(500).json({ message: error?.message || "Internal server error" });
+    const isDev = process.env.NODE_ENV === 'development';
+    return res.status(500).json({ message: isDev ? (error?.message || "Internal server error") : "Internal server error" });
 }
 
 // SSE connection limiter (per-user, per-process)
