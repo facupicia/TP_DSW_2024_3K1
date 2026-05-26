@@ -62,10 +62,43 @@ El proyecto destaca por su arquitectura escalable, seguridad robusta y una exper
 *   **Backend:** Render
 *   **DB:** Neon (PostgreSQL)
 
+## 🌿 Flujo de Trabajo con Git
+
+Este proyecto utiliza un flujo simplificado de Git optimizado para desarrollo individual:
+
+### Ramas principales
+- **`main`**: Código estable en producción. Solo recibe merge desde `dev`.
+- **`dev`**: Rama de desarrollo activo. Integra todas las features antes de pasar a producción.
+- **`feature/*`**: Ramas temporales para cada tarea o cambio.
+
+### Workflow diario
+```bash
+# 1. Actualizar dev
+git checkout dev
+git pull origin dev
+
+# 2. Crear feature
+git checkout -b feature/nombre-de-la-tarea
+
+# 3. Commits semánticos
+git commit -m "feat(scope): descripción"
+# tipos: feat, fix, refactor, docs, test, chore, security
+
+# 4. Subir y crear PR en GitHub
+git push -u origin feature/nombre-de-la-tarea
+
+# 5. Mergear a dev vía Pull Request (Squash and merge)
+# 6. Cuando dev está estable, mergear a main
+git checkout main
+git merge dev
+git tag -a vX.X.X -m "Release description"
+git push origin main --tags
+```
+
 ## 📸 Capturas y Demos
 
 
-![Landig](https://github.com/user-attachments/assets/578b0b73-47db-4505-93f1-2aee1c46df43) ![Explorar](https://github.com/user-attachments/assets/00011087-feef-4d34-8c77-c5bdd55897a0) 
+ ![Landig](https://github.com/user-attachments/assets/578b0b73-47db-4505-93f1-2aee1c46df43) ![Explorar](https://github.com/user-attachments/assets/00011087-feef-4d34-8c77-c5bdd55897a0)
 ![Login](https://github.com/user-attachments/assets/9c38c6da-914b-4a40-b32d-63bfd30a44d0) ![Crear](https://github.com/user-attachments/assets/ac93bc79-5454-4731-824c-4214e77b5355) 
 ![Perfil](https://github.com/user-attachments/assets/7d6ba359-3dcf-46f1-a9fb-9b434a1d6abe) ![Tickets](https://github.com/user-attachments/assets/51e4350b-7c5c-4f41-b32a-a2920562b8eb) 
 ![Estadisticas](https://github.com/user-attachments/assets/00c592d4-f063-4138-a914-e9cfc86afbf9) 
