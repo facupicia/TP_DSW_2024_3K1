@@ -2,53 +2,57 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main, develop]
   pull_request:
-    branches: [main, dev]
+    branches: [main, develop]
 
 jobs:
-  build-backend:
-    name: Build Backend
+  backend-checks:
+    name: Backend Checks
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Backend
+        working-directory: ./Backend
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20'
+          node-version: 18
           cache: 'npm'
-          cache-dependency-path: Backend/package-lock.json
+          cache-dependency-path: ./Backend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Compile TypeScript
-        run: npm run build
+      - name: TypeScript compilation check
+        run: npx tsc --noEmit
 
-  build-frontend:
-    name: Build Frontend
+      - name: Run tests
+        run: npm run test --if-present
+
+  frontend-checks:
+    name: Frontend Checks
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: Frontend
+        working-directory: ./Frontend
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.20'
+          node-version: 18
           cache: 'npm'
-          cache-dependency-path: Frontend/package-lock.json
+          cache-dependency-path: ./Frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Build Angular
+      - name: Build production
         run: npm run build
+
+      - name: Run tests
+        run: npm run test --if-present -- --watch=false --browsers=ChromeHeadless

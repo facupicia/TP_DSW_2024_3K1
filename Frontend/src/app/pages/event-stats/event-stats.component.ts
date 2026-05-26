@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { StatsService } from '../../services/stats.service';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
-import { catchError, of, Subscription, interval } from 'rxjs';
+import { catchError, of, Subscription, interval, take } from 'rxjs';
 import { HeaderComponent } from '../../components/header/header.component';
 import { UpgradeButtonComponent } from '../../components/upgrade-button/upgrade-button.component';
 import { AuthService } from '../../services/auth.service';
@@ -146,7 +146,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     }
     this.eventId = Number(idParam);
 
-    this.authService.ensureCurrentUser().subscribe(user => {
+    this.authService.ensureCurrentUser().pipe(take(1)).subscribe(user => {
       if (!user) {
         this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
         return;
@@ -155,6 +155,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
       this.loadSubscription();
       this.load();
       // Refrescar cada 15s para ver check-ins en "casi" tiempo real
+      this.refresh$?.unsubscribe();
       this.refresh$ = interval(15000).subscribe(() => this.load());
     });
   }

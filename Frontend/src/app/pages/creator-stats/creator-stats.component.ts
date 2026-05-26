@@ -102,6 +102,17 @@ const createTopEventsChartOptions = (): ChartOptions => ({
     colors: ['#8b5cf6']
 });
 
+function escapeHtml(unsafe: string | number | undefined | null): string {
+    if (unsafe === null || unsafe === undefined) return '';
+    const str = String(unsafe);
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 /* ============================================================================
    COMPONENT
 ============================================================================ */
@@ -360,19 +371,19 @@ export class CreatorStatsComponent implements OnInit {
                     </style>
                 </head>
                 <body>
-                    <h1>📊 Reporte de Estadísticas - ${reportData.period}</h1>
+                    <h1>📊 Reporte de Estadísticas - ${escapeHtml(reportData.period)}</h1>
                     <div class="metrics">
                         <div class="metric">
                             <div class="metric-label">Ingresos Totales</div>
-                            <div class="metric-value">$${reportData.metrics.totalRevenue.toLocaleString()}</div>
+                            <div class="metric-value">$${escapeHtml(reportData.metrics.totalRevenue.toLocaleString())}</div>
                         </div>
                         <div class="metric">
                             <div class="metric-label">Tickets Vendidos</div>
-                            <div class="metric-value">${reportData.metrics.totalTicketsSold}</div>
+                            <div class="metric-value">${escapeHtml(reportData.metrics.totalTicketsSold)}</div>
                         </div>
                         <div class="metric">
                             <div class="metric-label">Ticket Promedio</div>
-                            <div class="metric-value">$${reportData.metrics.avgTicketPrice.toFixed(0)}</div>
+                            <div class="metric-value">$${escapeHtml(reportData.metrics.avgTicketPrice.toFixed(0))}</div>
                         </div>
                     </div>
                     <h2>Detalle por Evento</h2>
@@ -388,16 +399,16 @@ export class CreatorStatsComponent implements OnInit {
                         <tbody>
                             ${reportData.events.map(e => `
                                 <tr>
-                                    <td>${e.title}</td>
-                                    <td>${e.participants}</td>
-                                    <td>$${e.revenue.toLocaleString()}</td>
-                                    <td>${(e.attendanceRate * 100).toFixed(0)}%</td>
+                                    <td>${escapeHtml(e.title)}</td>
+                                    <td>${escapeHtml(e.participants)}</td>
+                                    <td>$${escapeHtml(e.revenue.toLocaleString())}</td>
+                                    <td>${escapeHtml((e.attendanceRate * 100).toFixed(0))}%</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                     <p style="margin-top: 40px; color: #9ca3af; font-size: 12px;">
-                        Generado el ${new Date().toLocaleString()}
+                        Generado el ${escapeHtml(new Date().toLocaleString())}
                     </p>
                 </body>
                 </html>

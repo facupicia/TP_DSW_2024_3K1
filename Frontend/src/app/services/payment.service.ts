@@ -72,10 +72,16 @@ export class PaymentService {
 
     /**
      * Crea una preferencia de pago para comprar tickets
+     * @param items Array de items del carrito con ticketTypeId y quantity
+     * @param extraItems Array de extras opcionales con eventProductId y quantity
+     * @param promoterCode Código del promotor opcional
+     * @param couponId ID del cupón opcional
+     * @param couponCode Código del cupón opcional
+     * @param buyer Datos del comprador para guest checkout
      */
     createPreference(
-        ticketTypeId: number,
-        ticketQuantity: number,
+        items: Array<{ ticketTypeId: number; quantity: number }>,
+        extraItems?: Array<{ eventProductId: number; quantity: number }>,
         promoterCode?: string,
         couponId?: number,
         couponCode?: string,
@@ -88,8 +94,8 @@ export class PaymentService {
         }
     ): Observable<PreferenceResponse> {
         return this.http.post<PreferenceResponse>(`${this.baseUrl}/create-preference`, {
-            ticketTypeId,
-            ticketQuantity,
+            items,
+            extraItems,
             promoterCode,
             couponId,
             couponCode,

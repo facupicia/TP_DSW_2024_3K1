@@ -537,6 +537,14 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
                 message: "Pago aún no procesado"
             });
         }
+
+        // Ownership check: if the payment has a userId, only that user (or admin) can query it
+        if (paymentLog.userId && paymentLog.userId !== req.user?.id) {
+            return res.status(403).json({
+                success: false,
+                message: "No autorizado para consultar este pago"
+            });
+        }
         
         // Mapear estado interno a estado del frontend
         let status: string;

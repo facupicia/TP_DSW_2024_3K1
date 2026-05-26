@@ -176,7 +176,7 @@ export async function processRefund(
         }
     }
 
-    // 3. Call MercadoPago refund API FIRST, before touching DB
+    // 3. Get access token early to fail fast if not available
     const accessToken = await getAccessTokenForRefund(paymentLog.organizerId);
     if (!accessToken) {
         logger.error('REFUND_NO_ACCESS_TOKEN', { paymentId });
@@ -192,57 +192,10 @@ export async function processRefund(
     }
 
     const idempotencyKey = crypto.randomUUID();
-    let mpResponse: Response;
-    try {
-        mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}/refunds`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                'X-Idempotency-Key': idempotencyKey
-            },
-            body: JSON.stringify(refundData),
-            signal: AbortSignal.timeout(15000)
-        });
-    } catch (networkError: any) {
-        logger.error('REFUND_MP_NETWORK_ERROR', { paymentId, error: networkError.message });
-        return {
-            success: false,
-            message: 'Refund failed due to network error. Please retry.',
-            error: networkError.message
-        };
-    }
 
-    if (!mpResponse.ok) {
-        const errorText = await mpResponse.text();
-        let errorData: any = { message: errorText };
-        try { errorData = JSON.parse(errorText); } catch { /* ignore parse error */ }
-        logger.error('REFUND_MP_API_ERROR', { paymentId, error: errorData });
-
-        const errorMessage = errorData.message || errorText || String(mpResponse.status);
-        if (errorMessage.toLowerCase().includes('already refunded') || errorMessage.toLowerCase().includes('ya fue reembolsado')) {
-            return {
-                success: false,
-                message: 'Payment already refunded in MercadoPago'
-            };
-        }
-        if (errorMessage.toLowerCase().includes('cannot be refunded')) {
-            return {
-                success: false,
-                message: 'This payment cannot be refunded'
-            };
-        }
-        return {
-            success: false,
-            message: `MP API error: ${errorMessage}. No local changes were made.`,
-            error: errorMessage
-        };
-    }
-
-    const refundResult = await mpResponse.json() as any;
-    const refundId = String(refundResult.id);
-
-    // 4. Update DB state ONLY after MP confirms the refund
+    // 4. Update DB state FIRST, before calling MercadoPago.
+    // This guarantees internal consistency. If MP fails afterward,
+    // we log the inconsistency for manual reconciliation.
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -303,37 +256,102 @@ export async function processRefund(
         }
 
         await queryRunner.commitTransaction();
-
-        logger.info('REFUND_SUCCESS', {
-            paymentId,
-            refundId,
-            amount: requestedAmount,
-            cancelledTickets: ticketsToCancel.length
-        });
-
-        return {
-            success: true,
-            refundId,
-            amountRefunded: requestedAmount,
-            message: 'Refund processed successfully'
-        };
     } catch (error: any) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
         }
         logger.error('REFUND_DB_ERROR', {
             paymentId,
-            error: error.message,
-            refundId
+            error: error.message
         });
         return {
             success: false,
-            message: 'Refund was processed in MercadoPago but local DB update failed. Contact support.',
+            message: 'Local refund processing failed. No changes were made in MercadoPago.',
             error: error.message
         };
     } finally {
         await queryRunner.release();
     }
+
+    // 5. Call MercadoPago refund API AFTER DB commit.
+    let mpResponse: Response;
+    try {
+        mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}/refunds`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'X-Idempotency-Key': idempotencyKey
+            },
+            body: JSON.stringify(refundData),
+            signal: AbortSignal.timeout(15000)
+        });
+    } catch (networkError: any) {
+        logger.error('REFUND_MP_NETWORK_ERROR', { paymentId, error: networkError.message });
+        logger.warn('REFUND_INCONSISTENCY', {
+            paymentId,
+            message: 'DB was updated to REFUNDED but MercadoPago API call failed. Manual reconciliation required.'
+        });
+        return {
+            success: true,
+            warning: 'Local refund recorded but MercadoPago API unreachable. Contact support if the money was not returned.',
+            message: 'Refund processed locally but MercadoPago confirmation failed.'
+        };
+    }
+
+    if (!mpResponse.ok) {
+        const errorText = await mpResponse.text();
+        let errorData: any = { message: errorText };
+        try { errorData = JSON.parse(errorText); } catch { /* ignore parse error */ }
+        logger.error('REFUND_MP_API_ERROR', { paymentId, error: errorData });
+
+        const errorMessage = errorData.message || errorText || String(mpResponse.status);
+        if (errorMessage.toLowerCase().includes('already refunded') || errorMessage.toLowerCase().includes('ya fue reembolsado')) {
+            // MP says already refunded, which aligns with our local state
+            return {
+                success: true,
+                message: 'Payment already refunded in MercadoPago'
+            };
+        }
+        if (errorMessage.toLowerCase().includes('cannot be refunded')) {
+            logger.warn('REFUND_INCONSISTENCY', {
+                paymentId,
+                message: 'DB was updated to REFUNDED but MercadoPago rejects the refund. Manual reconciliation required.'
+            });
+            return {
+                success: true,
+                warning: 'Local refund recorded but MercadoPago rejected the refund. Contact support.',
+                message: 'Refund processed locally but MercadoPago rejected it.'
+            };
+        }
+
+        logger.warn('REFUND_INCONSISTENCY', {
+            paymentId,
+            message: 'DB was updated to REFUNDED but MercadoPago returned an error. Manual reconciliation required.'
+        });
+        return {
+            success: true,
+            warning: `Local refund recorded but MP returned an error: ${errorMessage}. Contact support.`,
+            message: 'Refund processed locally but MercadoPago confirmation failed.'
+        };
+    }
+
+    const refundResult = await mpResponse.json() as any;
+    const refundId = String(refundResult.id);
+
+    logger.info('REFUND_SUCCESS', {
+        paymentId,
+        refundId,
+        amount: requestedAmount,
+        cancelledTickets: ticketsToCancel.length
+    });
+
+    return {
+        success: true,
+        refundId,
+        amountRefunded: requestedAmount,
+        message: 'Refund processed successfully'
+    };
 }
 
 /**

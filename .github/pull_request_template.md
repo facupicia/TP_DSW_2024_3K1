@@ -1,33 +1,27 @@
-## Qué hace
-<!-- Describí brevemente el cambio. Ej: "Agrega validación de estado del evento en el escáner QR" -->
+## Descripción
+<!-- Describe brevemente qué cambios introduce este PR -->
 
 ## Tipo de cambio
-- [ ] `feat`: Nueva funcionalidad
-- [ ] `fix`: Corrección de bug
-- [ ] `refactor`: Cambio de código sin alterar comportamiento
-- [ ] `docs`: Documentación
-- [ ] `test`: Tests
-- [ ] `chore`: Tareas de mantenimiento/build
-- [ ] `security`: Mejora de seguridad
+<!-- Marca con una x lo que corresponda -->
+- [ ] Bug fix (cambio que arregla un problema sin romper funcionalidad existente)
+- [ ] Nueva feature (cambio que agrega funcionalidad sin romper existente)
+- [ ] Breaking change (cambio que rompe compatibilidad hacia atrás)
+- [ ] Refactor / mejora de performance
+- [ ] Documentación
+
+## ¿Cómo se probó?
+<!-- Describí los pasos que seguiste para probar estos cambios -->
 
 ## Checklist
-- [ ] Probado localmente (backend: `npm run build`, frontend: `npm run build`)
-- [ ] No rompe el build del CI
-- [ ] Si hay cambios en DB, incluí migraciones o scripts
-- [ ] Variables de entorno nuevas están en `.env.example`
-- [ ] No commiteé archivos `.env` ni `dist/`
+- [ ] El código compila sin errores (`npm run build` en Backend y Frontend)
+- [ ] Los tests existentes pasan (si aplica)
+- [ ] Agregué/actualicé tests para los cambios (si aplica)
+- [ ] Revisé que no haya código muerto ni console.logs de debug
+- [ ] Validé que no se expongan datos sensibles (tokens, contraseñas, API keys)
+- [ ] Probé el flujo end-to-end en desarrollo
 
-## Cambios en DB
-<!-- Si no hay cambios en base de datos, escribí "Ninguno" -->
+## Issues relacionados
+<!-- Referenciá los issues que cierra este PR: Closes #123, Fixes #456 -->
 
-## Cómo probar
-<!-- Pasos concretos para verificar que funciona -->
-1.
-2.
-3.
-
-## Screenshots / Logs
-<!-- Opcional: si hay cambios visuales o logs relevantes -->
-
-## Issue relacionado
-<!-- Si cierra un issue, escribí: Closes #N -->
+## Notas adicionales
+<!-- Cualquier detalle técnico que el reviewer deba conocer -->

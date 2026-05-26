@@ -47,11 +47,11 @@ export class Product extends BaseEntity {
     @Column({ type: 'varchar', nullable: true })
     imageUrl: string;
 
-    @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'organizerId' })
     organizer: User;
 
-    @Column()
+    @Column({ nullable: true })
     organizerId: number;
 
     @CreateDateColumn({ type: 'timestamptz' })
