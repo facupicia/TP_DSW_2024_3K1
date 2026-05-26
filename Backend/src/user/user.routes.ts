@@ -24,7 +24,7 @@ router.post("/google", authRateLimiter, schemaValidation(googleSigninSchema), go
 
 router.post("/refresh", refreshRateLimiter, refreshSession)
 
-router.post("/logout", logoutUser)
+router.post("/logout", checkAuthToken, logoutUser)
 
 router.post("/register", authRateLimiter, schemaValidation(signupUserSchema), signupUser)
 

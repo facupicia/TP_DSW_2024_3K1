@@ -30,7 +30,7 @@ export class UserSubscription extends BaseEntity {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'userId' })
     user: User;
 

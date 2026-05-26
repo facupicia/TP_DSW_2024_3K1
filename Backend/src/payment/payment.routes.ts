@@ -70,7 +70,7 @@ router.post("/create-preference", preferenceRateLimiter, optionalAuthToken, crea
  * Verifica el estado de un pago por external_reference.
  * Usado por el frontend para polling después del checkout, incluso para invitados.
  */
-router.get("/status", statusRateLimiter, getPaymentStatus);
+router.get("/status", statusRateLimiter, optionalAuthToken, getPaymentStatus);
 
 /* ==================== WEBHOOK ROUTES ==================== */
 

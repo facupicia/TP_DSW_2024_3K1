@@ -15,7 +15,7 @@ export class CategoryService {
   private urlBase: string = environment.apiUrl + "/category"
   constructor() { }
 
-  cargarCategoria(objeto: string) {
+  cargarCategoria(objeto: { name: string }) {
     return this.http.post(`${this.urlBase}/new`, objeto)
   }
 

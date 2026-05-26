@@ -77,11 +77,11 @@ export class Event extends BaseEntity {
 
     /* ===================== RELATIONS ===================== */
 
-    @ManyToOne(() => User, user => user.eventos, { nullable: false, onDelete: 'CASCADE' })
+    @ManyToOne(() => User, user => user.eventos, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: "user_id" })
     user: User;
 
-    @Column()
+    @Column({ nullable: true })
     user_id: number;
 
     @ManyToOne(() => Category, category => category.events, { nullable: false, onDelete: 'RESTRICT' })
