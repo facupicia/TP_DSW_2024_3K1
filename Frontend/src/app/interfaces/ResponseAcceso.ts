@@ -1,3 +1,4 @@
 export interface ResponseAcceso {
-    token: string
+    token: string;
+    profile?: any;
 }

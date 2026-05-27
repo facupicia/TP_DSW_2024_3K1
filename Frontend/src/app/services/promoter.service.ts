@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { Observable, map } from 'rxjs';
+import { Observable, map, shareReplay } from 'rxjs';
 import {
   Promoter,
   CreatePromoterRequest,
@@ -140,11 +140,22 @@ export class PromoterService {
     return this.http.get<MyPromoterStats>(`${this.baseUrl}/stats/me`, { params });
   }
 
+  private hasEventsCache$: Observable<{ hasEvents: boolean; eventCount: number }> | null = null;
+
   /**
-   * Check if organizer has events
+   * Check if organizer has events (cached per session)
    */
   checkHasEvents(): Observable<{ hasEvents: boolean; eventCount: number }> {
-    return this.http.get<{ hasEvents: boolean; eventCount: number }>(`${this.baseUrl}/has-events`);
+    if (!this.hasEventsCache$) {
+      this.hasEventsCache$ = this.http.get<{ hasEvents: boolean; eventCount: number }>(`${this.baseUrl}/has-events`).pipe(
+        shareReplay({ bufferSize: 1, refCount: false })
+      );
+    }
+    return this.hasEventsCache$;
+  }
+
+  clearHasEventsCache(): void {
+    this.hasEventsCache$ = null;
   }
 
   /**

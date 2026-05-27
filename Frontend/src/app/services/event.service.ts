@@ -5,6 +5,7 @@ import { Evento } from '../interfaces/event';
 import { Observable, tap, map, timeout, of, shareReplay } from 'rxjs';
 
 const DEFAULT_EVENT_IMAGE = '/assets/event-placeholder.svg';
+const EXPLORE_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 @Injectable({
   providedIn: 'root'
@@ -77,12 +78,46 @@ export class EventService {
       return this.eventsCache.get(cacheKey)!;
     }
 
+    // Cache localStorage: si el usuario recarga el navegador,
+    // recuperamos los eventos de localStorage si no expiraron.
+    if (!forceRefresh && typeof window !== 'undefined') {
+      try {
+        const lsKey = `eventlife_explore_${page}_${limit}`;
+        const raw = window.localStorage.getItem(lsKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Date.now() < parsed.expiresAt) {
+            const cached$ = of(parsed.data as Evento[]).pipe(shareReplay(1));
+            this.eventsCache.set(cacheKey, cached$);
+            return cached$;
+          }
+          window.localStorage.removeItem(lsKey);
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
     const params = new HttpParams()
       .set('limit', String(limit))
       .set('page', String(page));
 
     const request$ = this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`, { params }).pipe(
       map(response => (response.data || []).map(event => this.normalizeEvent(event))),
+      tap(events => {
+        // Guardar en localStorage para sobrevivir recargas
+        if (typeof window !== 'undefined') {
+          try {
+            const lsKey = `eventlife_explore_${page}_${limit}`;
+            window.localStorage.setItem(lsKey, JSON.stringify({
+              data: events,
+              expiresAt: Date.now() + EXPLORE_CACHE_TTL
+            }));
+          } catch {
+            // ignore storage errors (e.g. quota exceeded)
+          }
+        }
+      }),
       shareReplay({ bufferSize: 1, refCount: false })
     );
 
@@ -92,6 +127,20 @@ export class EventService {
 
   clearEventsCache(): void {
     this.eventsCache.clear();
+    if (typeof window !== 'undefined') {
+      try {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key?.startsWith('eventlife_explore_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => window.localStorage.removeItem(k));
+      } catch {
+        // ignore
+      }
+    }
   }
 
   getEventsNumber(): Observable<number> {

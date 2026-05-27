@@ -54,7 +54,34 @@ export class AuthService {
 
   constructor() {
     if (this.hasBrowserStorage()) {
-      this.ensureCurrentUser().subscribe({ error: () => { } });
+      // Solo intentamos restaurar sesión si hay indicios de que el usuario
+      // estuvo logueado (access token o bandera de sesión). Así evitamos
+      // un refresh 401 innecesario para visitantes anónimos completamente
+      // nuevos, sin romper el flujo de recarga para usuarios con cookie.
+      if (this.getAccessToken() || this.hasSessionFlag()) {
+        this.ensureCurrentUser().subscribe({ error: () => { } });
+      } else {
+        this.sessionChecked = true;
+        this.sessionCheckResult = null;
+      }
+    }
+  }
+
+  private sessionChecked = false;
+  private sessionCheckResult: any = null;
+  private readonly SESSION_FLAG = 'eventlife_session';
+
+  private hasSessionFlag(): boolean {
+    return this.hasBrowserStorage() && window.localStorage.getItem(this.SESSION_FLAG) === '1';
+  }
+
+  private setSessionFlag(active: boolean): void {
+    if (this.hasBrowserStorage()) {
+      if (active) {
+        window.localStorage.setItem(this.SESSION_FLAG, '1');
+      } else {
+        window.localStorage.removeItem(this.SESSION_FLAG);
+      }
     }
   }
 
@@ -78,7 +105,10 @@ export class AuthService {
     clearAccessToken();
     if (this.hasBrowserStorage()) {
       window.localStorage.removeItem('cachedProfile');
+      window.localStorage.removeItem(this.SESSION_FLAG);
     }
+    this.sessionChecked = false;
+    this.sessionCheckResult = null;
   }
 
   registrarse(objeto: Usuario) {
@@ -90,6 +120,7 @@ export class AuthService {
       tap((resp) => {
         if (resp?.token) {
           this.setAccessToken(resp.token);
+          this.setSessionFlag(true);
         }
       }),
       switchMap((resp) => this.getProfile().pipe(
@@ -103,6 +134,7 @@ export class AuthService {
       tap((resp) => {
         if (resp?.token) {
           this.setAccessToken(resp.token);
+          this.setSessionFlag(true);
         }
       }),
       switchMap((resp) => this.getProfile().pipe(
@@ -126,6 +158,7 @@ export class AuthService {
       tap((resp) => {
         if (resp?.token) {
           this.setAccessToken(resp.token);
+          this.setSessionFlag(true);
         }
       }),
       switchMap((resp) => this.getProfile().pipe(
@@ -154,6 +187,9 @@ export class AuthService {
         if (resp?.token) {
           this.setAccessToken(resp.token);
         }
+        if (resp?.profile) {
+          this.currentUserSubject.next(resp.profile);
+        }
       })
     );
   }
@@ -167,15 +203,35 @@ export class AuthService {
       return of(null);
     }
 
+    // Si ya intentamos restaurar la sesión una vez (éxito o fallo),
+    // devolvemos el resultado cacheado sin tocar la red de nuevo.
+    if (this.sessionChecked) {
+      return of(this.sessionCheckResult);
+    }
+
     if (!this.restoreSession$) {
+      // Si hay access token, usamos getProfile directamente.
+      // Si no hay token, intentamos refresh; el backend ahora devuelve
+      // token + profile en un solo request, así que no necesitamos un
+      // getProfile() adicional después.
       const loadSession$ = this.getAccessToken()
         ? this.getProfile()
-        : this.refreshToken().pipe(switchMap(() => this.getProfile()));
+        : this.refreshToken().pipe(
+            switchMap((resp) => {
+              // El backend ya devolvió perfil; si por alguna razón no viene,
+              // caemos back a getProfile() como medida de seguridad.
+              return resp?.profile ? of(resp.profile) : this.getProfile();
+            })
+          );
 
       this.restoreSession$ = loadSession$.pipe(
+        tap(user => {
+          this.sessionCheckResult = user;
+        }),
         catchError(() => of(null)),
         finalize(() => {
           this.restoreSession$ = undefined;
+          this.sessionChecked = true;
         }),
         shareReplay({ bufferSize: 1, refCount: false })
       );

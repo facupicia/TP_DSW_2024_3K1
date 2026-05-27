@@ -141,11 +141,30 @@ export const signinUser = async (req: Request, res: Response) => {
 
 export const refreshSession = async (req: Request, res: Response) => {
   try {
-    const tokenSession = await rotateRefreshToken(req, res);
-    if (!tokenSession) {
+    const rotated = await rotateRefreshToken(req, res);
+    if (!rotated) {
       return res.status(401).json({ code: "REFRESH_INVALID", message: "Sesión expirada o inválida" });
     }
-    return res.status(200).json({ token: tokenSession });
+
+    // El usuario ya viene cargado con roles desde rotateRefreshToken.
+    // Evitamos una segunda query a la DB (getProfile) que suma latencia
+    // de red, especialmente importante en Render + Neon.
+    const user = rotated.user;
+    const roleNames = getRoleNames(user);
+
+    return res.status(200).json({
+      token: rotated.token,
+      profile: {
+        id: user.id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        imgPerfil: user.imgPerfil,
+        isGuestAccount: user.isGuestAccount,
+        roles: roleNames.length > 0 ? roleNames : ['user'],
+        rol: getHighestRole(roleNames)
+      }
+    });
   } catch (error: any) {
     return res.status(500).json({ code: "REFRESH_ERROR", message: error.message || "Internal Server Error" });
   }

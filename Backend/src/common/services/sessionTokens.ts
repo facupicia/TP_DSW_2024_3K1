@@ -94,7 +94,7 @@ export async function issueRefreshToken(res: Response, user: User) {
  * Rotate refresh token with reuse detection.
  * If a revoked token is presented, we detect reuse and revoke all tokens for the user.
  */
-export async function rotateRefreshToken(req: Request, res: Response) {
+export async function rotateRefreshToken(req: Request, res: Response): Promise<{ token: string; user: User } | null> {
     const rawToken = readCookie(req, REFRESH_COOKIE);
     if (!rawToken) {
         return null;
@@ -162,7 +162,7 @@ export async function rotateRefreshToken(req: Request, res: Response) {
     }
 
     res.cookie(REFRESH_COOKIE, nextRawToken, getCookieOptions());
-    return tokenSing(reused.user);
+    return { token: await tokenSing(reused.user), user: reused.user };
 }
 
 export async function revokeRefreshToken(req: Request, res: Response) {

@@ -2,9 +2,10 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { PLATFORM_ID } from '@angular/core';
 import { Router } from '@angular/router';
+import { take } from 'rxjs';
 import { SubscriptionService, SubscriptionPlan, SubscriptionLimits } from '../../services/subscription.service';
 import { ToastService } from '../../services/toast.service';
-import { AuthService } from '../../services/auth.service'; // Asumo que tienes esto
+import { AuthService } from '../../services/auth.service';
 
 @Component({
     selector: 'app-subscription-landing',
@@ -46,7 +47,10 @@ export class SubscriptionLandingComponent implements OnInit {
             return;
         }
 
-        this.authService.ensureCurrentUser().subscribe(user => {
+        // Usamos currentUser$ en lugar de ensureCurrentUser() para no forzar
+        // una nueva petición de red. AuthService ya inicializa el usuario
+        // en su constructor; si no hay sesión, el valor será null inmediatamente.
+        this.authService.currentUser$.pipe(take(1)).subscribe(user => {
             this.isLoggedIn = !!user;
 
             if (this.isLoggedIn) {

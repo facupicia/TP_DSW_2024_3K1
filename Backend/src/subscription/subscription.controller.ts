@@ -16,7 +16,44 @@ import {
     parseSubscriptionExternalRef
 } from "./subscription.core";
 import { logger } from "../common/services/logger";
+import { getRedis } from "../common/services/redis";
 import { getMPConfig } from "../payment/mp.config";
+
+const PLANS_CACHE_KEY = "subscription:plans";
+const PLANS_CACHE_TTL = 300; // 5 minutos
+
+async function getCachedPlans() {
+    const redis = await getRedis();
+    if (redis) {
+        const cached = await redis.get(PLANS_CACHE_KEY).catch(() => null);
+        if (cached) {
+            try {
+                return JSON.parse(cached);
+            } catch {
+                // fallthrough to DB
+            }
+        }
+    }
+
+    const planRepo = AppDataSource.getRepository(SubscriptionPlan);
+    const plans = await planRepo.find({
+        where: { active: true },
+        order: { sortOrder: 'ASC' }
+    });
+
+    if (redis) {
+        await redis.setEx(PLANS_CACHE_KEY, PLANS_CACHE_TTL, JSON.stringify(plans)).catch(() => {});
+    }
+
+    return plans;
+}
+
+export async function invalidatePlansCache(): Promise<void> {
+    const redis = await getRedis();
+    if (redis) {
+        await redis.del(PLANS_CACHE_KEY).catch(() => {});
+    }
+}
 
 /**
  * Subscription Controller (Refactored)
@@ -36,23 +73,19 @@ import { getMPConfig } from "../payment/mp.config";
  */
 export const getPlans = async (req: Request, res: Response) => {
     try {
-        const planRepo = AppDataSource.getRepository(SubscriptionPlan);
-        const plans = await planRepo.find({
-            where: { active: true },
-            order: { sortOrder: 'ASC' }
-        });
-        
+        const plans = await getCachedPlans();
+
         res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
         return res.json({
             success: true,
             plans
         });
-        
+
     } catch (error: any) {
         logger.error("Error fetching plans:", error);
-        return res.status(500).json({ 
+        return res.status(500).json({
             success: false,
-            message: "Error al obtener planes" 
+            message: "Error al obtener planes"
         });
     }
 };
@@ -390,7 +423,8 @@ export const adminAssignPlan = async (req: CustomRequest, res: Response) => {
         }
         
         const subscription = await upgradeToPlan(userId, planId, durationMonths);
-        
+        await invalidatePlansCache();
+
         return res.json({
             success: true,
             message: "Plan asignado exitosamente",
