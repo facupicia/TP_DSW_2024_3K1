@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectionStrategy, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { CategoryService } from '../../services/category.service';
@@ -13,6 +13,7 @@ import { RevenueViewComponent } from '../../components/revenue-view/revenue-view
 import { SubscriptionChartComponent } from '../../components/subscription-chart/subscription-chart.component';
 import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { take } from 'rxjs';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
 type DatePreset = 'today' | '7days' | '30days' | '90days' | '180days' | 'all';
@@ -41,6 +42,9 @@ export class AdminPanelComponent implements OnInit {
   public formBuild = inject(FormBuilder);
   private toast = inject(ToastService);
   private destroyRef = inject(DestroyRef);
+  private cdr = inject(ChangeDetectorRef);
+
+  private overviewLoading = false; // Prevents concurrent duplicate requests
 
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
@@ -96,9 +100,11 @@ export class AdminPanelComponent implements OnInit {
   refreshKey = 0;
 
   ngOnInit(): void {
-    this.userService.currentUser$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(u => {
+    // take(1) ensures we only react to the first user emission and don't
+    // re-trigger loadOverview if currentUser$ emits again (e.g. on refresh).
+    this.userService.currentUser$.pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
-      if (u && !this.overview && !this.loadingMetrics) {
+      if (u && !this.overview && !this.loadingMetrics && !this.overviewLoading) {
         this.loadOverview();
       }
     });
@@ -109,8 +115,12 @@ export class AdminPanelComponent implements OnInit {
    */
   loadOverview() {
     if (typeof window === 'undefined') return;
+    if (this.overviewLoading) return; // Prevent duplicate concurrent requests
 
+    this.overviewLoading = true;
     this.loadingMetrics = true;
+    this.cdr.markForCheck();
+
     this.adminService.getOverview(this.dateRange).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         if (response.success) {
@@ -120,11 +130,15 @@ export class AdminPanelComponent implements OnInit {
           this.stats.activeEvents = response.data.events.activeEvents;
         }
         this.loadingMetrics = false;
+        this.overviewLoading = false;
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error loading overview:', err);
         this.toast.error('Error al cargar métricas del panel');
         this.loadingMetrics = false;
+        this.overviewLoading = false;
+        this.cdr.markForCheck();
       }
     });
   }
@@ -193,12 +207,13 @@ export class AdminPanelComponent implements OnInit {
 
   cambiarTab(tab: TabView) {
     this.activeTab = tab;
+    this.cdr.markForCheck();
     if (tab === 'categories' && !this.hasLoadedCategories && !this.loadingCategories) {
       this.cargarCategorias();
     }
     // Load metrics when switching to metrics tabs
     if (['dashboard', 'revenue', 'subscriptions', 'marketplace', 'commissions'].includes(tab)) {
-      if (!this.overview) {
+      if (!this.overview && !this.overviewLoading) {
         this.loadOverview();
       }
     }
@@ -209,6 +224,7 @@ export class AdminPanelComponent implements OnInit {
    */
   setDatePreset(preset: DatePreset) {
     this.selectedDatePreset = preset;
+    this.cdr.markForCheck();
 
     const now = new Date();
     const endDate = new Date(now);

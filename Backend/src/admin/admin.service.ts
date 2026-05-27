@@ -551,27 +551,58 @@ export class AdminService {
         const queryRunner = AppDataSource.createQueryRunner();
 
         try {
-            let whereClause = `WHERE pl.status = 'completed'`;
+            let dateClause = '';
             const params: any[] = [];
 
             if (dateRange?.startDate && dateRange?.endDate) {
-                whereClause += ` AND pl."createdAt" >= $1 AND pl."createdAt" <= $2`;
+                dateClause = ` AND pl."createdAt" >= $1 AND pl."createdAt" <= $2`;
                 params.push(dateRange.startDate, dateRange.endDate);
             }
 
+            // PaymentLog does not have a direct ticketTypeId column.
+            // We use ticket -> ticket_type -> event as the bridge.
+            // To avoid double-counting payment amounts when one payment_log
+            // has multiple tickets, we group by payment_log.id first (event_payments CTE)
+            // and then aggregate by event.
             const query = `
-        SELECT 
+        WITH event_payments AS (
+          SELECT
+            pl.id,
+            pl."totalAmount",
+            pl."commissionAmount",
+            MIN(tt."eventId") AS "eventId"
+          FROM payment_log pl
+          INNER JOIN ticket t ON t."paymentLogId" = pl.id
+          INNER JOIN ticket_type tt ON t."ticketTypeId" = tt.id
+          WHERE pl.status = 'completed' ${dateClause}
+          GROUP BY pl.id, pl."totalAmount", pl."commissionAmount"
+        ),
+        event_tickets AS (
+          SELECT
+            tt."eventId",
+            COUNT(t.id) AS "ticketsSold"
+          FROM ticket t
+          INNER JOIN ticket_type tt ON t."ticketTypeId" = tt.id
+          WHERE t."paymentLogId" IS NOT NULL
+          GROUP BY tt."eventId"
+        )
+        SELECT
           e.id AS "eventId",
           e.title AS "eventTitle",
-          e.organizer,
-          COUNT(pl.id) AS "ticketsSold",
-          SUM(pl."totalAmount") AS "totalRevenue",
-          SUM(pl."commissionAmount") AS "platformCommission",
+          CONCAT(u.firstname, ' ', u.lastname) AS organizer,
+          COALESCE(et."ticketsSold", 0) AS "ticketsSold",
+          COALESCE(ep."totalRevenue", 0) AS "totalRevenue",
+          COALESCE(ep."platformCommission", 0) AS "platformCommission",
           COALESCE(ee."extrasSold", 0) AS "extrasSold",
           COALESCE(ee."extrasRevenue", 0) AS "extrasRevenue"
-        FROM payment_log pl
-        INNER JOIN ticket_type tt ON pl."ticketTypeId" = tt.id
-        INNER JOIN event e ON tt."eventId" = e.id
+        FROM event e
+        LEFT JOIN "user" u ON u.id = e."user_id"
+        LEFT JOIN (
+          SELECT "eventId", SUM("totalAmount") AS "totalRevenue", SUM("commissionAmount") AS "platformCommission"
+          FROM event_payments
+          GROUP BY "eventId"
+        ) ep ON ep."eventId" = e.id
+        LEFT JOIN event_tickets et ON et."eventId" = e.id
         LEFT JOIN (
           SELECT ep."eventId", COUNT(ei.id) AS "extrasSold", SUM(ei."purchasePrice" * ei.quantity) AS "extrasRevenue"
           FROM extra_item ei
@@ -579,9 +610,8 @@ export class AdminService {
           WHERE ei.status != 'cancelled' AND ei."deletedAt" IS NULL
           GROUP BY ep."eventId"
         ) ee ON ee."eventId" = e.id
-        ${whereClause}
-        GROUP BY e.id, e.title, e.organizer, ee."extrasSold", ee."extrasRevenue"
-        ORDER BY "totalRevenue" DESC
+        WHERE ep."eventId" IS NOT NULL
+        ORDER BY ep."totalRevenue" DESC
         LIMIT $${params.length + 1}
       `;
 
