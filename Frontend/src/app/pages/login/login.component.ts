@@ -1,4 +1,5 @@
-import { Component, inject, PLATFORM_ID, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, PLATFORM_ID, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
@@ -25,6 +26,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private platformId = inject(PLATFORM_ID);
   private ngZone = inject(NgZone);
+  private destroyRef = inject(DestroyRef);
 
   public isLoading: boolean = false;
   public showPassword: boolean = false;
@@ -72,6 +74,7 @@ export class LoginComponent implements OnInit, OnDestroy {
   private handleGoogleRedirectCallback(): void {
     // Verificar si estamos regresando de un flujo de autenticación Google
     const authInProgress = sessionStorage.getItem('google_auth_in_progress');
+    const storedState = sessionStorage.getItem('google_auth_state');
     
     // Para modo redirect, Google puede poner el credential en diferentes lugares
     // Intentar obtener de múltiples fuentes
@@ -95,7 +98,18 @@ export class LoginComponent implements OnInit, OnDestroy {
     if (error) {
       this.toastService.error('Error al iniciar sesión con Google');
       sessionStorage.removeItem('google_auth_in_progress');
+      sessionStorage.removeItem('google_auth_state');
       // Limpiar URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+    
+    // 4. Validar state para prevenir CSRF en flujo redirect
+    const returnedState = urlParams.get('state');
+    if (storedState && returnedState !== storedState) {
+      this.toastService.error('Sesión de autenticación inválida. Intentá de nuevo.');
+      sessionStorage.removeItem('google_auth_in_progress');
+      sessionStorage.removeItem('google_auth_state');
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
@@ -103,6 +117,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     // Si tenemos credential y veníamos de un flujo de auth
     if (credential && authInProgress) {
       sessionStorage.removeItem('google_auth_in_progress');
+      sessionStorage.removeItem('google_auth_state');
       // Limpiar URL
       window.history.replaceState({}, document.title, window.location.pathname);
       this.onGoogleCredential(credential);
@@ -225,8 +240,10 @@ export class LoginComponent implements OnInit, OnDestroy {
     });
     
     button.addEventListener('click', () => {
-      // Marcar que estamos iniciando auth
+      // Marcar que estamos iniciando auth y generar state anti-CSRF
+      const state = crypto.randomUUID?.() || Math.random().toString(36).slice(2);
       sessionStorage.setItem('google_auth_in_progress', 'true');
+      sessionStorage.setItem('google_auth_state', state);
       // Usar prompt() en lugar de renderButton para Safari
       g.accounts.id.prompt((notification: any) => {
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
@@ -266,7 +283,7 @@ export class LoginComponent implements OnInit, OnDestroy {
     if (!credential) return;
     this.isLoading = true;
 
-    this.accesService.loginWithGoogle(credential).subscribe({
+    this.accesService.loginWithGoogle(credential).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.toastService.success('Inicio de sesión con Google exitoso');
         // Aseguramos que la navegación ocurra dentro de la zona de Angular
@@ -292,7 +309,7 @@ export class LoginComponent implements OnInit, OnDestroy {
         password: this.formLogin.value.password,
       };
 
-      this.accesService.login(loginData).subscribe({
+      this.accesService.login(loginData).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (response) => {
           this.toastService.success('¡Bienvenido de nuevo!'); // Mensaje más amigable
           setTimeout(() => {

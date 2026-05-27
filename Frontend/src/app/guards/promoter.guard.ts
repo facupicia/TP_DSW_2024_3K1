@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { map, take } from 'rxjs/operators';
-import { hasExactRole } from '../interfaces/Usuario';
+
 
 /**
  * Guard that allows access only to users with 'rrpp' role (exact match).
@@ -20,7 +20,7 @@ export const promoterGuard: CanActivateFn = (route, state) => {
             const userRoles = user?.roles || [user?.rol] || ['user'];
             
             // Check if user has exact rrpp role
-            if (user && hasExactRole(userRoles, 'rrpp')) {
+            if (user && userRoles.includes('rrpp')) {
                 return true;
             }
 

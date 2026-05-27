@@ -1,6 +1,8 @@
 import { Response, NextFunction } from "express";
 import { logger } from "../services/logger";
 import { CustomRequest as AuthRequest } from "./authToken";
+import { User } from "../../user/user.entity";
+import { getRoleNames } from "../../user/role.entity";
 
 export interface CustomRequest extends AuthRequest { }
 
@@ -25,7 +27,7 @@ const getHighestRoleLevel = (roles: string[]): number => {
 
 /**
  * Check if user has at least one of the required roles.
- * Uses roles embedded in JWT (req.user.roles) to avoid DB round-trip.
+ * Refreshes roles from the database on every call to avoid stale JWT roles.
  */
 export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
@@ -33,10 +35,14 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
             return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
         }
 
-        let userRoles: string[] = req.user.roles || ['user'];
-        if (typeof userRoles === 'string') {
-            userRoles = (userRoles as any).split(',');
-        }
+        // Fresh DB lookup for current roles to avoid stale JWT roles
+        const user = await User.createQueryBuilder('user')
+            .leftJoinAndSelect('user.roles', 'role')
+            .select(['user.id', 'role.name'])
+            .where('user.id = :id', { id: req.user.id })
+            .getOne();
+
+        let userRoles: string[] = user ? getRoleNames(user) : ['user'];
         if (!Array.isArray(userRoles) || userRoles.length === 0) {
             userRoles = ['user'];
         }
@@ -63,7 +69,7 @@ export const checkRoleAuth = (requiredRoles: string | string[]) => async (req: C
 
 /**
  * Check if user has a specific role (exact match, no hierarchy)
- * Uses roles embedded in JWT (req.user.roles) to avoid DB round-trip.
+ * Refreshes roles from the database on every call to avoid stale JWT roles.
  */
 export const checkExactRole = (requiredRoles: string | string[]) => async (req: CustomRequest, res: Response, next: NextFunction) => {
     try {
@@ -71,10 +77,14 @@ export const checkExactRole = (requiredRoles: string | string[]) => async (req: 
             return res.status(401).json({ code: "AUTH_NO_USER", message: "Authentication required" });
         }
 
-        let userRoles: string[] = req.user.roles || ['user'];
-        if (typeof userRoles === 'string') {
-            userRoles = (userRoles as any).split(',');
-        }
+        // Fresh DB lookup for current roles to avoid stale JWT roles
+        const user = await User.createQueryBuilder('user')
+            .leftJoinAndSelect('user.roles', 'role')
+            .select(['user.id', 'role.name'])
+            .where('user.id = :id', { id: req.user.id })
+            .getOne();
+
+        let userRoles: string[] = user ? getRoleNames(user) : ['user'];
         if (!Array.isArray(userRoles) || userRoles.length === 0) {
             userRoles = ['user'];
         }

@@ -1,4 +1,5 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnDestroy, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
@@ -21,6 +22,7 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
   private toastService = inject(ToastService);
   private imageUploadService = inject(ImageUploadService);
   public formBuild = inject(FormBuilder);
+  private destroyRef = inject(DestroyRef);
 
   public formEditarPerfil: FormGroup = this.formBuild.group({
     imgPerfil: [''],
@@ -51,7 +53,7 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
   }
 
   cargarDatosUsuario(): void {
-    this.AccesService.ensureCurrentUser().subscribe({
+    this.AccesService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         if (!data) {
           this.router.navigate(['/login'], { queryParams: { returnUrl: this.router.url } });
@@ -91,7 +93,7 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
       this.isSaving = true;
 
       if (this.selectedProfileImageFile) {
-        this.imageUploadService.uploadImage(this.selectedProfileImageFile, 'profile').subscribe({
+        this.imageUploadService.uploadImage(this.selectedProfileImageFile, 'profile').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: ({ url }) => this.saveProfile(url),
           error: () => {
             this.toastService.error('No se pudo subir la imagen');
@@ -123,7 +125,7 @@ export class PrefilEditComponent implements OnInit, OnDestroy {
         imgPerfil
       };
 
-      this.AccesService.update(objeto).subscribe({
+      this.AccesService.update(objeto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (response) => {
           this.toastService.success('Perfil actualizado con éxito');
           setTimeout(() => {

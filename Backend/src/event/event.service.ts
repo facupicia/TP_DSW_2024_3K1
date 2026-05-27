@@ -8,7 +8,7 @@ import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { ExtraItem, ExtraItemStatus } from "../extra/extraItem.entity";
 import { EventProduct } from "../extra/eventProduct.entity";
 import AppDataSource from "../db";
-import { canCreateEvent, canCreateTicketTypes, getActiveSubscription } from "../subscription/subscription.service";
+import { canCreateEvent, canCreateTicketTypes, getActiveSubscription, safeAddMonths } from "../subscription/subscription.service";
 import { UserSubscription, SubscriptionStatus } from "../subscription/user_subscription.entity";
 import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
 import { tokenSing } from "../common/services/generateToken";
@@ -480,14 +480,14 @@ function periodToDates(period: string) {
             previousEndDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             break;
         case 'month':
-            startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-            previousStartDate = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
-            previousEndDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+            startDate = safeAddMonths(now, -1);
+            previousStartDate = safeAddMonths(now, -2);
+            previousEndDate = safeAddMonths(now, -1);
             break;
         case 'year':
-            startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-            previousStartDate = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
-            previousEndDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+            startDate = safeAddMonths(now, -12);
+            previousStartDate = safeAddMonths(now, -24);
+            previousEndDate = safeAddMonths(now, -12);
             break;
         default:
             startDate = new Date(0);

@@ -1,4 +1,5 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -20,6 +21,7 @@ export class SettingsComponent implements OnInit {
     private subscriptionService = inject(SubscriptionService);
     private paymentService = inject(PaymentService);
     private toast = inject(ToastService);
+    private destroyRef = inject(DestroyRef);
 
     userProfile: any = {};
 
@@ -34,7 +36,7 @@ export class SettingsComponent implements OnInit {
     mpLoading = false;
 
     ngOnInit(): void {
-        this.authService.ensureCurrentUser().subscribe({
+        this.authService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (data) => {
                 if (!data) {
                     this.router.navigate(['/login'], { queryParams: { returnUrl: '/settings' } });
@@ -50,7 +52,7 @@ export class SettingsComponent implements OnInit {
     }
 
     private loadSubscription(): void {
-        this.subscriptionService.getMySubscription().subscribe({
+        this.subscriptionService.getMySubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (sub) => {
                 this.subscription = sub;
                 this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
@@ -63,7 +65,7 @@ export class SettingsComponent implements OnInit {
     }
 
     private loadMpStatus(): void {
-        this.paymentService.getMpStatus().subscribe({
+        this.paymentService.getMpStatus().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (status) => this.mpStatus = status,
             error: (err) => console.error('Error loading MP status:', err)
         });
@@ -79,7 +81,7 @@ export class SettingsComponent implements OnInit {
         if (!confirmed) return;
 
         this.cancellingSubscription = true;
-        this.subscriptionService.cancelSubscription().subscribe({
+        this.subscriptionService.cancelSubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (response) => {
                 this.cancellingSubscription = false;
                 this.toast.success(response.message || 'Suscripción cancelada');
@@ -96,7 +98,7 @@ export class SettingsComponent implements OnInit {
 
     connectMercadoPago(): void {
         this.mpLoading = true;
-        this.paymentService.connectMercadoPago('/settings').subscribe({
+        this.paymentService.connectMercadoPago('/settings').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (response) => {
                 this.mpLoading = false;
                 window.location.href = response.authUrl;
@@ -113,7 +115,7 @@ export class SettingsComponent implements OnInit {
         if (!confirmed) return;
 
         this.mpLoading = true;
-        this.paymentService.disconnectMercadoPago().subscribe({
+        this.paymentService.disconnectMercadoPago().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (response) => {
                 this.mpLoading = false;
                 this.mpStatus = { connected: false, mpUserId: null, expiresAt: null, needsReconnect: false };

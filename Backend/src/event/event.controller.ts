@@ -20,8 +20,8 @@ function handleServiceError(error: any, res: Response) {
     if (error instanceof HttpError) {
         return res.status(error.status).json({ code: error.code, message: error.message });
     }
-    logger.error("EVENT_CONTROLLER_ERROR", { error: error?.message });
-    return res.status(500).json({ message: error?.message || "Internal server error" });
+    logger.error("EVENT_CONTROLLER_ERROR", { error: error?.message, stack: error?.stack });
+    return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal server error" });
 }
 
 // SSE connection limiter (per-user, per-process)

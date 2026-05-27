@@ -1,4 +1,5 @@
-import { Component, inject } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
@@ -20,6 +21,7 @@ export class RegisterComponent {
   private router = inject(Router);
   private toastService = inject(ToastService);
   public formBuild = inject(FormBuilder);
+  private destroyRef = inject(DestroyRef);
 
   public isLoading: boolean = false;
   public showPassword: boolean = false; // Toggle para mostrar/ocultar contraseña
@@ -58,7 +60,7 @@ export class RegisterComponent {
       address: this.formRegistro.value.address
     };
 
-    this.AccesService.registrarse(objeto).subscribe({
+    this.AccesService.registrarse(objeto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.toastService.success('¡Cuenta creada con éxito!');
         setTimeout(() => {

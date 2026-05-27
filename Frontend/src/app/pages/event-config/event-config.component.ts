@@ -1,4 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,6 +28,7 @@ export class EventConfigComponent implements OnInit {
     private toastService = inject(ToastService);
     private productService = inject(ProductService);
     private extraService = inject(ExtraService);
+    private destroyRef = inject(DestroyRef);
 
     eventId!: number;
     event: Evento | null = null;
@@ -79,7 +81,7 @@ export class EventConfigComponent implements OnInit {
     }
 
     loadEvent(): void {
-        this.eventService.obtenerEvento(this.eventId).subscribe({
+        this.eventService.obtenerEvento(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (event) => {
                 this.event = event;
                 this.isLoading = false;
@@ -97,7 +99,7 @@ export class EventConfigComponent implements OnInit {
 
     loadCoupons(): void {
         this.loadingCoupons = true;
-        this.couponService.getCouponsByEvent(this.eventId).subscribe({
+        this.couponService.getCouponsByEvent(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (coupons) => {
                 this.coupons = coupons;
                 this.loadingCoupons = false;
@@ -124,7 +126,7 @@ export class EventConfigComponent implements OnInit {
             expiresAt: this.newCoupon.expiresAt || null,
             eventId: this.eventId,
             isActive: true
-        }).subscribe({
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (coupon) => {
                 this.coupons.unshift(coupon);
                 this.resetCouponForm();
@@ -139,7 +141,7 @@ export class EventConfigComponent implements OnInit {
     }
 
     toggleCoupon(coupon: Coupon): void {
-        this.couponService.toggleCoupon(coupon.id!).subscribe({
+        this.couponService.toggleCoupon(coupon.id!).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (updated) => {
                 const idx = this.coupons.findIndex(c => c.id === coupon.id);
                 if (idx >= 0) this.coupons[idx] = updated;
@@ -154,7 +156,7 @@ export class EventConfigComponent implements OnInit {
     deleteCoupon(coupon: Coupon): void {
         if (!confirm(`¿Eliminar el cupón "${coupon.code}"?`)) return;
 
-        this.couponService.deleteCoupon(coupon.id!).subscribe({
+        this.couponService.deleteCoupon(coupon.id!).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
                 this.coupons = this.coupons.filter(c => c.id !== coupon.id);
                 this.toastService.success('Cupón eliminado');
@@ -198,7 +200,7 @@ export class EventConfigComponent implements OnInit {
         this.sendingInvites = true;
         this.inviteResults = null;
 
-        this.ticketService.inviteGuests(this.selectedTicketTypeId, emails, this.inviteQuantity).subscribe({
+        this.ticketService.inviteGuests(this.selectedTicketTypeId, emails, this.inviteQuantity).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (result: any) => {
                 this.inviteResults = {
                     success: result.tickets?.length || 0,
@@ -221,7 +223,7 @@ export class EventConfigComponent implements OnInit {
     // ========== EXTRAS ==========
 
     loadCatalog(): void {
-        this.productService.getMyCatalog().subscribe({
+        this.productService.getMyCatalog().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (products) => { this.catalog = products; },
             error: () => { /* ignore */ }
         });
@@ -229,7 +231,7 @@ export class EventConfigComponent implements OnInit {
 
     loadEventExtras(): void {
         this.loadingExtras = true;
-        this.extraService.getEventExtras(this.eventId).subscribe({
+        this.extraService.getEventExtras(this.eventId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (extras) => {
                 this.eventExtras = extras;
                 this.loadingExtras = false;
@@ -268,7 +270,7 @@ export class EventConfigComponent implements OnInit {
             hasStock: this.newExtraHasStock,
             stock: this.newExtraHasStock ? this.newExtraStock : undefined,
             maxPerOrder: this.newExtraMaxPerOrder
-        }).subscribe({
+        }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
                 this.toastService.success(`"${product.name}" agregado al evento`);
                 this.showExtraForm = false;
@@ -281,7 +283,7 @@ export class EventConfigComponent implements OnInit {
     }
 
     toggleExtra(extra: EventProduct): void {
-        this.extraService.updateEventExtra(extra.id, { isActive: !extra.isActive }).subscribe({
+        this.extraService.updateEventExtra(extra.id, { isActive: !extra.isActive }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
                 this.toastService.success(extra.isActive ? 'Extra desactivado' : 'Extra activado');
                 this.loadEventExtras();
@@ -292,7 +294,7 @@ export class EventConfigComponent implements OnInit {
 
     removeExtra(extra: EventProduct): void {
         if (!confirm(`¿Eliminar "${extra.product.name}" de este evento?`)) return;
-        this.extraService.removeExtraFromEvent(extra.id).subscribe({
+        this.extraService.removeExtraFromEvent(extra.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
                 this.toastService.success('Extra eliminado del evento');
                 this.loadEventExtras();

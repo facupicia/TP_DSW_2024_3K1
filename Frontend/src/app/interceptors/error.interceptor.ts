@@ -6,8 +6,9 @@ import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { clearAccessToken } from '../services/access-token.store';
 
-// Flag para prevenir múltiples navegaciones a login ante requests 401 paralelos
-let isNavigatingToLogin = false;
+// Timestamp-based dedup for 401->login navigation (self-healing vs module-level mutable flag)
+let lastNavigationToLoginAt = 0;
+const LOGIN_NAVIGATION_COOLDOWN_MS = 3000;
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const toastService = inject(ToastService);
@@ -36,13 +37,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         break;
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
-                        if (!isNavigatingToLogin) {
-                            isNavigatingToLogin = true;
+                        const now = Date.now();
+                        if (now - lastNavigationToLoginAt > LOGIN_NAVIGATION_COOLDOWN_MS) {
+                            lastNavigationToLoginAt = now;
                             clearAccessToken();
                             authService.logout();
-                            router.navigate(['/login']).then(() => {
-                                isNavigatingToLogin = false;
-                            });
+                            router.navigate(['/login']);
                         }
                         break;
                     case 403:

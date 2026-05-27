@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { map, take } from 'rxjs/operators';
-import { hasExactRole, hasRoleLevel } from '../interfaces/Usuario';
+
 
 /**
  * Guard that allows access to scanner functionality.
@@ -21,7 +21,7 @@ export const scannerGuard: CanActivateFn = (route, state) => {
             
             // Scanner, admin, and organizers can access the scanner UI.
             // Backend still enforces event ownership for organizers.
-            if (user && (hasExactRole(userRoles, 'scanner') || hasExactRole(userRoles, 'admin') || hasExactRole(userRoles, 'organizer'))) {
+            if (user && (userRoles.includes('scanner') || userRoles.includes('admin') || userRoles.includes('organizer'))) {
                 return true;
             }
 

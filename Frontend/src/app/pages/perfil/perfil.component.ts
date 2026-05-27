@@ -1,4 +1,5 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { HeaderComponent } from '../../components/header/header.component';
@@ -8,7 +9,7 @@ import { SubscriptionService, UserSubscription, SubscriptionPlan } from '../../s
 import { PaymentService, MpStatus } from '../../services/payment.service';
 import { Evento } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
-import { hasExactRole, hasRoleLevel } from '../../interfaces/Usuario';
+
 
 @Component({
     selector: 'app-perfil',
@@ -24,6 +25,7 @@ export class PerfilComponent implements OnInit {
   public subscriptionService = inject(SubscriptionService);
   private paymentService = inject(PaymentService);
   private toast = inject(ToastService);
+  private destroyRef = inject(DestroyRef);
 
   userProfile: any = {};
   eventos: Evento[] = [];
@@ -51,7 +53,7 @@ export class PerfilComponent implements OnInit {
   mpLoading = false;
 
   ngOnInit(): void {
-    this.profileService.ensureCurrentUser().subscribe({
+    this.profileService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         if (!data) {
           this.router.navigate(['/login'], { queryParams: { returnUrl: '/profile' } });
@@ -62,11 +64,11 @@ export class PerfilComponent implements OnInit {
         // Support both new 'roles' array and legacy 'rol' field
         this.userRoles = data.roles || [data.rol] || ['user'];
 
-        // Set role flags using helper functions
-        this.esAdmin = hasExactRole(this.userRoles, 'admin');
-        this.esScanner = hasExactRole(this.userRoles, 'scanner');
-        this.esOrganizer = hasRoleLevel(this.userRoles, 'organizer');
-        this.esRrpp = hasExactRole(this.userRoles, 'rrpp');
+        // Set role flags using direct array checks (backend is source of truth)
+        this.esAdmin = this.userRoles.includes('admin');
+        this.esScanner = this.userRoles.includes('scanner');
+        this.esOrganizer = this.userRoles.includes('organizer') || this.userRoles.includes('admin');
+        this.esRrpp = this.userRoles.includes('rrpp');
 
         this.verificarEventos();
         this.loadSubscription();
@@ -80,7 +82,7 @@ export class PerfilComponent implements OnInit {
   }
 
   private loadSubscription(): void {
-    this.subscriptionService.getMySubscription().subscribe({
+    this.subscriptionService.getMySubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sub) => {
         this.subscription = sub;
         this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
@@ -94,7 +96,7 @@ export class PerfilComponent implements OnInit {
 
   // Cargamos los planes para tener el ID del plan PRO listo
   private loadPlans(): void {
-    this.subscriptionService.getPlans().subscribe({
+    this.subscriptionService.getPlans().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (plans) => this.plans = plans,
       error: (err) => console.error('Error cargando planes', err)
     });
@@ -104,7 +106,7 @@ export class PerfilComponent implements OnInit {
   private loadMpStatus(): void {
     if (!this.tieneEventos && !this.esOrganizer) return;
 
-    this.paymentService.getMpStatus().subscribe({
+    this.paymentService.getMpStatus().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (status) => this.mpStatus = status,
       error: (err) => console.error('Error cargando estado MP:', err)
     });
@@ -112,7 +114,7 @@ export class PerfilComponent implements OnInit {
 
   connectMercadoPago(): void {
     this.mpLoading = true;
-    this.paymentService.connectMercadoPago('/profile').subscribe({
+    this.paymentService.connectMercadoPago('/profile').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.mpLoading = false;
         window.location.href = response.authUrl;
@@ -133,7 +135,7 @@ export class PerfilComponent implements OnInit {
     if (!confirmed) return;
 
     this.mpLoading = true;
-    this.paymentService.disconnectMercadoPago().subscribe({
+    this.paymentService.disconnectMercadoPago().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.mpLoading = false;
         this.mpStatus = { connected: false, mpUserId: null, expiresAt: null, needsReconnect: false };
@@ -170,7 +172,7 @@ export class PerfilComponent implements OnInit {
 
     this.loading = true;
 
-    this.subscriptionService.createCheckout(this.selectedPlan.id, billingType).subscribe({
+    this.subscriptionService.createCheckout(this.selectedPlan.id, billingType).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.loading = false;
         // Redirigir a Mercado Pago
@@ -196,7 +198,7 @@ export class PerfilComponent implements OnInit {
 
     this.cancellingSubscription = true;
 
-    this.subscriptionService.cancelSubscription().subscribe({
+    this.subscriptionService.cancelSubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         this.cancellingSubscription = false;
         this.toast.success(response.message || 'Suscripción cancelada correctamente');
@@ -215,7 +217,7 @@ export class PerfilComponent implements OnInit {
   goToSettings() { this.router.navigate(['/settings']); }
 
   verificarEventos() {
-    this.eventoService.obtenerEventosUsuario().subscribe({
+    this.eventoService.obtenerEventosUsuario().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.eventos = data;
         this.tieneEventos = data && data.length > 0;

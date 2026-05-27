@@ -30,16 +30,10 @@ export class EventService {
     }
 
     return this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/my-events`).pipe(
-      map(response => response.data || []),
-      tap(events => {
-        if (Array.isArray(events)) {
-          events.forEach(e => {
-            if (e.category && !e.categoria_name) {
-              e.categoria_name = (e.category as any).name;
-            }
-          });
-        }
-      })
+      map(response => (response.data || []).map(e => ({
+        ...e,
+        categoria_name: e.categoria_name || (e.category as any)?.name
+      })))
     );
   }
 
@@ -65,15 +59,14 @@ export class EventService {
   searchEventsByName(searchTerm: string): Observable<any> {
     const params = new HttpParams().set('search', searchTerm);
     return this.http.get<any>(`${this.urlBase}/search`, { params }).pipe(
-      tap((events: any[]) => {
-        if (Array.isArray(events)) {
-          events.forEach(e => {
-            if (e.category && !e.categoria_name) {
-              e.categoria_name = (e.category as any).name;
-            }
-          });
-        }
-      })
+      map((events: any[]) =>
+        Array.isArray(events)
+          ? events.map(e => ({
+              ...e,
+              categoria_name: e.categoria_name || (e.category as any)?.name
+            }))
+          : events
+      )
     );
   }
 

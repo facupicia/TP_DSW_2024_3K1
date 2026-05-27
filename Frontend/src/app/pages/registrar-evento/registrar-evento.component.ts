@@ -1,4 +1,5 @@
-import { Component, inject, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, inject, OnDestroy, OnInit } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { EventService } from '../../services/event.service';
@@ -30,6 +31,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
   private subscriptionService = inject(SubscriptionService);
   private paymentService = inject(PaymentService);
   private imageUploadService = inject(ImageUploadService);
+  private destroyRef = inject(DestroyRef);
 
   // Estados de la vista
   public isEditMode: boolean = false;
@@ -81,13 +83,13 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // 1. Cargar Categorías
-    this.categoryService.getCategories().subscribe({
+    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => this.categories = data
       // Error handled by interceptor
     });
 
     // 1.5. Cargar límites de suscripción
-    this.subscriptionService.getMyLimits().subscribe({
+    this.subscriptionService.getMyLimits().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (limits) => {
         this.subscriptionLimits = limits;
         this.maxTicketTypes = limits.limits.maxTicketTypesPerEvent;
@@ -112,7 +114,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
     });
 
     // 3. DETECTAR SI ES EDICIÓN O CREACIÓN
-    this.route.paramMap.subscribe(params => {
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const id = params.get('id');
 
       if (id) {
@@ -167,7 +169,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
   // Carga los datos existentes al formulario
   loadEventData(id: number) {
-    this.eventService.obtenerEvento(id).subscribe({
+    this.eventService.obtenerEvento(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (evento) => {
         // Formatear fecha para input type="date" (YYYY-MM-DD)
         const dateStr = new Date(evento.date).toISOString().split('T')[0];
@@ -230,7 +232,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
     this.isSubmitting = true;
 
     if (this.selectedEventImageFile) {
-      this.imageUploadService.uploadImage(this.selectedEventImageFile, 'event').subscribe({
+      this.imageUploadService.uploadImage(this.selectedEventImageFile, 'event').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: ({ url }) => this.saveEvent(url),
         error: () => {
           this.toastService.error('No se pudo subir la imagen');
@@ -271,7 +273,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
     if (this.isEditMode && this.eventId) {
       // ACTUALIZAR
-      this.eventService.actualizarEvento(this.eventId, eventData).subscribe({
+      this.eventService.actualizarEvento(this.eventId, eventData).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           this.toastService.success('Evento actualizado correctamente');
           setTimeout(() => this.router.navigate(['/my-events']), 1500);
@@ -283,14 +285,14 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
       });
     } else {
       // CREAR
-      this.eventService.crearEvento(eventData).subscribe({
+      this.eventService.crearEvento(eventData).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (response: any) => {
           this.toastService.success('Evento creado con éxito!');
 
           // If backend returned a new token (user was promoted to organizer), update it
           if (response?.token && typeof window !== 'undefined') {
             this.authService.storeAccessToken(response.token);
-            this.authService.getProfile().subscribe({
+    this.authService.getProfile().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
               next: () => this.router.navigate(['/my-events']),
               error: () => this.router.navigate(['/my-events'])
             });
@@ -385,7 +387,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
   /** Consulta el estado de conexión de MP */
   checkMpStatus(): void {
-    this.paymentService.getMpStatus().subscribe({
+    this.paymentService.getMpStatus().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (status) => {
         this.mpStatus = status;
         // Si no está conectado y no estamos en modo edición, mostrar modal
@@ -407,7 +409,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
     this.mpLoading = true;
     // Pasar ruta actual para que el callback redirija de vuelta aquí
     const redirectTo = this.router.url;
-    this.paymentService.connectMercadoPago(redirectTo).subscribe({
+    this.paymentService.connectMercadoPago(redirectTo).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response) => {
         // Redirigir al usuario a la URL de autorización de MP
         window.location.href = response.authUrl;

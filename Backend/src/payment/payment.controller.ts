@@ -521,6 +521,16 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
                 message: "external_reference inválido"
             });
         }
+
+        // Verify ownership via userId encoded in external_reference (format: userId|organizerId|...)
+        const refParts = externalRef.split('|');
+        const refUserId = parseInt(refParts[0], 10);
+        if (isNaN(refUserId) || refUserId !== req.user?.id) {
+            return res.status(403).json({
+                success: false,
+                message: "No autorizado para consultar este pago"
+            });
+        }
         
         const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
         

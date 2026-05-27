@@ -29,7 +29,8 @@ function handleServiceError(error: any, res: Response) {
 
   const status = statusMap[code] || 500;
   if (status >= 500) {
-    logger.error("SERVICE_ERROR", { code, message });
+    logger.error("SERVICE_ERROR", { code, message, stack: error?.stack });
+    return res.status(status).json({ code: "INTERNAL_ERROR", message: "Internal server error" });
   }
 
   if (code === "NO_CHANGES" || code === "QUERY_REQUIRED") {

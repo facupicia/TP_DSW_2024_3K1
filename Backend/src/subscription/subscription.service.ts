@@ -298,7 +298,7 @@ export const upgradeToPlan = async (
     }
 };
 
-function safeAddMonths(date: Date, months: number): Date {
+export function safeAddMonths(date: Date, months: number): Date {
     const result = new Date(date);
     const day = result.getDate();
     result.setMonth(result.getMonth() + months);

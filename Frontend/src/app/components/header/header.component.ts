@@ -6,7 +6,7 @@ import { SubscriptionService, UserSubscription } from '../../services/subscripti
 import { PromoterService } from '../../services/promoter.service';
 import { EventService } from '../../services/event.service';
 import { CategoryService } from '../../services/category.service';
-import { hasRoleLevel, hasExactRole } from '../../interfaces/Usuario';
+
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -66,7 +66,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
           this.loadSubscription();
           // Solo verificar eventos si es organizador y aún no verificamos
           const userRoles = user.roles || [user.rol] || ['user'];
-          if (hasRoleLevel(userRoles, 'organizer') && !this.hasEventsChecked) {
+          if ((userRoles.includes('organizer') || userRoles.includes('admin')) && !this.hasEventsChecked) {
             this.hasEventsChecked = true;
             this.checkHasEvents();
           }
@@ -186,17 +186,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
   
   hasOrganizerLevel(user: any): boolean {
     const roles = user?.roles || [user?.rol] || ['user'];
-    return hasRoleLevel(roles, 'organizer');
+    return roles.includes('organizer') || roles.includes('admin');
   }
-  
+
   isRrpp(user: any): boolean {
     const roles = user?.roles || [user?.rol] || ['user'];
-    return hasExactRole(roles, 'rrpp');
+    return roles.includes('rrpp');
   }
-  
+
   isScanner(user: any): boolean {
     const roles = user?.roles || [user?.rol] || ['user'];
-    return hasExactRole(roles, 'scanner');
+    return roles.includes('scanner');
   }
 
   /**

@@ -235,6 +235,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   startTimer() {
+    if (this.timerSubscription) {
+      this.timerSubscription.unsubscribe();
+    }
     this.timerSubscription = interval(1000).subscribe(() => {
       if (this.timeLeft > 0) {
         this.timeLeft--;
@@ -263,6 +266,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   calculateTotal() {
+    // Client-side calculation is limited to base item totals for display.
+    // Service fees and final amounts are the sole responsibility of the backend
+    // and are populated from the create-preference response.
     this.baseAmount = this.cartItems.reduce((sum, ci) => sum + (ci.ticketType.price * ci.quantity), 0);
     this.extraTotal = this.extraCartItems.reduce((sum, ei) => sum + (ei.eventProduct.eventPrice * ei.quantity), 0);
     this.total = this.baseAmount + this.extraTotal;
@@ -276,15 +282,9 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.finalTotal = this.total;
     }
 
-    const ticketNet = ticketBaseForDiscount - this.discountAmount;
-    if (ticketNet > 0 && this.serviceFeePercent > 0) {
-      const percentFee = Math.ceil((ticketNet * this.serviceFeePercent) / 100);
-      this.serviceFeeAmount = Math.max(percentFee, Math.ceil(this.minimumServiceFee || 0));
-    } else {
-      this.serviceFeeAmount = 0;
-    }
-
-    this.totalToPay = this.finalTotal + this.serviceFeeAmount;
+    // Do NOT compute serviceFeeAmount or totalToPay here — backend is the source of truth.
+    this.serviceFeeAmount = 0;
+    this.totalToPay = this.finalTotal;
   }
 
   applyCoupon() {
@@ -298,7 +298,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
 
     // Use evento.id instead of eventId (route param) to ensure correct event
     const eventIdToUse = this.evento?.id || Number(this.eventId);
-    this.couponService.validateCoupon(this.couponCode.trim(), eventIdToUse).subscribe({
+    this.couponService.validateCoupon(this.couponCode.trim(), eventIdToUse).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (result) => {
         if (result.valid) {
           this.appliedCoupon = {
@@ -373,7 +373,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         couponId: this.appliedCoupon?.couponId,
         couponCode: this.appliedCoupon ? this.couponCode.trim() : undefined,
         buyer: guestBuyer || undefined
-      }).subscribe({
+      }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (response: any) => {
           if (response.init_point) {
             // Guardar información de comisión para mostrar en el checkout

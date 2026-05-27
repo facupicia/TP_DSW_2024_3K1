@@ -50,17 +50,6 @@ app.use(helmet({
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     crossOriginResourcePolicy: { policy: "cross-origin" },
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-            styleSrc: ["'self'", "'unsafe-inline'"],
-            imgSrc: ["'self'", "data:"],
-            fontSrc: ["'self'"],
-            connectSrc: ["'self'"],
-            frameAncestors: ["'none'"],
-        }
-    },
 }));
 
 const allowedOriginsRaw = (env.CLIENT_URLS || env.CLIENT_URL || "")

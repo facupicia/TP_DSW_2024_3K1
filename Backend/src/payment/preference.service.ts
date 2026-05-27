@@ -738,19 +738,15 @@ async function preparePreference(
         const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
 
         const ticketTypeIds = items.map(i => i.ticketTypeId).sort((a, b) => a - b);
-        const ticketTypes: TicketType[] = [];
-        for (const id of ticketTypeIds) {
-            const tt = await ticketTypeRepo
-                .createQueryBuilder('ticketType')
-                .innerJoinAndSelect('ticketType.event', 'event')
-                .where('ticketType.id = :id', { id })
-                .setLock('pessimistic_write')
-                .getOne();
+        const ticketTypes = await ticketTypeRepo
+            .createQueryBuilder('ticketType')
+            .innerJoinAndSelect('ticketType.event', 'event')
+            .where('ticketType.id IN (:...ids)', { ids: ticketTypeIds })
+            .setLock('pessimistic_write')
+            .getMany();
 
-            if (!tt) {
-                throw new Error('TICKET_TYPE_NOT_FOUND');
-            }
-            ticketTypes.push(tt);
+        if (ticketTypes.length !== ticketTypeIds.length) {
+            throw new Error('TICKET_TYPE_NOT_FOUND');
         }
 
         for (const tt of ticketTypes) {
@@ -769,22 +765,19 @@ async function preparePreference(
             throw new Error('MULTIPLE_EVENTS');
         }
 
-        const extras: EventProduct[] = [];
+        let extras: EventProduct[] = [];
         if (extraItems.length > 0) {
             const extraIds = extraItems.map(i => i.eventProductId).sort((a, b) => a - b);
-            for (const id of extraIds) {
-                const ep = await eventProductRepo
-                    .createQueryBuilder('eventProduct')
-                    .innerJoinAndSelect('eventProduct.event', 'event')
-                    .innerJoinAndSelect('eventProduct.product', 'product')
-                    .where('eventProduct.id = :id', { id })
-                    .setLock('pessimistic_write')
-                    .getOne();
+            extras = await eventProductRepo
+                .createQueryBuilder('eventProduct')
+                .innerJoinAndSelect('eventProduct.event', 'event')
+                .innerJoinAndSelect('eventProduct.product', 'product')
+                .where('eventProduct.id IN (:...ids)', { ids: extraIds })
+                .setLock('pessimistic_write')
+                .getMany();
 
-                if (!ep) {
-                    throw new Error('EXTRA_NOT_FOUND');
-                }
-                extras.push(ep);
+            if (extras.length !== extraIds.length) {
+                throw new Error('EXTRA_NOT_FOUND');
             }
 
             for (const ep of extras) {

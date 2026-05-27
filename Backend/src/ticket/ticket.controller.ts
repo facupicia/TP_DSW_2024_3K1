@@ -18,8 +18,8 @@ function handleHttpError(error: any, res: Response) {
     if (error instanceof HttpError) {
         return res.status(error.status).json({ code: error.code, message: error.message });
     }
-    logger.error("TICKET_CONTROLLER_ERROR", { error: error?.message });
-    return res.status(500).json({ message: "Error interno del servidor", error: error?.message });
+    logger.error("TICKET_CONTROLLER_ERROR", { error: error?.message, stack: error?.stack });
+    return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal server error" });
 }
 
 export const createTicket = async (req: CustomRequest, res: Response) => {

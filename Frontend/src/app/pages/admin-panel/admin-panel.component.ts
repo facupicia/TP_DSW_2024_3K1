@@ -6,7 +6,7 @@ import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
 import { AuthService, PaginatedUsersResponse } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
-import { Usuario, getHighestRole, hasExactRole } from '../../interfaces/Usuario';
+import { Usuario } from '../../interfaces/Usuario';
 import { AdminService, OverviewResponse, DateRange } from '../../services/admin.service';
 import { DashboardOverviewComponent } from '../../components/dashboard-overview/dashboard-overview.component';
 import { RevenueViewComponent } from '../../components/revenue-view/revenue-view.component';
@@ -297,7 +297,7 @@ export class AdminPanelComponent implements OnInit {
     
     // Check admin using roles array
     const currentUserRoles = this.currentUser.roles || [this.currentUser.rol] || [];
-    if (!hasExactRole(currentUserRoles, 'admin')) {
+    if (!currentUserRoles.includes('admin')) {
       this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
       return;
     }
@@ -323,7 +323,10 @@ export class AdminPanelComponent implements OnInit {
     this.userService.updateRole(u.id!, nuevosRoles, 'set').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (resp: any) => {
         u.roles = nuevosRoles;
-        u.rol = getHighestRole(nuevosRoles); // Update legacy field
+        u.rol = nuevosRoles.reduce((highest, role) => {
+          const levels: Record<string, number> = { user: 1, rrpp: 2, scanner: 3, organizer: 4, admin: 5 };
+          return (levels[role] || 0) > (levels[highest] || 0) ? role : highest;
+        }, 'user'); // Update legacy field
         this.toast.success('Roles actualizados correctamente');
         this.updatingRole[u.id!] = false;
       },

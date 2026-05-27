@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { map, take } from 'rxjs/operators';
-import { hasExactRole } from '../interfaces/Usuario';
+
 
 /**
  * Guard that allows access only to users with 'admin' role (exact match).
@@ -19,7 +19,7 @@ export const adminGuard: CanActivateFn = (route, state) => {
             const userRoles = user?.roles || [user?.rol] || ['user'];
             
             // Check if user has exact admin role
-            if (user && hasExactRole(userRoles, 'admin')) {
+            if (user && userRoles.includes('admin')) {
                 return true;
             }
 
