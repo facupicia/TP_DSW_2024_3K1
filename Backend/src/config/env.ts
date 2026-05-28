@@ -57,10 +57,10 @@ const EnvSchema = z
     PGDATABASE: z.string().optional(),
     DB_SYNC: z.enum(["true", "false"]).optional().default("false"),
     DB_LOGGING: z.enum(["true", "false"]).optional().default("false"),
-    DB_POOL_MAX: z.coerce.number().min(1).max(100).optional().default(10),
+    DB_POOL_MAX: z.coerce.number().min(1).max(100).optional().default(25),
     DB_CONN_TIMEOUT: z.coerce.number().min(1000).optional().default(15000),
-    DB_IDLE_TIMEOUT: z.coerce.number().min(1000).optional().default(30000),
-    DB_STATEMENT_TIMEOUT: z.coerce.number().min(1000).optional().default(30000),
+    DB_IDLE_TIMEOUT: z.coerce.number().min(1000).optional().default(10000),
+    DB_STATEMENT_TIMEOUT: z.coerce.number().min(1000).optional().default(10000),
 
     // Auth
     ID_CLIENT_GOOGLE_OAUTH: z.string().optional(),

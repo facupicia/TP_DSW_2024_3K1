@@ -45,12 +45,14 @@ class HttpError extends Error {
 /**
  * Crea tickets para una compra.
  * Genera códigos QR únicos para cada ticket.
+ * Si se pasa preGeneratedQrData, usa esos valores en lugar de generar nuevos (para evitar CPU-bound dentro de transacciones).
  */
 export async function createTicketsForPurchase(
     ticketType: TicketType,
     user: User,
     amount: number,
-    promoterInfo?: PromoterInfo
+    promoterInfo?: PromoterInfo,
+    preGeneratedQrData?: Array<{ codigo_unico: string; qrCode: string }>
 ): Promise<Ticket[]> {
     const tickets: Ticket[] = [];
 
@@ -59,8 +61,12 @@ export async function createTicketsForPurchase(
         : null;
 
     for (let i = 0; i < amount; i++) {
-        const codigo_unico = randomUUID();
-        const qrCode = await generarQRUrl(codigo_unico);
+        const codigo_unico = preGeneratedQrData
+            ? preGeneratedQrData[i].codigo_unico
+            : randomUUID();
+        const qrCode = preGeneratedQrData
+            ? preGeneratedQrData[i].qrCode
+            : await generarQRUrl(codigo_unico);
 
         const ticket = new Ticket();
         ticket.ticketType = ticketType;
@@ -561,21 +567,16 @@ export async function inviteGuests(
                     ticketIndex++;
                 }
             }
-            try {
-                await enviarCorreoConQR(email, ticketsForThisEmail);
-            } catch (emailErr) {
+            enviarCorreoConQR(email, ticketsForThisEmail).catch(emailErr => {
                 logger.error(`Error enviando email a ${email}:`, emailErr);
-                const msg = emailErr instanceof Error ? emailErr.message : "Error desconocido";
-                errors.push(`Error enviando a ${email}: ${msg}`);
-            }
+            });
         }
 
         return {
             message: `${savedTickets.length} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,
             tickets: createdTickets,
             totalTickets: savedTickets.length,
-            emailsSentWithErrors: errors.length > 0,
-            errors: errors.length > 0 ? errors : undefined,
+            emailsSentWithErrors: false,
         };
     } catch (error) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();

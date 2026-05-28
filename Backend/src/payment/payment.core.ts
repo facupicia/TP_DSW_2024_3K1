@@ -559,41 +559,54 @@ export async function processApprovedPayment(
         transactionAmount: paymentData.transaction_amount
     });
 
+    const info = extractPaymentInfo(paymentData);
+    if (!info) {
+        logger.error('PROCESS_PAYMENT_EXTRACTION_FAILED', {
+            paymentId,
+            status: paymentData.status,
+            hasExternalReference: !!paymentData.external_reference,
+            metadataKeys: Object.keys(paymentData.metadata || {})
+        });
+        throw new Error('Failed to extract payment information');
+    }
+
+    logger.info('PROCESS_PAYMENT_INFO_EXTRACTED', {
+        paymentId,
+        userId: info.userId,
+        itemCount: info.items.length,
+        organizerId: info.organizerId,
+        promoterCode: info.promoterCode
+    });
+
+    const { userId, items, organizerId, promoterCode, couponId } = info;
+    const ticketItems = items.filter(it => it.type === 'ticket');
+    const extraItems = items.filter(it => it.type === 'extra');
+
+    const preGeneratedTicketQrs: Array<{ codigo_unico: string; qrCode: string }> = [];
+    for (let i = 0; i < ticketItems.reduce((sum, it) => sum + it.quantity, 0); i++) {
+        const codigo_unico = randomUUID();
+        const qrCode = await generarQRUrl(codigo_unico);
+        preGeneratedTicketQrs.push({ codigo_unico, qrCode });
+    }
+
+    const preGeneratedExtraQrs: Array<{ codigo_unico: string; qrCode: string }> = [];
+    for (let i = 0; i < extraItems.reduce((sum, it) => sum + it.quantity, 0); i++) {
+        const codigo_unico = randomUUID();
+        const qrCode = await generarQRUrl(codigo_unico);
+        preGeneratedExtraQrs.push({ codigo_unico, qrCode });
+    }
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-        const info = extractPaymentInfo(paymentData);
-        if (!info) {
-            logger.error('PROCESS_PAYMENT_EXTRACTION_FAILED', {
-                paymentId,
-                status: paymentData.status,
-                hasExternalReference: !!paymentData.external_reference,
-                metadataKeys: Object.keys(paymentData.metadata || {})
-            });
-            throw new Error('Failed to extract payment information');
-        }
-
-        logger.info('PROCESS_PAYMENT_INFO_EXTRACTED', {
-            paymentId,
-            userId: info.userId,
-            itemCount: info.items.length,
-            organizerId: info.organizerId,
-            promoterCode: info.promoterCode
-        });
-
-        const { userId, items, organizerId, promoterCode, couponId } = info;
         const totalQuantity = items.reduce((sum, it) => sum + it.quantity, 0);
-
         const userRepo = queryRunner.manager.getRepository(User);
         const user = await userRepo.findOne({ where: { id: userId } });
         if (!user) {
             throw new Error('User not found: ' + userId);
         }
-
-        const ticketItems = items.filter(it => it.type === 'ticket');
-        const extraItems = items.filter(it => it.type === 'extra');
 
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         const ticketTypes: TicketType[] = [];
@@ -868,10 +881,14 @@ export async function processApprovedPayment(
         }
 
         const allTickets: Ticket[] = [];
+        let ticketQrIndex = 0;
         for (const item of ticketItems) {
             const tt = ticketTypes.find(t => t.id === item.referenceId)!;
             const itemExpectedTotal = Number(tt.price) * item.quantity;
             const paidUnitPrice = item.quantity > 0 ? Number((itemExpectedTotal / item.quantity).toFixed(2)) : 0;
+
+            const qrSlice = preGeneratedTicketQrs.slice(ticketQrIndex, ticketQrIndex + item.quantity);
+            ticketQrIndex += item.quantity;
 
             const tickets = await createTicketsForPurchase(
                 tt,
@@ -882,7 +899,8 @@ export async function processApprovedPayment(
                     promoterCommissionPercentage: promoterInfo.commissionPercentage,
                     promoterCommissionAmount: promoterInfo.commissionAmount,
                     promoterCode
-                } : undefined
+                } : undefined,
+                qrSlice
             );
             tickets.forEach(ticket => {
                 ticket.purchasePrice = paidUnitPrice;
@@ -893,16 +911,18 @@ export async function processApprovedPayment(
         }
 
         const allExtras: ExtraItem[] = [];
+        let extraQrIndex = 0;
         for (const item of extraItems) {
             const ep = extras.find(e => e.id === item.referenceId)!;
             const loteTotal = Number(ep.eventPrice) * item.quantity;
             const loteUnitPrice = item.quantity > 0 ? Number((loteTotal / item.quantity).toFixed(2)) : 0;
 
-            const codigoUnico = randomUUID();
-            const qrCode = await generarQRUrl(codigoUnico);
+            const qrSlice = preGeneratedExtraQrs.slice(extraQrIndex, extraQrIndex + item.quantity);
+            extraQrIndex += item.quantity;
+
             const extraItem = ExtraItem.create({
-                codigo_unico: codigoUnico,
-                qrCode,
+                codigo_unico: qrSlice[0].codigo_unico,
+                qrCode: qrSlice[0].qrCode,
                 eventProductId: ep.id,
                 userId: user.id,
                 paymentLogId: log.id,

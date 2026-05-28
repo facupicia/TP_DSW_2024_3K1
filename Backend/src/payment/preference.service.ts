@@ -729,27 +729,50 @@ async function preparePreference(
 
     const purchasePayer = await resolvePurchasePayer(null, input);
 
+    const ticketTypeIds = items.map(i => i.ticketTypeId).sort((a, b) => a - b);
+
+    const ticketTypeRepo = AppDataSource.getRepository(TicketType);
+    const ticketTypes = await ticketTypeRepo
+        .createQueryBuilder('ticketType')
+        .innerJoinAndSelect('ticketType.event', 'event')
+        .where('ticketType.id IN (:...ids)', { ids: ticketTypeIds })
+        .getMany();
+
+    if (ticketTypes.length !== ticketTypeIds.length) {
+        throw new Error('TICKET_TYPE_NOT_FOUND');
+    }
+
+    for (const tt of ticketTypes) {
+        if (tt.status !== TicketTypeStatus.ACTIVE) {
+            throw new Error('TICKET_TYPE_INACTIVE');
+        }
+        const item = items.find(i => i.ticketTypeId === tt.id)!;
+        const availableStock = tt.capacity - tt.soldCount;
+        if (availableStock < item.quantity) {
+            throw new Error('NO_STOCK');
+        }
+    }
+
+    const eventId = ticketTypes[0].event.id;
+    if (ticketTypes.some(tt => tt.event.id !== eventId)) {
+        throw new Error('MULTIPLE_EVENTS');
+    }
+
+    const marketplaceInfo = await getMarketPlaceInfo(ticketTypes[0].event.user_id);
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-        const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
-
-        const ticketTypeIds = items.map(i => i.ticketTypeId).sort((a, b) => a - b);
-        const ticketTypes = await ticketTypeRepo
-            .createQueryBuilder('ticketType')
-            .innerJoinAndSelect('ticketType.event', 'event')
-            .where('ticketType.id IN (:...ids)', { ids: ticketTypeIds })
+        const lockedTicketTypes = await queryRunner.manager
+            .createQueryBuilder(TicketType, 'tt')
+            .innerJoinAndSelect('tt.event', 'event')
+            .where('tt.id IN (:...ids)', { ids: ticketTypeIds })
             .setLock('pessimistic_write')
             .getMany();
 
-        if (ticketTypes.length !== ticketTypeIds.length) {
-            throw new Error('TICKET_TYPE_NOT_FOUND');
-        }
-
-        for (const tt of ticketTypes) {
+        for (const tt of lockedTicketTypes) {
             if (tt.status !== TicketTypeStatus.ACTIVE) {
                 throw new Error('TICKET_TYPE_INACTIVE');
             }
@@ -760,16 +783,11 @@ async function preparePreference(
             }
         }
 
-        const eventId = ticketTypes[0].event.id;
-        if (ticketTypes.some(tt => tt.event.id !== eventId)) {
-            throw new Error('MULTIPLE_EVENTS');
-        }
-
         let extras: EventProduct[] = [];
         if (extraItems.length > 0) {
             const extraIds = extraItems.map(i => i.eventProductId).sort((a, b) => a - b);
-            extras = await eventProductRepo
-                .createQueryBuilder('eventProduct')
+            extras = await queryRunner.manager
+                .createQueryBuilder(EventProduct, 'eventProduct')
                 .innerJoinAndSelect('eventProduct.event', 'event')
                 .innerJoinAndSelect('eventProduct.product', 'product')
                 .where('eventProduct.id IN (:...ids)', { ids: extraIds })
@@ -804,8 +822,6 @@ async function preparePreference(
         if (new Date() > eventDateTime) {
             throw new Error('EVENT_STARTED');
         }
-
-        const marketplaceInfo = await getMarketPlaceInfo(ticketTypes[0].event.user_id);
 
         if (options.requireOrganizerToken && !marketplaceInfo.organizerAccessToken) {
             logger.error('MARKETPLACE_NO_ORGANIZER_TOKEN', {

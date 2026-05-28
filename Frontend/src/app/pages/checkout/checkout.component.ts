@@ -266,25 +266,31 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   calculateTotal() {
-    // Client-side calculation is limited to base item totals for display.
-    // Service fees and final amounts are the sole responsibility of the backend
-    // and are populated from the create-preference response.
+    // Client-side calculation mirrors backend logic so the user sees accurate
+    // service fees before hitting "Pay". The backend remains the source of
+    // truth and will override these values in the preference response.
     this.baseAmount = this.cartItems.reduce((sum, ci) => sum + (ci.ticketType.price * ci.quantity), 0);
     this.extraTotal = this.extraCartItems.reduce((sum, ei) => sum + (ei.eventProduct.eventPrice * ei.quantity), 0);
     this.total = this.baseAmount + this.extraTotal;
 
     const ticketBaseForDiscount = this.baseAmount;
     if (this.appliedCoupon) {
-      this.discountAmount = Math.round((ticketBaseForDiscount * this.appliedCoupon.discountPercent) / 100);
+      this.discountAmount = Math.min(ticketBaseForDiscount, Math.round((ticketBaseForDiscount * this.appliedCoupon.discountPercent) / 100));
       this.finalTotal = ticketBaseForDiscount - this.discountAmount + this.extraTotal;
     } else {
       this.discountAmount = 0;
       this.finalTotal = this.total;
     }
 
-    // Do NOT compute serviceFeeAmount or totalToPay here — backend is the source of truth.
-    this.serviceFeeAmount = 0;
-    this.totalToPay = this.finalTotal;
+    // Replicate backend service-fee calculation (fee is applied to ticket net only).
+    const ticketNetAmount = Math.max(this.baseAmount - this.discountAmount, 0);
+    let computedServiceFee = 0;
+    if (ticketNetAmount > 0 && this.serviceFeePercent > 0) {
+      const percentFee = Math.ceil((ticketNetAmount * this.serviceFeePercent) / 100);
+      computedServiceFee = Math.max(percentFee, Math.ceil(this.minimumServiceFee || 0));
+    }
+    this.serviceFeeAmount = computedServiceFee;
+    this.totalToPay = this.finalTotal + this.serviceFeeAmount;
   }
 
   applyCoupon() {

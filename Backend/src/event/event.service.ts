@@ -13,6 +13,15 @@ import { UserSubscription, SubscriptionStatus } from "../subscription/user_subsc
 import { SubscriptionPlan } from "../subscription/subscription_plan.entity";
 import { tokenSing } from "../common/services/generateToken";
 import { logger } from "../common/services/logger";
+import {
+    getCachedEventList,
+    getCachedEventDetail,
+    getCachedCheckoutPricing,
+    invalidateEventListCache,
+    invalidateEventDetailCache,
+    invalidateCheckoutPricingCache,
+    invalidateAllEventCaches
+} from "../common/services/eventCache";
 
 const FUTURE_EVENT_SQL = '("event"."date" + "event"."time") > NOW()';
 
@@ -196,6 +205,11 @@ export async function create(
             newToken = await tokenSing(user);
         }
 
+        logger.info('EVENT_CREATE_STARTING_INVALIDATE', { eventId: event.id, title: event.title });
+        await invalidateEventListCache();
+        await invalidateEventDetailCache(event.id);
+        logger.info('EVENT_CREATE_CACHE_INVALIDATED', { eventId: event.id, title: event.title });
+
         return { event, newToken };
     } catch (error) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
@@ -312,6 +326,9 @@ export async function update(
 
         await queryRunner.commitTransaction();
 
+        await invalidateEventListCache();
+        await invalidateEventDetailCache(eventId);
+
         return Event.findOne({ where: { id: eventId }, relations: ["category", "ticketTypes"] }) as Promise<Event>;
     } catch (error) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
@@ -373,6 +390,9 @@ export async function remove(userId: number, isAdmin: boolean, eventId: number):
         }
 
         await queryRunner.commitTransaction();
+
+        await invalidateEventListCache();
+        await invalidateEventDetailCache(eventId);
     } catch (error) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
         throw error;
@@ -385,51 +405,55 @@ export async function remove(userId: number, isAdmin: boolean, eventId: number):
 // QUERIES
 // ============================================================================
 export async function findById(id: number): Promise<Event | null> {
-    return Event.findOne({
-        where: { id, active: true, deletedAt: IsNull() },
-        relations: ["user", "category", "ticketTypes", "eventProducts", "eventProducts.product"]
-    });
+    return getCachedEventDetail(id, () =>
+        Event.findOne({
+            where: { id, active: true, deletedAt: IsNull() },
+            relations: ["user", "category", "ticketTypes", "eventProducts", "eventProducts.product"]
+        })
+    );
 }
 
 export async function findPublic(params: { skip: number; take: number; page: number; limit: number }) {
-    const topSales = await AppDataSource.getRepository(Event)
-        .createQueryBuilder("event")
-        .leftJoin("event.ticketTypes", "ticketTypes")
-        .select("event.id", "id")
-        .addSelect("COALESCE(SUM(ticketTypes.soldCount), 0)", "salesCount")
-        .where("event.active = true")
-        .andWhere("event.isPublic = true")
-        .andWhere(FUTURE_EVENT_SQL)
-        .andWhere("event.deletedAt IS NULL")
-        .groupBy("event.id")
-        .having("COALESCE(SUM(ticketTypes.soldCount), 0) > 0")
-        .orderBy('"salesCount"', "DESC")
-        .limit(12)
-        .getRawMany();
+    return getCachedEventList(params.page, params.limit, async () => {
+        const topSales = await AppDataSource.getRepository(Event)
+            .createQueryBuilder("event")
+            .leftJoin("event.ticketTypes", "ticketTypes")
+            .select("event.id", "id")
+            .addSelect("COALESCE(SUM(ticketTypes.soldCount), 0)", "salesCount")
+            .where("event.active = true")
+            .andWhere("event.isPublic = true")
+            .andWhere(FUTURE_EVENT_SQL)
+            .andWhere("event.deletedAt IS NULL")
+            .groupBy("event.id")
+            .having("COALESCE(SUM(ticketTypes.soldCount), 0) > 0")
+            .orderBy('"salesCount"', "DESC")
+            .limit(12)
+            .getRawMany();
 
-    const salesByEventId = new Map<number, number>(topSales.map((row: RawSalesRow) => [Number(row.id), Number(row.salesCount || 0)]));
-    const dynamicFeaturedIds = new Set<number>(salesByEventId.keys());
+        const salesByEventId = new Map<number, number>(topSales.map((row: RawSalesRow) => [Number(row.id), Number(row.salesCount || 0)]));
+        const dynamicFeaturedIds = new Set<number>(salesByEventId.keys());
 
-    const [events, total] = await AppDataSource.getRepository(Event)
-        .createQueryBuilder("event")
-        .leftJoinAndSelect("event.category", "category")
-        .where("event.active = :active", { active: true })
-        .andWhere("event.isPublic = :isPublic", { isPublic: true })
-        .andWhere(FUTURE_EVENT_SQL)
-        .andWhere("event.deletedAt IS NULL")
-        .orderBy("event.destacado", "DESC")
-        .addOrderBy("event.date", "ASC")
-        .skip(params.skip)
-        .take(params.take)
-        .getManyAndCount();
+        const [events, total] = await AppDataSource.getRepository(Event)
+            .createQueryBuilder("event")
+            .leftJoinAndSelect("event.category", "category")
+            .where("event.active = :active", { active: true })
+            .andWhere("event.isPublic = :isPublic", { isPublic: true })
+            .andWhere(FUTURE_EVENT_SQL)
+            .andWhere("event.deletedAt IS NULL")
+            .orderBy("event.destacado", "DESC")
+            .addOrderBy("event.date", "ASC")
+            .skip(params.skip)
+            .take(params.take)
+            .getManyAndCount();
 
-    const data = events.map(event => ({
-        ...event,
-        destacado: event.destacado || dynamicFeaturedIds.has(event.id),
-        salesCount: salesByEventId.get(event.id) || 0
-    }));
+        const data = events.map(event => ({
+            ...event,
+            destacado: event.destacado || dynamicFeaturedIds.has(event.id),
+            salesCount: salesByEventId.get(event.id) || 0
+        }));
 
-    return { data, total, page: params.page, limit: params.limit, totalPages: Math.max(1, Math.ceil(total / params.limit)) };
+        return { data, total, page: params.page, limit: params.limit, totalPages: Math.max(1, Math.ceil(total / params.limit)) };
+    });
 }
 
 export async function countActive(): Promise<number> {
@@ -921,16 +945,18 @@ export async function getCreatorStatsData(userId: number, _period: string) {
 }
 
 export async function getCheckoutPricing(userId: number) {
-    try {
-        const subscription = await getActiveSubscription(userId);
-        return {
-            serviceFeePercent: Number(subscription.plan.serviceFeePercent),
-            minimumServiceFee: Number(subscription.plan.minimumServiceFee),
-            planName: subscription.plan.name
-        };
-    } catch {
-        return { serviceFeePercent: 15, minimumServiceFee: 0, planName: 'FREE' };
-    }
+    return getCachedCheckoutPricing(userId, async () => {
+        try {
+            const subscription = await getActiveSubscription(userId);
+            return {
+                serviceFeePercent: Number(subscription.plan.serviceFeePercent),
+                minimumServiceFee: Number(subscription.plan.minimumServiceFee),
+                planName: subscription.plan.name
+            };
+        } catch {
+            return { serviceFeePercent: 15, minimumServiceFee: 0, planName: 'FREE' };
+        }
+    });
 }
 
 export async function getSSEInitialData(userId: number) {
