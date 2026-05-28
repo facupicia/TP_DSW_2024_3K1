@@ -59,34 +59,46 @@ async function seed() {
                     yearlyPrice: 0,
                     maxEventsPerMonth: 3,
                     maxTicketTypesPerEvent: 1,
+                    maxProductsInCatalog: 0,
+                    canSellExtras: false,
                     commissionPercent: 8.00,
-                    features: { advancedDashboard: false, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false },
+                    serviceFeePercent: 12.00,
+                    minimumServiceFee: 0,
+                    features: { advancedDashboard: false, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false, customBranding: false },
                     active: true,
                     sortOrder: 0
                 },
                 {
                     id: 2,
                     name: 'STARTER',
-                    displayName: 'Starter',
-                    monthlyPrice: 9999,
-                    yearlyPrice: 99999,
-                    maxEventsPerMonth: 5,
+                    displayName: 'Plan Starter',
+                    monthlyPrice: 3499,
+                    yearlyPrice: 34990,
+                    maxEventsPerMonth: 10,
                     maxTicketTypesPerEvent: 3,
+                    maxProductsInCatalog: 10,
+                    canSellExtras: true,
                     commissionPercent: 5.00,
-                    features: { advancedDashboard: true, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false },
+                    serviceFeePercent: 9.00,
+                    minimumServiceFee: 0,
+                    features: { advancedDashboard: true, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false, customBranding: false },
                     active: true,
                     sortOrder: 1
                 },
                 {
                     id: 3,
                     name: 'PRO',
-                    displayName: 'Pro',
-                    monthlyPrice: 29999,
-                    yearlyPrice: 299999,
+                    displayName: 'Plan Profesional',
+                    monthlyPrice: 8999,
+                    yearlyPrice: 89990,
                     maxEventsPerMonth: -1,
                     maxTicketTypesPerEvent: -1,
+                    maxProductsInCatalog: -1,
+                    canSellExtras: true,
                     commissionPercent: 2.50,
-                    features: { advancedDashboard: true, exportSales: true, featuredEvents: true, prioritySupport: true, removeBranding: true },
+                    serviceFeePercent: 6.00,
+                    minimumServiceFee: 0,
+                    features: { advancedDashboard: true, exportSales: true, featuredEvents: true, prioritySupport: true, removeBranding: true, customBranding: true },
                     active: true,
                     sortOrder: 2
                 }
@@ -94,15 +106,31 @@ async function seed() {
             
             for (const plan of plans) {
                 await queryRunner.manager.query(
-                    `INSERT INTO subscription_plan (id, name, "displayName", "monthlyPrice", "yearlyPrice", "maxEventsPerMonth", "maxTicketTypesPerEvent", "commissionPercent", features, active, "sortOrder", "createdAt", "updatedAt")
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
-                     ON CONFLICT (id) DO NOTHING`,
+                    `INSERT INTO subscription_plan (id, name, "displayName", "monthlyPrice", "yearlyPrice", "maxEventsPerMonth", "maxTicketTypesPerEvent", "maxProductsInCatalog", "canSellExtras", "commissionPercent", "serviceFeePercent", "minimumServiceFee", features, active, "sortOrder", "createdAt", "updatedAt")
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
+                     ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        "displayName" = EXCLUDED."displayName",
+                        "monthlyPrice" = EXCLUDED."monthlyPrice",
+                        "yearlyPrice" = EXCLUDED."yearlyPrice",
+                        "maxEventsPerMonth" = EXCLUDED."maxEventsPerMonth",
+                        "maxTicketTypesPerEvent" = EXCLUDED."maxTicketTypesPerEvent",
+                        "maxProductsInCatalog" = EXCLUDED."maxProductsInCatalog",
+                        "canSellExtras" = EXCLUDED."canSellExtras",
+                        "commissionPercent" = EXCLUDED."commissionPercent",
+                        "serviceFeePercent" = EXCLUDED."serviceFeePercent",
+                        "minimumServiceFee" = EXCLUDED."minimumServiceFee",
+                        features = EXCLUDED.features,
+                        active = EXCLUDED.active,
+                        "sortOrder" = EXCLUDED."sortOrder",
+                        "updatedAt" = NOW()`,
                     [plan.id, plan.name, plan.displayName, plan.monthlyPrice, plan.yearlyPrice, 
-                     plan.maxEventsPerMonth, plan.maxTicketTypesPerEvent, plan.commissionPercent, 
+                     plan.maxEventsPerMonth, plan.maxTicketTypesPerEvent, plan.maxProductsInCatalog, plan.canSellExtras,
+                     plan.commissionPercent, plan.serviceFeePercent, plan.minimumServiceFee,
                      JSON.stringify(plan.features), plan.active, plan.sortOrder]
                 );
             }
-            console.log('✅ Subscription plans created\n');
+            console.log('✅ Subscription plans created/updated\n');
 
             // 3. Roles
             console.log('🔑 Creating roles...');

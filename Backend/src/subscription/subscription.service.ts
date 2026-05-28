@@ -57,7 +57,7 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
             maxEventsPerMonth: 3,
             maxTicketTypesPerEvent: 1,
             commissionPercent: 8.00,
-            serviceFeePercent: 15.00,
+            serviceFeePercent: 12.00,
             minimumServiceFee: 0,
             maxProductsInCatalog: 0,
             canSellExtras: false,
@@ -66,7 +66,8 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
                 exportSales: false,
                 featuredEvents: false,
                 prioritySupport: false,
-                removeBranding: false
+                removeBranding: false,
+                customBranding: false
             },
             sortOrder: 0
         });

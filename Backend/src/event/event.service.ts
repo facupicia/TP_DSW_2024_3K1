@@ -954,7 +954,7 @@ export async function getCheckoutPricing(userId: number) {
                 planName: subscription.plan.name
             };
         } catch {
-            return { serviceFeePercent: 15, minimumServiceFee: 0, planName: 'FREE' };
+            return { serviceFeePercent: 12, minimumServiceFee: 0, planName: 'FREE' };
         }
     });
 }

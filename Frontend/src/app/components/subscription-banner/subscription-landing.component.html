@@ -27,7 +27,7 @@
       </div>
     } @else if (plans.length > 0) {
       <div
-        class="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-stretch"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-stretch"
         >
         @for (plan of plans; track plan; let i = $index) {
           <div
@@ -35,7 +35,9 @@
             [style.animation-delay]="i * 100 + 'ms'"
         [ngClass]="
           isPro(plan)
-            ? 'bg-white shadow-2xl shadow-purple-500/10 border border-purple-100 hover:-translate-y-2 z-10'
+            ? 'bg-white shadow-2xl shadow-purple-500/10 border-2 border-purple-200 hover:-translate-y-2 z-10 scale-[1.02]'
+            : isStarter(plan)
+            ? 'bg-white shadow-xl shadow-blue-500/10 border border-blue-100 hover:-translate-y-2'
             : 'bg-white/60 backdrop-blur-xl border border-white/60 shadow-xl hover:-translate-y-2'
         "
             >
@@ -51,27 +53,31 @@
               [ngClass]="
                 isPro(plan)
                   ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white border-transparent shadow-lg shadow-purple-500/30'
+                  : isStarter(plan)
+                  ? 'bg-blue-100 text-blue-700 border-blue-200'
                   : 'bg-gray-100 text-gray-600 border-gray-200'
               "
                   >
-                  {{ isPro(plan) ? "Recomendado" : "Inicial" }}
+                  {{ isPro(plan) ? 'Recomendado' : isStarter(plan) ? 'Popular' : 'Inicial' }}
                 </span>
                 <h3
-                  class="text-4xl font-black mt-4 mb-2"
+                  class="text-3xl font-black mt-4 mb-2"
               [ngClass]="
                 isPro(plan)
                   ? 'text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600'
+                  : isStarter(plan)
+                  ? 'text-blue-700'
                   : 'text-gray-900'
               "
                   >
                   {{ plan.displayName || plan.name }}
                 </h3>
                 <div class="flex items-end gap-2 mt-4">
-                  <span class="text-5xl font-black text-gray-900">
+                  <span class="text-4xl font-black text-gray-900">
                     {{
                     plan.monthlyPrice === 0
-                    ? "Gratis"
-                    : (plan.monthlyPrice | currency: "USD" : "symbol" : "1.0-0")
+                    ? 'Gratis'
+                    : (plan.monthlyPrice | currency: 'ARS' : 'symbol-narrow' : '1.0-0')
                     }}
                   </span>
                   @if (plan.monthlyPrice > 0) {
@@ -83,7 +89,7 @@
                   </div>
                   <div
                     class="mt-2 text-sm font-medium"
-                    [ngClass]="isPro(plan) ? 'text-purple-600' : 'text-gray-400'"
+                    [ngClass]="isPro(plan) ? 'text-purple-600' : isStarter(plan) ? 'text-blue-600' : 'text-gray-400'"
                     >
                     @if (isCurrentPlan(plan.id)) {
                       <span
@@ -92,14 +98,17 @@
                         <span
                           class="w-2 h-2 bg-green-500 rounded-full animate-pulse"
                         ></span>
-                        Tu comisión: {{ plan.commissionPercent }}%
+                        Tu comision: {{ plan.commissionPercent }}%
                       </span>
                     }
                     @if (!isCurrentPlan(plan.id)) {
                       <span>
-                        Comisión: {{ plan.commissionPercent }}% por entrada
+                        Comision: {{ plan.commissionPercent }}% por entrada
                       </span>
                     }
+                  </div>
+                  <div class="mt-1 text-xs text-gray-400">
+                    Cargo de servicio al asistente: {{ plan.serviceFeePercent }}%
                   </div>
                 </div>
                 <ul class="space-y-4 mb-8">
@@ -109,6 +118,8 @@
                 [ngClass]="
                   isPro(plan)
                     ? 'bg-purple-100 text-purple-600'
+                    : isStarter(plan)
+                    ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600'
                 "
                       >
@@ -116,10 +127,8 @@
                     </div>
                     {{
                     plan.maxEventsPerMonth === -1
-                    ? "Eventos Ilimitados"
-                    : plan.maxEventsPerMonth +
-                    "
-                    eventos/mes"
+                    ? 'Eventos Ilimitados'
+                    : plan.maxEventsPerMonth + ' eventos/mes'
                     }}
                   </li>
                   <li class="flex items-center gap-3 font-medium text-gray-700">
@@ -128,6 +137,8 @@
                 [ngClass]="
                   isPro(plan)
                     ? 'bg-purple-100 text-purple-600'
+                    : isStarter(plan)
+                    ? 'bg-blue-100 text-blue-600'
                     : 'bg-gray-100 text-gray-600'
                 "
                       >
@@ -135,9 +146,26 @@
                     </div>
                     {{
                     plan.maxTicketTypesPerEvent === -1
-                    ? "Tipos de entrada ilimitados"
-                    : plan.maxTicketTypesPerEvent + " tipos por evento"
+                    ? 'Tipos de entrada ilimitados'
+                    : plan.maxTicketTypesPerEvent + ' tipos por evento'
                     }}
+                  </li>
+                  <li class="flex items-center gap-3 font-medium text-gray-700">
+                    <div
+                      class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                [ngClass]="
+                  isPro(plan)
+                    ? 'bg-purple-100 text-purple-600'
+                    : isStarter(plan)
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-gray-100 text-gray-600'
+                "
+                      >
+                      {{ plan.canSellExtras ? '✓' : '—' }}
+                    </div>
+                    <span [ngClass]="!plan.canSellExtras ? 'text-gray-400' : ''">
+                      {{ plan.canSellExtras ? 'Venta de extras/productos' : 'Sin venta de extras' }}
+                    </span>
                   </li>
                   @if (isPro(plan)) {
                     <li class="flex items-center gap-3 font-medium text-gray-700">
@@ -146,7 +174,15 @@
                         >
                         ✓
                       </div>
-                      Dashboard Avanzado & Reportes
+                      Dashboard Avanzado & Exportar ventas
+                    </li>
+                    <li class="flex items-center gap-3 font-medium text-gray-700">
+                      <div
+                        class="w-6 h-6 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0"
+                        >
+                        ✓
+                      </div>
+                      Eventos destacados & Sin branding
                     </li>
                     <li class="flex items-center gap-3 font-medium text-gray-700">
                       <div
@@ -157,14 +193,32 @@
                       Soporte Prioritario
                     </li>
                   }
-                  @if (!isPro(plan)) {
+                  @if (isStarter(plan)) {
+                    <li class="flex items-center gap-3 font-medium text-gray-700">
+                      <div
+                        class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"
+                        >
+                        ✓
+                      </div>
+                      Dashboard Avanzado
+                    </li>
+                    <li class="flex items-center gap-3 font-medium text-gray-700">
+                      <div
+                        class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0"
+                        >
+                        ✓
+                      </div>
+                      Hasta {{ plan.maxProductsInCatalog }} productos en catalogo
+                    </li>
+                  }
+                  @if (isFree(plan)) {
                     <li class="flex items-center gap-3 font-medium text-gray-700">
                       <div
                         class="w-6 h-6 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center shrink-0"
                         >
                         ✓
                       </div>
-                      Tickets QR Básicos
+                      Tickets QR Basicos
                     </li>
                   }
                 </ul>
@@ -173,10 +227,12 @@
                   [disabled]="isCurrentPlan(plan.id)"
                   class="mt-auto w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2"
             [ngClass]="{
-              'bg-black text-white shadow-xl shadow-purple-900/10 hover:bg-gray-900 hover:scale-[1.02]':
+              'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-xl shadow-purple-900/10 hover:scale-[1.02]':
                 isPro(plan) && !isCurrentPlan(plan.id),
+              'bg-blue-600 text-white shadow-lg shadow-blue-900/10 hover:bg-blue-700 hover:scale-[1.02]':
+                isStarter(plan) && !isCurrentPlan(plan.id),
               'border border-gray-200 text-gray-900 hover:bg-black hover:text-white':
-                !isPro(plan) && !isCurrentPlan(plan.id),
+                isFree(plan) && !isCurrentPlan(plan.id),
               'bg-green-100 text-green-700 cursor-default': isCurrentPlan(
                 plan.id
               ),
@@ -187,10 +243,10 @@
                   }
                   @if (!isCurrentPlan(plan.id)) {
                     <span>
-                      {{ isPro(plan) ? "Actualizar a PRO" : "Comenzar Gratis" }}
+                      {{ isPro(plan) ? 'Actualizar a PRO' : isStarter(plan) ? 'Elegir Starter' : 'Comenzar Gratis' }}
                     </span>
                   }
-                  @if (!isCurrentPlan(plan.id) && isPro(plan)) {
+                  @if (!isCurrentPlan(plan.id) && (isPro(plan) || isStarter(plan))) {
                     <svg
                       class="w-5 h-5"
                       fill="none"
@@ -258,7 +314,7 @@
                   class="font-bold text-xl text-gray-900 group-hover:text-purple-700"
                   >
                   {{
-                  selectedPlan?.monthlyPrice | currency: "USD" : "symbol" : "1.0-0"
+                  selectedPlan?.monthlyPrice | currency: 'ARS' : 'symbol-narrow' : '1.0-0'
                   }}
                 </span>
               </button>
@@ -282,7 +338,7 @@
                       class="block font-bold text-xl text-gray-900 group-hover:text-green-700"
                       >
                       {{
-                      selectedPlan?.yearlyPrice | currency: "USD" : "symbol" : "1.0-0"
+                      selectedPlan?.yearlyPrice | currency: 'ARS' : 'symbol-narrow' : '1.0-0'
                       }}
                     </span>
                     <span class="text-[10px] text-green-600 font-bold"

@@ -121,7 +121,7 @@ export class UpgradeButtonComponent implements OnInit {
     }
 
     openModal(): void {
-        const proPlan = this.plans.find(p => p.name === 'PRO' || p.monthlyPrice > 0);
+        const proPlan = this.plans.find(p => p.name.toUpperCase() === 'PRO');
         if (proPlan) {
             this.selectedPlan = proPlan;
             this.showBillingModal = true;

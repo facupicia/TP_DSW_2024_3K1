@@ -67,7 +67,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   couponError = '';
   discountAmount = 0;
   finalTotal = 0;
-  serviceFeePercent = 15;
+  serviceFeePercent = 12;
   minimumServiceFee = 0;
   serviceFeeAmount = 0;
   totalToPay = 0;

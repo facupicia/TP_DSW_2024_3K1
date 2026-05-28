@@ -345,7 +345,7 @@ export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPla
     // Default: comisión FREE plan
     const defaultInfo: MarketPlaceInfo = {
         commissionPercent: 8.00,
-        serviceFeePercent: 15.00,
+        serviceFeePercent: 12.00,
         minimumServiceFee: 0,
         planName: 'FREE',
         marketplaceFee: 0,

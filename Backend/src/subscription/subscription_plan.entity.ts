@@ -63,7 +63,7 @@ export class SubscriptionPlan extends BaseEntity {
     commissionPercent: number;
 
     /** Service fee percentage added to the attendee checkout total */
-    @Column({ type: 'decimal', precision: 5, scale: 2, default: 15.00 })
+    @Column({ type: 'decimal', precision: 5, scale: 2, default: 12.00 })
     serviceFeePercent: number;
 
     /** Minimum service fee in ARS when serviceFeePercent is greater than zero */

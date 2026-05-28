@@ -1,6 +1,6 @@
 /**
- * Seed Script: Create default subscription plans (FREE and PRO)
- * 
+ * Seed Script: Create default subscription plans (FREE, STARTER, PRO)
+ *
  * Run with: npx ts-node src/scripts/seedSubscriptionPlans.ts
  */
 
@@ -32,15 +32,18 @@ async function seedSubscriptionPlans() {
                 yearlyPrice: null,
                 maxEventsPerMonth: 3,
                 maxTicketTypesPerEvent: 1,
+                maxProductsInCatalog: 0,
+                canSellExtras: false,
                 commissionPercent: 8.00,
-                serviceFeePercent: 15.00,
+                serviceFeePercent: 12.00,
                 minimumServiceFee: 0,
                 features: {
                     advancedDashboard: false,
                     exportSales: false,
                     featuredEvents: false,
                     prioritySupport: false,
-                    removeBranding: false
+                    removeBranding: false,
+                    customBranding: false
                 },
                 sortOrder: 0,
                 active: true
@@ -51,18 +54,52 @@ async function seedSubscriptionPlans() {
             console.log("  ℹ️ FREE plan already exists");
         }
 
+        // STARTER Plan
+        let starterPlan = await planRepo.findOne({ where: { name: 'STARTER' } });
+        if (!starterPlan) {
+            starterPlan = planRepo.create({
+                name: 'STARTER',
+                displayName: 'Plan Starter',
+                monthlyPrice: 3499.00,
+                yearlyPrice: 34990.00,
+                maxEventsPerMonth: 10,
+                maxTicketTypesPerEvent: 3,
+                maxProductsInCatalog: 10,
+                canSellExtras: true,
+                commissionPercent: 5.00,
+                serviceFeePercent: 9.00,
+                minimumServiceFee: 0,
+                features: {
+                    advancedDashboard: true,
+                    exportSales: false,
+                    featuredEvents: false,
+                    prioritySupport: false,
+                    removeBranding: false,
+                    customBranding: false
+                },
+                sortOrder: 1,
+                active: true
+            });
+            await planRepo.save(starterPlan);
+            console.log("  ✅ Created STARTER plan");
+        } else {
+            console.log("  ℹ️ STARTER plan already exists");
+        }
+
         // PRO Plan
         let proPlan = await planRepo.findOne({ where: { name: 'PRO' } });
         if (!proPlan) {
             proPlan = planRepo.create({
                 name: 'PRO',
                 displayName: 'Plan Profesional',
-                monthlyPrice: 4999.00, // $4,999 ARS
-                yearlyPrice: 39999.00, // $39,999 ARS (2 months free)
-                maxEventsPerMonth: -1, // Unlimited
-                maxTicketTypesPerEvent: -1, // Unlimited
+                monthlyPrice: 8999.00,
+                yearlyPrice: 89990.00,
+                maxEventsPerMonth: -1,
+                maxTicketTypesPerEvent: -1,
+                maxProductsInCatalog: -1,
+                canSellExtras: true,
                 commissionPercent: 2.50,
-                serviceFeePercent: 12.00,
+                serviceFeePercent: 6.00,
                 minimumServiceFee: 0,
                 features: {
                     advancedDashboard: true,
@@ -72,7 +109,7 @@ async function seedSubscriptionPlans() {
                     removeBranding: true,
                     customBranding: true
                 },
-                sortOrder: 1,
+                sortOrder: 2,
                 active: true
             });
             await planRepo.save(proPlan);
@@ -82,9 +119,8 @@ async function seedSubscriptionPlans() {
         }
 
         // ============ ASSIGN FREE TO ORGANIZERS ============
-        console.log("\n👥 Assigning FREE plan to existing organizers...");
+        console.log("\n👥 Assigning FREE plan to existing organizers without active subscription...");
 
-        // Find all organizers without a subscription
         const organizers = await userRepo.createQueryBuilder('user')
             .innerJoin('user.roles', 'role')
             .where('role.name = :role', { role: 'organizer' })
@@ -92,7 +128,6 @@ async function seedSubscriptionPlans() {
 
         let assignedCount = 0;
         for (const organizer of organizers) {
-            // Check if already has a subscription
             const existingSub = await subscriptionRepo.findOne({
                 where: { userId: organizer.id, status: SubscriptionStatus.ACTIVE }
             });
@@ -104,7 +139,7 @@ async function seedSubscriptionPlans() {
                     status: SubscriptionStatus.ACTIVE,
                     billingCycle: 'monthly',
                     currentPeriodStart: new Date(),
-                    currentPeriodEnd: null // FREE never expires
+                    currentPeriodEnd: null
                 });
                 await subscriptionRepo.save(subscription);
                 assignedCount++;

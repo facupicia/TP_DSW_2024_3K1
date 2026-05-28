@@ -149,7 +149,14 @@ export class SubscriptionLandingComponent implements OnInit {
 
     // Helper para saber si es el plan PRO (para estilos destacados)
     isPro(plan: SubscriptionPlan): boolean {
-        // Puedes basarte en el nombre o en el precio > 0
-        return plan.monthlyPrice > 0 || plan.name.toUpperCase().includes('PRO');
+        return plan.name.toUpperCase() === 'PRO';
+    }
+
+    isStarter(plan: SubscriptionPlan): boolean {
+        return plan.name.toUpperCase() === 'STARTER';
+    }
+
+    isFree(plan: SubscriptionPlan): boolean {
+        return plan.name.toUpperCase() === 'FREE';
     }
 }

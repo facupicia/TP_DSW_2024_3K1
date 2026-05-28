@@ -36,7 +36,21 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   // Estado de Suscripción
   subscription: UserSubscription | null = null;
-  isPro = false;
+  currentPlanName: string | null = null;
+
+  get planBadge(): { text: string; class: string } | null {
+    const name = this.currentPlanName?.toUpperCase();
+    if (name === 'PRO') {
+      return { text: 'PRO', class: 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' };
+    }
+    if (name === 'STARTER') {
+      return { text: 'STARTER', class: 'bg-blue-600 text-white' };
+    }
+    if (name === 'FREE') {
+      return { text: 'FREE', class: 'bg-gray-200 text-gray-600' };
+    }
+    return null;
+  }
 
   // Estado de eventos del organizador
   hasEvents = false;
@@ -72,7 +86,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
           }
         } else {
           this.subscription = null;
-          this.isPro = false;
+          this.currentPlanName = null;
           this.hasEvents = false;
           this.hasEventsChecked = false; // Reset para cuando vuelva a loguear
         }
@@ -92,11 +106,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.subscriptionService.getMySubscription().subscribe({
       next: (sub) => {
         this.subscription = sub;
-        this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
+        this.currentPlanName = sub.plan?.name || null;
       },
       error: () => {
         this.subscription = null;
-        this.isPro = false;
+        this.currentPlanName = null;
       }
     });
   }

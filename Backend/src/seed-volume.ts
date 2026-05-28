@@ -238,13 +238,14 @@ async function seedCategories() {
 
 async function seedSubscriptionPlans() {
   const plans: InsertValue[][] = [
-    [1, "FREE", "Plan Gratuito", 0, 0, 3, 1, 9.5, JSON.stringify({ advancedDashboard: false, exportSales: false, branding: true }), true, 0],
-    [2, "PRO", "Pro", 29999, 299999, -1, -1, 2.5, JSON.stringify({ advancedDashboard: true, exportSales: true, branding: false, featuredEvents: true }), true, 2],
+    [1, "FREE", "Plan Gratuito", 0, 0, 3, 1, 0, false, 8.0, 12.0, 0, JSON.stringify({ advancedDashboard: false, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false, customBranding: false }), true, 0],
+    [2, "STARTER", "Plan Starter", 3499, 34990, 10, 3, 10, true, 5.0, 9.0, 0, JSON.stringify({ advancedDashboard: true, exportSales: false, featuredEvents: false, prioritySupport: false, removeBranding: false, customBranding: false }), true, 1],
+    [3, "PRO", "Plan Profesional", 8999, 89990, -1, -1, -1, true, 2.5, 6.0, 0, JSON.stringify({ advancedDashboard: true, exportSales: true, featuredEvents: true, prioritySupport: true, removeBranding: true, customBranding: true }), true, 2],
   ];
 
   const count = await batchInsert(
     "subscription_plan",
-    ["id", "name", "displayName", "monthlyPrice", "yearlyPrice", "maxEventsPerMonth", "maxTicketTypesPerEvent", "commissionPercent", "features", "active", "sortOrder"],
+    ["id", "name", "displayName", "monthlyPrice", "yearlyPrice", "maxEventsPerMonth", "maxTicketTypesPerEvent", "maxProductsInCatalog", "canSellExtras", "commissionPercent", "serviceFeePercent", "minimumServiceFee", "features", "active", "sortOrder"],
     plans,
   );
 
@@ -323,8 +324,9 @@ async function seedUsers() {
     const lastname = brand.split(" ").slice(1).join(" ") || "Eventos";
 
     const plan = weightedPick([
-      { value: { planId: 1, planName: "FREE" as const, commissionPercent: 9.5 }, weight: 45 },
-      { value: { planId: 2, planName: "PRO" as const, commissionPercent: 2.5 }, weight: 30 },
+      { value: { planId: 1, planName: "FREE" as const, commissionPercent: 8.0 }, weight: 50 },
+      { value: { planId: 2, planName: "STARTER" as const, commissionPercent: 5.0 }, weight: 25 },
+      { value: { planId: 3, planName: "PRO" as const, commissionPercent: 2.5 }, weight: 25 },
     ]);
 
     organizersState.push({

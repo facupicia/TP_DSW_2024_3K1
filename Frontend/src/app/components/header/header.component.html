@@ -115,10 +115,11 @@
                     </div>
                   }
                   <!-- Avatar con iniciales -->
-                  @if (isPro) {
+                  @if (planBadge; as badge) {
                     <span
-                      class="absolute -bottom-1 -right-1 px-1.5 py-0.5 text-[8px] font-black rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border border-white">
-                      PRO
+                      class="absolute -bottom-1 -right-1 px-1.5 py-0.5 text-[8px] font-black rounded-md shadow-sm border border-white"
+                      [class]="badge.class">
+                      {{ badge.text }}
                     </span>
                   }
                 </div>
@@ -191,10 +192,11 @@
                       {{ getInitials(user) }}
                     </div>
                   }
-                  @if (isPro) {
+                  @if (planBadge; as badge) {
                     <span
-                      class="absolute bottom-0 right-0 px-2 py-0.5 text-[10px] font-black rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm border-2 border-white">
-                      PRO
+                      class="absolute bottom-0 right-0 px-2 py-0.5 text-[10px] font-black rounded-full shadow-sm border-2 border-white"
+                      [class]="badge.class">
+                      {{ badge.text }}
                     </span>
                   }
                 </div>

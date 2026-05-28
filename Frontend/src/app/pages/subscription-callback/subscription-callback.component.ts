@@ -199,9 +199,9 @@ export class SubscriptionCallbackComponent implements OnInit {
         this.subscriptionService.getMySubscription().subscribe({
             next: (sub) => {
                 this.loading = false;
-                if (sub.plan.name === 'PRO' && sub.status === 'active') {
+                if (sub.plan.name !== 'FREE' && sub.status === 'active') {
                     this.success = true;
-                    this.toast.success('¡Plan PRO activado!');
+                    this.toast.success(`¡${sub.plan.displayName || sub.plan.name} activado!`);
                 } else {
                     // Might still be processing, check again
                     setTimeout(() => {
@@ -220,9 +220,9 @@ export class SubscriptionCallbackComponent implements OnInit {
         this.subscriptionService.getMySubscription().subscribe({
             next: (sub) => {
                 this.loading = false;
-                this.success = sub.plan.name === 'PRO' && sub.status === 'active';
+                this.success = sub.plan.name !== 'FREE' && sub.status === 'active';
                 if (this.success) {
-                    this.toast.success('¡Plan PRO activado!');
+                    this.toast.success(`¡${sub.plan.displayName || sub.plan.name} activado!`);
                 }
             },
             error: () => {

@@ -12,6 +12,8 @@ export interface SubscriptionPlan {
     yearlyPrice: number | null;
     maxEventsPerMonth: number;
     maxTicketTypesPerEvent: number;
+    maxProductsInCatalog: number;
+    canSellExtras: boolean;
     commissionPercent: number;
     serviceFeePercent: number;
     minimumServiceFee: number;
@@ -207,6 +209,12 @@ export class SubscriptionService {
                     colorClass: 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white',
                     icon: '⭐',
                     badge: 'PRO'
+                };
+            case 'STARTER':
+                return {
+                    colorClass: 'bg-blue-100 text-blue-700 border border-blue-200',
+                    icon: '🚀',
+                    badge: 'STARTER'
                 };
             case 'FREE':
             default:

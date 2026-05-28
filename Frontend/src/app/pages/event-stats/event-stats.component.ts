@@ -20,7 +20,7 @@ export class EventStatsComponent implements OnInit, OnDestroy {
   @ViewChild('chart') chart!: ChartComponent;
 
   // Subscription state
-  isPro = false;
+  hasAdvancedStats = false;
   subscription: UserSubscription | null = null;
 
   eventId!: number;
@@ -164,10 +164,10 @@ export class EventStatsComponent implements OnInit, OnDestroy {
     this.subscriptionService.getMySubscription().subscribe({
       next: (sub) => {
         this.subscription = sub;
-        this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
+        this.hasAdvancedStats = sub.plan?.features?.advancedDashboard === true && sub.status === 'active';
       },
       error: () => {
-        this.isPro = false;
+        this.hasAdvancedStats = false;
       }
     });
   }
