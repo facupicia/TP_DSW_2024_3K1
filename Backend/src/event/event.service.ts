@@ -23,7 +23,7 @@ import {
     invalidateAllEventCaches
 } from "../common/services/eventCache";
 
-const FUTURE_EVENT_SQL = '("event"."date" + "event"."time") > NOW()';
+const FUTURE_EVENT_SQL = '"event"."startDateTime" > NOW()';
 
 class HttpError extends Error {
     status: number;
@@ -172,6 +172,7 @@ export async function create(
         event.image = data.image;
         event.date = new Date(data.date);
         event.time = data.time;
+        event.startDateTime = new Date(`${data.date}T${data.time || '00:00'}`);
         event.description = data.description;
         event.destacado = data.destacado ?? false;
         event.minAge = data.minAge ?? 0;
@@ -267,6 +268,11 @@ export async function update(
             now.setMinutes(now.getMinutes() - 5);
             if (newDateTime < now) throw new HttpError(400, 'PAST_DATE', "La fecha y hora del evento no pueden ser en el pasado");
             event.date = new Date(data.date);
+            event.startDateTime = newDateTime;
+        } else if (data.time && data.time !== event.time) {
+            // If only time changed, recalculate startDateTime
+            const dateStr = event.date instanceof Date ? event.date.toISOString().split('T')[0] : String(event.date);
+            event.startDateTime = new Date(`${dateStr}T${data.time}`);
         }
 
         await queryRunner.manager.save(Event, event);

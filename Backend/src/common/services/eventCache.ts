@@ -9,6 +9,7 @@ import { logger } from "./logger";
 const LIST_TTL = 30;    // 30 seconds for public event listing
 const DETAIL_TTL = 60;  // 60 seconds for event detail
 const PRICING_TTL = 300; // 5 minutes for checkout pricing
+const LIST_KEYS_SET = 'event:list:keys';  // Redis Set tracking all list cache keys
 
 function generateListKey(page: number, limit: number): string {
     return `event:list:${page}:${limit}`;
@@ -64,6 +65,11 @@ export async function getCachedEventList<T>(
     logger.debug('[EventCache] LIST CACHE MISS', { key });
     const result = await computeFn();
     await setCache(key, result, LIST_TTL);
+    // Track this key in a Redis Set for efficient bulk invalidation
+    const redis = await getRedis();
+    if (redis) {
+        try { await redis.sAdd(LIST_KEYS_SET, key); } catch { /* non-critical */ }
+    }
     return result;
 }
 
@@ -116,18 +122,12 @@ export async function invalidateEventListCache(): Promise<void> {
     }
 
     try {
-        const keysToDelete: string[] = [];
-        for await (const key of redis.scanIterator({ MATCH: 'event:list:*', COUNT: 100 })) {
-            keysToDelete.push(key);
-            if (keysToDelete.length >= 1000) {
-                await redis.del(keysToDelete);
-                keysToDelete.length = 0;
-            }
+        const keys = await redis.sMembers(LIST_KEYS_SET);
+        if (keys.length > 0) {
+            await redis.del(keys);
         }
-        if (keysToDelete.length > 0) {
-            await redis.del(keysToDelete);
-        }
-        logger.info('[EventCache] Event list cache invalidated', { keysDeleted: keysToDelete.length });
+        await redis.del(LIST_KEYS_SET);
+        logger.info('[EventCache] Event list cache invalidated (Set-based)', { keysDeleted: keys.length });
     } catch (err) {
         logger.warn('[EventCache] Redis invalidate error', { pattern: 'event:list:*', error: (err as Error).message });
     }
@@ -170,14 +170,18 @@ export async function invalidateAllEventCaches(): Promise<void> {
     if (!redis) return;
 
     try {
-        const keysToDelete: string[] = [];
-        for await (const key of redis.scanIterator({ MATCH: 'event:*', COUNT: 100 })) {
+        // Invalidate list caches via the tracked Set
+        const listKeys = await redis.sMembers(LIST_KEYS_SET);
+        const keysToDelete = [...listKeys, LIST_KEYS_SET];
+
+        // Also scan for detail and pricing keys (these are few and bounded)
+        for await (const key of redis.scanIterator({ MATCH: 'event:detail:*', COUNT: 100 })) {
             keysToDelete.push(key);
-            if (keysToDelete.length >= 1000) {
-                await redis.del(keysToDelete);
-                keysToDelete.length = 0;
-            }
         }
+        for await (const key of redis.scanIterator({ MATCH: 'event:pricing:*', COUNT: 100 })) {
+            keysToDelete.push(key);
+        }
+
         if (keysToDelete.length > 0) {
             await redis.del(keysToDelete);
         }

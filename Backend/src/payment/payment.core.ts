@@ -1,5 +1,5 @@
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
-import { Between } from 'typeorm';
+import { Between, In } from 'typeorm';
 import { randomUUID } from 'crypto';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
@@ -632,30 +632,28 @@ export async function processApprovedPayment(
             throw new Error('User not found: ' + userId);
         }
 
+        // Bulk-load all ticketTypes in a single query (fixes N+1)
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        const ticketTypes: TicketType[] = [];
+        const ticketTypeIds = ticketItems.map(it => it.referenceId);
+        const ticketTypes = ticketTypeIds.length > 0
+            ? await ticketTypeRepo.find({ where: { id: In(ticketTypeIds) }, relations: ['event'] })
+            : [];
         for (const item of ticketItems) {
-            const tt = await ticketTypeRepo.findOne({
-                where: { id: item.referenceId },
-                relations: ['event']
-            });
-            if (!tt) {
+            if (!ticketTypes.some(tt => tt.id === item.referenceId)) {
                 throw new Error('TicketType not found: ' + item.referenceId);
             }
-            ticketTypes.push(tt);
         }
 
+        // Bulk-load all extras in a single query (fixes N+1)
         const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
-        const extras: EventProduct[] = [];
+        const extraIds = extraItems.map(it => it.referenceId);
+        const extras = extraIds.length > 0
+            ? await eventProductRepo.find({ where: { id: In(extraIds) }, relations: ['event', 'product'] })
+            : [];
         for (const item of extraItems) {
-            const ep = await eventProductRepo.findOne({
-                where: { id: item.referenceId },
-                relations: ['event', 'product']
-            });
-            if (!ep) {
+            if (!extras.some(ep => ep.id === item.referenceId)) {
                 throw new Error('EventProduct not found: ' + item.referenceId);
             }
-            extras.push(ep);
         }
 
         let ticketBaseTotal = 0;

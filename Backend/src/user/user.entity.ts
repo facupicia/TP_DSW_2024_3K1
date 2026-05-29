@@ -73,7 +73,6 @@ export class User extends BaseEntity {
 
     /** MP User ID (collector_id) para recibir pagos de tickets */
     @Column({ type: 'varchar', length: 100, nullable: true })
-    @Index('idx_user_mp_user_id')
     mpUserId: string | null;
 
     /** MP Access Token del organizador (válido 180 días) */

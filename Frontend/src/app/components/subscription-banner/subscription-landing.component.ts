@@ -68,6 +68,8 @@ export class SubscriptionLandingComponent implements OnInit {
 
                 // Ordenamos para que el PRO (o el más caro) quede segundo o destacado
                 this.plans = plans.sort((a, b) => a.monthlyPrice - b.monthlyPrice);
+                const starterIndex = this.plans.findIndex(p => this.isStarter(p));
+                this.activeIndex = starterIndex >= 0 ? starterIndex : Math.floor(this.plans.length / 2);
                 this.loadingPlans = false;
 
                 
@@ -158,5 +160,35 @@ export class SubscriptionLandingComponent implements OnInit {
 
     isFree(plan: SubscriptionPlan): boolean {
         return plan.name.toUpperCase() === 'FREE';
+    }
+
+    activeIndex = 1;
+
+    next() {
+        this.activeIndex = (this.activeIndex + 1) % this.plans.length;
+    }
+
+    prev() {
+        this.activeIndex = (this.activeIndex - 1 + this.plans.length) % this.plans.length;
+    }
+
+    setActive(index: number) {
+        this.activeIndex = index;
+    }
+
+    onCardClick(index: number) {
+        if (this.getCardState(index) !== 'center') {
+            this.setActive(index);
+        }
+    }
+
+    getCardState(index: number): string {
+        const n = this.plans.length;
+        if (n <= 1) return 'center';
+        const diff = (index - this.activeIndex + n) % n;
+        if (diff === 0) return 'center';
+        if (diff === 1) return 'right';
+        if (diff === n - 1) return 'left';
+        return 'hidden';
     }
 }

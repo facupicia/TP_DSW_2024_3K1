@@ -46,7 +46,7 @@ const AppDataSource = new DataSource({
             require: true,
             rejectUnauthorized: isProduction,
         },
-        min: 5,
+        min: 1,
         max: env.DB_POOL_MAX,
         connectionTimeoutMillis: env.DB_CONN_TIMEOUT,
         idleTimeoutMillis: env.DB_IDLE_TIMEOUT,

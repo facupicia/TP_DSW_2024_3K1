@@ -71,3 +71,122 @@
     transform: translateX(-20%) rotate(-10deg);
   }
 }
+
+/* --- CAROUSEL DE PLANES --- */
+/* Base / Mobile & Tablet first (up to 1023px) */
+.carousel-container {
+  position: relative;
+  width: 100%;
+  max-width: 310px;
+  margin: 0 auto;
+  height: 640px;
+  perspective: 1000px;
+}
+
+.carousel-card {
+  position: absolute !important;
+  top: 0;
+  left: 50%;
+  width: 100%;
+  max-width: 310px;
+  height: 100%;
+  transform-origin: center top;
+  transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+}
+
+.carousel-center {
+  transform: translateX(-50%) scale(1);
+  z-index: 30;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.carousel-left {
+  transform: translateX(-126%) scale(0.8);
+  opacity: 0.55 !important;
+  filter: blur(1.5px) brightness(0.95);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.carousel-right {
+  transform: translateX(26%) scale(0.8);
+  opacity: 0.55 !important;
+  filter: blur(1.5px) brightness(0.95);
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.carousel-hidden {
+  transform: translateX(-50%) scale(0.75);
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Ocultar detalles de las tarjetas de fondo en Mobile/Tablet */
+@media (max-width: 1023px) {
+  .carousel-left ul,
+  .carousel-left button,
+  .carousel-left div.mt-2,
+  .carousel-left div.text-xs,
+  .carousel-right ul,
+  .carousel-right button,
+  .carousel-right div.mt-2,
+  .carousel-right div.text-xs {
+    opacity: 0 !important;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .carousel-card ul,
+  .carousel-card button,
+  .carousel-card div.mt-2,
+  .carousel-card div.text-xs {
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+  }
+}
+
+/* Desktop: Mostrar las 3 tarjetas lado a lado (sin carrusel) */
+@media (min-width: 1024px) {
+  .carousel-container {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    gap: 1.75rem;
+    justify-content: center;
+    align-items: stretch;
+    width: 100%;
+    max-width: 1100px;
+    height: auto;
+    margin: 0 auto;
+    perspective: none;
+  }
+
+  .carousel-card {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 350px !important;
+    height: 665px !important; /* Alto idéntico en desktop para alinear botones */
+    flex: 1 1 0%;
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    pointer-events: auto !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+  }
+
+  /* Asegurar que el contenido sea 100% visible en desktop */
+  .carousel-card ul,
+  .carousel-card button,
+  .carousel-card div.mt-2,
+  .carousel-card div.text-xs {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+}
+

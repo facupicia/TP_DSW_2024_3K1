@@ -27,6 +27,7 @@ import { EventProduct } from "../extra/eventProduct.entity";
 @Index('idx_event_destacado_active_date', ['destacado', 'active', 'date'])
 @Index('idx_event_date', ['date'])
 @Index('idx_event_title', ['title'])
+@Index('idx_event_active_public_startdatetime', ['active', 'isPublic', 'startDateTime'])
 @Check('"minAge" >= 0')
 export class Event extends BaseEntity {
 
@@ -59,6 +60,9 @@ export class Event extends BaseEntity {
 
     @Column({ type: "time" })
     time: string;
+
+    @Column({ type: 'timestamptz', nullable: true })
+    startDateTime: Date | null;
 
     @Column({ type: "varchar", length: 500, nullable: true })
     description: string;
