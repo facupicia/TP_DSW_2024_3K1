@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "bullmq": "^4.18.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -29,6 +30,7 @@
     "geoip-lite": "^1.4.10",
     "google-auth-library": "^9.14.2",
     "helmet": "^8.1.0",
+    "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.2",
     "mercadopago": "^2.11.0",
     "morgan": "^1.10.0",

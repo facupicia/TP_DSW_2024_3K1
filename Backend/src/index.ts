@@ -8,6 +8,7 @@ import { getMPConfig } from "./payment/mp.config";
 import { migrateLegacyRoles } from "./user/migrate-roles";
 import { closeRedis } from "./common/services/redis";
 import { logger } from "./common/services/logger";
+import { startEmailWorker, closeEmailWorker } from "./queue/email.queue";
 
 const PORT = env.PORT;
 
@@ -48,6 +49,8 @@ async function main() {
     await migrateLegacyRoles();
 
     server = await startServer(PORT);
+
+    startEmailWorker();
 
     const mailOk = await verifyMailer();
     logger.info("STARTUP_MAILER_STATUS", { ready: mailOk });
@@ -97,6 +100,7 @@ async function gracefulShutdown(signal: string, exitCode = 0) {
       }
     }
 
+    await closeEmailWorker();
     await closeRedis();
 
     if (AppDataSource.isInitialized) {

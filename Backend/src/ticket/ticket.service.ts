@@ -8,6 +8,7 @@ import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
 import { getEventDateTime } from "../common/utils/ticket";
 import { randomUUID } from "crypto";
+import { addSendTicketEmailJob, addSendGuestInvitationJob } from "../queue/email.queue";
 
 /**
  * Ticket Service
@@ -218,10 +219,18 @@ export async function purchase(
         await queryRunner.manager.save(Ticket, tickets);
         await queryRunner.commitTransaction();
 
-        // Post-commit: enviar email (fire-and-forget)
+        // Post-commit: encolar email en BullMQ para resiliencia ante reinicios
         if (user.email) {
-            sendTicketEmail(user.email, tickets, ticketType, event, user).catch(err => {
-                logger.error("Error enviando email (no bloqueante):", err);
+            addSendTicketEmailJob({
+                userEmail: user.email,
+                userId: user.id,
+                userFirstname: user.firstname || '',
+                userLastname: user.lastname || '',
+                ticketIds: tickets.map(t => t.id),
+                ticketTypeId: ticketType.id,
+                eventId: event.id,
+            }).catch(err => {
+                logger.error("TICKET_EMAIL_ENQUEUE_ERROR", { error: err?.message });
             });
         }
 
@@ -561,14 +570,21 @@ export async function inviteGuests(
         let ticketIndex = 0;
         for (const email of Object.keys(emailTicketsMap)) {
             const ticketsForThisEmail = emailTicketsMap[email];
+            const ticketIdsForEmail: number[] = [];
             for (const ticketMailData of ticketsForThisEmail) {
                 if (ticketIndex < savedTickets.length) {
                     ticketMailData.ticketId = savedTickets[ticketIndex].id;
+                    ticketIdsForEmail.push(savedTickets[ticketIndex].id);
                     ticketIndex++;
                 }
             }
-            enviarCorreoConQR(email, ticketsForThisEmail).catch(emailErr => {
-                logger.error(`Error enviando email a ${email}:`, emailErr);
+            addSendGuestInvitationJob({
+                email,
+                ticketIds: ticketIdsForEmail,
+                ticketTypeId: ticketType.id,
+                eventId: event.id,
+            }).catch((emailErr: any) => {
+                logger.error(`GUEST_INVITE_ENQUEUE_ERROR ${email}:`, emailErr);
             });
         }
 

@@ -1,6 +1,7 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import bcrypt from 'bcrypt';
 import { In } from 'typeorm';
+import { randomUUID } from 'crypto';
 import AppDataSource from '../db';
 import { User } from '../user/user.entity';
 import { TicketType, TicketTypeStatus } from '../ticketType/ticketType.entity';
@@ -11,6 +12,7 @@ import { getMPConfig, sanitizeUrl } from './mp.config';
 import { Coupon } from '../coupon/coupon.entity';
 import { EventProduct } from '../extra/eventProduct.entity';
 import { findRolesByNames } from '../user/role.entity';
+import { getRedis } from '../common/services/redis';
 
 /**
  * Preference Service
@@ -500,9 +502,10 @@ async function resolvePurchasePayer(_queryRunner: any, input: PreferenceInput): 
     };
 }
 
-function buildExternalReference(userId: number, organizerId: number, promoterCode?: string): string {
-    const promoterCodeStr = promoterCode ? `|${promoterCode}` : '';
-    return `${userId}|${organizerId}${promoterCodeStr}`;
+function buildExternalReference(userId: number, organizerId: number, promoterCode?: string, checkoutUuid?: string): string {
+    const promoterCodeStr = promoterCode ? `|${promoterCode}` : '|';
+    const uuidStr = checkoutUuid ? `|${checkoutUuid}` : '';
+    return `${userId}|${organizerId}${promoterCodeStr}${uuidStr}`;
 }
 
 function calculateServiceFee(totalAmount: number, serviceFeePercent: number, minimumServiceFee: number): number {
@@ -580,7 +583,8 @@ export function buildPreferenceBody(
     extraItems: ExtraCartItem[],
     marketplaceInfo: MarketPlaceInfo,
     promoterCode?: string,
-    coupon?: Coupon | null
+    coupon?: Coupon | null,
+    checkoutUuid?: string
 ): any {
     const config = getMPConfig();
 
@@ -600,7 +604,7 @@ export function buildPreferenceBody(
     const clientUrl = sanitizeUrl(config.clientUrl);
     const notificationUrl = sanitizeUrl(config.notificationUrl);
 
-    const externalRef = buildExternalReference(userId, ticketTypes[0].event.user_id, promoterCode);
+    const externalRef = buildExternalReference(userId, ticketTypes[0].event.user_id, promoterCode, checkoutUuid);
 
     const mpItems = items.map(item => {
         const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
@@ -764,6 +768,10 @@ async function preparePreference(
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
+    const createdReservations: Array<{ ticketTypeId: number; member: string }> = [];
+    const redis = await getRedis();
+    const checkoutUuid = randomUUID();
+
     try {
         const lockedTicketTypes = await queryRunner.manager
             .createQueryBuilder(TicketType, 'tt')
@@ -772,14 +780,64 @@ async function preparePreference(
             .setLock('pessimistic_write')
             .getMany();
 
-        for (const tt of lockedTicketTypes) {
-            if (tt.status !== TicketTypeStatus.ACTIVE) {
-                throw new Error('TICKET_TYPE_INACTIVE');
+        if (redis) {
+            const now = Date.now();
+            const expirationTime = now + 10 * 60 * 1000; // 10 minutes
+
+            for (const tt of lockedTicketTypes) {
+                const item = items.find(i => i.ticketTypeId === tt.id)!;
+                const redisKey = `ticket_type:reservations:${tt.id}`;
+
+                // 1. Clean up expired reservations
+                await redis.zRemRangeByScore(redisKey, 0, now);
+
+                // 2. Fetch active reservations
+                const activeReservations = await redis.zRangeWithScores(redisKey, 0, -1);
+                let reservedCount = 0;
+                for (const resItem of activeReservations) {
+                    const parts = resItem.value.split(':');
+                    const qty = parseInt(parts[1], 10);
+                    if (!isNaN(qty)) {
+                        reservedCount += qty;
+                    }
+                }
+
+                // 3. Validate stock considering DB and Redis
+                const availableStock = tt.capacity - (tt.soldCount + reservedCount);
+                if (availableStock < item.quantity) {
+                    logger.warn('REDIS_STOCK_RESERVATION_FAILED_NO_STOCK', {
+                        ticketTypeId: tt.id,
+                        dbSoldCount: tt.soldCount,
+                        redisReservedCount: reservedCount,
+                        capacity: tt.capacity,
+                        requested: item.quantity
+                    });
+                    throw new Error('NO_STOCK');
+                }
+
+                // 4. Reserve temporarily in Redis
+                const member = `${checkoutUuid}:${item.quantity}`;
+                await redis.zAdd(redisKey, {
+                    score: expirationTime,
+                    value: member
+                });
+                createdReservations.push({ ticketTypeId: tt.id, member });
+
+                logger.info('REDIS_STOCK_RESERVED_TEMPORARY', {
+                    ticketTypeId: tt.id,
+                    checkoutUuid,
+                    quantity: item.quantity,
+                    expiration: new Date(expirationTime).toISOString()
+                });
             }
-            const item = items.find(i => i.ticketTypeId === tt.id)!;
-            const availableStock = tt.capacity - tt.soldCount;
-            if (availableStock < item.quantity) {
-                throw new Error('NO_STOCK');
+        } else {
+            // Fallback DB-only if Redis is not available
+            for (const tt of lockedTicketTypes) {
+                const item = items.find(i => i.ticketTypeId === tt.id)!;
+                const availableStock = tt.capacity - tt.soldCount;
+                if (availableStock < item.quantity) {
+                    throw new Error('NO_STOCK');
+                }
             }
         }
 
@@ -795,7 +853,7 @@ async function preparePreference(
                 .getMany();
 
             if (extras.length !== extraIds.length) {
-                throw new Error('EXTRA_NOT_FOUND');
+                throw new Error('EXTRA_FOUND_MISMATCH');
             }
 
             for (const ep of extras) {
@@ -855,12 +913,14 @@ async function preparePreference(
             extraItems,
             marketplaceInfo,
             input.promoterCode,
-            coupon
+            coupon,
+            checkoutUuid
         );
         const externalReference = buildExternalReference(
             purchasePayer.user.id,
             ticketTypes[0].event.user_id,
-            input.promoterCode
+            input.promoterCode,
+            checkoutUuid
         );
 
         await queryRunner.commitTransaction();
@@ -879,6 +939,20 @@ async function preparePreference(
     } catch (error) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
+        }
+        // Revert Redis reservations on error
+        if (redis && createdReservations.length > 0) {
+            for (const res of createdReservations) {
+                const redisKey = `ticket_type:reservations:${res.ticketTypeId}`;
+                await redis.zRem(redisKey, res.member).catch(err => {
+                    logger.error('REDIS_REVERSION_FAILED', {
+                        ticketTypeId: res.ticketTypeId,
+                        member: res.member,
+                        error: err?.message
+                    });
+                });
+            }
+            logger.info('REDIS_RESERVATIONS_REVERTED_ON_ERROR', { checkoutUuid });
         }
         throw error;
     } finally {

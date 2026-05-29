@@ -629,12 +629,50 @@ Esta sección documenta los cambios críticos realizados en el backend durante l
   - `googleSignin` convierte `isGuestAccount = false` cuando un usuario guest inicia sesión con Google.
   - Usa `env.ID_CLIENT_GOOGLE_OAUTH` en lugar de `process.env`.
 
+### Arquitectura de Colas (Workers y BullMQ) (May 2026)
+
+Se implementó una capa de procesamiento de fondo basada en **BullMQ + Redis** para desacoplar tareas no críticas del hilo principal y garantizar resiliencia ante caídas del servidor.
+
+#### Motivación
+El envío de emails con tickets/QR/PDF y las invitaciones a guests se ejecutaban como promesas *fire-and-forget* en memoria. Si el proceso de Node.js se reiniciaba o auto-escalaba hacia abajo en ese instante, el email se perdía permanentemente y el usuario quedaba sin su entrada.
+
+#### Estructura del módulo (`Backend/src/queue/`)
+- **`queue.config.ts`**: Conexión a Redis usando `ioredis` (instancia dedicada para BullMQ, independiente del cliente `redis` usado por rate-limiting y caché).
+- **`queue.types.ts`**: Tipos serializables de los jobs (`SendTicketEmailJobData`, `SendExtraEmailJobData`, etc.).
+- **`email.queue.ts`**:
+  - Cola `email-jobs` con reintentos exponenciales (`attempts: 3`, `backoff: 5s`).
+  - Worker con `concurrency: 3` que procesa jobs de forma resiliente.
+  - Funciones helper para encolar: `addSendTicketEmailJob`, `addSendExtraEmailJob`, `addSendGuestInvitationJob`, `addSendAccountClaimJob`.
+
+#### Jobs disponibles
+| Tipo | Origen | Descripción |
+|------|--------|-------------|
+| `send-ticket-email` | Webhook MP, `purchase()` | Recupera tickets por ID desde la DB, genera datos para el PDF y envía email con QR |
+| `send-extra-email` | Webhook MP | Recupera `ExtraItem` por ID y envía email con vouchers de extras |
+| `send-guest-invitation` | `inviteGuests()` | Envía email a cada invitado con sus tickets generados |
+| `send-account-claim` | Webhook MP (guest users) | Envía email de reclamo de cuenta con URL segura |
+
+#### Cambios en archivos existentes
+- **`payment.core.ts`**: Los bloques `sendTicketEmail(...).catch(...)` y `enviarCorreoConExtras(...).catch(...)` fueron reemplazados por `await addSendTicketEmailJob(...)` y `await addSendExtraEmailJob(...)`. El claim email de guests también usa `addSendAccountClaimJob()`.
+- **`ticket.service.ts`**:
+  - `purchase()`: El email post-transacción ahora encola un job en lugar de fire-and-forget.
+  - `inviteGuests()`: El loop de emails a invitados encola un job por email.
+- **`index.ts`**: Llama `startEmailWorker()` después de iniciar el servidor HTTP y `closeEmailWorker()` durante el graceful shutdown.
+
+#### Consideraciones operativas
+- **Workers en el mismo proceso**: Por ahora los workers corren en el mismo contenedor de Node.js (plan gratis). En el futuro pueden extraerse a un servicio independiente sin cambiar código de negocio.
+- **Redis**: Requiere `REDIS_URL`. En producción ya estaba configurado; en desarrollo es opcional pero recomendado.
+- **Persistencia**: Los jobs encolados sobreviven reinicios. Si el worker no está corriendo, los jobs quedan en Redis hasta que un worker los procese.
+- **No eliminar** los campos `paymentLogId` de los payloads de los jobs; se usan como fallback para recuperar tickets si los IDs directos no funcionan (migraciones, reintentos de MP).
+
 ### Notas para futuros agentes
 - **No revertir** el orden de body parsers en `app.ts`.
 - **No bypassar** la validación de firma en webhooks (`mp-webhook.middleware.ts`).
 - **No reducir** la tolerancia de monto en pagos por debajo de `$0.01` sin consultar.
 - **No eliminar** la verificación de `user.active` en `authToken.ts`.
+- **No eliminar** los `jobId` de las funciones `add*Job()` en `email.queue.ts`; previenen duplicados si MP reintenta el webhook.
 - Si se agrega una nueva entidad, usar `timestamptz` para todas las columnas de fecha/hora.
+- Si se agrega un nuevo tipo de job de email, agregarlo a `queue.types.ts`, al worker switch, y exponer una función `add*Job()`.
 
 ---
 

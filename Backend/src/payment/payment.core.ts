@@ -18,6 +18,12 @@ import { getMPConfig } from './mp.config';
 import { decryptFromString } from '../common/services/encryption';
 import { createAccountClaimToken } from '../user/accountClaim.service';
 import { sendAccountClaimEmail, enviarCorreoConExtras } from '../common/services/mailer';
+import {
+    addSendTicketEmailJob,
+    addSendExtraEmailJob,
+    addSendAccountClaimJob
+} from '../queue/email.queue';
+import { getRedis } from '../common/services/redis';
 
 /**
  * Payment Core Service
@@ -287,10 +293,28 @@ export async function resolveWebhookPayment(
 function extractOrganizerIdFromRef(externalRef: string): number | null {
     if (!externalRef) return null;
     const parts = externalRef.split('|');
+    
+    // Check if it's the new format: userId|organizerId|promoterCode|checkoutUuid
+    // If parts.length >= 4 and parts[3] is a non-numeric UUID (or parts[3] contains non-digits)
     if (parts.length >= 4) {
-        const id = Number(parts[3]);
+        const index3AsNum = Number(parts[3]);
+        if (isNaN(index3AsNum)) {
+            // It's the new format where organizerId is at index 1
+            const id = Number(parts[1]);
+            return Number.isSafeInteger(id) && id > 0 ? id : null;
+        } else {
+            // It's the legacy format where organizerId is at index 3
+            const id = index3AsNum;
+            return Number.isSafeInteger(id) && id > 0 ? id : null;
+        }
+    }
+    
+    // If length is 2 or 3 (e.g. new format without UUID like userId|organizerId or userId|organizerId|promoterCode)
+    if (parts.length === 2 || parts.length === 3) {
+        const id = Number(parts[1]);
         return Number.isSafeInteger(id) && id > 0 ? id : null;
     }
+    
     return null;
 }
 
@@ -938,6 +962,37 @@ export async function processApprovedPayment(
 
         await queryRunner.commitTransaction();
 
+        // Clear Redis reservations for this checkout
+        const externalRef = paymentData.external_reference;
+        if (externalRef) {
+            const parts = externalRef.split('|');
+            if (parts.length >= 4) {
+                const checkoutUuid = parts[3];
+                if (isNaN(Number(checkoutUuid))) {
+                    const redis = await getRedis();
+                    if (redis) {
+                        for (const item of ticketItems) {
+                            const redisKey = `ticket_type:reservations:${item.referenceId}`;
+                            const member = `${checkoutUuid}:${item.quantity}`;
+                            await redis.zRem(redisKey, member).catch(err => {
+                                logger.error('REDIS_CLEAR_RESERVATION_FAILED', {
+                                    paymentId,
+                                    ticketTypeId: item.referenceId,
+                                    member,
+                                    error: err?.message
+                                });
+                            });
+                        }
+                        logger.info('REDIS_RESERVATIONS_CLEARED_ON_SUCCESS', {
+                            paymentId,
+                            checkoutUuid,
+                            ticketTypesCount: ticketItems.length
+                        });
+                    }
+                }
+            }
+        }
+
         logger.info('PAYMENT_PROCESSED_SUCCESS', {
             paymentId,
             logId: log.id,
@@ -950,43 +1005,46 @@ export async function processApprovedPayment(
         });
 
         if (user.email) {
-            sendTicketEmail(
-                user.email,
-                allTickets,
-                ticketTypes[0],
-                ticketTypes[0].event,
-                user
-            ).catch(err => {
-                logger.error('PAYMENT_EMAIL_ERROR', { paymentId, error: err?.message });
+            const ticketIds = allTickets.map(t => t.id);
+            const extraItemIds = allExtras.map(e => e.id);
+
+            await addSendTicketEmailJob({
+                userEmail: user.email,
+                userId: user.id,
+                userFirstname: user.firstname || '',
+                userLastname: user.lastname || '',
+                ticketIds,
+                ticketTypeId: ticketTypes[0].id,
+                eventId: ticketTypes[0].event.id,
+                paymentLogId: log.id,
+            }).catch(err => {
+                logger.error('PAYMENT_EMAIL_ENQUEUE_ERROR', { paymentId, error: err?.message });
             });
 
             if (allExtras.length > 0) {
                 const eventForExtras = allExtras[0].eventProduct?.event || (ticketTypes.length > 0 ? ticketTypes[0].event : null);
                 if (eventForExtras) {
-                    enviarCorreoConExtras(
-                        user.email,
-                        allExtras.map(e => ({
-                            qrCode: e.qrCode!,
-                            productName: e.eventProduct.product.name,
-                            quantity: e.quantity,
-                            eventTitle: eventForExtras.title,
-                            eventDate: `${eventForExtras.date} ${eventForExtras.time}`,
-                            eventLocation: eventForExtras.direccion || '',
-                            buyerName: `${user.firstname || ''} ${user.lastname || ''}`.trim()
-                        }))
-                    ).catch(err => {
-                        logger.error('PAYMENT_EXTRA_EMAIL_ERROR', { paymentId, error: err?.message });
+                    await addSendExtraEmailJob({
+                        userEmail: user.email,
+                        userId: user.id,
+                        userFirstname: user.firstname || '',
+                        userLastname: user.lastname || '',
+                        extraItemIds,
+                        eventId: eventForExtras.id,
+                        paymentLogId: log.id,
+                    }).catch(err => {
+                        logger.error('PAYMENT_EXTRA_EMAIL_ENQUEUE_ERROR', { paymentId, error: err?.message });
                     });
                 }
             }
 
             if (user.isGuestAccount) {
                 createAccountClaimToken(user)
-                    .then(claim => sendAccountClaimEmail(
-                        user.email,
-                        (user.firstname || '') + ' ' + (user.lastname || '').trim(),
-                        claim.claimUrl
-                    ))
+                    .then(claim => addSendAccountClaimJob({
+                        userEmail: user.email,
+                        userName: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
+                        claimUrl: claim.claimUrl,
+                    }))
                     .catch(err => {
                         logger.error('PAYMENT_CLAIM_EMAIL_ERROR', { paymentId, userId: user.id, error: err?.message });
                     });
