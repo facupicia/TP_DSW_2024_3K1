@@ -88,7 +88,6 @@ export const authRateLimiter = rateLimit({
     max: authMaxRequests,
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true,
     keyGenerator: authKeyGenerator,
     store: createRedisStore("rl:auth:v2:"),
     handler: (_req, res, _next, options) => {

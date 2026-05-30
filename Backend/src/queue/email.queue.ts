@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from "bullmq";
+import crypto from "crypto";
 import { getBullMQConnection } from "./queue.config";
 import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
@@ -47,11 +48,17 @@ export function getEmailQueue(): Queue {
 // JOB ADDERS
 // ============================================================================
 
+function hashJobId(prefix: string, rawId: string): string {
+    if (rawId.length <= 80) return `${prefix}:${rawId}`;
+    return `${prefix}:${crypto.createHash("sha256").update(rawId).digest("hex").slice(0, 32)}`;
+}
+
 export async function addSendTicketEmailJob(data: SendTicketEmailJobData) {
     const queue = getEmailQueue();
     const jobData: QueueJobData = { type: "send-ticket-email", payload: data };
+    const rawId = String(data.paymentLogId || data.ticketIds.join("-"));
     const job = await queue.add("send-ticket-email", jobData, {
-        jobId: `ticket-email-${data.paymentLogId || data.ticketIds.join("-")}`,
+        jobId: hashJobId("ticket-email", rawId),
     });
     logger.info("QUEUE_TICKET_EMAIL_ENQUEUED", { jobId: job.id, userId: data.userId });
     return job;
@@ -60,8 +67,9 @@ export async function addSendTicketEmailJob(data: SendTicketEmailJobData) {
 export async function addSendExtraEmailJob(data: SendExtraEmailJobData) {
     const queue = getEmailQueue();
     const jobData: QueueJobData = { type: "send-extra-email", payload: data };
+    const rawId = String(data.paymentLogId || data.extraItemIds.join("-"));
     const job = await queue.add("send-extra-email", jobData, {
-        jobId: `extra-email-${data.paymentLogId || data.extraItemIds.join("-")}`,
+        jobId: hashJobId("extra-email", rawId),
     });
     logger.info("QUEUE_EXTRA_EMAIL_ENQUEUED", { jobId: job.id, userId: data.userId });
     return job;
@@ -70,8 +78,9 @@ export async function addSendExtraEmailJob(data: SendExtraEmailJobData) {
 export async function addSendGuestInvitationJob(data: SendGuestInvitationEmailJobData) {
     const queue = getEmailQueue();
     const jobData: QueueJobData = { type: "send-guest-invitation", payload: data };
+    const rawId = `${data.email}-${data.ticketIds.join("-")}`;
     const job = await queue.add("send-guest-invitation", jobData, {
-        jobId: `guest-invite-${data.email}-${data.ticketIds.join("-")}`,
+        jobId: hashJobId("guest-invite", rawId),
     });
     logger.info("QUEUE_GUEST_INVITE_ENQUEUED", { jobId: job.id, email: data.email });
     return job;
@@ -81,7 +90,7 @@ export async function addSendAccountClaimJob(data: SendAccountClaimEmailJobData)
     const queue = getEmailQueue();
     const jobData: QueueJobData = { type: "send-account-claim", payload: data };
     const job = await queue.add("send-account-claim", jobData, {
-        jobId: `account-claim-${data.userEmail}`,
+        jobId: hashJobId("account-claim", data.userEmail),
     });
     logger.info("QUEUE_ACCOUNT_CLAIM_ENQUEUED", { jobId: job.id, email: data.userEmail });
     return job;

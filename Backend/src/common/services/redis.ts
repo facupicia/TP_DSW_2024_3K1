@@ -54,6 +54,47 @@ export async function getRedis() {
     return connectionPromise;
 }
 
+const SSE_KEY_PREFIX = 'sse:connections';
+const SSE_TTL_SECONDS = 60;
+const SSE_STATS_KEY_PREFIX = 'sse:stats';
+const SSE_STATS_TTL_SECONDS = 10;
+
+export async function incrementSseConnection(userId: number): Promise<number> {
+    const redis = await getRedis();
+    if (!redis) return 0;
+    const key = `${SSE_KEY_PREFIX}:${userId}`;
+    const count = await redis.incr(key);
+    await redis.expire(key, SSE_TTL_SECONDS);
+    return count;
+}
+
+export async function decrementSseConnection(userId: number): Promise<number> {
+    const redis = await getRedis();
+    if (!redis) return 0;
+    const key = `${SSE_KEY_PREFIX}:${userId}`;
+    const count = await redis.decr(key);
+    if (count <= 0) {
+        await redis.del(key);
+        return 0;
+    }
+    return count;
+}
+
+export async function getCachedSSEStats(userId: number): Promise<any | null> {
+    const redis = await getRedis();
+    if (!redis) return null;
+    const key = `${SSE_STATS_KEY_PREFIX}:${userId}`;
+    const data = await redis.get(key);
+    return data ? JSON.parse(data) : null;
+}
+
+export async function setCachedSSEStats(userId: number, data: any): Promise<void> {
+    const redis = await getRedis();
+    if (!redis) return;
+    const key = `${SSE_STATS_KEY_PREFIX}:${userId}`;
+    await redis.setEx(key, SSE_STATS_TTL_SECONDS, JSON.stringify(data));
+}
+
 /**
  * Gracefully close Redis connection.
  * Call this during application shutdown.

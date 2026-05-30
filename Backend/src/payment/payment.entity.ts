@@ -11,6 +11,7 @@ export enum PaymentStatus {
 // Registro de pagos procesados para garantizar idempotencia del webhook
 @Entity()
 @Unique(['mpPaymentId'])
+@Index('idx_payment_external_ref_lookup', ['externalReference', 'createdAt'])
 @Index('idx_payment_status_created', ['status', 'createdAt'])
 @Index('idx_payment_organizer_status', ['organizerId', 'status'])
 @Index('idx_payment_status_organizer', ['status', 'organizerId'])

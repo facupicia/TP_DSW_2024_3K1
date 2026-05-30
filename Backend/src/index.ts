@@ -9,6 +9,7 @@ import { migrateLegacyRoles } from "./user/migrate-roles";
 import { closeRedis } from "./common/services/redis";
 import { logger } from "./common/services/logger";
 import { startEmailWorker, closeEmailWorker } from "./queue/email.queue";
+import { closeBullMQConnection } from "./queue/queue.config";
 
 const PORT = env.PORT;
 
@@ -50,7 +51,7 @@ async function main() {
 
     server = await startServer(PORT);
 
-    startEmailWorker();
+    await startEmailWorker();
 
     const mailOk = await verifyMailer();
     logger.info("STARTUP_MAILER_STATUS", { ready: mailOk });
@@ -101,6 +102,7 @@ async function gracefulShutdown(signal: string, exitCode = 0) {
     }
 
     await closeEmailWorker();
+    await closeBullMQConnection();
     await closeRedis();
 
     if (AppDataSource.isInitialized) {

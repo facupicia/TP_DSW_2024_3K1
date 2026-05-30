@@ -139,6 +139,7 @@ export async function search(params: UserSearchParams): Promise<Paginated<UserSu
   const qb = User.createQueryBuilder("user")
     .leftJoinAndSelect("user.roles", "role")
     .select(["user.id", "user.firstname", "user.lastname", "user.email", "user.imgPerfil", "user.active", "role.id", "role.name"])
+    .where("user.deletedAt IS NULL")
     .orderBy("user.createdAt", "DESC")
     .addOrderBy("user.id", "DESC")
     .skip(skip)

@@ -39,7 +39,7 @@ const AppDataSource = new DataSource({
     synchronize: env.NODE_ENV === 'development' && env.DB_SYNC === 'true',
     logging: env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
-    migrations: [path.join(__dirname, '..', 'database', 'migrations', '[0-9]*.{ts,js}')],
+    migrations: [path.join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
     migrationsRun: isProduction,
     extra: {
         ssl: {

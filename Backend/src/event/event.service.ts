@@ -22,6 +22,7 @@ import {
     invalidateCheckoutPricingCache,
     invalidateAllEventCaches
 } from "../common/services/eventCache";
+import { getCachedSSEStats, setCachedSSEStats } from "../common/services/redis";
 
 const FUTURE_EVENT_SQL = '"event"."startDateTime" > NOW()';
 
@@ -395,6 +396,34 @@ export async function remove(userId: number, isAdmin: boolean, eventId: number):
                 .execute();
         }
 
+        // Cancel active extras for this event and restore EventProduct stock
+        const eventProductIds = event.eventProducts ? event.eventProducts.map(ep => ep.id) : [];
+        const activeExtras = eventProductIds.length > 0 ? await queryRunner.manager.find(ExtraItem, {
+            where: { eventProductId: In(eventProductIds), status: ExtraItemStatus.ACTIVE },
+            select: ['id', 'eventProductId', 'quantity']
+        }) : [];
+
+        if (eventProductIds.length > 0) {
+            await queryRunner.manager.update(
+                ExtraItem,
+                { eventProductId: In(eventProductIds), status: ExtraItemStatus.ACTIVE },
+                { status: ExtraItemStatus.CANCELLED }
+            );
+        }
+
+        const cancelledExtrasByProduct = new Map<number, number>();
+        for (const e of activeExtras) {
+            cancelledExtrasByProduct.set(e.eventProductId, (cancelledExtrasByProduct.get(e.eventProductId) || 0) + e.quantity);
+        }
+        for (const [epId, count] of cancelledExtrasByProduct) {
+            await queryRunner.manager
+                .createQueryBuilder()
+                .update(EventProduct)
+                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
+                .where('id = :id', { id: epId })
+                .execute();
+        }
+
         await queryRunner.commitTransaction();
 
         await invalidateEventListCache();
@@ -463,7 +492,7 @@ export async function findPublic(params: { skip: number; take: number; page: num
 }
 
 export async function countActive(): Promise<number> {
-    return Event.count({ where: { active: true } });
+    return Event.count({ where: { active: true, deletedAt: IsNull() } });
 }
 
 export async function searchByName(rawTitle: string, params: { skip: number; take: number; page: number; limit: number }) {
@@ -471,7 +500,7 @@ export async function searchByName(rawTitle: string, params: { skip: number; tak
         .createQueryBuilder("event")
         .leftJoinAndSelect("event.category", "category")
         .leftJoinAndSelect("event.ticketTypes", "ticketTypes")
-        .where("LOWER(event.title) LIKE :title", { title: `%${rawTitle.toLowerCase()}%` })
+        .where("event.title ILIKE :title", { title: `%${rawTitle}%` })
         .andWhere("event.active = true")
         .andWhere("event.isPublic = true")
         .andWhere(FUTURE_EVENT_SQL)
@@ -486,7 +515,7 @@ export async function searchByName(rawTitle: string, params: { skip: number; tak
 
 export async function findByOrganizer(userId: number, params: { skip: number; take: number }) {
     return Event.findAndCount({
-        where: { user_id: userId, active: true },
+        where: { user_id: userId, active: true, deletedAt: IsNull() },
         relations: ["category", "ticketTypes"],
         order: { date: "DESC" },
         skip: params.skip,
@@ -999,5 +1028,14 @@ export async function getSSEInitialData(userId: number) {
 }
 
 export async function getSSEUpdatedData(userId: number) {
-    return getSSEInitialData(userId);
+    const cached = await getCachedSSEStats(userId);
+    if (cached) {
+        // Rehydrate Date objects from JSON strings
+        if (cached.lastSaleAt) cached.lastSaleAt = new Date(cached.lastSaleAt);
+        if (cached.lastExtraSaleAt) cached.lastExtraSaleAt = new Date(cached.lastExtraSaleAt);
+        return cached;
+    }
+    const data = await getSSEInitialData(userId);
+    await setCachedSSEStats(userId, data);
+    return data;
 }

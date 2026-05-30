@@ -417,7 +417,7 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
 /**
  * Obtiene información de comisión basada en el plan del organizador
  */
-export async function getCommissionInfo(organizerId: number): Promise<CommissionInfo> {
+export async function getCommissionInfo(organizerId: number, queryRunner?: any): Promise<CommissionInfo> {
     const defaultCommission: CommissionInfo = {
         percent: 8.00,
         amount: 0,
@@ -425,7 +425,7 @@ export async function getCommissionInfo(organizerId: number): Promise<Commission
     };
     
     try {
-        const subscription = await getActiveSubscription(organizerId);
+        const subscription = await getActiveSubscription(organizerId, queryRunner?.manager);
         return {
             percent: Number(subscription.plan.commissionPercent),
             amount: 0, // Se calcula después
@@ -606,19 +606,21 @@ export async function processApprovedPayment(
     const ticketItems = items.filter(it => it.type === 'ticket');
     const extraItems = items.filter(it => it.type === 'extra');
 
-    const preGeneratedTicketQrs: Array<{ codigo_unico: string; qrCode: string }> = [];
-    for (let i = 0; i < ticketItems.reduce((sum, it) => sum + it.quantity, 0); i++) {
-        const codigo_unico = randomUUID();
-        const qrCode = await generarQRUrl(codigo_unico);
-        preGeneratedTicketQrs.push({ codigo_unico, qrCode });
-    }
+    const preGeneratedTicketQrs = await Promise.all(
+        Array.from({ length: ticketItems.reduce((sum, it) => sum + it.quantity, 0) }, async () => {
+            const codigo_unico = randomUUID();
+            const qrCode = await generarQRUrl(codigo_unico);
+            return { codigo_unico, qrCode };
+        })
+    );
 
-    const preGeneratedExtraQrs: Array<{ codigo_unico: string; qrCode: string }> = [];
-    for (let i = 0; i < extraItems.reduce((sum, it) => sum + it.quantity, 0); i++) {
-        const codigo_unico = randomUUID();
-        const qrCode = await generarQRUrl(codigo_unico);
-        preGeneratedExtraQrs.push({ codigo_unico, qrCode });
-    }
+    const preGeneratedExtraQrs = await Promise.all(
+        Array.from({ length: extraItems.reduce((sum, it) => sum + it.quantity, 0) }, async () => {
+            const codigo_unico = randomUUID();
+            const qrCode = await generarQRUrl(codigo_unico);
+            return { codigo_unico, qrCode };
+        })
+    );
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
@@ -735,7 +737,7 @@ export async function processApprovedPayment(
         }
 
         const actualOrganizerId = organizerId || (ticketTypes.length > 0 ? ticketTypes[0].event.user_id : (extras.length > 0 ? extras[0].event.user_id : 0));
-        const commission = await getCommissionInfo(actualOrganizerId);
+        const commission = await getCommissionInfo(actualOrganizerId, queryRunner);
         commission.amount = (expectedTotal * commission.percent) / 100;
 
         let promoterInfo: { promoterId: number; commissionPercentage: number; commissionAmount: number } | null = null;

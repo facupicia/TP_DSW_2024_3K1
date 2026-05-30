@@ -261,6 +261,7 @@ export async function findByUser(
             "event.id", "event.title", "event.date", "event.time", "event.ciudad", "event.direccion", "event.image"
         ])
         .where("ticket.userId = :userID", { userID })
+        .andWhere("ticket.deletedAt IS NULL")
         .orderBy("ticket.createdAt", "DESC")
         .skip(pagination.skip)
         .take(pagination.take)
@@ -308,6 +309,7 @@ export async function findLastPurchase(userId: number): Promise<{
         ])
         .where("ticket.userId = :userId", { userId })
         .andWhere("ticket.paymentLogId = :paymentLogId", { paymentLogId: lastLog.id })
+        .andWhere("ticket.deletedAt IS NULL")
         .orderBy("ticket.createdAt", "DESC")
         .take(10)
         .getMany();
@@ -328,6 +330,7 @@ export async function findLastPurchase(userId: number): Promise<{
             ])
             .where("ticket.userId = :userId", { userId })
             .andWhere("ticket.createdAt BETWEEN :start AND :end", { start: fiveMinutesBefore, end: fiveMinutesAfter })
+            .andWhere("ticket.deletedAt IS NULL")
             .orderBy("ticket.createdAt", "DESC")
             .take(10)
             .getMany();
@@ -462,31 +465,6 @@ export async function inviteGuests(
             throw new HttpError(400, 'LIMIT_EXCEEDED', "Máximo 50 emails o 100 tickets por solicitud");
         }
 
-        const ticketType = await AppDataSource.getRepository(TicketType).findOne({
-            where: { id: ticketTypeId },
-            relations: ["event"],
-        });
-
-        if (!ticketType) throw new HttpError(404, 'TICKET_TYPE_NOT_FOUND', "Tipo de ticket no encontrado");
-        if (!ticketType.event) throw new HttpError(404, 'EVENT_NOT_FOUND', "Evento asociado al tipo de ticket no encontrado");
-        if (Number(ticketType.price) > 0) {
-            throw new HttpError(400, 'PAID_TICKET_NO_GUESTS', "Solo se pueden invitar guests a tipos de entrada gratuitos");
-        }
-
-        const event = ticketType.event;
-        if (event.user_id !== organizerId && !isAdmin) {
-            throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para invitar a este evento");
-        }
-
-        const eventDateTime = getEventDateTime(event);
-        if (new Date() > eventDateTime) {
-            throw new HttpError(400, 'EVENT_PAST', "No se pueden invitar guests a un evento que ya pasó");
-        }
-
-        if (event.minAge && event.minAge > 0) {
-            throw new HttpError(400, 'AGE_RESTRICTED', `Este evento requiere edad mínima de ${event.minAge} años. Las invitaciones no verifican edad.`);
-        }
-
         interface EmailTicketInfo {
             qrCode: string;
             ticketId: number | null;
@@ -509,7 +487,7 @@ export async function inviteGuests(
                     const qrCode = await generarQRUrl(codigo_unico);
 
                     const ticket = new Ticket();
-                    ticket.ticketTypeId = ticketType.id;
+                    ticket.ticketTypeId = ticketTypeId;
                     ticket.userId = organizerId;
                     ticket.codigo_unico = codigo_unico;
                     ticket.qrCode = qrCode;
@@ -521,13 +499,11 @@ export async function inviteGuests(
                     ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
                         ticketId: null,
-                        eventTitle: event.title,
-                        eventDate: `${new Date(event.date).toLocaleDateString("es-AR", {
-                            weekday: "long", year: "numeric", month: "long", day: "numeric",
-                        })} ${event.time}`,
-                        eventLocation: event.direccion || event.ciudad || "",
+                        eventTitle: "", // filled after transaction read
+                        eventDate: "",
+                        eventLocation: "",
                         buyerName: "Invitado",
-                        ticketType: ticketType.name,
+                        ticketType: "",
                     });
                 }
 
@@ -546,6 +522,44 @@ export async function inviteGuests(
         const requestedTickets = ticketsToInsert.length;
 
         await queryRunner.startTransaction();
+
+        const ticketType = await queryRunner.manager.createQueryBuilder(TicketType, "tt")
+            .setLock("pessimistic_write")
+            .leftJoinAndSelect("tt.event", "event")
+            .where("tt.id = :id", { id: ticketTypeId })
+            .getOne();
+
+        if (!ticketType) throw new HttpError(404, 'TICKET_TYPE_NOT_FOUND', "Tipo de ticket no encontrado");
+        if (!ticketType.event) throw new HttpError(404, 'EVENT_NOT_FOUND', "Evento asociado al tipo de ticket no encontrado");
+        if (Number(ticketType.price) > 0) {
+            throw new HttpError(400, 'PAID_TICKET_NO_GUESTS', "Solo se pueden invitar guests a tipos de entrada gratuitos");
+        }
+
+        const event = ticketType.event;
+        if (event.user_id !== organizerId && !isAdmin) {
+            throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para invitar a este evento");
+        }
+
+        const eventDateTime = getEventDateTime(event);
+        if (new Date() > eventDateTime) {
+            throw new HttpError(400, 'EVENT_PAST', "No se pueden invitar guests a un evento que ya pasó");
+        }
+
+        if (event.minAge && event.minAge > 0) {
+            throw new HttpError(400, 'AGE_RESTRICTED', `Este evento requiere edad mínima de ${event.minAge} años. Las invitaciones no verifican edad.`);
+        }
+
+        // Fill email map data now that we have the locked event info
+        for (const email of Object.keys(emailTicketsMap)) {
+            for (const info of emailTicketsMap[email]) {
+                info.eventTitle = event.title;
+                info.eventDate = `${new Date(event.date).toLocaleDateString("es-AR", {
+                    weekday: "long", year: "numeric", month: "long", day: "numeric",
+                })} ${event.time}`;
+                info.eventLocation = event.direccion || event.ciudad || "";
+                info.ticketType = ticketType.name;
+            }
+        }
 
         const stockUpdate = await queryRunner.manager
             .createQueryBuilder()

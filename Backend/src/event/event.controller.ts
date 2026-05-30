@@ -5,6 +5,7 @@ import { Event } from "./event.entity";
 import { User } from "../user/user.entity";
 import PDFDocument from "pdfkit";
 import * as eventService from "./event.service";
+import { incrementSseConnection, decrementSseConnection } from "../common/services/redis";
 
 class HttpError extends Error {
     status: number;
@@ -24,8 +25,6 @@ function handleServiceError(error: any, res: Response) {
     return res.status(500).json({ code: "INTERNAL_ERROR", message: "Internal server error" });
 }
 
-// SSE connection limiter (per-user, per-process)
-const sseConnections = new Map<number, number>();
 const MAX_SSE_PER_USER = 3;
 
 /* ======================================================
@@ -172,7 +171,12 @@ export const getEventByName = async (req: Request, res: Response) => {
         const { skip, take, page, limit } = (await import("../common/services/pagination")).getPagination(req.query, 50, 100);
         if (!rawTitle) return res.json({ data: [], total: 0, page, limit, totalPages: 1 });
 
-        const result = await eventService.searchByName(String(rawTitle), { skip, take, page, limit });
+        const titleStr = String(rawTitle);
+        if (titleStr.length > 100) {
+            return res.status(400).json({ code: 'SEARCH_TOO_LONG', message: 'La búsqueda es demasiado larga (máximo 100 caracteres).' });
+        }
+
+        const result = await eventService.searchByName(titleStr, { skip, take, page, limit });
         return res.json(result);
     } catch (error) {
         return res.status(500).json({ message: "Error searching events" });
@@ -239,11 +243,11 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         userId = req.user?.id;
         if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-        const currentCount = sseConnections.get(userId) || 0;
-        if (currentCount >= MAX_SSE_PER_USER) {
+        const currentCount = await incrementSseConnection(userId);
+        if (currentCount > MAX_SSE_PER_USER) {
+            await decrementSseConnection(userId);
             return res.status(429).json({ message: "Too many SSE connections. Close other dashboard tabs." });
         }
-        sseConnections.set(userId, currentCount + 1);
 
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
@@ -269,9 +273,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
         const cleanup = () => {
             if (interval) { clearInterval(interval); interval = null; }
             if (userId) {
-                const count = sseConnections.get(userId) || 0;
-                if (count > 1) sseConnections.set(userId, count - 1);
-                else sseConnections.delete(userId);
+                decrementSseConnection(userId).catch((err) => logger.error('SSE_DECREMENT_ERROR', { userId, error: err?.message }));
             }
             res.end();
         };
@@ -282,9 +284,7 @@ export const streamCreatorStats = async (req: CustomRequest, res: Response) => {
     } catch (error) {
         if (interval) clearInterval(interval);
         if (userId) {
-            const count = sseConnections.get(userId) || 0;
-            if (count > 1) sseConnections.set(userId, count - 1);
-            else sseConnections.delete(userId);
+            decrementSseConnection(userId).catch((err) => logger.error('SSE_DECREMENT_ERROR', { userId, error: err?.message }));
         }
         logger.error("Error in stream:", error);
         return res.status(500).json({ message: "Error en streaming de estadísticas" });

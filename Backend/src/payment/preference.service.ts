@@ -405,7 +405,8 @@ export function calculateMarketplaceFee(
 async function resolveValidCoupon(
     couponId: number | undefined,
     couponCode: string | undefined,
-    eventId: number
+    eventId: number,
+    manager: any
 ): Promise<Coupon | null> {
     if (!couponId && !couponCode) return null;
 
@@ -413,7 +414,8 @@ async function resolveValidCoupon(
         ? { id: couponId, eventId, isActive: true }
         : { code: couponCode!.toUpperCase().trim(), eventId, isActive: true };
 
-    const coupon = await Coupon.findOne({ where });
+    const couponRepo = manager ? manager.getRepository(Coupon) : AppDataSource.getRepository(Coupon);
+    const coupon = await couponRepo.findOne({ where });
     if (!coupon) {
         throw new Error('COUPON_INVALID');
     }
@@ -696,6 +698,17 @@ export function buildPreferenceBody(
         }
     };
 
+    const metadataJson = JSON.stringify(body.metadata);
+    if (metadataJson.length > 7000) {
+        logger.warn('PREFERENCE_METADATA_TOO_LARGE', { length: metadataJson.length, itemCount: metadataItems.length });
+        // Strip the large items array to keep essential fields
+        body.metadata.items = undefined;
+        // If still too large, reject the cart
+        if (JSON.stringify(body.metadata).length > 7000) {
+            throw new Error('CART_TOO_LARGE_FOR_MP');
+        }
+    }
+
     return body;
 }
 
@@ -889,7 +902,7 @@ async function preparePreference(
             throw new Error('ORGANIZER_MP_NOT_LINKED');
         }
 
-        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketTypes[0].event.id);
+        const coupon = await resolveValidCoupon(input.couponId, input.couponCode, ticketTypes[0].event.id, queryRunner.manager);
         const pricing = calculatePricing(
             ticketTypes,
             items,
