@@ -195,7 +195,7 @@ async function seed() {
                 // Organizer 1: FREE plan (monthly)
                 { id: 1, userId: 1, planId: 1, status: 'active', billingCycle: 'monthly' },
                 // Organizer 2: PRO plan (annual) - para probar MRR
-                { id: 2, userId: 2, planId: 3, status: 'active', billingCycle: 'annual' },
+                { id: 2, userId: 2, planId: 3, status: 'active', billingCycle: 'yearly' },
                 // Organizer 3: STARTER plan (monthly)
                 { id: 3, userId: 3, planId: 2, status: 'active', billingCycle: 'monthly' },
                 // Usuarios regulares con FREE plan
