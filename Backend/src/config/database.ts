@@ -31,6 +31,9 @@ const isProduction = env.NODE_ENV === 'production';
 // SSL: si DB_SSL está definido, usarlo; si no, habilitado por defecto
 const sslEnabled = env.DB_SSL !== undefined ? env.DB_SSL === 'true' : true;
 
+// DB_SYNC: si está en true, sincroniza el esquema (crear tablas) y NO corre migraciones
+const shouldSync = env.DB_SYNC === 'true';
+
 const AppDataSource = new DataSource({
     type: "postgres",
     url: connectionUrl,
@@ -39,11 +42,11 @@ const AppDataSource = new DataSource({
     username: !connectionUrl ? env.PGUSER : undefined,
     password: !connectionUrl ? env.PGPASSWORD : undefined,
     database: !connectionUrl ? env.PGDATABASE : undefined,
-    synchronize: env.NODE_ENV === 'development' && env.DB_SYNC === 'true',
+    synchronize: shouldSync,
     logging: env.DB_LOGGING === 'true',
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
     migrations: [path.join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
-    migrationsRun: isProduction,
+    migrationsRun: isProduction && !shouldSync,
     ssl: sslEnabled ? { rejectUnauthorized: isProduction } : false,
     extra: {
         ...(sslEnabled ? {
