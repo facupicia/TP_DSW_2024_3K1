@@ -140,7 +140,7 @@ export class AdminService {
             COUNT(*) AS count,
             COALESCE(SUM(
               CASE WHEN sp.name != 'FREE' THEN
-                CASE WHEN us."billingCycle" = 'yearly' THEN sp."monthlyPrice" / 12.0 ELSE sp."monthlyPrice" END
+                CASE WHEN us."billingCycle"::text IN ('yearly', 'annual') THEN sp."yearlyPrice" / 12.0 ELSE sp."monthlyPrice" END
               ELSE 0 END
             ), 0) AS "planMrr"
           FROM user_subscription us
