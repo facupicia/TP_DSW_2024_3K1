@@ -1,0 +1,105 @@
+# ==============================================================================
+# EventLife Backend - Docker Compose para Portainer (Servidor Acer)
+# ==============================================================================
+# Este archivo está diseñado para ser usado como Stack en Portainer.
+# Portainer clona el repo desde GitHub y hace build del Dockerfile.
+#
+# Las variables de entorno se configuran en Portainer > Stack > Environment.
+
+services:
+  # ==========================================================================
+  # Backend API
+  # ==========================================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eventlife-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # --- Aplicación ---
+      - NODE_ENV=production
+      - PORT=3000
+      - CLIENT_URL=${CLIENT_URL}
+      - CLIENT_URLS=${CLIENT_URLS}
+      - BACKEND_URL=${BACKEND_URL}
+      - APP_URL=${APP_URL}
+      # --- Base de datos ---
+      - PGHOST=host.docker.internal
+      - PGPORT=5432
+      - PGUSER=${PGUSER}
+      - PGPASSWORD=${PGPASSWORD}
+      - PGDATABASE=${PGDATABASE}
+      - DB_SSL=false
+      - DB_SYNC=${DB_SYNC:-true}
+      - DB_LOGGING=false
+      # --- Redis (interno) ---
+      - REDIS_URL=redis://redis:6379
+      # --- Seguridad ---
+      - SECRET_KEY=${SECRET_KEY}
+      - REFRESH_SECRET_KEY=${REFRESH_SECRET_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # --- Google OAuth ---
+      - ID_CLIENT_GOOGLE_OAUTH=${ID_CLIENT_GOOGLE_OAUTH}
+      # --- Cloudinary ---
+      - CLOUDINARY_URL=${CLOUDINARY_URL}
+      # --- Email ---
+      - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+      - MAIL_PORT=${MAIL_PORT:-465}
+      - MAIL_USER=${MAIL_USER}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      # --- Brevo ---
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      # --- Plataforma ---
+      - PLATFORM_SERVICE_FEE_PERCENT=${PLATFORM_SERVICE_FEE_PERCENT:-10}
+      # --- Rate Limiting ---
+      - AUTH_RATE_LIMIT_MAX=${AUTH_RATE_LIMIT_MAX:-1000}
+      - REFRESH_RATE_LIMIT_MAX=${REFRESH_RATE_LIMIT_MAX:-1000}
+      # --- MercadoPago Suscripciones ---
+      - MP_SUBSCRIPTION_BACK_URL=${MP_SUBSCRIPTION_BACK_URL}
+      - MP_ACCESS_TOKEN_SUSCRIPCION=${MP_ACCESS_TOKEN_SUSCRIPCION}
+      - MP_NOTIFICATION_URL_SUSCRIPCION=${MP_NOTIFICATION_URL_SUSCRIPCION}
+      - MP_SUBSCRIPTION_WEBHOOK_SECRET=${MP_SUBSCRIPTION_WEBHOOK_SECRET}
+      # --- MercadoPago Marketplace ---
+      - MP_ACCESS_TOKEN=${MP_ACCESS_TOKEN}
+      - MP_CLIENT_SECRET=${MP_CLIENT_SECRET}
+      - NEXT_PUBLIC_MP_PUBLIC_KEY=${NEXT_PUBLIC_MP_PUBLIC_KEY}
+      - MP_CLIENT_ID=${MP_CLIENT_ID}
+      - MP_NOTIFICATION_URL=${MP_NOTIFICATION_URL}
+      - MP_WEBHOOK_SECRET=${MP_WEBHOOK_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - eventlife-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ==========================================================================
+  # Redis (caché + BullMQ)
+  # ==========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: eventlife-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eventlife-net
+
+networks:
+  eventlife-net:
+    driver: bridge
+
+volumes:
+  redis-data:

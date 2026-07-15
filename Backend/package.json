@@ -10,7 +10,9 @@
     "seed:volume": "ts-node src/seed-volume.ts",
     "db:migrate": "typeorm-ts-node-commonjs migration:run -d src/config/database.ts",
     "db:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts",
-    "db:indexes": "ts-node src/database/scripts/run-query-indexes.ts"
+    "db:indexes": "ts-node src/database/scripts/run-query-indexes.ts",
+    "seed:prod": "node dist/seed.js",
+    "db:indexes:prod": "node dist/database/scripts/run-query-indexes.js"
   },
   "keywords": [],
   "author": "",

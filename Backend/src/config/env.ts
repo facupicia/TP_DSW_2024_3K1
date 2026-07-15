@@ -61,6 +61,7 @@ const EnvSchema = z
     DB_CONN_TIMEOUT: z.coerce.number().min(1000).optional().default(15000),
     DB_IDLE_TIMEOUT: z.coerce.number().min(1000).optional().default(10000),
     DB_STATEMENT_TIMEOUT: z.coerce.number().min(1000).optional().default(10000),
+    DB_SSL: z.enum(["true", "false"]).optional(),
 
     // Auth
     ID_CLIENT_GOOGLE_OAUTH: z.string().optional(),

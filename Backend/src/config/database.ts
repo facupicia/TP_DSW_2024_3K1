@@ -28,6 +28,9 @@ import { env } from "./env";
 const connectionUrl = env.POSTGRES_URL || env.DATABASE_URL;
 const isProduction = env.NODE_ENV === 'production';
 
+// SSL: si DB_SSL está definido, usarlo; si no, habilitado por defecto
+const sslEnabled = env.DB_SSL !== undefined ? env.DB_SSL === 'true' : true;
+
 const AppDataSource = new DataSource({
     type: "postgres",
     url: connectionUrl,
@@ -41,11 +44,14 @@ const AppDataSource = new DataSource({
     entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
     migrations: [path.join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
     migrationsRun: isProduction,
+    ssl: sslEnabled ? { rejectUnauthorized: isProduction } : false,
     extra: {
-        ssl: {
-            require: true,
-            rejectUnauthorized: isProduction,
-        },
+        ...(sslEnabled ? {
+            ssl: {
+                require: true,
+                rejectUnauthorized: isProduction,
+            },
+        } : {}),
         min: 1,
         max: env.DB_POOL_MAX,
         connectionTimeoutMillis: env.DB_CONN_TIMEOUT,
