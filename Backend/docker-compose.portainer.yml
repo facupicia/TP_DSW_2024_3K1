@@ -1,11 +1,3 @@
-# ==============================================================================
-# EventLife Backend - Docker Compose para Portainer (Servidor Acer)
-# ==============================================================================
-# Este archivo está diseñado para ser usado como Stack en Portainer.
-# Portainer clona el repo desde GitHub y hace build del Dockerfile.
-#
-# Las variables de entorno se configuran en Portainer > Stack > Environment.
-
 services:
   # ==========================================================================
   # Backend API
@@ -26,8 +18,8 @@ services:
       - CLIENT_URLS=${CLIENT_URLS}
       - BACKEND_URL=${BACKEND_URL}
       - APP_URL=${APP_URL}
-      # --- Base de datos ---
-      - PGHOST=host.docker.internal
+      # --- Base de datos (conecta al contenedor postgres-server) ---
+      - PGHOST=postgres-server
       - PGPORT=5432
       - PGUSER=${PGUSER}
       - PGPASSWORD=${PGPASSWORD}
@@ -74,9 +66,8 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - eventlife-net
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - eventlife-internal
+      - eventlife-shared
 
   # ==========================================================================
   # Redis (caché + BullMQ)
@@ -85,8 +76,6 @@ services:
     image: redis:7-alpine
     container_name: eventlife-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -95,11 +84,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - eventlife-net
+      - eventlife-internal
 
 networks:
-  eventlife-net:
+  eventlife-internal:
     driver: bridge
+  eventlife-shared:
+    external: true
 
 volumes:
   redis-data:
