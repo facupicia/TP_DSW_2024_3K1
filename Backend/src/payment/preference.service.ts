@@ -180,13 +180,11 @@ export async function validatePurchaseEligibility(
         }
     }
 
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-
-    try {
-        const userRepo = queryRunner.manager.getRepository(User);
-        const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
-        const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
+    // These are eligibility reads, not a transaction. Holding one pool lease
+    // while subscription lookup requests another can exhaust the entire pool.
+        const userRepo = AppDataSource.getRepository(User);
+        const ticketTypeRepo = AppDataSource.getRepository(TicketType);
+        const eventProductRepo = AppDataSource.getRepository(EventProduct);
 
         const ticketTypeIds = items.map(i => i.ticketTypeId);
         const ticketTypes = await ticketTypeRepo.find({
@@ -351,9 +349,6 @@ export async function validatePurchaseEligibility(
 
         return { valid: true };
 
-    } finally {
-        await queryRunner.release();
-    }
 }
 
 // ============================================================================
