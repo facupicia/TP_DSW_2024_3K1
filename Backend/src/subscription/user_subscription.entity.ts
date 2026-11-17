@@ -25,6 +25,8 @@ export enum SubscriptionStatus {
  */
 @Entity('user_subscription')
 @Index(['userId', 'status'])
+@Index('uq_subscription_active_user', ['userId'], { unique: true, where: `status = 'active'` })
+@Index('uq_subscription_external_id', ['externalSubscriptionId'], { unique: true, where: '"externalSubscriptionId" IS NOT NULL' })
 export class UserSubscription extends BaseEntity {
 
     @PrimaryGeneratedColumn()

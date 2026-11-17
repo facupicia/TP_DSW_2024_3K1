@@ -11,6 +11,9 @@ import { MoreThanOrEqual, LessThanOrEqual, Between } from "typeorm";
  * If no subscription exists, creates a FREE subscription automatically.
  */
 export const getActiveSubscription = async (userId: number, manager?: any): Promise<UserSubscription> => {
+    if (!manager) return AppDataSource.transaction(transaction => getActiveSubscription(userId, transaction));
+    const owner = await manager.findOne(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+    if (!owner) throw new Error('SUBSCRIPTION_USER_UNAVAILABLE');
     const subscriptionRepo = manager ? manager.getRepository(UserSubscription) : AppDataSource.getRepository(UserSubscription);
 
     // Try to find existing active subscription
@@ -42,6 +45,11 @@ export const getActiveSubscription = async (userId: number, manager?: any): Prom
  * Assign the default FREE plan to a user.
  */
 export const assignDefaultPlan = async (userId: number, manager?: any): Promise<UserSubscription> => {
+    if (!manager) return AppDataSource.transaction(async transaction => {
+        const owner = await transaction.findOne(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+        if (!owner) throw new Error('SUBSCRIPTION_USER_UNAVAILABLE');
+        return assignDefaultPlan(userId, transaction);
+    });
     const planRepo = manager ? manager.getRepository(SubscriptionPlan) : AppDataSource.getRepository(SubscriptionPlan);
     const subscriptionRepo = manager ? manager.getRepository(UserSubscription) : AppDataSource.getRepository(UserSubscription);
 
@@ -71,7 +79,8 @@ export const assignDefaultPlan = async (userId: number, manager?: any): Promise<
             },
             sortOrder: 0
         });
-        await planRepo.save(freePlan);
+        await planRepo.createQueryBuilder().insert().into(SubscriptionPlan).values(freePlan).orIgnore().execute();
+        freePlan = await planRepo.findOneOrFail({ where: { name: 'FREE' } });
     }
 
     // Deactivate any existing subscriptions for this user atomically
@@ -259,6 +268,8 @@ export const upgradeToPlan = async (
     await queryRunner.startTransaction();
 
     try {
+        const owner = await queryRunner.manager.findOne(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+        if (!owner) throw new Error('SUBSCRIPTION_USER_UNAVAILABLE');
         const planRepo = queryRunner.manager.getRepository(SubscriptionPlan);
         const subscriptionRepo = queryRunner.manager.getRepository(UserSubscription);
 
