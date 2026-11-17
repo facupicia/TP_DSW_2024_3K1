@@ -124,3 +124,30 @@ test('database forbids multiple active plans for a single account', async () => 
   await repo.save({ userId: data.owner.id, planId: plan.id, status: 'active' });
   await assert.rejects(repo.save({ userId: data.owner.id, planId: plan.id, status: 'active' }), error => error.code === '23505');
 });
+
+test('replacing a paid subscription durably schedules cancellation of the previous renewal', async () => {
+  await core.activateSubscription(data.owner.id, plan.id, 'previous-renewal', 'monthly');
+  await core.activateSubscription(data.owner.id, plan.id, 'replacement-renewal', 'monthly');
+  const previous = await f.source.getRepository(model).findOneByOrFail({ externalSubscriptionId: 'previous-renewal' });
+  assert.equal(previous.status, 'expired');
+  assert.ok(previous.cancelledAt);
+  const jobs = await f.source.getRepository(f.load('queue/outbox.entity.ts').OutboxJob).find({ select: ['kind', 'payload'] });
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].kind, 'subscription-cancel');
+  assert.equal(jobs[0].payload.externalSubscriptionId, 'previous-renewal');
+});
+
+test('a superseded authorization cannot reactivate the old subscription and replace the current plan', async () => {
+  await core.activateSubscription(data.owner.id, plan.id, 'previous-renewal', 'monthly');
+  await core.activateSubscription(data.owner.id, plan.id, 'replacement-renewal', 'monthly');
+  remote = { status: 'authorized', external_reference: `SUB|${data.owner.id}|${plan.id}|monthly` };
+  await core.processSubscriptionWebhook('subscription_preapproval', 'previous-renewal');
+  assert.equal((await f.source.getRepository(model).findOneByOrFail({ userId: data.owner.id, status: 'active' })).externalSubscriptionId, 'replacement-renewal');
+});
+
+test('superseded renewal cancellation retries provider errors and requires confirmation', async () => {
+  unavailable = true;
+  await assert.rejects(core.cancelSupersededRenewal('previous-renewal'), /provider|cancel/i);
+  unavailable = false;
+  await core.cancelSupersededRenewal('previous-renewal');
+});
