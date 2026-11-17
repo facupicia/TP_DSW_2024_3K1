@@ -79,17 +79,20 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
             const statusMap: Record<string, number> = {
                 INVALID_CODE: 400, NOT_FOUND: 404, FORBIDDEN: 403,
                 ALREADY_USED: 400, CANCELLED: 400, INACTIVE_TICKET_TYPE: 409,
-                INACTIVE_EVENT: 409, EVENT_PAST: 409, EVENT_NOT_STARTED: 409, RACE_CONDITION: 409
+                INACTIVE_EXTRA: 409, INACTIVE_EVENT: 409, EVENT_PAST: 409, EVENT_NOT_STARTED: 409, RACE_CONDITION: 409
             };
             const status = statusMap[result.code || ""] || 400;
-            const payload: Record<string, any> = { message: result.message, valid: false };
+            const payload: Record<string, any> = { code: result.code, message: result.message, valid: false };
             if (result.usedAt) payload.usedAt = result.usedAt;
             return res.status(status).json(payload);
         }
 
+        if (result.type === 'extra' && result.extra) {
+            return res.json({ message: 'Extra válido. Canje permitido.', valid: true, type: 'extra', extra: result.extra });
+        }
         const ticket = result.ticket!;
         return res.json({
-            message: "Ticket válido. Acceso permitido.", valid: true,
+            message: "Ticket válido. Acceso permitido.", valid: true, type: 'ticket',
             ticket: {
                 id: ticket.id, event: ticket.ticketType?.event?.title,
                 ticketType: ticket.ticketType?.name,
