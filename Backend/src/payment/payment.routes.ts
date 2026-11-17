@@ -9,11 +9,13 @@ import {
 } from "./mp-oauth.controller";
 import { checkAuthToken, optionalAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
+import { createRedisStore } from '../common/middleware/rateLimit';
 import { 
     createValidateMPWebhookSignature 
 } from "./mp-webhook.middleware";
 
 const preferenceRateLimiter = rateLimit({
+    store: createRedisStore('rl:payment-preference:'),
     windowMs: 5 * 60 * 1000,
     max: 10,
     standardHeaders: true,
@@ -27,6 +29,7 @@ const preferenceRateLimiter = rateLimit({
 });
 
 const statusRateLimiter = rateLimit({
+    store: createRedisStore('rl:payment-status:'),
     windowMs: 60 * 1000,
     max: 30,
     standardHeaders: true,
@@ -40,6 +43,7 @@ const statusRateLimiter = rateLimit({
 });
 
 const refundRateLimiter = rateLimit({
+    store: createRedisStore('rl:payment-refund:'),
     windowMs: 60 * 1000,
     max: 10,
     standardHeaders: true,

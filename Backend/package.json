@@ -14,6 +14,7 @@
     "seed:prod": "node dist/seed.js",
     "db:indexes:prod": "node dist/database/scripts/run-query-indexes.js",
     "test": "node --test tests/*.test.cjs",
+    "test:business:postgres": "node tests/native-business.cjs",
     "db:migrate:prod": "typeorm migration:run -d dist/config/database.js",
     "test:postgres": "npm run build && node tests/postgres-integration.cjs",
     "test:smoke": "npm run build && node tests/runtime-smoke.cjs"

@@ -15,7 +15,7 @@ const rateLimitHandler = (_req: Request, res: Response, _next: unknown, options:
     });
 };
 
-function createRedisStore(prefix: string) {
+export function createRedisStore(prefix: string) {
     if (env.NODE_ENV !== "production") {
         return undefined;
     }

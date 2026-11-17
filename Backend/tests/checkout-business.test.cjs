@@ -92,3 +92,8 @@ test('approved purchases return all tickets from a multi-type cart, including mo
   assert.equal(result.status, 'approved');
   assert.equal(result.tickets.length, 20);
 });
+
+test('parallel purchase eligibility checks do not exhaust the PostgreSQL pool', { skip: !process.env.EVENTLIFE_TEST_POSTGRES_URL, timeout: 15000 }, async () => {
+  const results = await Promise.allSettled(Array.from({ length: 20 }, () => pref.validatePurchaseEligibility(input())));
+  assert.equal(results.filter(result => result.status === 'fulfilled' && result.value.valid).length, 20);
+});

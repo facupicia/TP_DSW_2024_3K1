@@ -100,7 +100,7 @@ async function businessFixture(overrides = {}) {
     await control.query(`CREATE SCHEMA "${schema}"`);
   }
   source = new DataSource({ type: 'postgres', ...(nativeUrl
-    ? { url: nativeUrl, schema, extra: { options: `-c search_path=${schema}` } }
+    ? { url: nativeUrl, schema, connectTimeoutMS: 3000, poolSize: 5, extra: { options: `-c search_path=${schema}` } }
     : { driver: { Pool } }), entities: [...new Set(entities)],
     synchronize: true, installExtensions: false, uuidExtension: 'pgcrypto' });
   try { await source.initialize(); }
