@@ -38,6 +38,7 @@ services:
       # --- Cloudinary ---
       - CLOUDINARY_URL=${CLOUDINARY_URL}
       # --- Email ---
+      - MAIL_PROVIDER=${MAIL_PROVIDER:-brevo}
       - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
       - MAIL_PORT=${MAIL_PORT:-465}
       - MAIL_USER=${MAIL_USER}

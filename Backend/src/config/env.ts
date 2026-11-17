@@ -76,6 +76,7 @@ const EnvSchema = z
     ACCOUNT_CLAIM_TOKEN_HOURS: z.coerce.number().min(1).max(168).optional().default(24),
 
     // Email
+    MAIL_PROVIDER: z.enum(["brevo", "smtp"]).default("brevo"),
     MAIL_HOST: z.string().optional(),
     MAIL_PORT: z.string().optional(),
     MAIL_USER: z.string().optional(),

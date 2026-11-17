@@ -1,6 +1,7 @@
 import { generateTicketsPDF } from "./pdfGenerator";
 import { logger } from "./logger";
 import { env } from "../../config/env";
+import { sendTransactionalEmail, verifyEmailTransport } from './mail.transport';
 
 function escapeHtml(unsafe: string): string {
     return unsafe
@@ -15,7 +16,7 @@ function escapeHtml(unsafe: string): string {
 let mailerReady = false;
 
 export const verifyMailer = async (): Promise<boolean> => {
-  const ok = !!env.BREVO_API_KEY;
+  const ok = await verifyEmailTransport();
   mailerReady = ok;
   return ok;
 };
@@ -34,11 +35,6 @@ export interface ITicketQR {
 }
 
 const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
-  const apiKey = env.BREVO_API_KEY;
-  if (!apiKey) {
-    logger.error("MAILER_MISSING_BREVO_KEY");
-    return null;
-  }
 
   try {
     logger.info("MAILER_GENERATING_PDF");
@@ -83,32 +79,7 @@ const enviarCorreoConQR = async (email: string, tickets: ITicketQR[]) => {
       attachment: attachments,
     };
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorJson: any;
-      try {
-        errorJson = JSON.parse(errorText || "{}");
-      } catch {
-        errorJson = { message: errorText };
-      }
-      logger.error("MAILER_BREVO_ERROR", { error: errorJson });
-      return null;
-    }
-
-    const data = await response.json();
-    logger.info("MAILER_SENT", { messageId: (data as any)?.messageId });
-    return data;
+    return await sendTransactionalEmail(body);
   } catch (error) {
     logger.error("MAILER_SEND_ERROR", { error: (error as Error).message });
     return null;
@@ -125,11 +96,6 @@ export const sendPromoterInvitationEmail = async (
   promoterCode: string,
   commissionPercentage: number,
 ) => {
-  const apiKey = env.BREVO_API_KEY;
-  if (!apiKey) {
-    logger.error("MAILER_MISSING_BREVO_KEY");
-    return null;
-  }
 
   try {
     const safePromoterName = escapeHtml(promoterName);
@@ -175,38 +141,8 @@ export const sendPromoterInvitationEmail = async (
       htmlContent: htmlContent,
     };
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorJson: any;
-      try { errorJson = JSON.parse(errorText || "{}"); } catch { errorJson = { message: errorText }; }
-
-      if (
-        errorJson.code === "unauthorized" &&
-        errorJson.message?.includes("unrecognised IP")
-      ) {
-        logger.error("MAILER_BREVO_UNAUTHORIZED_IP", {
-          ip: errorJson.message.match(/\d+\.\d+\.\d+\.\d+/)?.[0] || "desconocida"
-        });
-      } else {
-        logger.error("MAILER_BREVO_ERROR", { error: errorJson });
-      }
-      return { error: errorJson, success: false };
-    }
-
-    const data = await response.json();
-    logger.info("MAILER_INVITATION_SENT", { messageId: (data as any)?.messageId });
-    return { data, success: true };
+    const data = await sendTransactionalEmail(body);
+    return data ? { data, success: true } : null;
   } catch (error) {
     logger.error("MAILER_INVITATION_ERROR", { error: (error as Error).message });
     return null;
@@ -219,11 +155,6 @@ export const sendAccountClaimEmail = async (
   claimUrl: string,
   purpose: 'claim' | 'reset' = 'claim',
 ) => {
-  const apiKey = env.BREVO_API_KEY;
-  if (!apiKey) {
-    logger.error("MAILER_MISSING_BREVO_KEY");
-    return null;
-  }
 
   try {
     const safeName = escapeHtml(buyerName || "comprador");
@@ -259,26 +190,7 @@ export const sendAccountClaimEmail = async (
       htmlContent,
     };
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error("MAILER_CLAIM_ERROR", { error: errorText });
-      return null;
-    }
-
-    const data = await response.json();
-    logger.info("MAILER_CLAIM_SENT", { messageId: (data as any)?.messageId });
-    return data;
+    return await sendTransactionalEmail(body);
   } catch (error) {
     logger.error("MAILER_CLAIM_ERROR", { error: (error as Error).message });
     return null;
@@ -296,11 +208,6 @@ export interface IExtraVoucher {
 }
 
 export const enviarCorreoConExtras = async (email: string, extras: IExtraVoucher[]) => {
-    const apiKey = env.BREVO_API_KEY;
-    if (!apiKey) {
-        logger.error("MAILER_MISSING_BREVO_KEY");
-        return null;
-    }
 
     try {
         const eventName = extras[0]?.eventTitle || "Evento";
@@ -338,26 +245,7 @@ export const enviarCorreoConExtras = async (email: string, extras: IExtraVoucher
             htmlContent: htmlContent,
         };
 
-        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-            method: "POST",
-            headers: {
-                accept: "application/json",
-                "api-key": apiKey,
-                "content-type": "application/json",
-            },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(10000)
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            logger.error("MAILER_EXTRAS_ERROR", { error: errorText });
-            return null;
-        }
-
-        const data = await response.json();
-        logger.info("MAILER_EXTRAS_SENT", { messageId: (data as any)?.messageId });
-        return data;
+        return await sendTransactionalEmail(body);
     } catch (error) {
         logger.error("MAILER_EXTRAS_SEND_ERROR", { error: (error as Error).message });
         return null;
