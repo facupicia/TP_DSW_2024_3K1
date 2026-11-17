@@ -23,11 +23,13 @@ Directorio de release: `/home/facu/eventlife-releases/20261117-1345-smtp/`. Cont
 
 La imagen `eventlife-backend:smtp-20261117-1345`, identificador `sha256:7939a7ade7753ac5ed9795c1e8cb00826e017a4a8111ee63df174668c13b626b4`, quedó publicada con `MAIL_PROVIDER=smtp`, `DB_SYNC=false`, estado healthy y cero reinicios al comprobarla. La verificación previa dentro de la imagen aprobó y el proceso publicado registró `STARTUP_MAILER_STATUS` con `ready=true`. El endpoint público `/health` respondió 200.
 
-El usuario autorizó un único email de prueba a la cuenta del remitente. A las 13:45 UTC Gmail aceptó el envío desde el contenedor, con PDF de 4419 bytes generado por la aplicación, identificado explícitamente como prueba sin validez. Message-ID: `<c0deb794-db4f-195c-8049-babda6579276@gmail.com>`. No se crearon compras, entradas válidas ni enlaces de recuperación. La aceptación SMTP se verificó; la recepción en bandeja requiere confirmación del destinatario.
+El usuario autorizó un único email de prueba a la cuenta del remitente. A las 13:45 UTC Gmail aceptó el envío desde el contenedor, con PDF de 4419 bytes generado por la aplicación, identificado explícitamente como prueba sin validez. Message-ID: `<c0deb794-db4f-195c-8049-babda6579276@gmail.com>`. No se crearon compras, entradas válidas ni enlaces de recuperación. El destinatario confirmó expresamente que recibió el correo con el PDF: aceptación SMTP y recepción verificadas.
 
-La evidencia y configuración privadas se conservaron en el directorio del release. Para volver a la versión anterior, sin revertir datos:
+La evidencia y configuración privadas se conservaron en el directorio del release.
 
 El catálogo público también respondió 200. Se conservaron dos emails anteriores en la outbox, con próximo intento automático a las 14:03 UTC; no se adelantaron ni se enviaron pruebas adicionales.
+
+Para volver a la versión anterior, sin revertir datos:
 
 ```sh
 docker compose -p backend-eventlife \
