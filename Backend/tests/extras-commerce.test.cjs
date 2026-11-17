@@ -48,6 +48,9 @@ test('mixed purchase creates linked vouchers, tracks quantities, and persists bo
   const jobs = await f.source.getRepository(models.OutboxJob).find({ select: ['id', 'kind', 'payload'] });
   assert.deepEqual(jobs.map(job => job.payload.type).sort(), ['send-extra-email', 'send-ticket-email']);
   assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'approved');
+  const response = { statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
+  await f.load('payment/payment.controller.ts').getPaymentStatus({ user: { id: data.buyer.id }, query: { external_reference: payment.external_reference }, header: () => '' }, response);
+  assert.equal(response.body.status, 'approved', 'Compensation for a duplicate charge must not hide the fulfilled purchase');
 });
 
 test('extras without a stock cap still track sold units and refund restores them', async () => {
@@ -83,6 +86,9 @@ test('a second approved payment for the same checkout stages compensation withou
   const request = await f.source.getRepository(models.RefundRequest).findOneByOrFail({ paymentLogId: result.logId });
   assert.equal(request.status, 'pending');
   assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'approved');
+  const response = { statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
+  await f.load('payment/payment.controller.ts').getPaymentStatus({ user: { id: data.buyer.id }, query: { external_reference: payment.external_reference }, header: () => '' }, response);
+  assert.equal(response.body.status, 'approved', 'Compensation for a duplicate charge must not hide the fulfilled purchase');
 });
 
 test('changing current catalog prices does not alter the price frozen in an existing checkout', async () => {
