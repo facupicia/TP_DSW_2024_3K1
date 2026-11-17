@@ -85,6 +85,39 @@ export async function executeRefund(requestId: string): Promise<void> {
     });
 }
 
+// A refund or chargeback initiated at the provider must invalidate unredeemed
+// vouchers too. This reconciles confirmed provider state; it never sends money.
+export async function reconcilePaymentReversal(paymentId: string, status: 'refunded' | 'charged_back', externalReference?: string): Promise<void> {
+    await AppDataSource.transaction(async manager => {
+        const log = await manager.findOne(PaymentLog, { where: { mpPaymentId: paymentId }, lock: { mode: 'pessimistic_write' } });
+        if (!log) {
+            if (externalReference) await manager.createQueryBuilder().update(CheckoutOrder).set({ status })
+                .where('"externalReference" = :externalReference', { externalReference }).andWhere("status IN ('pending','failure')").execute();
+            return;
+        }
+        if (log.status === status) return;
+        const [tickets] = await manager.query(`UPDATE ticket SET status='cancelled' WHERE "paymentLogId"=$1 AND status='active' RETURNING "ticketTypeId"`, [log.id]);
+        const [extras] = await manager.query(`UPDATE extra_item SET status='cancelled' WHERE "paymentLogId"=$1 AND status='active' RETURNING "eventProductId",quantity`, [log.id]);
+        const counts = new Map<number, number>();
+        for (const ticket of tickets) counts.set(ticket.ticketTypeId, (counts.get(ticket.ticketTypeId) || 0) + 1);
+        for (const [id, quantity] of [...counts].sort((a,b) => a[0]-b[0])) await manager.query(`UPDATE ticket_type SET "soldCount"=GREATEST("soldCount"-$2,0) WHERE id=$1`, [id, quantity]);
+        counts.clear();
+        for (const extra of extras) counts.set(extra.eventProductId, (counts.get(extra.eventProductId) || 0) + extra.quantity);
+        for (const [id, quantity] of [...counts].sort((a,b) => a[0]-b[0])) await manager.query(`UPDATE event_product SET "soldCount"=GREATEST("soldCount"-$2,0) WHERE id=$1`, [id, quantity]);
+        await manager.update(PaymentLog, log.id, { status: status === 'refunded' ? PaymentStatus.REFUNDED : PaymentStatus.CHARGED_BACK,
+            refundedAt: new Date(), refundAmount: Number(log.buyerTotalAmount || log.totalAmount), refundReason: `MercadoPago: ${status}` });
+        await manager.update(RefundRequest, { paymentLogId: log.id, status: 'pending' }, status === 'refunded'
+            ? { status: 'confirmed', lastError: null }
+            : { status: 'failed', lastError: 'Payment charged back at provider; manual review required' });
+        if (log.externalReference) {
+            const order = await manager.findOne(CheckoutOrder, { where: { externalReference: log.externalReference } });
+            if (order && (order.snapshot.fulfilledPaymentId === paymentId || (!order.snapshot.fulfilledPaymentId && log.status === PaymentStatus.COMPLETED))) {
+                await manager.update(CheckoutOrder, order.externalReference, { status });
+            }
+        }
+    });
+}
+
 export async function getRefundStatus(paymentId: string, requestedBy?: number, roles: string[] = []) {
     const log = await AppDataSource.getRepository(PaymentLog).findOneBy({ mpPaymentId: paymentId });
     if (!log || (!roles.includes('admin') && log.organizerId !== requestedBy)) return { canRefund: false, alreadyRefunded: false, message: 'Pago no encontrado o no autorizado' };

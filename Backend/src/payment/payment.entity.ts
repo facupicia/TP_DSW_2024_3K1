@@ -5,7 +5,8 @@ export enum PaymentStatus {
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  REFUNDED = 'refunded'
+  REFUNDED = 'refunded',
+  CHARGED_BACK = 'charged_back'
 }
 
 // Registro de pagos procesados para garantizar idempotencia del webhook

@@ -37,3 +37,18 @@ test('native business fixture refuses a URL that names the application database'
   try { await assert.rejects(require('./business-fixture.cjs').businessFixture(), /explicitly named eventlife_business_test/); }
   finally { if (previous === undefined) delete process.env.EVENTLIFE_TEST_POSTGRES_URL; else process.env.EVENTLIFE_TEST_POSTGRES_URL = previous; }
 });
+
+test('chargeback migration adds its financial status without rewriting existing payments', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`CREATE TYPE payment_log_status_enum AS ENUM ('processing','completed','failed','refunded');
+      CREATE TABLE payment_log(id integer PRIMARY KEY,status payment_log_status_enum);
+      INSERT INTO payment_log VALUES(1,'completed');`);
+    const { PaymentChargebackStatus1794945300000 } = load('database/migrations/1794945300000-payment-chargeback-status.ts');
+    const migration = new PaymentChargebackStatus1794945300000();
+    await migration.up({ query: queryAdapter(db) }); await migration.up({ query: queryAdapter(db) });
+    await db.exec(`INSERT INTO payment_log VALUES(2,'charged_back')`);
+    assert.equal((await db.query('SELECT status FROM payment_log WHERE id=1')).rows[0].status, 'completed');
+    await assert.rejects(migration.down(), /preserve financial history/);
+  } finally { await db.close(); }
+});

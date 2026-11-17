@@ -366,7 +366,9 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     
     try {
         // Signed notification acknowledged only once durably persisted.
-        await enqueueOutbox(AppDataSource.manager, 'payment-'+paymentId, 'payment', {
+        const identity = req.body?.id || req.body?.date_created || req.headers?.['x-request-id'] || req.headers?.['x-signature'] || req.body?.action || 'initial';
+        const notificationKey = createHash('sha256').update(JSON.stringify([paymentId, identity])).digest('hex');
+        await enqueueOutbox(AppDataSource.manager, 'payment-'+notificationKey, 'payment', {
             paymentId: String(paymentId), externalReference: req.body?.data?.external_reference || req.query.external_reference || '',
             mpUserId: req.body?.user_id ? String(req.body.user_id).slice(0,30) : undefined
         });
@@ -514,6 +516,7 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
                 status = 'approved';
                 break;
             case PaymentStatus.FAILED:
+            case PaymentStatus.CHARGED_BACK:
                 status = 'failure';
                 break;
             case PaymentStatus.REFUNDED:

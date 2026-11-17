@@ -35,7 +35,10 @@ async function dispatch(kind: string, payload: any) {
         else if (['rejected','cancelled'].includes(lookup.payment.status)) {
             const {CheckoutOrder}=await import('../payment/checkout-order.entity');
             if (lookup.payment.external_reference) await AppDataSource.getRepository(CheckoutOrder).update({externalReference:lookup.payment.external_reference,status:'pending'},{status:'failure'});
-        } else if (!['refunded', 'charged_back'].includes(lookup.payment.status)) throw new Error('Payment approval pending');
+        } else if (['refunded', 'charged_back'].includes(lookup.payment.status)) {
+            const { reconcilePaymentReversal } = await import('../payment/refund.service');
+            await reconcilePaymentReversal(payload.paymentId, lookup.payment.status as 'refunded' | 'charged_back', lookup.payment.external_reference);
+        } else throw new Error('Payment approval pending');
     } else throw new Error('Unknown outbox kind');
 }
 
