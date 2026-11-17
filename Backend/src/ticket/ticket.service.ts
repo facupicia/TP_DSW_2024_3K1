@@ -9,6 +9,7 @@ import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
 import { getEventDateTime } from "../common/utils/ticket";
 import { randomUUID } from "crypto";
+import { reservedQuantity } from '../payment/preference.service';
 
 /**
  * Ticket Service
@@ -159,7 +160,7 @@ export async function purchase(
         if (!user) throw new HttpError(404, 'USER_NOT_FOUND', "Usuario no encontrado");
 
         const ticketType = await queryRunner.manager.createQueryBuilder(TicketType, "tt")
-            .setLock("pessimistic_write")
+            .setLock("pessimistic_write", undefined, ['tt'])
             .leftJoinAndSelect("tt.event", "event")
             .where("tt.id = :id", { id: ticketTypeId })
             .getOne();
@@ -485,7 +486,7 @@ export async function inviteGuests(
         await queryRunner.startTransaction();
 
         const ticketType = await queryRunner.manager.createQueryBuilder(TicketType, "tt")
-            .setLock("pessimistic_write")
+            .setLock("pessimistic_write", undefined, ['tt'])
             .leftJoinAndSelect("tt.event", "event")
             .where("tt.id = :id", { id: ticketTypeId })
             .getOne();
@@ -523,12 +524,13 @@ export async function inviteGuests(
             }
         }
 
+        const reserved = await reservedQuantity(queryRunner.manager, 'ticket', ticketType.id);
         const stockUpdate = await queryRunner.manager
             .createQueryBuilder()
             .update(TicketType)
             .set({ soldCount: () => `"soldCount" + ${requestedTickets}` })
             .where("id = :id", { id: ticketType.id })
-            .andWhere(`"soldCount" + ${requestedTickets} <= "capacity"`)
+            .andWhere('"soldCount" + :requested + :reserved <= "capacity"', { requested: requestedTickets, reserved })
             .execute();
 
         if (!stockUpdate.affected) {

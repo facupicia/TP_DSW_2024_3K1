@@ -502,6 +502,7 @@ export async function updateStockAtomic(
         .set({ soldCount: () => `"soldCount" + ${quantity}` })
         .where('id = :id', { id: ticketTypeId })
         .andWhere('("soldCount" + :amount) <= capacity', { amount: quantity })
+        .andWhere('status = :activeStatus', { activeStatus: 'active' })
         .execute();
     
     return updateResult.affected > 0;
@@ -658,7 +659,7 @@ export async function processApprovedPayment(
         const ticketTypeRepo = queryRunner.manager.getRepository(TicketType);
         const ticketTypeIds = ticketItems.map(it => it.referenceId);
         const ticketTypes = ticketTypeIds.length > 0
-            ? await ticketTypeRepo.find({ where: { id: In(ticketTypeIds) }, relations: ['event'] })
+            ? await ticketTypeRepo.find({ where: { id: In(ticketTypeIds) }, relations: ['event'], withDeleted: true })
             : [];
         for (const item of ticketItems) {
             if (!ticketTypes.some(tt => tt.id === item.referenceId)) {
@@ -670,7 +671,7 @@ export async function processApprovedPayment(
         const eventProductRepo = queryRunner.manager.getRepository(EventProduct);
         const extraIds = extraItems.map(it => it.referenceId);
         const extras = extraIds.length > 0
-            ? await eventProductRepo.find({ where: { id: In(extraIds) }, relations: ['event', 'product'] })
+            ? await eventProductRepo.find({ where: { id: In(extraIds) }, relations: ['event', 'product'], withDeleted: true })
             : [];
         for (const item of extraItems) {
             if (!extras.some(ep => ep.id === item.referenceId)) {
@@ -872,7 +873,8 @@ export async function processApprovedPayment(
         // The order row is locked above. A different payment for an already
         // fulfilled checkout must be compensated, never delivered a second time.
         if (order?.status === 'approved') return await failFulfilment('Checkout already fulfilled');
-        if (ticketTypes.some(t=>t.status!=='active' || t.event.active===false) || extras.some(e=>!e.isActive || e.event.active===false)) return await failFulfilment('Event or item unavailable');
+        if (ticketTypes.some(t=>t.status!=='active' || t.deletedAt || t.event.active===false || t.event.deletedAt)
+            || extras.some(e=>!e.isActive || e.event.active===false || e.event.deletedAt)) return await failFulfilment('Event or item unavailable');
         for (const item of [...ticketItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const stockUpdated = await updateStockAtomic(queryRunner, item.referenceId, item.quantity);
             if (!stockUpdated) {

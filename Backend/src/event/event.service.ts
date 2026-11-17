@@ -31,6 +31,7 @@ import { HttpError } from '../common/errors/http-error';
 import { env } from '../config/env';
 import { assertSandboxSeller } from '../payment/mp.config';
 import { invalidateUserAuthCache } from '../common/middleware/authToken';
+import { reservedQuantity } from '../payment/preference.service';
 
 function ticketTypeStatusFromActive(active: boolean | undefined, fallback: TicketTypeStatus): TicketTypeStatus {
     if (active === undefined) return fallback;
@@ -238,10 +239,14 @@ export async function update(
     try {
         const event = await queryRunner.manager.findOne(Event, {
             where: { id: eventId },
-            relations: ["category", "ticketTypes"]
+            lock: { mode: 'pessimistic_write' }
         });
         if (!event) throw new HttpError(404, 'EVENT_NOT_FOUND', "Event not found");
         if (event.user_id !== userId && !isAdmin) throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para modificar este evento");
+        if (data.ticketTypes?.length) await getActiveSubscription(event.user_id, queryRunner.manager);
+        event.ticketTypes = await queryRunner.manager.createQueryBuilder(TicketType, 'tt')
+            .where('tt.eventId = :eventId', { eventId }).orderBy('tt.id', 'ASC')
+            .setLock('pessimistic_write').getMany();
 
         if (data.categoryId) {
             const category = await queryRunner.manager.findOne(Category, { where: { id: data.categoryId } });
@@ -307,6 +312,12 @@ export async function update(
                         if (ttData.capacity !== undefined && ttData.capacity < existingTT.soldCount) {
                             throw new HttpError(400, 'CAPACITY_BELOW_SOLD', `No se puede reducir la capacidad por debajo de lo vendido (${existingTT.soldCount}) para ${existingTT.name}`);
                         }
+                        if (ttData.capacity !== undefined) {
+                            const reserved = await reservedQuantity(queryRunner.manager, 'ticket', existingTT.id);
+                            if (ttData.capacity < existingTT.soldCount + reserved) {
+                                throw new HttpError(409, 'CAPACITY_BELOW_COMMITTED', 'La capacidad no puede ser menor a las entradas vendidas y reservadas');
+                            }
+                        }
                         existingTT.name = ttData.name ?? existingTT.name;
                         existingTT.price = ttData.price ?? existingTT.price;
                         existingTT.capacity = ttData.capacity ?? existingTT.capacity;
@@ -350,13 +361,27 @@ export async function remove(userId: number, isAdmin: boolean, eventId: number):
     await queryRunner.startTransaction();
 
     try {
-        const event = await queryRunner.manager.findOne(Event, { where: { id: eventId }, relations: ['ticketTypes'] });
+        const event = await queryRunner.manager.findOne(Event, { where: { id: eventId }, lock: { mode: 'pessimistic_write' } });
         if (!event) throw new HttpError(404, 'EVENT_NOT_FOUND', "Event not found");
         if (event.user_id !== userId && !isAdmin) throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para eliminar este evento");
+        event.ticketTypes = await queryRunner.manager.createQueryBuilder(TicketType, 'tt')
+            .where('tt.eventId = :eventId', { eventId }).orderBy('tt.id', 'ASC').setLock('pessimistic_write').getMany();
+        event.eventProducts = await queryRunner.manager.createQueryBuilder(EventProduct, 'ep')
+            .where('ep.eventId = :eventId', { eventId }).orderBy('ep.id', 'ASC').setLock('pessimistic_write').getMany();
+        const [protectedPurchase] = await queryRunner.query(`SELECT EXISTS (
+            SELECT 1 FROM ticket t JOIN ticket_type tt ON tt.id=t."ticketTypeId"
+              WHERE tt."eventId"=$1 AND t.status='active' AND (t."purchasePrice">0 OR t."paymentLogId" IS NOT NULL)
+            UNION ALL SELECT 1 FROM extra_item ei JOIN event_product ep ON ep.id=ei."eventProductId"
+              WHERE ep."eventId"=$1 AND ei.status='active' AND (ei."purchasePrice">0 OR ei."paymentLogId" IS NOT NULL)
+        ) AS present`, [eventId]);
+        if (protectedPurchase.present) throw new HttpError(409, 'PAID_EVENT_REFUND_REQUIRED', 'Primero debes tramitar los reembolsos de las compras activas antes de eliminar el evento');
 
         event.active = false;
         event.deletedAt = new Date();
         await queryRunner.manager.save(Event, event);
+        await queryRunner.manager.update(EventProduct, { eventId }, { isActive: false });
+        await queryRunner.manager.update((await import('../payment/checkout-order.entity')).CheckoutOrder,
+            { eventId, status: 'pending' }, { status: 'failure' });
 
         if (event.ticketTypes) {
             for (const tt of event.ticketTypes) {

@@ -4,6 +4,7 @@ import { Coupon } from "./coupon.entity";
 import { Event } from "../event/event.entity";
 import { CustomRequest } from "../common/middleware/authToken";
 import AppDataSource from "../db";
+import { getEventDateTime } from '../common/utils/ticket';
 
 /**
  * CREATE COUPON (Organizer only)
@@ -236,12 +237,12 @@ export const validateCoupon = async (req: Request, res: Response) => {
         // Verify event is active and not in the past
         const event = await Event.findOne({
             where: { id: numericEventId },
-            select: ['id', 'active', 'date', 'time']
+            select: ['id', 'active', 'date', 'time', 'timeZone', 'startDateTime']
         });
         if (!event || !event.active) {
             return res.status(400).json({ valid: false, message: "El evento no está activo" });
         }
-        const eventDateTime = new Date(`${event.date}T${event.time}`);
+        const eventDateTime = getEventDateTime(event);
         if (new Date() > eventDateTime) {
             return res.status(400).json({ valid: false, message: "El evento ya finalizó" });
         }

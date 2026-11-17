@@ -83,8 +83,8 @@ export async function assignScanner(
     }
 
     const roleNames = getRoleNames(scanner);
-    const canOpenScanner = roleNames.some(role => ["scanner", "organizer", "admin"].includes(role));
-    if (!canOpenScanner) {
+    const hasScannerPermission = roleNames.some(role => ["scanner", "admin"].includes(role));
+    if (!hasScannerPermission) {
         const [scannerRole] = await findRolesByNames(["scanner"]);
         scanner.roles = [...(scanner.roles || []), scannerRole];
         await userRepo.save(scanner);
