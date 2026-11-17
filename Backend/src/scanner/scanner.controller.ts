@@ -93,13 +93,14 @@ export class ScannerController {
                     ALREADY_USED: 409,
                     CANCELLED: 409,
                     INACTIVE_TICKET_TYPE: 409,
+                    INACTIVE_EXTRA: 409,
                     INACTIVE_EVENT: 409,
                     EVENT_PAST: 409,
                     EVENT_NOT_STARTED: 409,
                     RACE_CONDITION: 409
                 };
                 const status = statusMap[result.code || ""] || 400;
-                const payload: Record<string, any> = { message: result.message };
+                const payload: Record<string, any> = { code: result.code, message: result.message };
                 if (result.usedAt) payload.ticket = { usedAt: result.usedAt };
                 return res.status(status).json(payload);
             }

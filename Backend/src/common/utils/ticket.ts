@@ -5,12 +5,18 @@ import { eventInstant } from './event-time';
 
 export function sanitizeTicketCode(code: unknown): string {
     if (typeof code !== "string") return "";
-    let cleanCode = code.trim().replace(/\/+$/, "");
-    if (cleanCode.includes("/") || cleanCode.includes("http")) {
-        const parts = cleanCode.split("/");
-        cleanCode = parts[parts.length - 1];
+    let cleanCode = code.trim();
+    if (!cleanCode || cleanCode.length > 2048) return "";
+    if (/^https?:\/\//i.test(cleanCode)) {
+        try { cleanCode = new URL(cleanCode).pathname; }
+        catch { return ""; }
+    } else if (cleanCode.includes(":")) {
+        return "";
     }
-    return cleanCode.trim();
+    cleanCode = cleanCode.split(/[?#]/, 1)[0].replace(/\/+$/, "").split("/").pop() || "";
+    // Voucher identifiers are UUIDs; reject arbitrary/oversized lookups before SQL.
+    return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(cleanCode)
+        ? cleanCode.toLowerCase() : "";
 }
 
 export function getEventDateTime(event: { date: string | Date; time?: string | null; startDateTime?: Date | string | null; timeZone?: string }): Date {
