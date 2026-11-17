@@ -96,6 +96,7 @@ export interface GuestBuyerInput {
 }
 
 export interface MarketPlaceInfo {
+    canSellExtras: boolean;
     commissionPercent: number;
     serviceFeePercent: number;
     minimumServiceFee: number;
@@ -133,6 +134,9 @@ export async function validatePurchaseEligibility(
             code: 'EMPTY_CART',
             statusCode: 400
         };
+    }
+    if (items.length + (extraItems?.length || 0) > 100) {
+        return { valid: false, code: 'CART_TOO_LARGE', error: 'El carrito supera el máximo de 100 tipos de artículo.', statusCode: 400 };
     }
 
     if (items.some(i => !Number.isInteger(i.quantity) || i.quantity <= 0 || i.quantity > 10)) {
@@ -211,6 +215,8 @@ export async function validatePurchaseEligibility(
 
         let extras: EventProduct[] = [];
         if (extraItems && extraItems.length > 0) {
+            const subscription = await getActiveSubscription(ticketTypes[0].event.user_id);
+            if (!subscription.plan.canSellExtras) return { valid: false, code: 'PLAN_LIMIT_EXTRAS', error: 'El plan del organizador no permite vender extras.', statusCode: 403 };
             const extraIds = extraItems.map(i => i.eventProductId);
             extras = await eventProductRepo.find({
                 where: { id: In(extraIds) },
@@ -361,6 +367,7 @@ export async function validatePurchaseEligibility(
 export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPlaceInfo> {
     // Default: comisión FREE plan
     const defaultInfo: MarketPlaceInfo = {
+        canSellExtras: false,
         commissionPercent: 8.00,
         serviceFeePercent: 12.00,
         minimumServiceFee: 0,
@@ -380,6 +387,7 @@ export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPla
         const minimumServiceFee = Number(subscription.plan.minimumServiceFee);
         
         return {
+            canSellExtras: subscription.plan.canSellExtras,
             commissionPercent,
             serviceFeePercent: Number.isFinite(serviceFeePercent) ? serviceFeePercent : defaultInfo.serviceFeePercent,
             minimumServiceFee: Number.isFinite(minimumServiceFee) ? minimumServiceFee : defaultInfo.minimumServiceFee,
@@ -716,12 +724,9 @@ export function buildPreferenceBody(
     const metadataJson = JSON.stringify(body.metadata);
     if (metadataJson.length > 7000) {
         logger.warn('PREFERENCE_METADATA_TOO_LARGE', { length: metadataJson.length, itemCount: metadataItems.length });
-        // Strip the large items array to keep essential fields
-        body.metadata.items = undefined;
-        // If still too large, reject the cart
-        if (JSON.stringify(body.metadata).length > 7000) {
-            throw new Error('CART_TOO_LARGE_FOR_MP');
-        }
+        // The items are required for reconciliation. Never create a payable
+        // preference whose fulfilment metadata has been silently removed.
+        throw new Error('CART_TOO_LARGE_FOR_MP');
     }
 
     return body;
@@ -759,6 +764,11 @@ async function preparePreference(
     options: { requireOrganizerToken: boolean }
 ): Promise<PreparedPreference> {
     const { items, extraItems = [] } = input;
+    if (!Array.isArray(items) || !items.length || !Array.isArray(extraItems) || items.length + extraItems.length > 100
+        || items.some(item => !Number.isSafeInteger(item.ticketTypeId) || item.ticketTypeId <= 0 || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 10)
+        || extraItems.some(item => !Number.isSafeInteger(item.eventProductId) || item.eventProductId <= 0 || !Number.isSafeInteger(item.quantity) || item.quantity < 1 || item.quantity > 10)
+        || new Set(items.map(item => item.ticketTypeId)).size !== items.length
+        || new Set(extraItems.map(item => item.eventProductId)).size !== extraItems.length) throw new Error('INVALID_CART');
 
     const purchasePayer = await resolvePurchasePayer(null, input);
 
@@ -792,6 +802,7 @@ async function preparePreference(
     }
 
     const marketplaceInfo = await getMarketPlaceInfo(ticketTypes[0].event.user_id);
+    if (extraItems.length && !marketplaceInfo.canSellExtras) throw new Error('PLAN_LIMIT_EXTRAS');
 
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();

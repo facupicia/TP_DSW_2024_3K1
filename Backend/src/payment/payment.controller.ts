@@ -221,6 +221,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             });
 
         } catch (error: any) {
+            if (error.message === 'PLAN_LIMIT_EXTRAS') return res.status(403).json({ code: 'PLAN_LIMIT_EXTRAS', message: 'El plan del organizador no permite vender extras.' });
+            if (['INVALID_CART', 'CART_TOO_LARGE_FOR_MP'].includes(error.message)) return res.status(400).json({ code: 'INVALID_CART', message: 'El carrito supera los límites admitidos o contiene artículos inválidos.' });
             if (error.message === 'ORGANIZER_MP_NOT_LINKED') {
                 logger.warn('PREFERENCE_USING_PLATFORM_TOKEN', {
                     userId,
@@ -489,7 +491,10 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
         const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
         
         // Buscar el log de pago por external_reference
-        const paymentLog = await paymentLogRepo.findOne({
+        let paymentLog = order.snapshot.fulfilledPaymentId ? await paymentLogRepo.findOne({
+            where: { externalReference: externalRef, mpPaymentId: String(order.snapshot.fulfilledPaymentId) }
+        }) : await paymentLogRepo.findOne({ where: { externalReference: externalRef, status: PaymentStatus.COMPLETED }, order: { createdAt: 'DESC' } });
+        if (!paymentLog) paymentLog = await paymentLogRepo.findOne({
             where: { externalReference: externalRef },
             order: { createdAt: 'DESC' }
         });

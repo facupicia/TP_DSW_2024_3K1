@@ -866,13 +866,13 @@ export async function processApprovedPayment(
             await queryRunner.query('ROLLBACK TO SAVEPOINT fulfilment');
             await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
             await stageRefund(queryRunner.manager, log, reason, undefined, true);
-            if (order && order.status !== 'approved') await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'failure' });
+            if (order && !['approved', 'refunded'].includes(order.status)) await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'failure' });
             await queryRunner.commitTransaction();
             return { success: false, error: reason, logId: log.id };
         };
         // The order row is locked above. A different payment for an already
         // fulfilled checkout must be compensated, never delivered a second time.
-        if (order?.status === 'approved') return await failFulfilment('Checkout already fulfilled');
+        if (order && ['approved', 'refunded'].includes(order.status)) return await failFulfilment('Checkout already fulfilled');
         if (ticketTypes.some(t=>t.status!=='active' || t.deletedAt || t.event.active===false || t.event.deletedAt)
             || extras.some(e=>!e.isActive || e.event.active===false || e.event.deletedAt)) return await failFulfilment('Event or item unavailable');
         for (const item of [...ticketItems].sort((a,b)=>a.referenceId-b.referenceId)) {
@@ -984,7 +984,10 @@ export async function processApprovedPayment(
                     userEmail: user.email, userName: user.firstname || '', claimUrl: claim.claimUrl } });
             }
         }
-        if (order) await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'approved' });
+        if (order) await queryRunner.manager.createQueryBuilder().update(CheckoutOrder)
+            .set({ status: 'approved', snapshot: () => `jsonb_set(snapshot, '{fulfilledPaymentId}', to_jsonb(:fulfilledPaymentId::text))` })
+            .where('"externalReference" = :ref', { ref: order.externalReference })
+            .setParameter('fulfilledPaymentId', paymentId).execute();
 
         await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.COMPLETED);
 

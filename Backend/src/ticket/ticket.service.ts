@@ -293,7 +293,7 @@ export async function findLastPurchase(userId: number, externalReference?: strin
         .andWhere("ticket.paymentLogId = :paymentLogId", { paymentLogId: lastLog.id })
         .andWhere("ticket.deletedAt IS NULL")
         .orderBy("ticket.createdAt", "DESC")
-        .take(10)
+        .take(1000)
         .getMany();
 
     const mapped = tickets.map(t => ({

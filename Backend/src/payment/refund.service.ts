@@ -78,6 +78,10 @@ export async function executeRefund(requestId: string): Promise<void> {
         await manager.update(RefundRequest, request.id, { status: 'confirmed', refundId: String(result.id), lastError: null });
         await manager.update(PaymentLog, log.id, { status: PaymentStatus.REFUNDED, refundedAt: new Date(), refundedBy: request.requestedBy,
             refundReason: request.reason, refundAmount: request.amount });
+        if (order && (order.snapshot.fulfilledPaymentId === log.mpPaymentId ||
+            (!order.snapshot.fulfilledPaymentId && log.status === PaymentStatus.COMPLETED))) {
+            await manager.update(CheckoutOrder, order.externalReference, { status: 'refunded' });
+        }
     });
 }
 
