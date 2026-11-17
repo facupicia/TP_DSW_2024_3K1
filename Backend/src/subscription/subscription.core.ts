@@ -3,6 +3,7 @@ import AppDataSource from '../db';
 import { SubscriptionPlan } from './subscription_plan.entity';
 import { UserSubscription, SubscriptionStatus } from './user_subscription.entity';
 import { User } from '../user/user.entity';
+import { enqueueOutbox } from '../queue/outbox.service';
 import { logger } from '../common/services/logger';
 import { getMPConfig, sanitizeUrl } from '../payment/mp.config';
 
@@ -283,6 +284,18 @@ export async function activateSubscription(
         });
         if (userSub && userSub.userId !== userId) throw new Error('SUBSCRIPTION_OWNER_MISMATCH');
         if (userSub && userSub.planId !== planId) throw new Error('SUBSCRIPTION_PLAN_MISMATCH');
+        if (userSub?.cancelledAt && userSub.status !== SubscriptionStatus.ACTIVE) throw new Error('SUBSCRIPTION_SUPERSEDED');
+
+        const previous = await subscriptionRepo.createQueryBuilder('subscription')
+            .where('subscription.userId = :userId', { userId })
+            .andWhere('subscription.externalSubscriptionId IS NOT NULL')
+            .andWhere('subscription.externalSubscriptionId != :externalSubscriptionId', { externalSubscriptionId })
+            .andWhere('subscription.cancelledAt IS NULL').getMany();
+        for (const old of previous) {
+            await subscriptionRepo.update(old.id, { cancelledAt: new Date() });
+            await enqueueOutbox(queryRunner.manager, `subscription-cancel-${old.externalSubscriptionId}`, 'subscription-cancel',
+                { externalSubscriptionId: old.externalSubscriptionId });
+        }
 
         await subscriptionRepo.update({ userId, status: SubscriptionStatus.ACTIVE }, { status: SubscriptionStatus.EXPIRED });
         
@@ -415,13 +428,16 @@ export async function processSubscriptionWebhook(
     switch (status) {
         case 'authorized':
         case 'active':
-            await activateSubscription(
+            try { await activateSubscription(
                 userId,
                 planId,
                 dataId,
                 billingType,
                 subscription.next_payment_date
-            );
+            ); } catch (error) {
+                if ((error as Error).message !== 'SUBSCRIPTION_SUPERSEDED') throw error;
+                logger.info('SUBSCRIPTION_SUPERSEDED_NOTIFICATION_IGNORED', { dataId });
+            }
             break;
             
         case 'paused':
@@ -449,6 +465,13 @@ export async function processSubscriptionWebhook(
  * Cancela una suscripción activa de un usuario
  * También cancela en MP si hay externalSubscriptionId
  */
+export async function cancelSupersededRenewal(externalSubscriptionId: string): Promise<void> {
+    const response = await new PreApproval(getSubscriptionMPClient()).update({
+        id: externalSubscriptionId, body: { status: 'cancelled' }
+    });
+    if (response.status !== 'cancelled') throw new Error('Subscription cancellation not confirmed by provider');
+}
+
 export async function cancelUserSubscription(userId: number): Promise<void> {
     const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
     

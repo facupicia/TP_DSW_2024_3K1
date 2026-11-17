@@ -24,6 +24,9 @@ async function dispatch(kind: string, payload: any) {
     } else if (kind === 'refund') {
         const { executeRefund } = await import('../payment/refund.service');
         await executeRefund(payload.refundRequestId);
+    } else if (kind === 'subscription-cancel') {
+        const { cancelSupersededRenewal } = await import('../subscription/subscription.core');
+        await cancelSupersededRenewal(payload.externalSubscriptionId);
     } else if (kind === 'subscription') {
         const { processSubscriptionWebhook } = await import('../subscription/subscription.core');
         await processSubscriptionWebhook(payload.type, payload.dataId);
