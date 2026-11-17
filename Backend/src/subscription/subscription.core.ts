@@ -61,11 +61,11 @@ export async function validateCheckoutInput(
 ): Promise<{ valid: boolean; error?: string }> {
     const { userId, planId, billingType } = input;
     
-    if (!userId) {
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
         return { valid: false, error: 'Usuario no autorizado' };
     }
     
-    if (!planId || isNaN(planId)) {
+    if (!Number.isSafeInteger(planId) || planId <= 0) {
         return { valid: false, error: 'Plan ID inválido' };
     }
     
@@ -83,9 +83,12 @@ export async function validateCheckoutInput(
     if (plan.monthlyPrice <= 0) {
         return { valid: false, error: 'Este plan es gratuito, no requiere pago' };
     }
+    if (billingType === 'yearly' && !(Number(plan.yearlyPrice) > 0)) {
+        return { valid: false, error: 'Este plan no ofrece facturación anual' };
+    }
     
     const userRepo = AppDataSource.getRepository(User);
-    const user = await userRepo.findOne({ where: { id: userId } });
+    const user = await userRepo.findOne({ where: { id: userId, active: true } });
     
     if (!user) {
         return { valid: false, error: 'Usuario no encontrado' };
@@ -101,7 +104,8 @@ export function calculateSubscriptionPrice(
     plan: SubscriptionPlan,
     billingType: 'monthly' | 'yearly'
 ): number {
-    if (billingType === 'yearly' && plan.yearlyPrice && plan.yearlyPrice > 0) {
+    if (billingType === 'yearly') {
+        if (!(Number(plan.yearlyPrice) > 0)) throw new Error('YEARLY_BILLING_UNAVAILABLE');
         return Number(plan.yearlyPrice);
     }
     return Number(plan.monthlyPrice);
@@ -138,7 +142,7 @@ export async function createSubscriptionCheckout(
             body: {
                 reason: `EventLife ${plan.displayName || plan.name} - ${billingType === 'yearly' ? 'Anual' : 'Mensual'}`,
                 auto_recurring: {
-                    frequency: 1,
+                    frequency: billingType === 'yearly' ? 12 : 1,
                     frequency_type: 'months',
                     transaction_amount: price,
                     currency_id: 'ARS'
@@ -198,9 +202,10 @@ export function isValidSubscriptionWebhook(type: string): boolean {
 export function parseSubscriptionExternalRef(
     externalRef: string
 ): { userId: number; planId: number; billingType: 'monthly' | 'yearly' } | null {
+    if (typeof externalRef !== 'string' || externalRef.length > 200) return null;
     const parts = externalRef.split('|');
     
-    if (parts.length < 4 || parts[0] !== 'SUB') {
+    if (parts.length !== 4 || parts[0] !== 'SUB') {
         logger.error('SUBSCRIPTION_INVALID_EXTERNAL_REF', { partsLength: parts.length });
         return null;
     }
@@ -209,7 +214,7 @@ export function parseSubscriptionExternalRef(
     const planId = Number(parts[2]);
     const billingType = parts[3] as 'monthly' | 'yearly';
     
-    if (!userId || !planId || !['monthly', 'yearly'].includes(billingType)) {
+    if (!Number.isSafeInteger(userId) || userId <= 0 || !Number.isSafeInteger(planId) || planId <= 0 || !['monthly', 'yearly'].includes(billingType)) {
         logger.error('SUBSCRIPTION_PARSE_ERROR', { userId, planId, billingType });
         return null;
     }
@@ -262,6 +267,8 @@ export async function activateSubscription(
     await queryRunner.startTransaction();
 
     try {
+        const user = await queryRunner.manager.findOne(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+        if (!user) throw new Error('SUBSCRIPTION_USER_UNAVAILABLE');
         const subscriptionRepo = queryRunner.manager.getRepository(UserSubscription);
         const planRepo = queryRunner.manager.getRepository(SubscriptionPlan);
         
@@ -270,26 +277,26 @@ export async function activateSubscription(
             throw new Error(`Plan not found: ${planId}`);
         }
         
-        // Desactivar suscripción activa actual
-        await subscriptionRepo.update(
-            { userId, status: SubscriptionStatus.ACTIVE },
-            { status: SubscriptionStatus.EXPIRED }
-        );
-        
         // Buscar si ya existe esta suscripción externa
         let userSub = await subscriptionRepo.findOne({
             where: { externalSubscriptionId }
         });
+        if (userSub && userSub.userId !== userId) throw new Error('SUBSCRIPTION_OWNER_MISMATCH');
+        if (userSub && userSub.planId !== planId) throw new Error('SUBSCRIPTION_PLAN_MISMATCH');
+
+        await subscriptionRepo.update({ userId, status: SubscriptionStatus.ACTIVE }, { status: SubscriptionStatus.EXPIRED });
         
         const now = new Date();
-        const periodEnd = calculatePeriodEnd(now, billingType, nextPaymentDate);
+        const periodEnd = calculatePeriodEnd(now, billingType, nextPaymentDate || userSub?.currentPeriodEnd);
+        if (!Number.isFinite(periodEnd.getTime())) throw new Error('SUBSCRIPTION_PERIOD_INVALID');
         
         if (userSub) {
             // Actualizar existente
             userSub.status = SubscriptionStatus.ACTIVE;
             userSub.currentPeriodEnd = periodEnd;
             userSub.planId = planId;
-            userSub.currentPeriodStart = now;
+            userSub.currentPeriodStart = userSub.currentPeriodStart || now;
+            userSub.billingCycle = billingType;
         } else {
             // Crear nueva
             userSub = subscriptionRepo.create({
@@ -298,7 +305,8 @@ export async function activateSubscription(
                 status: SubscriptionStatus.ACTIVE,
                 currentPeriodStart: now,
                 currentPeriodEnd: periodEnd,
-                externalSubscriptionId
+                externalSubscriptionId,
+                billingCycle: billingType
             });
         }
         
@@ -332,13 +340,10 @@ export async function cancelSubscriptionByExternalId(
 ): Promise<void> {
     const subscriptionRepo = AppDataSource.getRepository(UserSubscription);
     
-    const result = await subscriptionRepo.update(
-        { externalSubscriptionId },
-        {
-            status: SubscriptionStatus.CANCELLED,
-            cancelledAt: new Date()
-        }
-    );
+    // Cancellation stops renewal. Keep an already-paid entitlement until expiry.
+    const result = await subscriptionRepo.createQueryBuilder().update(UserSubscription)
+        .set({ cancelledAt: new Date(), status: () => `CASE WHEN "currentPeriodEnd" > NOW() AND status='active' THEN status ELSE 'cancelled' END` })
+        .where('"externalSubscriptionId" = :externalSubscriptionId', { externalSubscriptionId }).execute();
     
     if (result.affected && result.affected > 0) {
         logger.info('SUBSCRIPTION_CANCELLED', {
@@ -387,7 +392,7 @@ export async function processSubscriptionWebhook(
     const subscription = await fetchSubscriptionFromMP(dataId);
     if (!subscription) {
         logger.error('SUBSCRIPTION_NOT_FOUND', { dataId });
-        return;
+        throw new Error('SUBSCRIPTION_PROVIDER_UNAVAILABLE');
     }
     
     const status = subscription.status;
@@ -459,6 +464,7 @@ export async function cancelUserSubscription(userId: number): Promise<void> {
     if (activeSub.plan.monthlyPrice <= 0) {
         throw new Error('No puedes cancelar el plan gratuito');
     }
+    if (activeSub.cancelledAt) return;
     
     // Cancelar en MP si existe external ID
     if (activeSub.externalSubscriptionId) {
@@ -466,10 +472,11 @@ export async function cancelUserSubscription(userId: number): Promise<void> {
             const client = getSubscriptionMPClient();
             const preApproval = new PreApproval(client);
             
-            await preApproval.update({
+            const cancellation = await preApproval.update({
                 id: activeSub.externalSubscriptionId,
                 body: { status: 'cancelled' }
             });
+            if (cancellation.status !== 'cancelled') throw new Error('Cancellation not confirmed by provider');
             
             logger.info('SUBSCRIPTION_CANCELLED_IN_MP', {
                 userId,
@@ -482,12 +489,13 @@ export async function cancelUserSubscription(userId: number): Promise<void> {
                 externalId: activeSub.externalSubscriptionId,
                 error: error?.message
             });
-            // Continuar con cancelación local aunque falle MP
+            throw new Error('Subscription provider cancellation unavailable; retry required');
         }
     }
     
     // Cancelar localmente
-    activeSub.status = SubscriptionStatus.CANCELLED;
+    activeSub.status = activeSub.currentPeriodEnd && activeSub.currentPeriodEnd > new Date()
+        ? SubscriptionStatus.ACTIVE : SubscriptionStatus.CANCELLED;
     activeSub.cancelledAt = new Date();
     await subscriptionRepo.save(activeSub);
     

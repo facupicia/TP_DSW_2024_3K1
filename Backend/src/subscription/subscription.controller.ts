@@ -13,11 +13,14 @@ import {
     processSubscriptionWebhook,
     cancelUserSubscription,
     fetchSubscriptionFromMP,
-    parseSubscriptionExternalRef
+    parseSubscriptionExternalRef,
+    isValidSubscriptionWebhook
 } from "./subscription.core";
 import { logger } from "../common/services/logger";
 import { getRedis } from "../common/services/redis";
 import { getMPConfig } from "../payment/mp.config";
+import { enqueueOutbox } from '../queue/outbox.service';
+import { createHash } from 'crypto';
 
 const PLANS_CACHE_KEY = "subscription:plans";
 const PLANS_CACHE_TTL = 300; // 5 minutos
@@ -333,7 +336,7 @@ export const cancelMySubscription = async (req: CustomRequest, res: Response) =>
 export const subscriptionWebhook = async (req: Request, res: Response) => {
     try {
         const type = req.query.type || req.body?.type;
-        const dataId = req.query['data.id'] || req.body?.data?.id;
+        const dataId = req.paymentId || req.body?.data?.id || req.query['data.id'];
 
         logger.info('SUBSCRIPTION_WEBHOOK_RECEIVED', {
             type,
@@ -347,13 +350,16 @@ export const subscriptionWebhook = async (req: Request, res: Response) => {
             return res.sendStatus(200);
         }
 
-        await processSubscriptionWebhook(String(type), String(dataId));
+        if (!isValidSubscriptionWebhook(String(type))) return res.sendStatus(200);
+        const identity = req.body?.id || req.body?.date_created || req.headers?.['x-request-id'] || req.headers?.['x-signature'] || req.body?.action || 'unspecified';
+        const key = createHash('sha256').update(JSON.stringify([type, dataId, identity])).digest('hex');
+        await enqueueOutbox(AppDataSource.manager, `subscription-${key}`, 'subscription', { type: String(type), dataId: String(dataId) });
 
         return res.sendStatus(200);
 
     } catch (error: any) {
         logger.error("Subscription webhook error:", { error: error?.message });
-        return res.sendStatus(500);
+        return res.sendStatus(503);
     }
 };
 

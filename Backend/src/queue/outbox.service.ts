@@ -24,6 +24,9 @@ async function dispatch(kind: string, payload: any) {
     } else if (kind === 'refund') {
         const { executeRefund } = await import('../payment/refund.service');
         await executeRefund(payload.refundRequestId);
+    } else if (kind === 'subscription') {
+        const { processSubscriptionWebhook } = await import('../subscription/subscription.core');
+        await processSubscriptionWebhook(payload.type, payload.dataId);
     } else if (kind === 'payment') {
         const { resolveWebhookPayment, processApprovedPayment } = await import('../payment/payment.core');
         const lookup = await resolveWebhookPayment(payload.paymentId, { external_reference: payload.externalReference, mpUserId:payload.mpUserId } as any);
