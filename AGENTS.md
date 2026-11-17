@@ -22,7 +22,7 @@ EventLife es una plataforma Full-Stack integral para la gestión de eventos y ve
 | ORM | TypeORM | 0.3.31 |
 | Base de Datos | PostgreSQL | 16 (NeonDB) |
 | Caché | Redis | 5.12.1 |
-| Validación | Zod | 3.25.76 |
+| Validación | Zod | 4.6.7 |
 | Auth | JWT + bcrypt + Google OAuth |
 | Pagos | MercadoPago SDK | 3.6.1 |
 | Documentación | Swagger UI | 5.0.1 |
@@ -30,7 +30,7 @@ EventLife es una plataforma Full-Stack integral para la gestión de eventos y ve
 ### Frontend
 | Componente | Tecnología | Versión |
 |------------|------------|---------|
-| Framework | Angular | 21.2.25 |
+| Framework | Angular | 21.2.26 |
 | Lenguaje | TypeScript | ~5.9.3 |
 | Estilos | Tailwind CSS | 3.4.1 |
 | Componentes UI | Angular Material | 21.2.14 |
@@ -38,7 +38,7 @@ EventLife es una plataforma Full-Stack integral para la gestión de eventos y ve
 | Gráficos | ApexCharts + ng-apexcharts | 5.10.3 / 2.4.0 |
 | Escáner QR | @zxing/ngx-scanner | 21.0.0 |
 | Notificaciones | ngx-toastr | 20.0.5 |
-| SSR | Angular SSR | 21.2.24 |
+| SSR | Angular SSR | 21.2.30 |
 
 ### Infraestructura
 - **Backend Hosting:** Render (https://backend-eventlife.onrender.com)
