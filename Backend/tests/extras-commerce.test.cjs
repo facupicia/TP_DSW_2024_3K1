@@ -8,11 +8,12 @@ before(async () => {
   core = f.load('payment/payment.core.ts');
   models = Object.assign({}, ...['payment/payment.entity.ts', 'payment/checkout-order.entity.ts', 'extra/extraItem.entity.ts',
     'ticket/ticket.entity.ts', 'extra/eventProduct.entity.ts', 'ticketType/ticketType.entity.ts',
-    'queue/outbox.entity.ts', 'payment/refund-request.entity.ts'].map(f.load));
+    'queue/outbox.entity.ts', 'payment/refund-request.entity.ts', 'event/event.entity.ts'].map(f.load));
 });
 after(async () => { if (f) await f.close(); });
 beforeEach(async () => {
   await f.source.query('TRUNCATE ticket, extra_item, payment_log, checkout_order, refund_request, outbox_job RESTART IDENTITY CASCADE');
+  await f.source.getRepository(models.Event).update(data.event.id, { active: true, deletedAt: null });
   await f.source.getRepository(models.TicketType).update(data.ticketType.id, { soldCount: 0, capacity: 10, price: 100, status: 'active' });
   await f.source.getRepository(models.EventProduct).update(data.eventProduct.id, { soldCount: 0, stock: 10, hasStock: true, eventPrice: 25, isActive: true });
 });
@@ -129,4 +130,14 @@ test('repeated refund requests cancel all linked quantities and restore stock ex
   assert.equal((await f.source.getRepository(models.EventProduct).findOneByOrFail({ id: data.eventProduct.id })).soldCount, 0);
   assert.equal((await f.source.getRepository(models.TicketType).findOneByOrFail({ id: data.ticketType.id })).soldCount, 0);
   assert.equal(await f.source.getRepository(models.ExtraItem).countBy({ status: 'cancelled' }), 1);
+});
+
+test('an approved payment arriving after event removal is durably compensated, not lost in retries', async () => {
+  const payment = await checkout();
+  await f.source.getRepository(models.Event).update(data.event.id, { active: false, deletedAt: new Date() });
+  const result = await core.processApprovedPayment(payment.id, payment);
+  assert.equal(result.success, false);
+  assert.equal(await count(models.Ticket), 0);
+  assert.equal(await count(models.ExtraItem), 0);
+  assert.equal(await count(models.RefundRequest), 1);
 });
