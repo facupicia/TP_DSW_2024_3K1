@@ -107,7 +107,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     } catch { /* ignore */ }
 
     if (!parsedCart || parsedCart.eventId !== Number(this.eventId) || !Array.isArray(parsedCart.items) || parsedCart.items.length === 0) {
-      this.router.navigate([`/events/${this.eventId}`]);
+      this.router.navigate([`/event/${this.eventId}`]);
       return;
     }
 
@@ -153,7 +153,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
         .filter((x): x is { eventProduct: any; quantity: number } => !!x);
 
       if (this.cartItems.length === 0) {
-        this.router.navigate([`/events/${this.eventId}`]);
+        this.router.navigate([`/event/${this.eventId}`]);
         return;
       }
 
@@ -397,6 +397,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
             
             try {
               const lastPurchase = {
+                statusToken: response.status_token,
                 preferenceId: response.id,
                 external_reference: response.external_reference,
                 eventId: Number(this.eventId),
@@ -409,7 +410,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
                 at: Date.now()
               };
               if (typeof window !== 'undefined' && window.localStorage) {
-                window.localStorage.setItem('lastPurchase', JSON.stringify(lastPurchase));
+                window.sessionStorage.setItem('lastPurchase', JSON.stringify(lastPurchase));
               }
             } catch { }
             window.location.href = response.init_point;

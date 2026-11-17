@@ -3,9 +3,40 @@ import { logger } from "../common/services/logger";
 import { AdminService } from './admin.service';
 import { checkAuthToken, CustomRequest } from '../common/middleware/authToken';
 import { checkRoleAuth } from '../common/middleware/checkRole';
+import AppDataSource from '../db';
+import {RefundRequest} from '../payment/refund-request.entity';
+import {enqueueOutbox} from '../queue/outbox.service';
 
 const router = Router();
 const adminService = new AdminService();
+
+router.get('/operations', checkAuthToken, checkRoleAuth('admin'), async(req,res,next)=>{
+    try {
+        const queue = await AppDataSource.query(`SELECT kind,COUNT(*)::integer AS pending,
+            COUNT(*) FILTER(WHERE attempts>0)::integer AS retrying,MIN("createdAt") AS "oldestCreatedAt"
+            FROM outbox_job WHERE "processedAt" IS NULL GROUP BY kind`);
+        const failedRefunds=await AppDataSource.getRepository(RefundRequest).find({where:{status:'failed'},order:{createdAt:'ASC'},take:50});
+        res.json({queue,failedRefunds});
+    } catch(error){next(error);}
+});
+
+router.post('/refunds/:id/retry',checkAuthToken,checkRoleAuth('admin'),async(req,res,next)=>{
+    try {
+        if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(400).json({message:'ID inválido'});
+        const scheduled=await AppDataSource.transaction(async manager=>{
+            const request=await manager.findOne(RefundRequest,{where:{id:req.params.id},lock:{mode:'pessimistic_write'}});
+            if (!request || request.status!=='failed') return false;
+            const [job]=await manager.query(`SELECT "lockedUntil" FROM outbox_job WHERE key=$1 FOR UPDATE`,['refund-'+request.paymentLogId]);
+            if(job?.lockedUntil && new Date(job.lockedUntil)>new Date()) return false;
+            await manager.update(RefundRequest,request.id,{status:'pending',lastError:null});
+            await enqueueOutbox(manager,'refund-'+request.paymentLogId,'refund',{refundRequestId:request.id});
+            await manager.query(`UPDATE outbox_job SET "processedAt"=NULL, "availableAt"=NOW(), attempts=0,
+                "lastError"=NULL,payload=$2::jsonb WHERE key=$1`,['refund-'+request.paymentLogId,JSON.stringify({refundRequestId:request.id})]);
+            return true;
+        });
+        res.status(scheduled?202:409).json({scheduled});
+    } catch(error){next(error);}
+});
 
 /**
  * Helper to parse date range from query params

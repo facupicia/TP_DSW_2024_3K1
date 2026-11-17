@@ -4,7 +4,7 @@ import { env } from '../config/env';
 
 /**
  * MercadoPago Configuration
- * 
+ *
  * Centraliza la configuración de MercadoPago.
  */
 
@@ -28,6 +28,21 @@ export interface MPConfig {
 }
 
 let cachedConfig: MPConfig | null = null;
+
+/** Checkout Pro uses the normal API and init_point even for test sellers. */
+export async function assertSandboxSeller(): Promise<string | undefined> {
+    if (env.MP_MODE !== 'sandbox') return;
+    const response = await fetch(`${MP_ENDPOINTS.api}/users/me`, {
+        headers: { Authorization: `Bearer ${getMPConfig().accessToken}` },
+        signal: AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw new Error('MP_SANDBOX_SELLER_UNAVAILABLE');
+    const account = await response.json() as { id?: string | number; tags?: string[] };
+    if (!account.id || !Array.isArray(account.tags) || !account.tags.includes('test_user')) {
+        throw new Error('MP_SANDBOX_REQUIRES_TEST_SELLER');
+    }
+    return String(account.id);
+}
 
 /**
  * Valida y retorna la configuración de MercadoPago

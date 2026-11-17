@@ -1,3 +1,4 @@
+import { csvText } from '../../utils/csv';
 import { Component, OnInit, inject, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -427,7 +428,7 @@ export class CreatorStatsComponent implements OnInit {
         // Generate CSV
         const headers = ['Evento', 'Tickets Vendidos', 'Ingresos', 'Ocupación'];
         const rows = this.comparative.map(e => [
-            `"${e.title}"`,
+            csvText(e.title),
             e.participants,
             e.revenue,
             `${(e.attendanceRate * 100).toFixed(1)}%`
@@ -444,6 +445,7 @@ export class CreatorStatsComponent implements OnInit {
         link.href = URL.createObjectURL(blob);
         link.download = `estadisticas_${this.period || 'historico'}_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
+        URL.revokeObjectURL(link.href);
 
         this.toastService.success('CSV descargado');
     }

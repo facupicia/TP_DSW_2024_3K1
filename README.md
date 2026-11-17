@@ -3,8 +3,8 @@
   <h1>🎟️ EventLife</h1>
   <p><strong>Plataforma Integral de Gestión de Eventos y Venta de Entradas</strong></p>
 
-  [![Angular](https://img.shields.io/badge/Angular-17-DD0031?style=for-the-badge&logo=angular&logoColor=white)](https://angular.io/)
-  [![Node.js](https://img.shields.io/badge/Node.js-18-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+  [![Angular](https://img.shields.io/badge/Angular-21-DD0031?style=for-the-badge&logo=angular&logoColor=white)](https://angular.io/)
+  [![Node.js](https://img.shields.io/badge/Node.js-22-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
   [![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
@@ -41,14 +41,14 @@ El proyecto destaca por su arquitectura escalable, seguridad robusta y una exper
 ### 📊 Gestión y Dashboard
 *   **Estadísticas:** Gráficos interactivos con **ApexCharts**.
 *   **Escáner QR:** Validación de accesos en tiempo real para control de puerta.
-*   **Mapas:** Geolocalización de eventos con **Leaflet**.
+*   **Mapas:** Ubicación de eventos y enlaces a **Google Maps**.
 
 ## 🛠️ Stack Tecnológico
 
 ### Frontend (Client-Side)
-*   **Framework:** Angular 17 (Standalone Components)
+*   **Framework:** Angular 21 (Standalone Components)
 *   **Estilos:** Tailwind CSS (Diseño Responsivo)
-*   **Librerías:** Leaflet (Mapas), ApexCharts (Gráficos), ZXing (Escáner QR), HTML2Canvas (PDF).
+*   **Librerías:** Enlaces a Google Maps, ApexCharts (Gráficos), ZXing (Escáner QR), HTML2Canvas (PDF).
 
 ### Backend (Server-Side)
 *   **Runtime:** Node.js & Express
@@ -73,7 +73,7 @@ El proyecto destaca por su arquitectura escalable, seguridad robusta y una exper
 ## ⚙️ Instalación y Ejecución
 
 ### Prerrequisitos
-*   Node.js (v18+)
+*   Node.js 22 (mínimo 22.12)
 *   PostgreSQL
 *   Redis (Opcional para desarrollo, recomendado para prod)
 
@@ -86,7 +86,7 @@ cd TP_DSW_2024_3K1
 ### 2. Configurar Backend
 ```bash
 cd Backend
-npm install
+npm ci
 ```
 
 Crea un archivo `.env` en `Backend/` basado en `.env.example`:
@@ -130,7 +130,7 @@ npm run dev
 ### 3. Configurar Frontend
 ```bash
 cd ../Frontend
-npm install
+npm ci
 npm start
 ```
 Accede a `http://localhost:4200`.
@@ -143,3 +143,15 @@ Accede a `http://localhost:4200`.
   <p>Universidad Tecnológica Nacional</p>
   <p>Actualizado al año 2026</p>
 </div>
+
+## Verificación y migraciones
+
+Backend: `npm test`, `npm run build` y `npm audit`. Frontend: `npm run build`, `npm run test:ci` y `npm audit`. CI exige que las compilaciones y pruebas pasen.
+
+Los trabajos de compra, emails y devoluciones se guardan en una outbox PostgreSQL. Redis es opcional; se recomienda para caché y rate limiting compartido entre réplicas.
+
+Ejecutar `npm run db:migrate` en desarrollo o `npm run db:migrate:prod` después de compilar en un paso de release. Producción exige `DB_SYNC=false` y ninguna migración pendiente.
+
+[Correcciones, validación y operación de octubre de 2026](docs/auditoria-2026-10-02/REMediacion.md).
+
+[Configurar y ejecutar compras con el vendedor de prueba de MercadoPago](Backend/docs/MERCADOPAGO_SANDBOX.md).

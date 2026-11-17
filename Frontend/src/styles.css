@@ -149,3 +149,13 @@ body {
     @apply min-w-full w-full;
   }
 }
+/* Keyboard feedback must remain visible even on controls with utility outline resets. */
+:where(button, a, input, select, textarea):focus-visible { outline: 3px solid #2563eb !important; outline-offset: 3px; }
+@media (max-width: 480px) {
+  #toast-container { left: 12px; right: 12px; }
+  .ngx-toastr { min-width: 0; max-width: 100%; width: 100%; overflow-wrap: anywhere; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up, .animate-pulse { animation: none; }
+  button, a { transition-property: color, background-color, border-color; }
+}

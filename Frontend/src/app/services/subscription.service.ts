@@ -147,6 +147,13 @@ export class SubscriptionService {
         return this.getMySubscription(true);
     }
 
+    clearSubscriptionCache(): void {
+        this.subscriptionCache$ = null;
+        this.cacheTimestamp = 0;
+        this.subscriptionSubject.next(null);
+        this.limitsSubject.next(null);
+    }
+
     // Quick check if user is PRO (from cached data)
     isPro(): boolean {
         const sub = this.subscriptionSubject.getValue();
@@ -167,15 +174,15 @@ export class SubscriptionService {
     }
 
     createCheckout(planId: number, billingType: 'monthly' | 'yearly' = 'monthly'): Observable<CheckoutResponse> {
-        return this.http.post<CheckoutResponse>(`${this.baseUrl}/checkout/${planId}`, { billingType });
+        return this.http.post<CheckoutResponse>(`${this.baseUrl}/checkout/${planId}`, { billingType }).pipe(tap(() => this.clearSubscriptionCache()));
     }
 
     cancelSubscription(): Observable<{ message: string; success: boolean }> {
-        return this.http.post<{ message: string; success: boolean }>(`${this.baseUrl}/cancel`, {});
+        return this.http.post<{ message: string; success: boolean }>(`${this.baseUrl}/cancel`, {}).pipe(tap(() => this.clearSubscriptionCache()));
     }
 
     verifySubscription(preapprovalId: string): Observable<any> {
-        return this.http.post(`${this.baseUrl}/verify/${preapprovalId}`, {});
+        return this.http.post(`${this.baseUrl}/verify/${preapprovalId}`, {}).pipe(tap(() => this.clearSubscriptionCache()));
     }
 
     refreshLimits(): void {

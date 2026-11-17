@@ -1,3 +1,6 @@
+import { AccountClaimToken } from './accountClaimToken.entity';
+import { invalidateUserAuthCache } from '../common/middleware/authToken';
+import {enqueueEmail} from '../queue/outbox.service';
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { Brackets, IsNull } from "typeorm";
@@ -8,7 +11,6 @@ import { getRoleNames, findRolesByNames } from "./role.entity";
 import { tokenSing } from "../common/services/generateToken";
 import { issueRefreshToken } from "../common/services/sessionTokens";
 import { createAccountClaimToken, consumeAccountClaimToken, findValidAccountClaimToken } from "./accountClaim.service";
-import { sendAccountClaimEmail } from "../common/services/mailer";
 import { logger } from "../common/services/logger";
 import { env } from "../config/env";
 import AppDataSource from "../db";
@@ -38,6 +40,7 @@ export interface UpdateUserData {
   provincia?: string;
   ciudad?: string;
   imgPerfil?: string;
+  currentPassword?: string;
   address?: string;
 }
 
@@ -72,6 +75,7 @@ export function validatePassword(password: string): { valid: boolean; message?: 
   if (!trimmed || trimmed.length < 8) {
     return { valid: false, message: "La contraseña debe tener al menos 8 caracteres." };
   }
+  if (Buffer.byteLength(password,'utf8')>72) return {valid:false,message:'La contraseña supera el límite de 72 bytes.'};
   return { valid: true };
 }
 
@@ -203,6 +207,7 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
     throw err;
   }
 
+  const emailChanged = data.email !== undefined && data.email.toLowerCase().trim() !== user.email;
   if (data.firstname !== undefined) user.firstname = data.firstname;
   if (data.lastname !== undefined) user.lastname = data.lastname;
   if (data.phone !== undefined) user.phone = data.phone;
@@ -226,6 +231,12 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
     }
   }
 
+  if (data.password || emailChanged) {
+    const credential = await User.createQueryBuilder('u').addSelect('u.password').where('u.id=:id',{id:targetId}).getOne();
+    if (!data.currentPassword || !credential || !await bcrypt.compare(data.currentPassword, credential.password)) {
+        throw Object.assign(new Error('Reauthentication required'), { status:403, code:'REAUTHENTICATION_REQUIRED' });
+    }
+  }
   if (data.password) {
     const validation = validatePassword(data.password);
     if (!validation.valid) {
@@ -235,9 +246,23 @@ export async function update(targetId: number, data: UpdateUserData): Promise<Us
       throw err;
     }
     user.password = await bcrypt.hash(data.password, 12);
+
   }
 
-  await user.save();
+  if (data.password || emailChanged) user.credentialsVersion = (user.credentialsVersion || 0) + 1;
+  await AppDataSource.transaction(async manager => {
+    const current = await manager.findOne(User, {where:{id:user.id},lock:{mode:'pessimistic_write'}});
+    if (!current || current.credentialsVersion !== user.credentialsVersion - (data.password || emailChanged ? 1 : 0)) throw Object.assign(new Error('Profile changed; retry'), {status:409,code:'PROFILE_CHANGED'});
+    if (!current.active || current.deletedAt) throw Object.assign(new Error('Invalid account'),{code:'INVALID_CREDENTIALS'});
+    const patch:any = {};
+    for (const key of ['firstname','lastname','phone','birth','pais','provincia','ciudad','address','imgPerfil','email','password']) if(data[key]!==undefined) patch[key]=user[key];
+    if(data.password || emailChanged) patch.credentialsVersion=user.credentialsVersion;
+    if(Object.keys(patch).length) await manager.update(User,user.id,patch);
+    if (data.password || data.email !== undefined) {
+        await manager.update(RefreshToken, { userId: user.id, revokedAt: IsNull() }, { revokedAt: new Date() });
+    }
+  });
+  invalidateUserAuthCache(user.id);
   return user;
 }
 
@@ -294,12 +319,12 @@ export async function requestAccountClaim(email: string): Promise<void> {
 
   if (!user || !user.active || !user.isGuestAccount) return;
 
-  const claim = await createAccountClaimToken(user);
-  await sendAccountClaimEmail(
-    user.email,
-    `${user.firstname || ""} ${user.lastname || ""}`.trim(),
-    claim.claimUrl
-  );
+  await AppDataSource.transaction(async manager=>{
+    const current=await manager.findOne(User,{where:{id:user.id},lock:{mode:'pessimistic_write'}});
+    if(!current?.active || current.deletedAt || !current.isGuestAccount) return;
+    const claim=await createAccountClaimToken(current,manager);
+    await enqueueEmail(manager,'claim-request-'+crypto.createHash('sha256').update(claim.rawToken).digest('hex'),{type:'send-account-claim',payload:{userEmail:current.email,userName:current.firstname,claimUrl:claim.claimUrl}});
+  });
 }
 
 export async function validateAccountClaim(token: string) {
@@ -324,17 +349,25 @@ export async function completeAccountClaim(token: string, password: string): Pro
     throw err;
   }
 
-  const user = await consumeAccountClaimToken(token);
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = await AppDataSource.transaction(async manager => {
+    const claimed = await consumeAccountClaimToken(token, manager);
+    if (!claimed) return null;
+    claimed.password = hashedPassword;
+    claimed.isGuestAccount = false;
+    claimed.claimedAt = new Date();
+    claimed.credentialsVersion = (claimed.credentialsVersion || 0) + 1;
+    await manager.save(claimed);
+    await manager.update(RefreshToken, { userId: claimed.id, revokedAt: IsNull() }, { revokedAt: new Date() });
+    return claimed;
+  });
   if (!user) {
     const err = new Error("CLAIM_TOKEN_INVALID") as any;
     err.code = "CLAIM_TOKEN_INVALID";
     throw err;
   }
 
-  user.password = await bcrypt.hash(password, 12);
-  user.isGuestAccount = false;
-  user.claimedAt = new Date();
-  await User.save(user);
+  invalidateUserAuthCache(user.id);
 
   const tokenSession = await tokenSing(user);
   return { user, token: tokenSession };
@@ -508,22 +541,20 @@ export async function authenticateGoogle(credential: string, clientIP?: string):
 
     await repo.save(user);
   } else {
-    let shouldSave = false;
-
-    if (user.isGuestAccount) {
-      user.isGuestAccount = false;
-      user.claimedAt = new Date();
-      shouldSave = true;
-    }
-
-    if (picture && picture !== user.imgPerfil) {
-      user.imgPerfil = picture;
-      shouldSave = true;
-    }
-
-    if (shouldSave) {
-      await repo.save(user);
-    }
+    user = await AppDataSource.transaction(async manager=>{
+      const current=await manager.findOne(User,{where:{id:user.id},lock:{mode:'pessimistic_write'}});
+      if (!current?.active || current.deletedAt) throw Object.assign(new Error('Invalid account'),{code:'INVALID_CREDENTIALS'});
+      if(current.isGuestAccount) {
+        current.isGuestAccount=false; current.claimedAt=new Date();current.credentialsVersion++;
+        await manager.update(AccountClaimToken,{userId:current.id,usedAt:IsNull()},{usedAt:new Date()});
+        await manager.update(RefreshToken,{userId:current.id,revokedAt:IsNull()},{revokedAt:new Date()});
+      }
+      if(picture) current.imgPerfil=picture;
+      await manager.save(current);
+      current.roles=user.roles;
+      return current;
+    });
+    invalidateUserAuthCache(user.id);
   }
 
   const token = await tokenSing(user);

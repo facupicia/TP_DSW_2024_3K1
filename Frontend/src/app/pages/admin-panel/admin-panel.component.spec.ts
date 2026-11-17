@@ -1,3 +1,6 @@
+import { provideToastr } from 'ngx-toastr';
+import { provideRouter } from '@angular/router';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AdminPanelComponent } from './admin-panel.component';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -10,7 +13,7 @@ describe('AdminPanelComponent (mobile)', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
     imports: [AdminPanelComponent],
-    providers: [provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
+    providers: [provideToastr(), provideRouter([]), provideNoopAnimations(), provideHttpClient(withInterceptorsFromDi()), provideHttpClientTesting()]
 }).compileComponents();
     fixture = TestBed.createComponent(AdminPanelComponent);
     component = fixture.componentInstance;
@@ -30,6 +33,7 @@ describe('AdminPanelComponent (mobile)', () => {
   });
 
   it('loads users only when users tab is active', () => {
+    component.cambiarTab('categories');
     spyOn<any>(component, 'cargarUsuarios').and.callThrough();
     component.cambiarTab('users');
     expect((component as any).cargarUsuarios).toHaveBeenCalled();
@@ -44,4 +48,3 @@ describe('AdminPanelComponent (mobile)', () => {
     expect(buttons.length).toBeGreaterThan(0);
   });
 });
-

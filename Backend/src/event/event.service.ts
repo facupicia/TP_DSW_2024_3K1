@@ -1,3 +1,4 @@
+import { eventInstant, DEFAULT_EVENT_ZONE } from '../common/utils/event-time';
 import { IsNull, In, MoreThanOrEqual } from "typeorm";
 import { Event } from "./event.entity";
 import { Category } from "../category/category.entity";
@@ -26,15 +27,10 @@ import { getCachedSSEStats, setCachedSSEStats } from "../common/services/redis";
 
 const FUTURE_EVENT_SQL = '"event"."startDateTime" > NOW()';
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
+import { env } from '../config/env';
+import { assertSandboxSeller } from '../payment/mp.config';
+import { invalidateUserAuthCache } from '../common/middleware/authToken';
 
 function ticketTypeStatusFromActive(active: boolean | undefined, fallback: TicketTypeStatus): TicketTypeStatus {
     if (active === undefined) return fallback;
@@ -67,6 +63,7 @@ interface CreateEventInput {
     image?: string;
     date: string;
     time?: string;
+    timeZone?: string;
     description?: string;
     destacado?: boolean;
     minAge?: number;
@@ -85,6 +82,7 @@ interface UpdateEventInput {
     image?: string;
     date?: string;
     time?: string;
+    timeZone?: string;
     description?: string;
     active?: boolean;
     destacado?: boolean;
@@ -104,7 +102,8 @@ interface RawCityRow { name: string; value: string; }
 export async function create(
     userId: number,
     data: CreateEventInput
-): Promise<{ event: Event; newToken?: string }> {
+): Promise<{ event: Event; newToken?: string; roles: string[] }> {
+    if (env.MP_MODE === 'sandbox') await assertSandboxSeller();
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -113,10 +112,10 @@ export async function create(
         const user = await queryRunner.manager.findOne(User, {
             where: { id: userId },
             relations: ['roles'],
-            select: { id: true, firstname: true, lastname: true, email: true, mpUserId: true, roles: { id: true, name: true } }
+            select: { id: true, firstname: true, lastname: true, email: true, mpUserId: true, credentialsVersion: true, roles: { id: true, name: true } }
         });
         if (!user) throw new HttpError(404, 'USER_NOT_FOUND', "User not found");
-        if (!user.mpUserId) throw new HttpError(403, 'MP_NOT_LINKED', 'Debes vincular tu cuenta de Mercado Pago para crear eventos y recibir pagos.');
+        if (env.MP_MODE !== 'sandbox' && !user.mpUserId) throw new HttpError(403, 'MP_NOT_LINKED', 'Debes vincular tu cuenta de Mercado Pago para crear eventos y recibir pagos.');
 
         const eventCheck = await canCreateEvent(userId, queryRunner.manager);
         if (!eventCheck.allowed) throw new HttpError(403, 'PLAN_LIMIT_EVENTS', eventCheck.reason || 'Plan limit reached');
@@ -127,7 +126,7 @@ export async function create(
             if (!ttCheck.allowed) throw new HttpError(403, 'PLAN_LIMIT_TICKET_TYPES', ttCheck.reason || 'Ticket type limit reached');
         }
 
-        const eventDateTime = new Date(`${data.date}T${data.time || '00:00'}`);
+        const eventDateTime = eventInstant(data.date, data.time || '00:00', data.timeZone);
         const now = new Date();
         now.setMinutes(now.getMinutes() - 5);
         if (eventDateTime < now) throw new HttpError(400, 'PAST_DATE', "La fecha y hora del evento no pueden ser en el pasado");
@@ -173,7 +172,8 @@ export async function create(
         event.image = data.image;
         event.date = new Date(data.date);
         event.time = data.time;
-        event.startDateTime = new Date(`${data.date}T${data.time || '00:00'}`);
+        event.timeZone = data.timeZone || DEFAULT_EVENT_ZONE;
+        event.startDateTime = eventInstant(data.date, data.time || '00:00', data.timeZone);
         event.description = data.description;
         event.destacado = data.destacado ?? false;
         event.minAge = data.minAge ?? 0;
@@ -204,6 +204,7 @@ export async function create(
 
         let newToken: string | undefined;
         if (wasPromotedToOrganizer) {
+            invalidateUserAuthCache(user.id);
             newToken = await tokenSing(user);
         }
 
@@ -212,7 +213,7 @@ export async function create(
         await invalidateEventDetailCache(event.id);
         logger.info('EVENT_CREATE_CACHE_INVALIDATED', { eventId: event.id, title: event.title });
 
-        return { event, newToken };
+        return { event, newToken, roles: getRoleNames(user) };
     } catch (error) {
         if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
         throw error;
@@ -263,17 +264,12 @@ export async function update(
         event.minAge = data.minAge ?? event.minAge;
         event.isPublic = data.isPublic ?? event.isPublic;
 
-        if (data.date) {
-            const newDateTime = new Date(`${data.date}T${data.time || event.time || '00:00'}`);
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - 5);
-            if (newDateTime < now) throw new HttpError(400, 'PAST_DATE', "La fecha y hora del evento no pueden ser en el pasado");
-            event.date = new Date(data.date);
+        if (data.date || data.time || data.timeZone) {
+            event.timeZone = data.timeZone || event.timeZone || DEFAULT_EVENT_ZONE;
+            const newDateTime = eventInstant(data.date || event.date, data.time || event.time || '00:00', event.timeZone);
+            if (newDateTime.getTime() < Date.now()-300000) throw new HttpError(400, 'PAST_DATE', 'La fecha y hora del evento no pueden ser en el pasado');
+            if (data.date) event.date = new Date(data.date);
             event.startDateTime = newDateTime;
-        } else if (data.time && data.time !== event.time) {
-            // If only time changed, recalculate startDateTime
-            const dateStr = event.date instanceof Date ? event.date.toISOString().split('T')[0] : String(event.date);
-            event.startDateTime = new Date(`${dateStr}T${data.time}`);
         }
 
         await queryRunner.manager.save(Event, event);

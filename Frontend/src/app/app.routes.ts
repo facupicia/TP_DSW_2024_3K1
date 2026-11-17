@@ -6,6 +6,7 @@ import { adminGuard } from './guards/admin.guard';
 import { scannerGuard } from './guards/scanner.guard';
 
 export const routes: Routes = [
+    { path:'reset-password', loadComponent:()=>import('./pages/reset-password/reset-password.component').then(m=>m.ResetPasswordComponent),title:'Recuperar contraseña' },
     { path: "", loadComponent: () => import('./pages/landing/landing.component').then(m => m.LandingComponent), title: 'Home' },
     { path: "login", loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent), title: 'Login' },
     { path: "register", loadComponent: () => import('./pages/register/register.component').then(m => m.RegisterComponent), title: 'Register' },

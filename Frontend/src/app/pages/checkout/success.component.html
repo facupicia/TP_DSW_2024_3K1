@@ -1,12 +1,18 @@
 <section class="min-h-screen flex items-center justify-center bg-white">
   <div class="max-w-md w-full p-8 text-center">
+    @if (confirmed) {
     <div class="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
       <svg class="w-8 h-8 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </div>
-      <h1 class="text-2xl font-bold text-gray-900 mb-2">Pago aprobado</h1>
+    }
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ confirmed ? 'Pago confirmado' : loading ? 'Confirmando tu compra' : 'Estado de tu compra' }}</h1>
+      @if (!loading && !confirmed) {
+        <p role="status" class="text-gray-700 mb-4">{{statusMessage}}</p>
+        <a routerLink="/my-tickets" class="inline-block underline text-blue-700">Revisar mis entradas</a>
+      }
 
       @if (loading) {
         <div class="space-y-4">
@@ -32,15 +38,15 @@
         <div class="mt-4 transition-opacity duration-300 ease-in-out opacity-100">
           @if (guestCheckout) {
             <p class="text-gray-700 mb-4">
-              ¡Pago confirmado! Enviamos tus entradas a <strong>{{ deliveryEmail || 'tu correo' }}</strong>.
+              Tus entradas están confirmadas. Recibirás el correo en <strong>{{ deliveryEmail || 'tu correo' }}</strong>.
             </p>
           }
           @if (!guestCheckout) {
             <p class="text-gray-700 mb-4">¡Pago confirmado!</p>
           }
-          <a (click)="verTickets()" class="inline-block mt-6 px-5 py-3 rounded-xl bg-black text-white font-semibold">
+          <button type="button" (click)="verTickets()" class="inline-block mt-6 px-5 py-3 rounded-xl bg-black text-white font-semibold">
             {{ guestCheckout ? 'Volver a eventos' : 'Ver mis tickets' }}
-          </a>
+          </button>
         </div>
       }
     </div>

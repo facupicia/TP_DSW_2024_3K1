@@ -3,15 +3,14 @@ services:
     name: eventlife-backend
     env: node
     plan: free
-    buildCommand: cd Backend && npm install && npm run build
+    buildCommand: cd Backend && npm ci && npm run build
     startCommand: cd Backend && npm start
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 18.18.0
+        value: 22
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
     healthCheckPath: /health
-

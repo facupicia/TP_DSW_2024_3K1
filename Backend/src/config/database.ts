@@ -25,6 +25,9 @@ import { EventProduct } from "../extra/eventProduct.entity"
 import { ExtraItem } from "../extra/extraItem.entity"
 import { env } from "./env";
 
+import { OutboxJob } from '../queue/outbox.entity';
+import { CheckoutOrder } from '../payment/checkout-order.entity';
+import { RefundRequest } from '../payment/refund-request.entity';
 const connectionUrl = env.POSTGRES_URL || env.DATABASE_URL;
 const isProduction = env.NODE_ENV === 'production';
 
@@ -33,6 +36,7 @@ const sslEnabled = env.DB_SSL !== undefined ? env.DB_SSL === 'true' : true;
 
 // DB_SYNC: si está en true, sincroniza el esquema (crear tablas) y NO corre migraciones
 const shouldSync = env.DB_SYNC === 'true';
+if (isProduction && shouldSync) throw new Error('DB_SYNC must be false in production; use migrations');
 
 const AppDataSource = new DataSource({
     type: "postgres",
@@ -44,9 +48,12 @@ const AppDataSource = new DataSource({
     database: !connectionUrl ? env.PGDATABASE : undefined,
     synchronize: shouldSync,
     logging: env.DB_LOGGING === 'true',
-    entities: [User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
-    migrations: [path.join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
-    migrationsRun: isProduction && !shouldSync,
+    entities: [OutboxJob, CheckoutOrder, RefundRequest, User, Event, Ticket, TicketType, Category, PaymentLog, RoleAudit, SubscriptionPlan, UserSubscription, Coupon, PromoterGroup, PromoterEventAssignment, ScannerOrganizerAssignment, Role, RefreshToken, AccountClaimToken, WebhookLog, Product, EventProduct, ExtraItem],
+    // Load only timestamped migrations and only the extension of this runtime.
+    // Old dist/ scripts must never be imported as migrations.
+    migrations: [path.join(__dirname, '..', 'database', 'migrations', `[0-9]*.${__filename.endsWith('.ts') ? 'ts' : 'js'}`)],
+    // Apply migrations explicitly in a release step, before starting replicas.
+    migrationsRun: false,
     ssl: sslEnabled ? { rejectUnauthorized: isProduction } : false,
     extra: {
         ...(sslEnabled ? {

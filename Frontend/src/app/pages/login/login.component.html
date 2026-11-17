@@ -21,9 +21,9 @@
         <form [formGroup]="formLogin" (ngSubmit)="iniciarSesion()" class="space-y-5">
 
           <div class="group">
-            <label
+            <label for="email"
             class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1 transition-colors group-focus-within:text-blue-600">Email</label>
-            <input type="email" formControlName="email" placeholder="nombre@ejemplo.com"
+<input id="email" type="email" autocomplete="email" formControlName="email" placeholder="nombre@ejemplo.com"
               class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
               [ngClass]="{'ring-2 ring-red-100 bg-red-50': formLogin.get('email')?.invalid && formLogin.get('email')?.touched}">
 
@@ -37,16 +37,16 @@
 
             <div class="group">
               <div class="flex justify-between items-center mb-2 ml-1">
-                <label
+                <label for="password"
                 class="text-xs font-bold text-gray-400 uppercase tracking-wider transition-colors group-focus-within:text-blue-600">Contraseña</label>
-                <a href="#" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu
+                <a routerLink="/reset-password" class="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors">¿Olvidaste tu
                 contraseña?</a>
               </div>
               <div class="relative">
-                <input [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
+                <input id="password" autocomplete="current-password" [attr.aria-invalid]="formLogin.get('password')?.invalid && formLogin.get('password')?.touched" [type]="showPassword ? 'text' : 'password'" formControlName="password" placeholder="••••••••"
                   class="w-full bg-gray-50 text-gray-900 rounded-2xl border-none px-5 py-4 pr-12 font-medium placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 outline-none shadow-inner"
                   [ngClass]="{'ring-2 ring-red-100 bg-red-50': formLogin.get('password')?.invalid && formLogin.get('password')?.touched}">
-                  <button type="button" (click)="showPassword = !showPassword"
+                  <button type="button" [attr.aria-label]="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'" [attr.aria-pressed]="showPassword" (click)="showPassword = !showPassword"
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                     @if (!showPassword) {
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"

@@ -97,8 +97,13 @@ export class AuthService {
     setAccessToken(token);
   }
 
-  storeAccessToken(token: string): void {
+  storeAccessToken(token: string, roles?: string[]): void {
     this.setAccessToken(token);
+    if (roles && this.currentUserSubject.value) {
+      const profile = { ...this.currentUserSubject.value, roles };
+      this.sessionCheckResult = profile;
+      this.currentUserSubject.next(profile);
+    }
   }
 
   private clearStoredSession(): void {
@@ -173,7 +178,7 @@ export class AuthService {
         this.currentUserSubject.next(profile);
       }),
       catchError(err => {
-        if (err?.status === 401 || err?.status === 403) {
+        if (err?.status === 401) {
           this.logout();
         }
         return throwError(() => err);

@@ -16,35 +16,35 @@ EventLife es una plataforma Full-Stack integral para la gestión de eventos y ve
 ### Backend
 | Componente | Tecnología | Versión |
 |------------|------------|---------|
-| Runtime | Node.js | 18.18.0 |
-| Framework | Express | 4.19.2 |
+| Runtime | Node.js | 22.x (mínimo 22.12.0) |
+| Framework | Express | 4.22.1 |
 | Lenguaje | TypeScript | 5.6.2 |
-| ORM | TypeORM | 0.3.20 |
+| ORM | TypeORM | 0.3.31 |
 | Base de Datos | PostgreSQL | 16 (NeonDB) |
-| Caché | Redis | 4.6.13 |
-| Validación | Zod | 3.23.8 |
+| Caché | Redis | 5.12.1 |
+| Validación | Zod | 3.25.76 |
 | Auth | JWT + bcrypt + Google OAuth |
-| Pagos | MercadoPago SDK | 2.11.0 |
+| Pagos | MercadoPago SDK | 3.6.1 |
 | Documentación | Swagger UI | 5.0.1 |
 
 ### Frontend
 | Componente | Tecnología | Versión |
 |------------|------------|---------|
-| Framework | Angular | 17.3.0 |
-| Lenguaje | TypeScript | ~5.4.2 |
+| Framework | Angular | 21.2.25 |
+| Lenguaje | TypeScript | ~5.9.3 |
 | Estilos | Tailwind CSS | 3.4.1 |
-| Componentes UI | Angular Material | 17.3.0 |
-| Mapas | Leaflet | 1.9.4 |
-| Gráficos | ApexCharts + ng-apexcharts | 4.0.0 / 1.13.0 |
+| Componentes UI | Angular Material | 21.2.14 |
+| Mapas | Enlaces a Google Maps | — |
+| Gráficos | ApexCharts + ng-apexcharts | 5.10.3 / 2.4.0 |
 | Escáner QR | @zxing/ngx-scanner | 21.0.0 |
-| Notificaciones | ngx-toastr | 19.1.0 |
-| SSR | Angular SSR | 17.3.0 |
+| Notificaciones | ngx-toastr | 20.0.5 |
+| SSR | Angular SSR | 21.2.24 |
 
 ### Infraestructura
 - **Backend Hosting:** Render (https://backend-eventlife.onrender.com)
 - **Frontend Hosting:** Netlify (https://event-life.netlify.app)
 - **Base de Datos:** Neon PostgreSQL
-- **Node Version:** 18.18.0 (especificada en `.node-version`)
+- **Node Version:** 22.x; mínimo 22.12.0 (rama especificada en `.node-version`)
 
 ---
 
@@ -122,7 +122,7 @@ modulo/
 cd Backend
 
 # Instalar dependencias
-npm install
+npm ci
 
 # Desarrollo (con hot-reload)
 npm run dev
@@ -136,13 +136,18 @@ npm start
 # Seed de base de datos
 npm run seed
 
-# Tests
-npm run test:payment              # Test de pagos
-npm run test:payment-idempotency  # Test de idempotencia
-npm run test:auth                 # Test de autenticación
-npm run test:google               # Test de Google OAuth
-npm run test:roles                # Test de roles
-npm run test:db                   # Test de conexión DB
+# Seed de VOLUMEN (datos realistas y coherentes para probar robustez)
+# Configurable vía .env: VOLUME_USERS, VOLUME_ORGANIZERS, VOLUME_EVENTS,
+# VOLUME_TICKET_TYPES, VOLUME_PURCHASES, VOLUME_BATCH_SIZE,
+# VOLUME_RESET (true = TRUNCATE previo), VOLUME_SEED (RNG determinista)
+npm run seed:volume
+
+# Tests aislados y compilación
+npm test
+npm run build
+# Integración explícita con la DB configurada
+npm run test:postgres
+npm run test:smoke
 ```
 
 **URLs Backend:**
@@ -158,7 +163,7 @@ npm run test:db                   # Test de conexión DB
 cd Frontend
 
 # Instalar dependencias
-npm install
+npm ci
 
 # Desarrollo
 npm start
@@ -323,26 +328,7 @@ export const environment = {
 
 ### Backend Tests
 
-Los tests están en `/Backend/tests/` y se ejecutan con `ts-node-dev`:
-
-```bash
-# Test de flujo de pagos
-npm run test:payment
-
-# Test de idempotencia (pagos duplicados)
-npm run test:payment-idempotency
-
-# Test de autenticación y tokens
-npm run test:auth
-
-# Test de Google OAuth
-npm run test:google
-
-# Test de actualización de roles
-npm run test:roles
-```
-
-**Nota:** Estos son tests manuales, no una suite automatizada con Jest.
+`npm test` ejecuta regresiones automatizadas con node:test y PostgreSQL embebido aislado (PGlite). No usa servicios externos. Los proveedores se simulan. `npm run test:postgres` y `npm run test:smoke` son verificaciones explícitas sobre la DB configurada; no se ejecutan automáticamente en CI.
 
 ### Frontend Tests
 
@@ -445,7 +431,7 @@ services:
   - type: web
     name: eventlife-backend
     env: node
-    buildCommand: cd Backend && npm install && npm run build
+    buildCommand: cd Backend && npm ci && npm run build
     startCommand: cd Backend && npm start
     healthCheckPath: /health
 ```
@@ -460,7 +446,7 @@ services:
 Configuración en `netlify.toml`:
 ```toml
 [build]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm ci && npm run build"
   publish = "dist/frontend/browser"
 
 [[redirects]]
@@ -470,8 +456,8 @@ Configuración en `netlify.toml`:
 ```
 
 **Build settings:**
-- Node version: 18
-- Build command: `npm install --legacy-peer-deps && npm run build`
+- Node version: 22
+- Build command: `npm ci && npm run build`
 - Publish directory: `dist/frontend/browser`
 
 ---
@@ -677,3 +663,16 @@ El envío de emails con tickets/QR/PDF y las invitaciones a guests se ejecutaban
 ---
 
 *Documento generado para agentes de IA. Para información más detallada, consultar README.md y la documentación en cada carpeta.*
+
+
+## Actualización de octubre de 2026
+
+Esta sección describe el comportamiento vigente y reemplaza las consideraciones operativas históricas de mayo cuando difieren. Ver [correcciones y operación](docs/auditoria-2026-10-02/REMediacion.md).
+
+- PostgreSQL es la fuente durable para compras, reservas y tareas pendientes. Usar `enqueueEmail(manager, key, job)` dentro de la transacción de negocio; no volver al envío fire-and-forget. BullMQ conserva trabajos anteriores.
+- Los webhooks responden 200 tras persistir la intención; una falla de persistencia responde 503. No bypassar la firma.
+- Cancelar entradas y registrar una devolución pendiente sucede antes de llamar a MP. Marcar `REFUNDED` solo tras confirmar el proveedor. Mantener la intención única y su clave de idempotencia.
+- Las reservas expiran a los diez minutos; los tokens privados de consulta de checkout, a los siete días. Las contraseñas y cambios de email revocan sesiones usando `credentialsVersion`.
+- Crear migraciones con un sufijo Unix de 13 dígitos. Solo archivos que empiezan por dígitos se descubren como migraciones. Aplicarlas en un paso de release; no automáticamente al iniciar cada réplica. Prohibido `DB_SYNC=true` en producción.
+- Redis es opcional. Sin Redis los límites son por proceso; configurarlo para límites compartidos en múltiples réplicas.
+- Los datos actuales son ficticios, según el usuario. La migración nueva ya se aplicó, sin borrar las tablas existentes.

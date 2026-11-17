@@ -95,7 +95,11 @@
               </h3>
 
               <!-- Connected -->
-              @if (mpStatus?.connected) {
+              @if (mpStatus?.sandboxReady) {
+                <p role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  Modo de prueba activo. Las compras usan el vendedor de prueba configurado; no necesitás conectar otra cuenta.
+                </p>
+              } @else if (mpStatus?.connected) {
                 <div class="bg-green-50 rounded-xl p-4 border border-green-100">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">

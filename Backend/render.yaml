@@ -3,12 +3,12 @@ services:
     name: eventlife-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run build
     startCommand: npm start
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 18
+        value: 22
       - key: NODE_ENV
         value: production
       - key: PORT

@@ -32,7 +32,7 @@
             <div class="bg-white/60 backdrop-blur-xl border border-white/60 rounded-[32px] p-8 shadow-sm">
               <div class="mb-6">
                 <div class="flex justify-between items-center mb-2">
-                  <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest">Resumen de tu compra</label>
+                  <label for="firstname" class="block text-xs font-bold text-gray-400 uppercase tracking-widest">Resumen de tu compra</label>
                   @if (scarcityLabel) {
                     <span [class]="scarcityLabel.color"
                       class="px-3 py-1 rounded-full text-xs font-bold border animate-pulse shadow-sm">
@@ -68,17 +68,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nombre</label>
-                    <input formControlName="firstname" type="text" placeholder="Nombre"
+<input id="firstname" formControlName="firstname" type="text" placeholder="Nombre"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Apellido</label>
-                    <input formControlName="lastname" type="text" placeholder="Apellido"
+                    <label for="lastname" class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Apellido</label>
+<input id="lastname" formControlName="lastname" type="text" placeholder="Apellido"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teléfono</label>
-                    <input formControlName="phone" type="tel" placeholder="4322-424234" (input)="formatGuestPhoneNumber($event)"
+                    <label for="phone" class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Teléfono</label>
+<input id="phone" formControlName="phone" type="tel" placeholder="4322-424234" (input)="formatGuestPhoneNumber($event)"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none"
                       [class.ring-2]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
                       [class.ring-red-100]="formCheckout.get('phone')?.invalid && formCheckout.get('phone')?.touched"
@@ -88,13 +88,13 @@
                     }
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                    <label for="birth" class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                       Fecha de nacimiento
                       @if (requiresBirthDate) {
                         <span> *</span>
                       }
                     </label>
-                    <input formControlName="birth" type="date"
+<input id="birth" formControlName="birth" id="birth" type="date"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                     @if (requiresBirthDate) {
                       <p class="text-xs text-gray-400 mt-1">La usamos para validar la edad mínima del evento.</p>
@@ -103,13 +103,13 @@
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Correo electrónico</label>
-                    <input formControlName="email" type="email" placeholder="usuario@email.com"
+                    <label for="email" class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Correo electrónico</label>
+<input id="email" formControlName="email" type="email" placeholder="usuario@email.com"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                   </div>
                   <div>
-                    <label class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Confirmar correo</label>
-                    <input formControlName="confirmEmail" type="email" placeholder="usuario@email.com"
+                    <label for="confirmEmail" class="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Confirmar correo</label>
+<input id="confirmEmail" formControlName="confirmEmail" type="email" placeholder="usuario@email.com"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                   </div>
                 </div>
@@ -129,10 +129,10 @@
                                 <!-- Coupon Section -->
                                 @if (!appliedCoupon) {
                                   <div class="pt-2">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">¿Tienes un
+                                    <label for="coupon-code" class="block text-xs font-bold text-gray-500 uppercase mb-2">¿Tienes un
                                     cupón?</label>
                                     <div class="flex gap-2">
-                                      <input type="text" [(ngModel)]="couponCode" [ngModelOptions]="{standalone: true}"
+                                      <input id="coupon-code" aria-describedby="coupon-error" type="text" [(ngModel)]="couponCode" [ngModelOptions]="{standalone: true}"
                                         placeholder="CODIGO20"
                                         class="flex-1 bg-white border border-gray-200 rounded-xl py-2 px-3 text-gray-900 font-medium uppercase text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
                                         [class.border-red-300]="couponError">
@@ -142,7 +142,7 @@
                                         </button>
                                       </div>
                                       @if (couponError) {
-                                        <p class="text-xs text-red-500 mt-1">{{ couponError }}</p>
+                                        <p id="coupon-error" role="alert" class="text-xs text-red-500 mt-1">{{ couponError }}</p>
                                       }
                                     </div>
                                   }
@@ -157,7 +157,7 @@
                                       </div>
                                       <div class="flex items-center gap-2">
                                         <span class="text-green-600 font-bold">-${{ discountAmount }}</span>
-                                        <button type="button" (click)="removeCoupon()"
+                                        <button type="button" aria-label="Quitar cupón" (click)="removeCoupon()"
                                         class="text-red-400 hover:text-red-600 text-xs">✕</button>
                                       </div>
                                     </div>

@@ -21,6 +21,12 @@
 
       <form [formGroup]="formRegistroEvento" (ngSubmit)="onSubmit()" class="space-y-6">
 
+        @if (mpStatus?.sandboxReady) {
+          <p role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Modo de prueba: las compras usan el vendedor de prueba configurado. No necesitás conectar una cuenta de MercadoPago para crear este evento.
+          </p>
+        }
+
         <div class="bg-white/60 backdrop-blur-xl rounded-[32px] p-8 border border-white/60 shadow-sm">
           <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-blue-500"></span> Información Básica
@@ -186,8 +192,8 @@
                             <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                               <span class="w-2 h-2 rounded-full bg-green-500"></span> Tipos de Entrada
                             </h3>
-            <button type="button" (click)="addTicketType()" [disabled]="!canAddTicketType()" [class]="canAddTicketType() 
-                ? 'text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider cursor-pointer' 
+            <button type="button" (click)="addTicketType()" [disabled]="!canAddTicketType()" [class]="canAddTicketType()
+                ? 'text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider cursor-pointer'
                 : 'text-xs font-bold text-gray-400 uppercase tracking-wider cursor-not-allowed'">
                               + Agregar Tipo
                             </button>
@@ -420,8 +426,8 @@
                                         </div>
                                         <!-- Botones -->
                                         <div class="space-y-3">
-          <button (click)="connectMercadoPago()" [disabled]="mpLoading" class="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-bold rounded-2xl 
-                   hover:from-blue-600 hover:to-cyan-500 transition-all shadow-lg shadow-blue-500/30 
+          <button (click)="connectMercadoPago()" [disabled]="mpLoading" class="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-bold rounded-2xl
+                   hover:from-blue-600 hover:to-cyan-500 transition-all shadow-lg shadow-blue-500/30
                    flex items-center justify-center gap-2 disabled:opacity-70">
                                             @if (!mpLoading) {
                                               <span>Conectar Mercado Pago</span>

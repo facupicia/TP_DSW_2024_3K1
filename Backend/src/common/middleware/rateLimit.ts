@@ -21,7 +21,8 @@ function createRedisStore(prefix: string) {
     }
 
     if (!env.REDIS_URL) {
-        throw new Error("REDIS_URL is required in production for rate limiting");
+        logger.warn('RATE_LIMIT_MEMORY_STORE', {prefix});
+        return undefined;
     }
 
     const store = new RedisStore({

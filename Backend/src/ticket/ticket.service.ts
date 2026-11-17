@@ -1,3 +1,4 @@
+import { enqueueEmail } from '../queue/outbox.service';
 import { TicketType, TicketTypeStatus } from "../ticketType/ticketType.entity";
 import { Ticket, TicketStatus } from "./ticket.entity";
 import { User } from "../user/user.entity";
@@ -8,7 +9,6 @@ import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
 import { getEventDateTime } from "../common/utils/ticket";
 import { randomUUID } from "crypto";
-import { addSendTicketEmailJob, addSendGuestInvitationJob } from "../queue/email.queue";
 
 /**
  * Ticket Service
@@ -33,15 +33,7 @@ export interface PromoterInfo {
     promoterCode?: string;
 }
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
 
 /**
  * Crea tickets para una compra.
@@ -217,22 +209,10 @@ export async function purchase(
 
         const tickets = await createTicketsForPurchase(ticketType, user, quantity);
         await queryRunner.manager.save(Ticket, tickets);
+        if (user.email) await enqueueEmail(queryRunner.manager, 'free-ticket-'+tickets.map(t=>t.id).join('-'), { type: 'send-ticket-email', payload: {
+            userEmail:user.email, userId:user.id, userFirstname:user.firstname || '', userLastname:user.lastname || '',
+            ticketIds:tickets.map(t=>t.id), ticketTypeId:ticketType.id, eventId:event.id } });
         await queryRunner.commitTransaction();
-
-        // Post-commit: encolar email en BullMQ para resiliencia ante reinicios
-        if (user.email) {
-            addSendTicketEmailJob({
-                userEmail: user.email,
-                userId: user.id,
-                userFirstname: user.firstname || '',
-                userLastname: user.lastname || '',
-                ticketIds: tickets.map(t => t.id),
-                ticketTypeId: ticketType.id,
-                eventId: event.id,
-            }).catch(err => {
-                logger.error("TICKET_EMAIL_ENQUEUE_ERROR", { error: err?.message });
-            });
-        }
 
         return { tickets, quantity };
     } catch (error) {
@@ -279,19 +259,20 @@ export async function findByUser(
 /**
  * Obtiene los tickets de la última compra del usuario.
  */
-export async function findLastPurchase(userId: number): Promise<{
+export async function findLastPurchase(userId: number, externalReference?: string): Promise<{
     tickets: any[];
     status: 'approved' | 'failed' | 'processing' | 'no_logs';
 }> {
     const logRepo = AppDataSource.getRepository(PaymentLog);
     const ticketRepo = AppDataSource.getRepository(Ticket);
 
-    const lastLog = await logRepo
+    const logQuery = logRepo
         .createQueryBuilder("log")
         .select(["log.id", "log.status", "log.createdAt"])
         .where("log.userId = :userId", { userId })
-        .orderBy("log.createdAt", "DESC")
-        .getOne();
+        .orderBy("log.createdAt", "DESC");
+    if (externalReference) logQuery.andWhere("log.externalReference = :ref", { ref: externalReference });
+    const lastLog = await logQuery.getOne();
 
     if (!lastLog) return { tickets: [], status: 'no_logs' };
     if (lastLog.status === PaymentStatus.FAILED) return { tickets: [], status: 'failed' };
@@ -313,28 +294,6 @@ export async function findLastPurchase(userId: number): Promise<{
         .orderBy("ticket.createdAt", "DESC")
         .take(10)
         .getMany();
-
-    // Fallback for legacy tickets without paymentLogId
-    if (tickets.length === 0) {
-        const fiveMinutesBefore = new Date(lastLog.createdAt.getTime() - 5 * 60 * 1000);
-        const fiveMinutesAfter = new Date(lastLog.createdAt.getTime() + 5 * 60 * 1000);
-        tickets = await ticketRepo
-            .createQueryBuilder("ticket")
-            .leftJoinAndSelect("ticket.ticketType", "ticketType")
-            .leftJoinAndSelect("ticketType.event", "event")
-            .select([
-                "ticket.id", "ticket.codigo_unico", "ticket.qrCode", "ticket.ticketTypeId",
-                "ticket.userId", "ticket.status", "ticket.purchasePrice", "ticket.usedAt", "ticket.createdAt",
-                "ticketType.id", "ticketType.name", "ticketType.price",
-                "event.id", "event.title", "event.date", "event.time", "event.ciudad", "event.direccion", "event.image"
-            ])
-            .where("ticket.userId = :userId", { userId })
-            .andWhere("ticket.createdAt BETWEEN :start AND :end", { start: fiveMinutesBefore, end: fiveMinutesAfter })
-            .andWhere("ticket.deletedAt IS NULL")
-            .orderBy("ticket.createdAt", "DESC")
-            .take(10)
-            .getMany();
-    }
 
     const mapped = tickets.map(t => ({
         ...t,
@@ -481,6 +440,7 @@ export async function inviteGuests(
         for (const email of validEmails) {
             try {
                 const ticketsForThisEmail: EmailTicketInfo[] = [];
+                const pendingTickets: Ticket[] = [];
 
                 for (let i = 0; i < ticketQty; i++) {
                     const codigo_unico = randomUUID();
@@ -494,7 +454,7 @@ export async function inviteGuests(
                     ticket.purchasePrice = 0;
                     ticket.status = TicketStatus.ACTIVE;
 
-                    ticketsToInsert.push(ticket);
+                    pendingTickets.push(ticket);
 
                     ticketsForThisEmail.push({
                         qrCode: ticket.qrCode,
@@ -508,6 +468,7 @@ export async function inviteGuests(
                 }
 
                 emailTicketsMap[email] = ticketsForThisEmail;
+                ticketsToInsert.push(...pendingTickets);
                 createdTickets.push({ email, quantity: ticketsForThisEmail.length });
             } catch (ticketErr) {
                 const msg = ticketErr instanceof Error ? ticketErr.message : "Error desconocido";
@@ -536,6 +497,7 @@ export async function inviteGuests(
         }
 
         const event = ticketType.event;
+        if (!event.active || ticketType.status!==TicketTypeStatus.ACTIVE) throw new HttpError(400,'TICKET_TYPE_INACTIVE','El evento o tipo de entrada no está disponible');
         if (event.user_id !== organizerId && !isAdmin) {
             throw new HttpError(403, 'FORBIDDEN', "No tienes permiso para invitar a este evento");
         }
@@ -579,8 +541,6 @@ export async function inviteGuests(
         }
 
         const savedTickets = await queryRunner.manager.save(Ticket, ticketsToInsert);
-        await queryRunner.commitTransaction();
-
         let ticketIndex = 0;
         for (const email of Object.keys(emailTicketsMap)) {
             const ticketsForThisEmail = emailTicketsMap[email];
@@ -592,15 +552,14 @@ export async function inviteGuests(
                     ticketIndex++;
                 }
             }
-            addSendGuestInvitationJob({
+            await enqueueEmail(queryRunner.manager, 'guest-invite-'+ticketIdsForEmail.join('-'), {type:'send-guest-invitation',payload:{
                 email,
                 ticketIds: ticketIdsForEmail,
                 ticketTypeId: ticketType.id,
                 eventId: event.id,
-            }).catch((emailErr: any) => {
-                logger.error(`GUEST_INVITE_ENQUEUE_ERROR ${email}:`, emailErr);
-            });
+            }});
         }
+        await queryRunner.commitTransaction();
 
         return {
             message: `${savedTickets.length} ticket(s) creado(s) para ${createdTickets.length} invitado(s)`,

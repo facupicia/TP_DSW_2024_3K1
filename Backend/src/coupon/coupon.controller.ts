@@ -71,7 +71,7 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
         return res.status(201).json(coupon);
     } catch (error: any) {
         logger.error("Error creating coupon:", error);
-        return res.status(500).json({ message: "Error al crear cupón", error: error.message });
+        return res.status(500).json({ message: "Error al crear cupón", error: "INTERNAL_ERROR" });
     }
 };
 

@@ -28,7 +28,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   // Estado reactivo del usuario
   user$ = this.accesService.currentUser$;
-  
+
   // Estados de UI
   isMenuOpen = false;
   categorias: string[] = [];
@@ -73,6 +73,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // y deben saltarse durante SSR/prerender para evitar timeouts en el build
     if (isPlatformBrowser(this.platformId)) {
       this.loadCategories();
+
+      this.subscriptions.push(this.subscriptionService.subscription$.subscribe(sub => {
+        this.subscription = sub;
+        this.currentPlanName = sub?.plan?.name || null;
+      }));
 
       // Cargar suscripción y verificar eventos UNA SOLA VEZ cuando hay usuario
       const userSub = this.user$.subscribe(user => {
@@ -190,14 +195,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // Limpiar todas las suscripciones
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.subscriptions = [];
-    
+
     if (typeof document !== 'undefined') {
       document.body.style.overflow = '';
     }
   }
 
   // ===== Role checking helpers =====
-  
+
   hasOrganizerLevel(user: any): boolean {
     const roles = user?.roles || [user?.rol] || ['user'];
     return roles.includes('organizer') || roles.includes('admin');

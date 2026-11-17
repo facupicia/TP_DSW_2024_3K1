@@ -70,7 +70,7 @@ router.post("/create-preference", preferenceRateLimiter, optionalAuthToken, crea
  * Verifica el estado de un pago por external_reference.
  * Usado por el frontend para polling después del checkout, incluso para invitados.
  */
-router.get("/status", statusRateLimiter, checkAuthToken, getPaymentStatus);
+router.get("/status", statusRateLimiter, optionalAuthToken, getPaymentStatus);
 
 /* ==================== WEBHOOK ROUTES ==================== */
 
@@ -147,11 +147,12 @@ router.post("/mp/disconnect", checkAuthToken, disconnectMp);
  * POST /api/payment/refund/:paymentId
  * 
  * Procesa un reembolso de pago.
- * Puede ser reembolso total o parcial.
+ * Devuelve la compra completa; la confirmación se procesa de forma durable.
  * 
  * Body: { amount?: number, reason?: string }
  */
-router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
+router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res, next) => {
+    try {
     const { processRefund } = await import('./refund.service');
     const result = await processRefund(req.params.paymentId, {
         amount: req.body?.amount,
@@ -159,7 +160,8 @@ router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAu
         requestedBy: req.user?.id,
         requesterRoles: req.user?.roles || []
     });
-    res.status(result.success ? 200 : 400).json(result);
+    res.status(result.pending ? 202 : result.success ? 200 : 400).json(result);
+    } catch(error) {next(error);}
 });
 
 /**
@@ -167,10 +169,12 @@ router.post("/refund/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAu
  * 
  * Verifica si un pago puede ser reembolsado.
  */
-router.get("/refund-status/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res) => {
+router.get("/refund-status/:paymentId", refundRateLimiter, checkAuthToken, checkRoleAuth(["organizer", "admin"]), async (req: CustomRequest, res, next) => {
+    try {
     const { getRefundStatus } = await import('./refund.service');
     const result = await getRefundStatus(req.params.paymentId, req.user?.id, req.user?.roles || []);
     res.status(200).json(result);
+    } catch(error) {next(error);}
 });
 
 export default router;

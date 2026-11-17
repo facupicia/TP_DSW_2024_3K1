@@ -9,6 +9,7 @@ export interface IPayload {
     id?: number;
     roles?: string[];
     iat?: number;
+    credentialsVersion?: number;
 }
 
 // Extender la interfaz Request para incluir la propiedad id
@@ -19,7 +20,7 @@ export interface CustomRequest extends Request {
 
 const payloadSchema = z.object({
     id: z.number().int().positive(),
-    roles: z.array(z.string()).optional().default([]),
+    roles: z.array(z.string()).max(5).optional().default([]),
     iat: z.number().optional(),
     jti: z.string().optional(),
     iss: z.string().optional(),
@@ -27,25 +28,25 @@ const payloadSchema = z.object({
 }).passthrough();
 
 // Simple in-memory cache for active user validation (5s TTL)
-const userCache = new Map<number, { roles: string[]; expiresAt: number }>();
+const userCache = new Map<number, { roles: string[]; credentialsVersion: number; expiresAt: number }>();
 const USER_CACHE_TTL_MS = 5000;
 const MAX_CACHE_SIZE = 1000;
 
 function getCachedUser(userId: number) {
     const cached = userCache.get(userId);
     if (cached && cached.expiresAt > Date.now()) {
-        return cached.roles;
+        return cached;
     }
     return null;
 }
 
-function setCachedUser(userId: number, roles: string[]) {
+function setCachedUser(userId: number, roles: string[], credentialsVersion: number) {
     // Evict oldest entries if cache exceeds max size
     if (userCache.size >= MAX_CACHE_SIZE && !userCache.has(userId)) {
         const firstKey = userCache.keys().next().value;
         if (firstKey !== undefined) userCache.delete(firstKey);
     }
-    userCache.set(userId, { roles, expiresAt: Date.now() + USER_CACHE_TTL_MS });
+    userCache.set(userId, { roles, credentialsVersion, expiresAt: Date.now() + USER_CACHE_TTL_MS });
 }
 
 interface AuthOptions {
@@ -79,7 +80,7 @@ async function authenticateToken(req: CustomRequest, options: AuthOptions) {
     const parseResult = payloadSchema.safeParse(rawPayload);
     if (!parseResult.success) {
         if (options.required) {
-            logger.warn('AUTH_PAYLOAD_VALIDATION_FAILED', { errors: parseResult.error.errors });
+            logger.warn('AUTH_PAYLOAD_VALIDATION_FAILED', { errors: parseResult.error.issues });
             return { error: { status: 401, code: 'AUTH_INVALID_PAYLOAD', message: 'Invalid token payload' } };
         }
         return { skipped: true };
@@ -88,13 +89,14 @@ async function authenticateToken(req: CustomRequest, options: AuthOptions) {
     const tokenData = parseResult.data;
 
     // Check cache first
-    let currentRoles = getCachedUser(tokenData.id);
+    let cachedUser = getCachedUser(tokenData.id);
+    let currentRoles = cachedUser?.roles;
 
     if (!currentRoles) {
         // Use QueryBuilder to avoid TypeORM select/relations quirks with @Column({ select: false })
         const user = await User.createQueryBuilder('user')
             .leftJoinAndSelect('user.roles', 'role')
-            .select(['user.id', 'user.active', 'user.deletedAt', 'role.id', 'role.name'])
+            .select(['user.id', 'user.active', 'user.deletedAt', 'user.credentialsVersion', 'role.id', 'role.name'])
             .where('user.id = :id', { id: tokenData.id })
             .getOne();
 
@@ -107,9 +109,13 @@ async function authenticateToken(req: CustomRequest, options: AuthOptions) {
         }
 
         currentRoles = getRoleNames(user);
-        setCachedUser(tokenData.id, currentRoles);
+        setCachedUser(tokenData.id, currentRoles, user.credentialsVersion || 0);
+        cachedUser = getCachedUser(tokenData.id);
     }
 
+    if ((Number(tokenData.credentialsVersion) || 0) !== cachedUser.credentialsVersion) {
+        return options.required ? { error: { status: 401, code: 'AUTH_INVALID_TOKEN', message: 'Credentials changed' } } : { skipped: true };
+    }
     return {
         user: {
             ...tokenData,
@@ -144,3 +150,5 @@ export const optionalAuthToken = async (req: CustomRequest, res: Response, next:
         next();
     }
 };
+
+export function invalidateUserAuthCache(userId: number) { userCache.delete(userId); }

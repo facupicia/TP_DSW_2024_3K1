@@ -34,6 +34,7 @@ export interface SendAccountClaimEmailJobData {
     userEmail: string;
     userName: string;
     claimUrl: string;
+    purpose?: 'claim' | 'reset';
 }
 
 export type QueueJobData =

@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 
-import { Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth.service';
 import { TicketService } from '../../services/ticket.service';
@@ -15,6 +15,9 @@ import { Subscription } from 'rxjs';
 })
 export class CheckoutSuccessComponent implements OnInit, OnDestroy {
     private http = inject(HttpClient);
+    private route = inject(ActivatedRoute);
+    private statusToken = '';
+    private requests = new Subscription();
     
     constructor(
         private profileService: AuthService,
@@ -34,15 +37,19 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
     guestCheckout = false;
     deliveryEmail = '';
     externalReference: string | null = null;
+    statusMessage='La confirmación sigue pendiente. Revisá tus entradas o el correo antes de volver a comprar.';
     ngOnInit(): void {
         if (typeof window !== 'undefined') {
             try {
-                const rawLastPurchase = window.localStorage?.getItem('lastPurchase');
+                const rawLastPurchase = window.sessionStorage?.getItem('lastPurchase');
                 if (rawLastPurchase) {
                     const parsed = JSON.parse(rawLastPurchase);
                     this.guestCheckout = !!parsed?.guestCheckout;
                     this.deliveryEmail = parsed?.deliveryEmail || '';
                     this.externalReference = parsed?.external_reference || null;
+                    this.statusToken = parsed?.statusToken || '';
+                    const returnedRef = this.route.snapshot.queryParamMap.get('external_reference');
+                    if (returnedRef && returnedRef !== this.externalReference) { this.externalReference = returnedRef; this.statusToken = ''; this.guestCheckout = false; }
                 }
             } catch { }
 
@@ -55,16 +62,24 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
                 });
             }
 
+            this.externalReference ||= this.route.snapshot.queryParamMap.get('external_reference');
             this.startPolling();
         }
     }
     ngOnDestroy(): void {
         if (this.pollRef) clearTimeout(this.pollRef);
         this.profileSub?.unsubscribe();
+        this.requests.unsubscribe();
         this.pollingStopped = true;
     }
 
     startPolling() {
+        if (!this.externalReference) {
+            this.loading = false;
+            this.statusMessage='No pudimos identificar esta compra. Revisá tus entradas o el correo de confirmación.';
+            this.toast.warning('No pudimos identificar esta compra. Revisá tus entradas o el correo de confirmación.');
+            return;
+        }
         this.loading = true;
         this.confirmed = false;
         this.attempts = 0;
@@ -87,7 +102,7 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
             return;
         }
 
-        this.tickets.getLastPurchase().subscribe({
+        this.requests.add(this.tickets.getLastPurchase(this.externalReference || undefined).subscribe({
             next: (resp) => {
                 if (resp.status === 'approved' && resp.tickets?.length) {
                     this.lastTickets = resp.tickets;
@@ -97,8 +112,9 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
                 }
 
                 if (resp.status === 'failed' || resp.status === 'failure') {
+                    this.statusMessage='La compra no se pudo completar. Revisá el estado del pago y cualquier devolución con soporte.';
                     this.stopPolling(false);
-                    this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
+                    this.toast.error('No pudimos completar la compra. Revisá el estado del pago antes de volver a intentar.');
                     return;
                 }
 
@@ -113,7 +129,7 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
 
                 this.continueOrTimeout();
             }
-        });
+        }));
     }
 
     private pollGuestPurchase(): void {
@@ -124,28 +140,30 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
             return;
         }
 
-        this.http.get<{ success: boolean; status: string }>(
-            `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`
+        this.requests.add(this.http.get<{ success: boolean; status: string }>(
+            `${environment.apiUrl}/payment/status?external_reference=${encodeURIComponent(extRef)}`,
+            { headers: { 'X-Checkout-Token': this.statusToken } }
         ).subscribe({
             next: (state) => {
                 if (state?.status === 'failure' || state?.status === 'failed') {
+                    this.statusMessage='La compra no se pudo completar. Revisá el estado del pago y cualquier devolución con soporte.';
                     this.stopPolling(false);
-                    this.toast.error('Tu pago fue rechazado. Intenta nuevamente.');
+                    this.toast.error('No pudimos completar la compra. Revisá el estado del pago antes de volver a intentar.');
                     return;
                 }
 
                 if (state?.status === 'approved') {
                     this.stopPolling(true);
                     this.toast.success(this.deliveryEmail
-                        ? `Pago confirmado. Enviamos las entradas a ${this.deliveryEmail}.`
-                        : 'Pago confirmado. Tus entradas ya fueron enviadas.');
+                        ? `Pago confirmado. Recibirás las entradas en ${this.deliveryEmail}.`
+                        : 'Pago confirmado. Recibirás tus entradas por correo.');
                     return;
                 }
 
                 this.continueOrTimeout();
             },
             error: () => this.continueOrTimeout()
-        });
+        }));
     }
 
     private continueOrTimeout(): void {
@@ -166,7 +184,7 @@ export class CheckoutSuccessComponent implements OnInit, OnDestroy {
         this.loading = false;
         this.confirmed = confirmed;
         if (confirmed && typeof window !== 'undefined') {
-            window.localStorage.removeItem('lastPurchase');
+            window.sessionStorage.removeItem('lastPurchase');
         }
     }
 

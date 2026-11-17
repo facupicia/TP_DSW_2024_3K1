@@ -1,19 +1,22 @@
 import { Request, Response } from 'express';
+import { createHash, timingSafeEqual } from 'crypto';
+import { env } from '../config/env';
 import { CustomRequest } from '../common/middleware/authToken';
 import AppDataSource from '../db';
 import { User } from '../user/user.entity';
 import { logger } from '../common/services/logger';
-import { 
-    getMPConfig, 
-    generateOAuthState, 
+import {
+    getMPConfig,
+    generateOAuthState,
     verifyOAuthState,
-    MP_ENDPOINTS 
+    MP_ENDPOINTS
 } from './mp.config';
 import { encryptToString, decryptFromString } from '../common/services/encryption';
+import { assertSandboxSeller } from './mp.config';
 
 /**
  * MercadoPago OAuth Controller (Refactored)
- * 
+ *
  * Maneja el flujo OAuth para que organizadores conecten su cuenta de MP.
  * Ahora con:
  * - Estados firmados criptográficamente
@@ -27,7 +30,7 @@ import { encryptToString, decryptFromString } from '../common/services/encryptio
 
 /**
  * GET /api/payment/mp/connect
- * 
+ *
  * Genera la URL de autorización de MP y la devuelve al frontend.
  */
 export const initiateOAuth = async (req: CustomRequest, res: Response) => {
@@ -40,6 +43,9 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
             });
         }
 
+        if (env.MP_MODE === 'sandbox') {
+            return res.status(409).json({ code: 'MP_SANDBOX_PLATFORM_SELLER', message: 'El modo de prueba usa el vendedor configurado. No necesitás conectar otra cuenta para crear eventos y probar compras.' });
+        }
         const config = getMPConfig();
         const redirectUri = `${config.appUrl}/api/payment/mp/callback`;
 
@@ -50,6 +56,10 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
 
         // Generar state firmado con redirectTo
         const state = generateOAuthState(userId, sanitizedRedirect);
+        res.cookie('eventlife_mp_state', createHash('sha256').update(state).digest('hex'), {
+            httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
+            path: '/api/payment/mp/callback', maxAge: 10 * 60 * 1000
+        });
 
         const params = new URLSearchParams({
             client_id: config.clientId,
@@ -84,7 +94,7 @@ export const initiateOAuth = async (req: CustomRequest, res: Response) => {
 
 /**
  * GET /api/payment/mp/callback
- * 
+ *
  * Callback de MP después de que el usuario autoriza.
  * Intercambia el código por tokens y los guarda encriptados.
  */
@@ -111,6 +121,13 @@ export const oauthCallback = async (req: Request, res: Response) => {
             return res.redirect(`${config.clientUrl}${returnPath}?mp_error=missing_params`);
         }
 
+        const cookie = String(req.headers.cookie || '').split(';').map(v => v.trim())
+            .find(v => v.startsWith('eventlife_mp_state='))?.split('=')[1] || '';
+        res.clearCookie('eventlife_mp_state', {httpOnly:true,secure:env.NODE_ENV==='production',sameSite:env.NODE_ENV==='production'?'none':'lax',path:'/api/payment/mp/callback'});
+        const expected = createHash('sha256').update(String(state)).digest('hex');
+        if (cookie.length !== expected.length || !timingSafeEqual(Buffer.from(cookie), Buffer.from(expected))) {
+            return res.redirect(`${config.clientUrl}${returnPath}?mp_error=invalid_state`);
+        }
         // Verificar state
         const stateData = verifyOAuthState(String(state));
         if (!stateData) {
@@ -208,68 +225,71 @@ export const oauthCallback = async (req: Request, res: Response) => {
 
 /**
  * GET /api/payment/mp/status
- * 
+ *
  * Verifica el estado de conexión de MP del usuario actual.
  */
 export const getMpStatus = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 code: 'UNAUTHORIZED',
-                message: 'No autorizado' 
+                message: 'No autorizado'
             });
         }
-        
+
         const userRepo = AppDataSource.getRepository(User);
         const user = await userRepo.findOne({
             where: { id: userId },
             select: ['id', 'mpUserId', 'mpTokenExpiresAt']
         });
-        
+
         if (!user) {
-            return res.status(404).json({ 
+            return res.status(404).json({
                 code: 'NOT_FOUND',
-                message: 'Usuario no encontrado' 
+                message: 'Usuario no encontrado'
             });
         }
-        
+
         const now = new Date();
         const isExpired = user.mpTokenExpiresAt ? now > user.mpTokenExpiresAt : false;
         const isConnected = !!user.mpUserId && !isExpired;
-        
+
+        if (env.MP_MODE === 'sandbox') await assertSandboxSeller();
+
         return res.json({
             success: true,
             connected: isConnected,
+            sandboxReady: env.MP_MODE === 'sandbox',
             mpUserId: user.mpUserId,
             expiresAt: user.mpTokenExpiresAt,
             needsReconnect: isExpired
         });
-        
+
     } catch (error: any) {
         logger.error('MP_STATUS_ERROR', { error: error?.message });
-        return res.status(500).json({ 
+        return res.status(500).json({
             code: 'STATUS_ERROR',
-            message: 'Error al verificar estado de Mercado Pago' 
+            message: 'Error al verificar estado de Mercado Pago'
         });
     }
 };
 
 /**
  * POST /api/payment/mp/disconnect
- * 
+ *
  * Desconecta la cuenta de MP del usuario.
  */
 export const disconnectMp = async (req: CustomRequest, res: Response) => {
     try {
         const userId = req.user?.id;
         if (!userId) {
-            return res.status(401).json({ 
+            return res.status(401).json({
                 code: 'UNAUTHORIZED',
-                message: 'No autorizado' 
+                message: 'No autorizado'
             });
         }
-        
+
         const userRepo = AppDataSource.getRepository(User);
         await userRepo.update(userId, {
             mpUserId: null,
@@ -277,19 +297,19 @@ export const disconnectMp = async (req: CustomRequest, res: Response) => {
             mpRefreshToken: null,
             mpTokenExpiresAt: null
         });
-        
+
         logger.info('MP_DISCONNECTED', { userId });
-        
+
         return res.json({
             success: true,
             message: 'Cuenta de Mercado Pago desconectada'
         });
-        
+
     } catch (error: any) {
         logger.error('MP_DISCONNECT_ERROR', { error: error?.message });
-        return res.status(500).json({ 
+        return res.status(500).json({
             code: 'DISCONNECT_ERROR',
-            message: 'Error al desconectar Mercado Pago' 
+            message: 'Error al desconectar Mercado Pago'
         });
     }
 };
@@ -304,55 +324,55 @@ export const disconnectMp = async (req: CustomRequest, res: Response) => {
  */
 export const refreshOrganizerToken = async (userId: number): Promise<string | null> => {
     const userRepo = AppDataSource.getRepository(User);
-    
+
     try {
         // Obtener usuario con tokens
         const user = await userRepo
             .createQueryBuilder('user')
             .select([
-                'user.id', 
-                'user.mpUserId', 
-                'user.mpAccessToken', 
-                'user.mpRefreshToken', 
+                'user.id',
+                'user.mpUserId',
+                'user.mpAccessToken',
+                'user.mpRefreshToken',
                 'user.mpTokenExpiresAt'
             ])
             .where('user.id = :userId', { userId })
             .getOne();
-        
+
         if (!user?.mpAccessToken) {
             return null;
         }
-        
+
         // Desencriptar token actual
         const currentToken = decryptFromString(user.mpAccessToken);
         if (!currentToken) {
             logger.error('MP_TOKEN_DECRYPT_FAILED', { userId });
             return null;
         }
-        
+
         // Verificar si necesita refresco (7 días de margen)
         const now = new Date();
         const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
+
         if (user.mpTokenExpiresAt && user.mpTokenExpiresAt > sevenDaysFromNow) {
             // Token todavía válido
             return currentToken;
         }
-        
+
         // Necesita refresco
         if (!user.mpRefreshToken) {
             logger.warn('MP_TOKEN_EXPIRED_NO_REFRESH', { userId });
             return null;
         }
-        
+
         const config = getMPConfig();
         const decryptedRefreshToken = decryptFromString(user.mpRefreshToken);
-        
+
         if (!decryptedRefreshToken) {
             logger.error('MP_REFRESH_TOKEN_DECRYPT_FAILED', { userId });
             return null;
         }
-        
+
         // Llamar a MP para refrescar
         const response = await fetch(MP_ENDPOINTS.token, {
             method: 'POST',
@@ -367,43 +387,43 @@ export const refreshOrganizerToken = async (userId: number): Promise<string | nu
                 refresh_token: decryptedRefreshToken
             }).toString()
         });
-        
+
         if (!response.ok) {
-            logger.error('MP_TOKEN_REFRESH_FAILED', { 
-                userId, 
-                status: response.status 
+            logger.error('MP_TOKEN_REFRESH_FAILED', {
+                userId,
+                status: response.status
             });
             return null;
         }
-        
+
         const tokens = await response.json() as any;
-        
+
         // Calcular nueva fecha de expiración
         const expiresAt = new Date();
         expiresAt.setSeconds(expiresAt.getSeconds() + (tokens.expires_in || 15552000));
-        
+
         // Encriptar nuevos tokens
         const newEncryptedAccess = encryptToString(tokens.access_token);
-        const newEncryptedRefresh = tokens.refresh_token 
+        const newEncryptedRefresh = tokens.refresh_token
             ? encryptToString(tokens.refresh_token)
             : user.mpRefreshToken; // Mantener el anterior si no hay nuevo
-        
+
         if (!newEncryptedAccess) {
             logger.error('MP_TOKEN_REFRESH_ENCRYPTION_FAILED', { userId });
             return null;
         }
-        
+
         // Guardar en DB
         await userRepo.update(userId, {
             mpAccessToken: newEncryptedAccess,
             mpRefreshToken: newEncryptedRefresh,
             mpTokenExpiresAt: expiresAt
         });
-        
+
         logger.info('MP_TOKEN_REFRESHED', { userId, expiresAt: expiresAt.toISOString() });
-        
+
         return tokens.access_token;
-        
+
     } catch (error: any) {
         logger.error('MP_TOKEN_REFRESH_ERROR', { userId, error: error?.message });
         return null;

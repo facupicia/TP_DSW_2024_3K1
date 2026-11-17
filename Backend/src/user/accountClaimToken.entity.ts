@@ -24,6 +24,12 @@ export class AccountClaimToken extends BaseEntity {
     @JoinColumn({ name: "userId" })
     user: User;
 
+    @Column({default:'claim'})
+    purpose: string;
+
+    @Column({default:0})
+    credentialsVersion: number;
+
     @Column({ unique: true })
     tokenHash: string;
 

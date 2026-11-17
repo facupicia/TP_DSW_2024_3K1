@@ -1,7 +1,7 @@
 # ==============================================================================
 # Etapa 1: Compilación
 # ==============================================================================
-FROM node:18-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN cp -r src/database/*.sql dist/database/ 2>/dev/null || true
 # ==============================================================================
 # Etapa 2: Producción
 # ==============================================================================
-FROM node:18-alpine AS production
+FROM node:22-alpine AS production
 
 # Crear usuario no-root para seguridad
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

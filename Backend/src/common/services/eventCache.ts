@@ -29,7 +29,7 @@ async function getFromCache<T>(key: string): Promise<T | null> {
     try {
         const cached = await redis.get(key);
         if (cached) {
-            return JSON.parse(cached) as T;
+            return JSON.parse(String(cached)) as T;
         }
     } catch (err) {
         logger.warn('[EventCache] Redis get error', { key, error: (err as Error).message });
@@ -122,7 +122,7 @@ export async function invalidateEventListCache(): Promise<void> {
     }
 
     try {
-        const keys = await redis.sMembers(LIST_KEYS_SET);
+        const keys = Array.from(await redis.sMembers(LIST_KEYS_SET));
         if (keys.length > 0) {
             await redis.del(keys);
         }
@@ -176,10 +176,10 @@ export async function invalidateAllEventCaches(): Promise<void> {
 
         // Also scan for detail and pricing keys (these are few and bounded)
         for await (const key of redis.scanIterator({ MATCH: 'event:detail:*', COUNT: 100 })) {
-            keysToDelete.push(key);
+            keysToDelete.push(...key);
         }
         for await (const key of redis.scanIterator({ MATCH: 'event:pricing:*', COUNT: 100 })) {
-            keysToDelete.push(key);
+            keysToDelete.push(...key);
         }
 
         if (keysToDelete.length > 0) {

@@ -40,7 +40,13 @@ function readCookie(req: Request, name: string) {
     const target = cookies.find(part => part.startsWith(`${name}=`));
     if (!target) return null;
 
-    return decodeURIComponent(target.slice(name.length + 1));
+    const value = target.slice(name.length + 1);
+    if (!value || value.length > 512) return null;
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return null;
+    }
 }
 
 /**
@@ -62,6 +68,8 @@ export async function issueRefreshToken(res: Response, user: User) {
     await queryRunner.startTransaction();
 
     try {
+        const current = await queryRunner.manager.findOne(User,{where:{id:user.id},lock:{mode:'pessimistic_write'}});
+        if (!current?.active || current.deletedAt || (current.credentialsVersion || 0)!==(user.credentialsVersion || 0)) throw new Error('Session credentials changed');
         const refreshRepo = queryRunner.manager.getRepository(RefreshToken);
 
         // Clean up oldest tokens if exceeding limit
@@ -100,69 +108,33 @@ export async function rotateRefreshToken(req: Request, res: Response): Promise<{
         return null;
     }
 
-    const refreshRepo = AppDataSource.getRepository(RefreshToken);
-    const tokenHash = hashToken(rawToken);
-
-    // Check for reused (revoked) token
-    const reused = await refreshRepo.findOne({
-        where: { tokenHash, revokedAt: IsNull() },
-        relations: ["user", "user.roles"]
-    });
-
-    if (!reused) {
-        // Token not found or already revoked - possible reuse attack
-        const existingRevoked = await refreshRepo.findOne({
-            where: { tokenHash }
-        });
-        if (existingRevoked) {
-            logger.error('REFRESH_TOKEN_REUSE_DETECTED', { userId: existingRevoked.userId, tokenHash: tokenHash.slice(0, 16) });
-            // Revoke ALL refresh tokens for this user
-            await refreshRepo.update(
-                { userId: existingRevoked.userId, revokedAt: IsNull() },
-                { revokedAt: new Date() }
-            );
-        }
-        clearRefreshToken(res);
-        return null;
-    }
-
-    if (reused.expiresAt <= new Date() || !reused.user || reused.user.deletedAt || !reused.user.active) {
-        clearRefreshToken(res);
-        return null;
-    }
-
-    const nextRawToken = crypto.randomBytes(64).toString("base64url");
+    const nextRawToken = crypto.randomBytes(64).toString('base64url');
     const nextHash = hashToken(nextRawToken);
-
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-        const managerRepo = queryRunner.manager.getRepository(RefreshToken);
-
-        reused.revokedAt = new Date();
-        reused.replacedByHash = nextHash;
-        await managerRepo.save(reused);
-
-        const nextToken = new RefreshToken();
-        nextToken.userId = reused.userId;
-        nextToken.tokenHash = nextHash;
-        nextToken.expiresAt = refreshExpiry();
-        nextToken.revokedAt = null;
-        nextToken.replacedByHash = null;
-        await managerRepo.save(nextToken);
-
-        await queryRunner.commitTransaction();
-    } catch (err) {
-        await queryRunner.rollbackTransaction();
-        throw err;
-    } finally {
-        await queryRunner.release();
-    }
-
+    const user = await AppDataSource.transaction(async manager => {
+        const repo = manager.getRepository(RefreshToken);
+        const candidate = await repo.findOne({where:{tokenHash:hashToken(rawToken)}});
+        if (!candidate) return null;
+        const lockedUser = await manager.findOne(User,{where:{id:candidate.userId},lock:{mode:'pessimistic_write'}});
+        if (!lockedUser?.active || lockedUser.deletedAt) return null;
+        const old = await repo.findOne({ where: { tokenHash: hashToken(rawToken) }, lock: { mode: 'pessimistic_write' } });
+        if (!old) return null;
+        if (old.revokedAt) {
+            // Brief concurrency grace: reject a duplicate refresh without destroying other tabs.
+            if (Date.now()-old.revokedAt.getTime()>10000) await repo.update({ userId: old.userId, revokedAt: IsNull() }, { revokedAt: new Date() });
+            return null;
+        }
+        if (old.expiresAt <= new Date()) return null;
+        const activeUser = await manager.findOne(User, { where: { id: old.userId }, relations: ['roles'] });
+        if (!activeUser?.active || activeUser.deletedAt) return null;
+        old.revokedAt = new Date(); old.replacedByHash = nextHash;
+        await repo.save(old);
+        await repo.save(repo.create({ userId: old.userId, tokenHash: nextHash, expiresAt: refreshExpiry(), revokedAt: null, replacedByHash: null }));
+        return activeUser;
+    });
+    if (!user) return null;
     res.cookie(REFRESH_COOKIE, nextRawToken, getCookieOptions());
-    return { token: await tokenSing(reused.user), user: reused.user };
+    return { token: await tokenSing(user), user };
+
 }
 
 export async function revokeRefreshToken(req: Request, res: Response) {

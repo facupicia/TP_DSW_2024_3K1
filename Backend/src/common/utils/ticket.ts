@@ -1,3 +1,4 @@
+import { eventInstant } from './event-time';
 /**
  * Ticket utilities shared across ticket and scanner modules
  */
@@ -12,8 +13,7 @@ export function sanitizeTicketCode(code: unknown): string {
     return cleanCode.trim();
 }
 
-export function getEventDateTime(event: { date: string | Date; time?: string | null }): Date {
-    const date = String(event.date).split("T")[0];
-    const time = event.time || "00:00";
-    return new Date(`${date}T${time}`);
+export function getEventDateTime(event: { date: string | Date; time?: string | null; startDateTime?: Date | string | null; timeZone?: string }): Date {
+    if (event.startDateTime) return new Date(event.startDateTime);
+    return eventInstant(event.date, event.time || '00:00', event.timeZone);
 }

@@ -39,6 +39,9 @@ export class PerfilComponent implements OnInit {
   // Subscription info
   subscription: UserSubscription | null = null;
   isPro = false;
+  get hasPaidPlan(): boolean {
+    return this.subscription?.status === 'active' && this.subscription?.plan?.name !== 'FREE';
+  }
   planExpiresAt: Date | null = null;
 
   // --- LÓGICA DEL MODAL DE PAGO ---
@@ -82,13 +85,11 @@ export class PerfilComponent implements OnInit {
   }
 
   private loadSubscription(): void {
-    this.subscriptionService.getMySubscription().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.subscriptionService.getMySubscription(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (sub) => {
         this.subscription = sub;
         this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
-        if (sub.currentPeriodEnd) {
-          this.planExpiresAt = new Date(sub.currentPeriodEnd);
-        }
+        this.planExpiresAt = sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
       },
       error: (err) => console.error('Error al obtener suscripción:', err)
     });
@@ -150,8 +151,7 @@ export class PerfilComponent implements OnInit {
 
   // --- ACCIÓN PRINCIPAL: ABRIR MODAL ---
   goToUpgrade(): void {
-    // Buscamos el plan PRO (o el que tenga precio > 0)
-    const proPlan = this.plans.find(p => p.name === 'PRO' || p.monthlyPrice > 0);
+    const proPlan = this.plans.find(p => p.name === 'PRO');
 
     if (proPlan) {
       this.selectedPlan = proPlan;
@@ -189,7 +189,7 @@ export class PerfilComponent implements OnInit {
   // --- CANCELAR SUSCRIPCIÓN ---
   cancelSubscription(): void {
     const confirmed = confirm(
-      '¿Estás seguro de que querés cancelar tu suscripción PRO?\n\n' +
+      `¿Estás seguro de que querés cancelar tu suscripción ${this.subscription?.plan.name || ''}?\n\n` +
       'Tu plan se mantendrá activo hasta el fin del período actual. ' +
       'Después de eso, volverás al plan gratuito.'
     );

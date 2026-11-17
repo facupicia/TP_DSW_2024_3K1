@@ -208,6 +208,9 @@ export class AdminPanelComponent implements OnInit {
   cambiarTab(tab: TabView) {
     this.activeTab = tab;
     this.cdr.markForCheck();
+    if (tab === 'users' && !this.hasLoadedUsers && !this.loadingUsers) {
+      this.cargarUsuarios();
+    }
     if (tab === 'categories' && !this.hasLoadedCategories && !this.loadingCategories) {
       this.cargarCategorias();
     }
@@ -310,23 +313,23 @@ export class AdminPanelComponent implements OnInit {
       this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
       return;
     }
-    
+
     // Check admin using roles array
     const currentUserRoles = this.currentUser.roles || [this.currentUser.rol] || [];
     if (!currentUserRoles.includes('admin')) {
       this.toast.error('No tienes permisos para cambiar roles', 'Permisos insuficientes');
       return;
     }
-    
+
     if (!u.id) return;
     const nuevosRoles = this.selectedRoles[u.id];
     const rolesActuales = u.roles || [u.rol] || ['user'];
-    
+
     if (!nuevosRoles || nuevosRoles.length === 0) {
       this.toast.warning('Selecciona al menos un rol');
       return;
     }
-    
+
     // Check if roles are actually different
     const sortedNuevos = [...nuevosRoles].sort();
     const sortedActuales = [...rolesActuales].sort();
@@ -334,7 +337,7 @@ export class AdminPanelComponent implements OnInit {
       this.toast.info('Los roles seleccionados son iguales a los actuales');
       return;
     }
-    
+
     this.updatingRole[u.id!] = true;
     this.userService.updateRole(u.id!, nuevosRoles, 'set').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (resp: any) => {
@@ -352,7 +355,7 @@ export class AdminPanelComponent implements OnInit {
       }
     });
   }
-  
+
   // Toggle role selection (add/remove from array)
   toggleRole(userId: number, role: string) {
     const currentRoles = this.selectedRoles[userId] || [];
@@ -365,12 +368,12 @@ export class AdminPanelComponent implements OnInit {
       this.selectedRoles[userId] = [...currentRoles, role];
     }
   }
-  
+
   // Check if user has role selected
   hasRoleSelected(userId: number, role: string): boolean {
     return (this.selectedRoles[userId] || []).includes(role);
   }
-  
+
   // Get display roles for a user
   getUserRolesDisplay(u: Usuario): string {
     const roles = u.roles || [u.rol] || ['user'];

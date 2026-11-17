@@ -1,13 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import { logger } from "../services/logger";
-import { AnyZodObject, ZodError } from "zod";
+import { ZodType, ZodError } from "zod";
 
 
 // Función que devuelve un middleware para validar esquemas
 export const schemaValidation =
-  (schema: AnyZodObject) =>
+  <T extends { body?: any; params?: any; query?: any }>(schema: ZodType<T>) =>
   (req: Request, res: Response, next: NextFunction) => {
-    try { 
+    try {
       // Validar el body, params, y query de la solicitud
       const parsed = schema.parse({
         body: req.body,
@@ -18,7 +18,7 @@ export const schemaValidation =
       if (parsed.body !== undefined) req.body = parsed.body;
       if (parsed.params !== undefined) req.params = parsed.params;
       if (parsed.query !== undefined) req.query = parsed.query;
-      
+
       next(); // Continúa al siguiente middleware/controlador
     } catch (error) {
       // Manejo de errores de validación de Zod

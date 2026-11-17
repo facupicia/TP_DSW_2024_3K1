@@ -36,7 +36,7 @@ export async function getCachedStats<T>(
         try {
             const cached = await redis.get(key);
             if (cached) {
-                return JSON.parse(cached);
+                return JSON.parse(String(cached));
             }
         } catch (err) {
             logger.warn('Redis get error', { error: (err as Error).message });
@@ -69,7 +69,7 @@ export async function invalidateStatsCache(pattern: string): Promise<void> {
         const target = `stats:${pattern}*`;
         const keysToDelete: string[] = [];
         for await (const key of redis.scanIterator({ MATCH: target, COUNT: 100 })) {
-            keysToDelete.push(key);
+            keysToDelete.push(...key.map(String));
             if (keysToDelete.length >= 1000) {
                 await redis.del(keysToDelete);
                 keysToDelete.length = 0;
@@ -93,7 +93,7 @@ export async function invalidateAllStatsCache(): Promise<void> {
     try {
         const keysToDelete: string[] = [];
         for await (const key of redis.scanIterator({ MATCH: 'stats:*', COUNT: 100 })) {
-            keysToDelete.push(key);
+            keysToDelete.push(...key.map(String));
             if (keysToDelete.length >= 1000) {
                 await redis.del(keysToDelete);
                 keysToDelete.length = 0;

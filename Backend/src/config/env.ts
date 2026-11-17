@@ -33,6 +33,7 @@ const EnvSchema = z
     CLIENT_URL: z.string().optional(),
 
     // Mercado Pago - Marketplace
+    MP_MODE: z.enum(["production", "sandbox"]).default("production"),
     MP_ACCESS_TOKEN: z.string().min(1),
     MP_CLIENT_ID: z.string().optional(),
     MP_CLIENT_SECRET: z.string().optional(),
@@ -125,13 +126,16 @@ const EnvSchema = z
       .default(15),
 
     // Volume Seeding (solo para testeo de carga)
-    VOLUME_USERS: z.coerce.number().int().min(1).optional().default(500),
-    VOLUME_ORGANIZERS: z.coerce.number().int().min(1).optional().default(20),
-    VOLUME_EVENTS: z.coerce.number().int().min(1).optional().default(100),
-    VOLUME_TICKET_TYPES: z.coerce.number().int().min(1).optional().default(300),
-    VOLUME_TICKETS: z.coerce.number().int().min(1).optional().default(2000),
-    VOLUME_PAYMENTS: z.coerce.number().int().min(1).optional().default(2000),
-    VOLUME_BATCH_SIZE: z.coerce.number().int().min(1).optional().default(500),
+    // Nota: tickets y payments DERIVAN de VOLUME_PURCHASES para mantener
+    // coherencia relacional (cada compra genera 1 payment + N tickets).
+    VOLUME_USERS: z.coerce.number().int().min(1).optional().default(2000),
+    VOLUME_ORGANIZERS: z.coerce.number().int().min(1).optional().default(50),
+    VOLUME_EVENTS: z.coerce.number().int().min(1).optional().default(250),
+    VOLUME_TICKET_TYPES: z.coerce.number().int().min(1).optional().default(800),
+    VOLUME_PURCHASES: z.coerce.number().int().min(0).optional().default(6000),
+    VOLUME_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).optional().default(500),
+    VOLUME_RESET: z.enum(["true", "false"]).optional().default("false"),
+    VOLUME_SEED: z.string().optional().default("eventlife-v2"),
   })
   .refine(
     (data) => {
@@ -149,15 +153,6 @@ const EnvSchema = z
         "Either DATABASE_URL/POSTGRES_URL or all PG* variables must be provided",
       path: ["DATABASE_URL"],
     },
-  )
-  .refine(
-    (data) => {
-      if (data.NODE_ENV === "production") {
-        return !!data.REDIS_URL;
-      }
-      return true;
-    },
-    { message: "REDIS_URL is required in production", path: ["REDIS_URL"] },
   );
 
 export const env = EnvSchema.parse(process.env);

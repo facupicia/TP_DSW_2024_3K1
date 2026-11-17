@@ -3,15 +3,7 @@ import { Ticket, TicketStatus } from "../ticket/ticket.entity";
 import { PromoterGroup } from "./promoter.entity";
 import { Event } from "../event/event.entity";
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
 
 // ============================================================================
 // OVERVIEW STATS

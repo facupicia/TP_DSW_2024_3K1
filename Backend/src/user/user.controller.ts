@@ -11,6 +11,8 @@ function handleServiceError(error: any, res: Response) {
   const message = error?.message || "Internal server error";
 
   const statusMap: Record<string, number> = {
+    REAUTHENTICATION_REQUIRED:403,
+    PROFILE_CHANGED:409,
     EMAIL_ALREADY_EXISTS: 409,
     USER_NOT_FOUND: 404,
     INVALID_PASSWORD: 400,
@@ -166,7 +168,7 @@ export const refreshSession = async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    return res.status(500).json({ code: "REFRESH_ERROR", message: error.message || "Internal Server Error" });
+    return res.status(500).json({ code: "REFRESH_ERROR", message: "No se pudo completar la operación" });
   }
 };
 

@@ -1,0 +1,6 @@
+CONFIRMADO: compra fallida confirma soldCount +1 del primer ítem; no crea tickets.
+CONFIRMADO: extractPaymentInfo pierde metadata.promoter_code.
+CONFIRMADO: ECONNRESET queda convertido en success:false sin código transitorio.
+CONFIRMADO: dos refresh concurrentes con una cookie generan dos sesiones válidas.
+CONFIRMADO: dos reembolsos concurrentes restauran el mismo stock dos veces y llaman dos veces a MP.
+CONFIRMADO: un token de reclamo previo sigue válido aunque la cuenta ya fue reclamada.

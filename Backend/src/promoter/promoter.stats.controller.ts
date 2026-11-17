@@ -47,7 +47,7 @@ function parseDate(value: unknown): Date | undefined {
 // ============================================================================
 export const getPromotersStats = async (req: CustomRequest, res: Response) => {
     const auth = checkOrganizerAuth(req);
-    if (!auth) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+    if (!auth) return res.status(req.user?.id ? 403 : 401).json({ code: req.user?.id ? "FORBIDDEN_ROLE" : "AUTH_REQUIRED", message: "No autorizado" });
 
     try {
         const { eventId, startDate, endDate } = req.query;
@@ -67,7 +67,7 @@ export const getPromotersStats = async (req: CustomRequest, res: Response) => {
 // ============================================================================
 export const getPromoterStatsById = async (req: CustomRequest, res: Response) => {
     const auth = checkOrganizerAuth(req);
-    if (!auth) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+    if (!auth) return res.status(req.user?.id ? 403 : 401).json({ code: req.user?.id ? "FORBIDDEN_ROLE" : "AUTH_REQUIRED", message: "No autorizado" });
 
     const promoterGroupId = parseInt(req.params.id);
     if (isNaN(promoterGroupId)) {
@@ -92,7 +92,7 @@ export const getPromoterStatsById = async (req: CustomRequest, res: Response) =>
 // ============================================================================
 export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
     const userId = checkPromoterAuth(req);
-    if (!userId) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+    if (!userId) return res.status(req.user?.id ? 403 : 401).json({ code: req.user?.id ? "FORBIDDEN_ROLE" : "AUTH_REQUIRED", message: "No autorizado" });
 
     try {
         const { eventId, startDate, endDate } = req.query;
@@ -112,7 +112,7 @@ export const getMyPromoterStats = async (req: CustomRequest, res: Response) => {
 // ============================================================================
 export const getEventsPromoterStats = async (req: CustomRequest, res: Response) => {
     const auth = checkOrganizerAuth(req);
-    if (!auth) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+    if (!auth) return res.status(req.user?.id ? 403 : 401).json({ code: req.user?.id ? "FORBIDDEN_ROLE" : "AUTH_REQUIRED", message: "No autorizado" });
 
     try {
         const result = await getEventsPromoterStatsSvc(auth.organizerId);
@@ -127,7 +127,7 @@ export const getEventsPromoterStats = async (req: CustomRequest, res: Response) 
 // ============================================================================
 export const exportPromotersStatsPdf = async (req: CustomRequest, res: Response) => {
     const auth = checkOrganizerAuth(req);
-    if (!auth) return res.status(401).json({ code: "AUTH_REQUIRED", message: "No autorizado" });
+    if (!auth) return res.status(req.user?.id ? 403 : 401).json({ code: req.user?.id ? "FORBIDDEN_ROLE" : "AUTH_REQUIRED", message: "No autorizado" });
 
     const eventId = parseInt(req.params.eventId);
     if (isNaN(eventId)) {

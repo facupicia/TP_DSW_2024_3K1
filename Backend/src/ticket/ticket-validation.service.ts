@@ -52,6 +52,8 @@ export async function validateTicket(
             "event.title",
             "event.date",
             "event.time",
+            "event.timeZone",
+            "event.startDateTime",
             "event.active",
             "event.user_id"
         ])
@@ -86,6 +88,8 @@ export async function validateTicket(
             "event.title",
             "event.date",
             "event.time",
+            "event.timeZone",
+            "event.startDateTime",
             "event.active",
             "event.user_id"
         ])

@@ -47,6 +47,9 @@ export class User extends BaseEntity {
     @Column()
     email: string;
 
+    @Column({ default: 0 })
+    credentialsVersion: number;
+
     @Column({ select: false })
     password: string;
 

@@ -1,3 +1,4 @@
+import { IANAZone, DateTime } from 'luxon';
 import { z } from "zod";
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
@@ -11,12 +12,8 @@ export const createEventSchema = z.object({
         direccion: z.string().min(1, "La dirección es obligatoria"),
         organizer: z.string().min(1, "El organizador es obligatorio"),
         image: z.string().optional(),
-        date: z.string().refine(date => {
-            const eventDate = new Date(date);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return !isNaN(eventDate.getTime()) && eventDate >= today;
-        }, "La fecha debe ser hoy o una fecha futura"),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(date=>DateTime.fromISO(date).isValid, 'Fecha inválida'),
+        timeZone: z.string().refine(zone=>IANAZone.isValidZone(zone), 'Zona horaria inválida').optional(),
         time: z.string().regex(timeRegex, "Formato de hora inválido"),
         description: z.string().min(1, "La descripción es obligatoria"),
         categoryId: z.number().int().positive("La categoría es obligatoria"),
@@ -29,7 +26,7 @@ export const createEventSchema = z.object({
             capacity: z.number().int().positive("La capacidad debe ser mayor a 0"),
             description: z.string().optional(),
             active: z.boolean().optional()
-        })).optional()
+        })).max(1000).optional()
     }),
     query: z.object({
         search: z.string().optional()
@@ -45,7 +42,8 @@ export const updateEventSchema = z.object({
         direccion: z.string().optional(),
         organizer: z.string().optional(),
         image: z.string().optional(),
-        date: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida").optional(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(date=>DateTime.fromISO(date).isValid, 'Fecha inválida').optional(),
+        timeZone: z.string().refine(zone=>IANAZone.isValidZone(zone), 'Zona horaria inválida').optional(),
         time: z.string().regex(timeRegex, "Formato de hora inválido").optional(),
         description: z.string().optional(),
         categoryId: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional(),
@@ -62,7 +60,7 @@ export const updateEventSchema = z.object({
             capacity: z.union([z.number(), z.string().transform(val => parseInt(val, 10))]).optional(),
             description: z.string().nullable().optional(),
             active: z.boolean().optional()
-        })).optional()
+        })).max(1000).optional()
     }),
     params: z.object({
         id: z.string().regex(/^\d+$/, "ID de evento inválido")

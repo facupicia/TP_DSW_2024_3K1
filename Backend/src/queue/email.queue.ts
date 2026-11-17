@@ -1,11 +1,10 @@
 import { Queue, Worker, Job } from "bullmq";
 import crypto from "crypto";
+import { In } from 'typeorm';
 import { getBullMQConnection } from "./queue.config";
 import { logger } from "../common/services/logger";
 import AppDataSource from "../db";
 import { Ticket } from "../ticket/ticket.entity";
-import { TicketType } from "../ticketType/ticketType.entity";
-import { Event } from "../event/event.entity";
 import { ExtraItem } from "../extra/extraItem.entity";
 import enviarCorreoConQR, {
     enviarCorreoConExtras,
@@ -49,8 +48,8 @@ export function getEmailQueue(): Queue {
 // ============================================================================
 
 function hashJobId(prefix: string, rawId: string): string {
-    if (rawId.length <= 80) return `${prefix}:${rawId}`;
-    return `${prefix}:${crypto.createHash("sha256").update(rawId).digest("hex").slice(0, 32)}`;
+    if (rawId.length <= 80) return `${prefix}-${rawId}`;
+    return `${prefix}-${crypto.createHash("sha256").update(rawId).digest("hex").slice(0, 32)}`;
 }
 
 export async function addSendTicketEmailJob(data: SendTicketEmailJobData) {
@@ -90,7 +89,7 @@ export async function addSendAccountClaimJob(data: SendAccountClaimEmailJobData)
     const queue = getEmailQueue();
     const jobData: QueueJobData = { type: "send-account-claim", payload: data };
     const job = await queue.add("send-account-claim", jobData, {
-        jobId: hashJobId("account-claim", data.userEmail),
+        jobId: hashJobId("account-claim", data.claimUrl),
     });
     logger.info("QUEUE_ACCOUNT_CLAIM_ENQUEUED", { jobId: job.id, email: data.userEmail });
     return job;
@@ -109,7 +108,7 @@ async function processSendTicketEmail(job: Job) {
 
     const ticketRepo = AppDataSource.getRepository(Ticket);
     let tickets = await ticketRepo.find({
-        where: { id: payload.ticketIds } as any,
+        where: { id: In(payload.ticketIds) },
         relations: ["ticketType", "ticketType.event"],
     });
 
@@ -133,13 +132,14 @@ async function processSendTicketEmail(job: Job) {
         throw new Error(`Missing event or ticketType for job ${job.id}`);
     }
 
-    const dateValue = event.date instanceof Date ? event.date : new Date(event.date);
+        const dateValue = event.date instanceof Date ? event.date : new Date(event.date);
     const formattedDate = !isNaN(dateValue.getTime())
         ? dateValue.toLocaleDateString("es-AR", {
               weekday: "long",
               year: "numeric",
               month: "long",
               day: "numeric",
+              timeZone: "UTC",
           })
         : String(event.date);
 
@@ -152,10 +152,10 @@ async function processSendTicketEmail(job: Job) {
         eventDate: `${formattedDate} ${event.time}`,
         eventLocation: event.direccion || "",
         buyerName,
-        ticketType: ticketType.name,
+        ticketType: t.ticketType.name,
     }));
 
-    await enviarCorreoConQR(payload.userEmail, emailData);
+    if (!await enviarCorreoConQR(payload.userEmail, emailData)) throw new Error('Ticket email delivery failed');
     logger.info("QUEUE_TICKET_EMAIL_SENT", { jobId: job.id, ticketsCount: tickets.length });
 }
 
@@ -168,7 +168,7 @@ async function processSendExtraEmail(job: Job) {
 
     const extraRepo = AppDataSource.getRepository(ExtraItem);
     let extras = await extraRepo.find({
-        where: { id: payload.extraItemIds } as any,
+        where: { id: In(payload.extraItemIds) },
         relations: ["eventProduct", "eventProduct.event", "eventProduct.product"],
     });
 
@@ -201,7 +201,7 @@ async function processSendExtraEmail(job: Job) {
         buyerName,
     }));
 
-    await enviarCorreoConExtras(payload.userEmail, emailData);
+    if (!await enviarCorreoConExtras(payload.userEmail, emailData)) throw new Error('Extra email delivery failed');
     logger.info("QUEUE_EXTRA_EMAIL_SENT", { jobId: job.id, extrasCount: extras.length });
 }
 
@@ -213,11 +213,8 @@ async function processSendGuestInvitation(job: Job) {
     }
 
     const ticketRepo = AppDataSource.getRepository(Ticket);
-    const ticketTypeRepo = AppDataSource.getRepository(TicketType);
-    const eventRepo = AppDataSource.getRepository(Event);
-
     const tickets = await ticketRepo.find({
-        where: { id: payload.ticketIds } as any,
+        where: { id: In(payload.ticketIds) },
         relations: ["ticketType", "ticketType.event"],
     });
 
@@ -239,6 +236,7 @@ async function processSendGuestInvitation(job: Job) {
               year: "numeric",
               month: "long",
               day: "numeric",
+              timeZone: "UTC",
           })
         : String(event.date);
 
@@ -252,13 +250,13 @@ async function processSendGuestInvitation(job: Job) {
         ticketType: ticketType.name,
     }));
 
-    await enviarCorreoConQR(payload.email, emailData);
+    if (!await enviarCorreoConQR(payload.email, emailData)) throw new Error('Invitation email delivery failed');
     logger.info("QUEUE_GUEST_INVITE_SENT", { jobId: job.id, ticketsCount: tickets.length });
 }
 
 async function processSendAccountClaim(job: Job) {
     const payload = job.data.payload as SendAccountClaimEmailJobData;
-    await sendAccountClaimEmail(payload.userEmail, payload.userName, payload.claimUrl);
+    if (!await sendAccountClaimEmail(payload.userEmail, payload.userName, payload.claimUrl, payload.purpose)) throw new Error('Account email delivery failed');
     logger.info("QUEUE_ACCOUNT_CLAIM_SENT", { jobId: job.id, email: payload.userEmail });
 }
 
@@ -266,6 +264,16 @@ async function processSendAccountClaim(job: Job) {
 // WORKER START / STOP
 // ============================================================================
 
+export async function deliverEmailJob(data: QueueJobData): Promise<void> {
+    const job = { data, id: 'outbox' } as Job;
+    switch (data.type) {
+        case 'send-ticket-email': await processSendTicketEmail(job); break;
+        case 'send-extra-email': await processSendExtraEmail(job); break;
+        case 'send-guest-invitation': await processSendGuestInvitation(job); break;
+        case 'send-account-claim': await processSendAccountClaim(job); break;
+        default: throw new Error('Unknown email job');
+    }
+}
 export function startEmailWorker(): Worker {
     if (emailWorker) {
         return emailWorker;

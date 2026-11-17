@@ -58,6 +58,9 @@ export class Event extends BaseEntity {
     @Column({ type: "date" })
     date: Date;
 
+    @Column({ default: "America/Argentina/Buenos_Aires" })
+    timeZone: string;
+
     @Column({ type: "time" })
     time: string;
 

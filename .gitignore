@@ -1,0 +1,3 @@
+# Local deployment bundles and dependency resolution scratch files
+.deployment/
+Frontend/.release-lock/

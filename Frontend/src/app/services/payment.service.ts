@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 
 export interface MpStatus {
     connected: boolean;
+    sandboxReady?: boolean;
     mpUserId: string | null;
     expiresAt: string | null;
     needsReconnect: boolean;
@@ -60,7 +61,7 @@ export class PaymentService {
      */
     connectMercadoPago(redirectTo?: string): Observable<MpConnectResponse> {
         const params = redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : '';
-        return this.http.get<MpConnectResponse>(`${this.baseUrl}/mp/connect${params}`);
+        return this.http.get<MpConnectResponse>(`${this.baseUrl}/mp/connect${params}`, {withCredentials:true});
     }
 
     /**

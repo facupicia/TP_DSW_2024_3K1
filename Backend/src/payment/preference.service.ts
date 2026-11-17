@@ -1,6 +1,9 @@
+import { createHash, randomBytes } from 'crypto';
+import { CheckoutOrder } from './checkout-order.entity';
+import { getEventDateTime } from '../common/utils/ticket';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import bcrypt from 'bcrypt';
-import { In } from 'typeorm';
+import { In, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
 import AppDataSource from '../db';
 import { User } from '../user/user.entity';
@@ -8,11 +11,11 @@ import { TicketType, TicketTypeStatus } from '../ticketType/ticketType.entity';
 import { getActiveSubscription } from '../subscription/subscription.service';
 import { refreshOrganizerToken } from './mp-oauth.controller';
 import { logger } from '../common/services/logger';
-import { getMPConfig, sanitizeUrl } from './mp.config';
+import { assertSandboxSeller, getMPConfig, sanitizeUrl } from './mp.config';
 import { Coupon } from '../coupon/coupon.entity';
 import { EventProduct } from '../extra/eventProduct.entity';
 import { findRolesByNames } from '../user/role.entity';
-import { getRedis } from '../common/services/redis';
+import { env } from '../config/env';
 
 /**
  * Preference Service
@@ -35,6 +38,16 @@ export interface ExtraCartItem {
     quantity: number;
 }
 
+export function buildExtrasStockQuery(manager: EntityManager, ids: number[]) {
+    // PostgreSQL folds unquoted FOR UPDATE aliases to lowercase.
+    return manager.createQueryBuilder(EventProduct, 'ep')
+        .innerJoinAndSelect('ep.event', 'event')
+        .innerJoinAndSelect('ep.product', 'product')
+        .where('ep.id IN (:...ids)', { ids })
+        .orderBy('ep.id', 'ASC')
+        .setLock('pessimistic_write', undefined, ['ep']);
+}
+
 export interface PreferenceInput {
     userId?: number;
     items: CartItem[];
@@ -51,6 +64,7 @@ export interface PreferenceResult {
     pricing: PreferencePricing;
     externalReference: string;
     buyerEmail: string;
+    statusToken: string;
     guestCheckout: boolean;
 }
 
@@ -269,7 +283,7 @@ export async function validatePurchaseEligibility(
         }
 
         const event = ticketTypes[0].event;
-        const eventDateTime = new Date(`${event.date}T${event.time}`);
+        const eventDateTime = getEventDateTime(event);
         if (new Date() > eventDateTime) {
             return {
                 valid: false,
@@ -356,7 +370,7 @@ export async function getMarketPlaceInfo(eventUserId: number): Promise<MarketPla
     
     try {
         // Obtener token del organizador
-        const organizerAccessToken = await refreshOrganizerToken(eventUserId);
+        const organizerAccessToken = env.MP_MODE === 'sandbox' ? null : await refreshOrganizerToken(eventUserId);
         
         // Obtener plan y comisión
         const subscription = await getActiveSubscription(eventUserId);
@@ -727,6 +741,7 @@ export function buildPreferenceBody(
  * (con redirección manual después).
  */
 interface PreparedPreference {
+    statusToken: string;
     purchasePayer: PurchasePayer;
     ticketTypes: TicketType[];
     extras: EventProduct[];
@@ -781,8 +796,6 @@ async function preparePreference(
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    const createdReservations: Array<{ ticketTypeId: number; member: string }> = [];
-    const redis = await getRedis();
     const checkoutUuid = randomUUID();
 
     try {
@@ -790,80 +803,24 @@ async function preparePreference(
             .createQueryBuilder(TicketType, 'tt')
             .innerJoinAndSelect('tt.event', 'event')
             .where('tt.id IN (:...ids)', { ids: ticketTypeIds })
-            .setLock('pessimistic_write')
+            .orderBy('tt.id','ASC')
+            .setLock('pessimistic_write', undefined, ['tt'])
             .getMany();
+        if (lockedTicketTypes.length !== ticketTypeIds.length) throw new Error('TICKET_TYPE_NOT_FOUND');
+        // Freeze prices and event details read while holding the inventory locks.
+        ticketTypes.splice(0,ticketTypes.length,...lockedTicketTypes);
 
-        if (redis) {
-            const now = Date.now();
-            const expirationTime = now + 10 * 60 * 1000; // 10 minutes
-
-            for (const tt of lockedTicketTypes) {
-                const item = items.find(i => i.ticketTypeId === tt.id)!;
-                const redisKey = `ticket_type:reservations:${tt.id}`;
-
-                // 1. Clean up expired reservations
-                await redis.zRemRangeByScore(redisKey, 0, now);
-
-                // 2. Fetch active reservations
-                const activeReservations = await redis.zRangeWithScores(redisKey, 0, -1);
-                let reservedCount = 0;
-                for (const resItem of activeReservations) {
-                    const parts = resItem.value.split(':');
-                    const qty = parseInt(parts[1], 10);
-                    if (!isNaN(qty)) {
-                        reservedCount += qty;
-                    }
-                }
-
-                // 3. Validate stock considering DB and Redis
-                const availableStock = tt.capacity - (tt.soldCount + reservedCount);
-                if (availableStock < item.quantity) {
-                    logger.warn('REDIS_STOCK_RESERVATION_FAILED_NO_STOCK', {
-                        ticketTypeId: tt.id,
-                        dbSoldCount: tt.soldCount,
-                        redisReservedCount: reservedCount,
-                        capacity: tt.capacity,
-                        requested: item.quantity
-                    });
-                    throw new Error('NO_STOCK');
-                }
-
-                // 4. Reserve temporarily in Redis
-                const member = `${checkoutUuid}:${item.quantity}`;
-                await redis.zAdd(redisKey, {
-                    score: expirationTime,
-                    value: member
-                });
-                createdReservations.push({ ticketTypeId: tt.id, member });
-
-                logger.info('REDIS_STOCK_RESERVED_TEMPORARY', {
-                    ticketTypeId: tt.id,
-                    checkoutUuid,
-                    quantity: item.quantity,
-                    expiration: new Date(expirationTime).toISOString()
-                });
-            }
-        } else {
-            // Fallback DB-only if Redis is not available
-            for (const tt of lockedTicketTypes) {
-                const item = items.find(i => i.ticketTypeId === tt.id)!;
-                const availableStock = tt.capacity - tt.soldCount;
-                if (availableStock < item.quantity) {
-                    throw new Error('NO_STOCK');
-                }
-            }
+        for (const tt of lockedTicketTypes) {
+            const item = items.find(i => i.ticketTypeId === tt.id)!;
+            if (tt.status !== TicketTypeStatus.ACTIVE || !tt.event.active) throw new Error('TICKET_TYPE_INACTIVE');
+            const reserved = await reservedQuantity(queryRunner.manager,'ticket',tt.id);
+            if (tt.capacity - tt.soldCount - reserved < item.quantity) throw new Error('NO_STOCK');
         }
 
         let extras: EventProduct[] = [];
         if (extraItems.length > 0) {
             const extraIds = extraItems.map(i => i.eventProductId).sort((a, b) => a - b);
-            extras = await queryRunner.manager
-                .createQueryBuilder(EventProduct, 'eventProduct')
-                .innerJoinAndSelect('eventProduct.event', 'event')
-                .innerJoinAndSelect('eventProduct.product', 'product')
-                .where('eventProduct.id IN (:...ids)', { ids: extraIds })
-                .setLock('pessimistic_write')
-                .getMany();
+            extras = await buildExtrasStockQuery(queryRunner.manager, extraIds).getMany();
 
             if (extras.length !== extraIds.length) {
                 throw new Error('EXTRA_FOUND_MISMATCH');
@@ -881,15 +838,17 @@ async function preparePreference(
                     throw new Error('EXTRA_MAX_PER_ORDER');
                 }
                 if (ep.hasStock) {
-                    const availableStock = ep.stock - ep.soldCount;
+                    const reservedCount = await reservedQuantity(queryRunner.manager,'extra',ep.id);
+                    const availableStock = ep.stock - ep.soldCount - reservedCount;
                     if (availableStock < item.quantity) {
                         throw new Error('NO_EXTRA_STOCK');
                     }
+
                 }
             }
         }
 
-        const eventDateTime = new Date(`${ticketTypes[0].event.date}T${ticketTypes[0].event.time}`);
+        const eventDateTime = getEventDateTime(ticketTypes[0].event);
         if (new Date() > eventDateTime) {
             throw new Error('EVENT_STARTED');
         }
@@ -936,9 +895,18 @@ async function preparePreference(
             checkoutUuid
         );
 
+        const statusToken = randomBytes(32).toString('base64url');
+        await queryRunner.manager.save(CheckoutOrder, {
+            externalReference, userId: purchasePayer.user.id, organizerId: ticketTypes[0].event.user_id, eventId,
+            statusTokenHash: createHash('sha256').update(statusToken).digest('hex'),
+            snapshot: { reservedUntil: new Date(Date.now()+10*60*1000).toISOString(), pricing, paymentAccount: options.requireOrganizerToken ? "organizer" : "platform", commissionPercent: marketplaceInfo.commissionPercent, items: [...items.map(item => ({type:'ticket', referenceId:item.ticketTypeId, quantity:item.quantity, unitPrice:Number(ticketTypes.find(t=>t.id===item.ticketTypeId).price)})),
+                ...extraItems.map(item=>({type:'extra', referenceId:item.eventProductId, quantity:item.quantity, unitPrice:Number(extras.find(e=>e.id===item.eventProductId).eventPrice)}))] },
+            expiresAt: new Date(Date.now()+7*24*60*60*1000), reservationExpiresAt:new Date(Date.now()+10*60*1000), status: 'pending'
+        });
         await queryRunner.commitTransaction();
 
         return {
+            statusToken,
             purchasePayer,
             ticketTypes,
             extras,
@@ -952,20 +920,6 @@ async function preparePreference(
     } catch (error) {
         if (queryRunner.isTransactionActive) {
             await queryRunner.rollbackTransaction();
-        }
-        // Revert Redis reservations on error
-        if (redis && createdReservations.length > 0) {
-            for (const res of createdReservations) {
-                const redisKey = `ticket_type:reservations:${res.ticketTypeId}`;
-                await redis.zRem(redisKey, res.member).catch(err => {
-                    logger.error('REDIS_REVERSION_FAILED', {
-                        ticketTypeId: res.ticketTypeId,
-                        member: res.member,
-                        error: err?.message
-                    });
-                });
-            }
-            logger.info('REDIS_RESERVATIONS_REVERTED_ON_ERROR', { checkoutUuid });
         }
         throw error;
     } finally {
@@ -995,9 +949,13 @@ export async function createMercadoPagoPreference(
         guestCheckout: purchasePayer.guestCheckout
     });
 
-    const result = await preference.create({ body });
+    let result;
+    try { result = await preference.create({ body }); }
+    catch (error) { await releasePreferenceReservation(prepared, input); throw error; }
+    await AppDataSource.getRepository(CheckoutOrder).update(externalReference, { preferenceId: result.id || null });
 
     if (!result.id || !result.init_point) {
+        await releasePreferenceReservation(prepared, input);
         throw new Error('MercadoPago did not return preference ID or init_point');
     }
 
@@ -1012,6 +970,7 @@ export async function createMercadoPagoPreference(
         initPoint: result.init_point!,
         pricing,
         externalReference,
+        statusToken: prepared.statusToken,
         buyerEmail: purchasePayer.payer.email,
         guestCheckout: purchasePayer.guestCheckout
     };
@@ -1024,6 +983,7 @@ export async function createMercadoPagoPreference(
 export async function createPlatformPreference(
     input: PreferenceInput
 ): Promise<PreferenceResult> {
+    await assertSandboxSeller();
     const prepared = await preparePreference(input, { requireOrganizerToken: false });
     const { purchasePayer, ticketTypes, extras, extraItems, pricing, body, externalReference } = prepared;
 
@@ -1034,9 +994,13 @@ export async function createPlatformPreference(
     const mpClient = new MercadoPagoConfig({ accessToken: config.accessToken });
     const preference = new Preference(mpClient);
 
-    const result = await preference.create({ body });
+    let result;
+    try { result = await preference.create({ body }); }
+    catch (error) { await releasePreferenceReservation(prepared,input); throw error; }
+    await AppDataSource.getRepository(CheckoutOrder).update(externalReference, { preferenceId: result.id || null });
 
     if (!result.id || !result.init_point) {
+        await releasePreferenceReservation(prepared,input);
         throw new Error('MercadoPago did not return preference ID or init_point');
     }
 
@@ -1051,7 +1015,20 @@ export async function createPlatformPreference(
         initPoint: result.init_point!,
         pricing,
         externalReference,
+        statusToken: prepared.statusToken,
         buyerEmail: purchasePayer.payer.email,
         guestCheckout: purchasePayer.guestCheckout
     };
+}
+
+async function releasePreferenceReservation(prepared: PreparedPreference, input: PreferenceInput) {
+    await AppDataSource.getRepository(CheckoutOrder).update(prepared.externalReference, { status: 'failure' });
+}
+
+export async function reservedQuantity(manager: EntityManager,type: 'ticket'|'extra',id:number): Promise<number> {
+    const [row] = await manager.query(`SELECT COALESCE(SUM((item->>'quantity')::integer),0)::integer AS quantity
+        FROM checkout_order o CROSS JOIN LATERAL jsonb_array_elements(o.snapshot->'items') item
+        WHERE o.status='pending' AND o."reservationExpiresAt">NOW()
+        AND item->>'type'=$1 AND (item->>'referenceId')::integer=$2`,[type,id]);
+    return Number(row.quantity);
 }

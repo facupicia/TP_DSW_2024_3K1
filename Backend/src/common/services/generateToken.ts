@@ -32,16 +32,17 @@ export const tokenSing = async (user: User) => {
         throw new Error("SECRET_KEY is missing in environment variables");
     }
     let roleNames = getRoleNames(user);
-    // If roles weren't loaded (eager removed), fetch them explicitly
-    if (roleNames.length === 0 && user.id) {
+    // A partial query must never replace a real credentials version with zero.
+    if ((roleNames.length === 0 || user.credentialsVersion === undefined) && user.id) {
         const refreshed = await User.findOne({ where: { id: user.id }, relations: ['roles'] });
-        if (refreshed) {
-            roleNames = getRoleNames(refreshed);
-        }
+        if (!refreshed) throw new Error('Token user not found');
+        user = refreshed;
+        roleNames = getRoleNames(refreshed);
     }
     return jwt.sign(
         {
             id: user.id,
+            credentialsVersion: user.credentialsVersion || 0,
             roles: roleNames.length > 0 ? roleNames : ['user'],
             jti: crypto.randomUUID(),
             iss: 'eventlife-api',

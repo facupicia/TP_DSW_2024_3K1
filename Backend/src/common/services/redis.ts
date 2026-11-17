@@ -18,7 +18,7 @@ export async function getRedis() {
                 url: env.REDIS_URL,
                 socket: {
                     connectTimeout: 5000,
-                    keepAlive: 5000,
+                    keepAlive: true, keepAliveInitialDelay: 5000,
                     reconnectStrategy: (retries) => {
                         if (retries > 5) {
                             logger.warn(`[Redis] Max reconnection attempts reached. Giving up.`);
@@ -65,7 +65,7 @@ export async function incrementSseConnection(userId: number): Promise<number> {
     const key = `${SSE_KEY_PREFIX}:${userId}`;
     const count = await redis.incr(key);
     await redis.expire(key, SSE_TTL_SECONDS);
-    return count;
+    return Number(count);
 }
 
 export async function decrementSseConnection(userId: number): Promise<number> {
@@ -73,11 +73,11 @@ export async function decrementSseConnection(userId: number): Promise<number> {
     if (!redis) return 0;
     const key = `${SSE_KEY_PREFIX}:${userId}`;
     const count = await redis.decr(key);
-    if (count <= 0) {
+    if (Number(count) <= 0) {
         await redis.del(key);
         return 0;
     }
-    return count;
+    return Number(count);
 }
 
 export async function getCachedSSEStats(userId: number): Promise<any | null> {
@@ -85,7 +85,7 @@ export async function getCachedSSEStats(userId: number): Promise<any | null> {
     if (!redis) return null;
     const key = `${SSE_STATS_KEY_PREFIX}:${userId}`;
     const data = await redis.get(key);
-    return data ? JSON.parse(data) : null;
+    return data ? JSON.parse(String(data)) : null;
 }
 
 export async function setCachedSSEStats(userId: number, data: any): Promise<void> {

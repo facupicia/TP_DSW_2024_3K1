@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn src/index.ts",
+    "dev": "node scripts/dev.cjs",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "ts-node src/seed.ts",
@@ -12,41 +12,46 @@
     "db:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts",
     "db:indexes": "ts-node src/database/scripts/run-query-indexes.ts",
     "seed:prod": "node dist/seed.js",
-    "db:indexes:prod": "node dist/database/scripts/run-query-indexes.js"
+    "db:indexes:prod": "node dist/database/scripts/run-query-indexes.js",
+    "test": "node --test tests/*.test.cjs",
+    "db:migrate:prod": "typeorm migration:run -d dist/config/database.js",
+    "test:postgres": "npm run build && node tests/postgres-integration.cjs",
+    "test:smoke": "npm run build && node tests/runtime-smoke.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "engines": {
-    "node": ">=18.18.0 <19.0.0"
+    "node": ">=22.12.0 <23"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
-    "bullmq": "^4.18.3",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.81.5",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^8.2.1",
     "geoip-lite": "^1.4.10",
-    "google-auth-library": "^9.14.2",
+    "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.2",
-    "mercadopago": "^2.11.0",
+    "mercadopago": "^3.6.1",
     "morgan": "^1.10.0",
-    "multer": "^2.1.1",
+    "multer": "^2.4.0",
     "pdfkit": "^0.15.0",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.3.1",
-    "redis": "^4.6.13",
+    "redis": "^5.12.1",
     "reflect-metadata": "^0.2.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.20",
-    "zod": "^3.23.8"
+    "typeorm": "^0.3.31",
+    "zod": "^4.6.7",
+    "luxon": "^3.7.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -58,12 +63,21 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/morgan": "^1.9.9",
     "@types/multer": "^2.1.0",
-    "@types/node": "^18.18.0",
+    "@types/node": "^22.12.0",
     "@types/qrcode": "^1.5.5",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.7",
     "nodemon": "^3.1.7",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "@types/luxon": "^3.7.0",
+    "@electric-sql/pglite": "^0.3.14"
+  },
+  "overrides": {
+    "ip-address": "^10.7.6",
+    "qs": "^6.17.1",
+    "typeorm": {
+      "glob": "^14.0.6"
+    }
   }
 }

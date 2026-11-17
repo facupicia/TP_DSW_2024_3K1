@@ -71,9 +71,9 @@ export class TicketService {
     );
   }
 
-  getLastPurchase(): Observable<{ tickets: Ticket[]; status: string }> {
+  getLastPurchase(externalReference?: string): Observable<{ tickets: Ticket[]; status: string }> {
     return this.http.get<{ tickets: Ticket[]; status: string; success?: boolean }>(
-      `${environment.apiUrl}/ticket/last-purchase`
+      `${environment.apiUrl}/ticket/last-purchase${externalReference ? "?external_reference="+encodeURIComponent(externalReference) : ""}`
     ).pipe(
       timeout(10000),
       catchError(err => throwError(() => err))

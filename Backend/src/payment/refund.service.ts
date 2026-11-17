@@ -1,422 +1,91 @@
-import crypto from 'crypto';
-import { In, Between } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import AppDataSource from '../db';
 import { PaymentLog, PaymentStatus } from './payment.entity';
+import { CheckoutOrder } from './checkout-order.entity';
+import { RefundRequest } from './refund-request.entity';
 import { Ticket, TicketStatus } from '../ticket/ticket.entity';
-import { TicketType } from '../ticketType/ticketType.entity';
 import { ExtraItem, ExtraItemStatus } from '../extra/extraItem.entity';
-import { EventProduct } from '../extra/eventProduct.entity';
-import { User } from '../user/user.entity';
-import { logger } from '../common/services/logger';
-import { decryptFromString } from '../common/services/encryption';
+import { enqueueOutbox } from '../queue/outbox.service';
+import { refreshOrganizerToken } from './mp-oauth.controller';
 import { getMPConfig } from './mp.config';
 
-/**
- * Refund Service
- * 
- * Maneja reembolsos de pagos tanto para la plataforma como para marketplace.
- */
+export interface RefundResult { success: boolean; pending?: boolean; refundId?: string; amountRefunded?: number; message: string; }
 
-export interface RefundResult {
-    success: boolean;
-    refundId?: string;
-    amountRefunded?: number;
-    message: string;
-    error?: string;
-    warning?: string;
+// Caller holds the payment lock. Commit local cancellation BEFORE contacting MP.
+export async function stageRefund(manager: EntityManager, log: PaymentLog, reason: string, requestedBy?: number, compensation = false) {
+    let request = await manager.findOne(RefundRequest, { where: { paymentLogId: log.id } });
+    if (request) return request;
+    if (!compensation) {
+        const tickets = await manager.getRepository(Ticket).createQueryBuilder('t').where('t.paymentLogId=:id', { id: log.id }).setLock('pessimistic_write').getMany();
+        const extras = await manager.getRepository(ExtraItem).createQueryBuilder('e').where('e.paymentLogId=:id', { id: log.id }).setLock('pessimistic_write').getMany();
+        if (!tickets.length && !extras.length) throw new Error('REFUND_LINK_REQUIRED');
+        if (tickets.some(t => t.status === TicketStatus.USED) || extras.some(e => e.status === ExtraItemStatus.USED)) throw new Error('REFUND_ALREADY_USED');
+        const [cancelled] = await manager.query(`UPDATE ticket SET status='cancelled' WHERE "paymentLogId"=$1 AND status='active' RETURNING "ticketTypeId"`, [log.id]);
+        const [cancelledExtras] = await manager.query(`UPDATE extra_item SET status='cancelled' WHERE "paymentLogId"=$1 AND status='active' RETURNING "eventProductId", quantity`, [log.id]);
+        const counts = new Map<number, number>();
+        for (const row of cancelled) counts.set(row.ticketTypeId, (counts.get(row.ticketTypeId) || 0) + 1);
+        for (const [id, count] of [...counts].sort((a,b) => a[0]-b[0])) await manager.query(`UPDATE ticket_type SET "soldCount"=GREATEST("soldCount"-$2,0) WHERE id=$1`, [id, count]);
+        counts.clear();
+        for (const row of cancelledExtras) counts.set(row.eventProductId, (counts.get(row.eventProductId) || 0) + row.quantity);
+        for (const [id, count] of [...counts].sort((a,b) => a[0]-b[0])) await manager.query(`UPDATE event_product SET "soldCount"=GREATEST("soldCount"-$2,0) WHERE id=$1`, [id, count]);
+    }
+    request = manager.create(RefundRequest, { paymentLogId: log.id, amount: Number(log.buyerTotalAmount || log.totalAmount), reason, requestedBy: requestedBy || null });
+    await manager.save(request);
+    await enqueueOutbox(manager, `refund-${log.id}`, 'refund', { refundRequestId: request.id });
+    return request;
 }
 
-/**
- * Procesa un reembolso completo o parcial usando la API de MercadoPago
- */
-async function getAccessTokenForRefund(organizerId?: number | null): Promise<string | null> {
-    if (organizerId) {
-        const userRepo = AppDataSource.getRepository(User);
-        const user = await userRepo
-            .createQueryBuilder('user')
-            .select(['user.id', 'user.mpAccessToken'])
-            .where('user.id = :id', { id: organizerId })
-            .getOne();
-        if (user?.mpAccessToken) {
-            const decrypted = decryptFromString(user.mpAccessToken);
-            if (decrypted) return decrypted;
-        }
+export async function processRefund(paymentId: string, options: { amount?: number; reason?: string; requestedBy: number; requesterRoles?: string[] }): Promise<RefundResult> {
+    try {
+        return await AppDataSource.transaction(async manager => {
+            const log = await manager.findOne(PaymentLog, { where: { mpPaymentId: paymentId }, lock: { mode: 'pessimistic_write' } });
+            if (!log || (!options.requesterRoles?.includes('admin') && log.organizerId !== options.requestedBy)) return { success: false, message: 'Pago no encontrado o no autorizado' };
+            if (log.status === PaymentStatus.REFUNDED) return { success: true, message: 'El pago ya fue reembolsado' };
+            if (log.status !== PaymentStatus.COMPLETED) return { success: false, message: 'Solo se pueden reembolsar pagos completados' };
+            const total = Number(log.buyerTotalAmount || log.totalAmount);
+            if (options.amount !== undefined && (!Number.isFinite(Number(options.amount)) || Math.abs(Number(options.amount)-total)>0.01)) return { success: false, message: 'Solo se admite la devolución total, incluido el cargo de servicio' };
+            const request = await stageRefund(manager, log, String(options.reason || '').slice(0, 500), options.requestedBy);
+            return { success: request.status !== 'failed', pending: request.status === 'pending', refundId: request.refundId || undefined,
+                message: request.status === 'pending' ? 'Devolución solicitada; confirmación de MercadoPago pendiente.' : request.status === 'failed' ? 'Devolución rechazada; requiere revisión administrativa.' : 'Devolución confirmada' };
+        });
+    } catch (error) {
+        if (['REFUND_LINK_REQUIRED','REFUND_ALREADY_USED'].includes((error as Error).message)) return { success: false, message: 'La compra requiere revisión: vínculo al pago incompleto o entradas utilizadas' };
+        throw error;
     }
-    const config = getMPConfig();
-    return config.accessToken || null;
 }
 
-export async function processRefund(
-    paymentId: string,
-    options: {
-        amount?: number;
-        reason?: string;
-        requestedBy: number;
-        requesterRoles?: string[];
-    }
-): Promise<RefundResult> {
-    logger.info('REFUND_START', {
-        paymentId,
-        hasAmount: options.amount !== undefined,
-        requestedBy: options.requestedBy,
-        requesterRoles: options.requesterRoles
+export async function executeRefund(requestId: string): Promise<void> {
+    const repo = AppDataSource.getRepository(RefundRequest);
+    const request = await repo.findOneByOrFail({ id: requestId });
+    if (request.status !== 'pending') return;
+    const log = await AppDataSource.getRepository(PaymentLog).findOneByOrFail({ id: request.paymentLogId });
+    const order = log.externalReference ? await AppDataSource.getRepository(CheckoutOrder).findOneBy({externalReference:log.externalReference}) : null;
+    const token = order?.snapshot.paymentAccount === 'platform' || !log.organizerId ? getMPConfig().accessToken : await refreshOrganizerToken(log.organizerId);
+    if (!token) throw new Error('Refund credentials unavailable');
+    const response = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(log.mpPaymentId)}/refunds`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': request.id },
+        body: '{}', signal: AbortSignal.timeout(15000)
     });
-
-    // 1. Validate payment locally (no transaction lock to avoid blocking DB during MP API call)
-    const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
-    const paymentLog = await paymentLogRepo.findOne({
-        where: { mpPaymentId: paymentId }
+    if (!response.ok) {
+        const detail = (await response.text()).slice(0, 1000);
+        if (response.status >= 500 || [408,409,429,401].includes(response.status)) throw new Error(`Refund provider temporary error (${response.status})`);
+        await repo.update(request.id, { status: 'failed', lastError: detail });
+        return;
+    }
+    const result = await response.json() as { id?: string | number; amount?: number; status?: string };
+    if (!result.id || ['rejected','pending'].includes(result.status) || !Number.isFinite(Number(result.amount)) || Math.abs(Number(result.amount)-Number(request.amount))>0.01) throw new Error('Refund confirmation incomplete');
+    await AppDataSource.transaction(async manager => {
+        await manager.update(RefundRequest, request.id, { status: 'confirmed', refundId: String(result.id), lastError: null });
+        await manager.update(PaymentLog, log.id, { status: PaymentStatus.REFUNDED, refundedAt: new Date(), refundedBy: request.requestedBy,
+            refundReason: request.reason, refundAmount: request.amount });
     });
-
-    if (!paymentLog) {
-        return {
-            success: false,
-            message: 'Payment not found in system'
-        };
-    }
-
-    const isAdmin = options.requesterRoles?.includes('admin') || false;
-    if (!isAdmin && paymentLog.organizerId !== options.requestedBy) {
-        return {
-            success: false,
-            message: 'No tienes permiso para reembolsar este pago'
-        };
-    }
-
-    if (paymentLog.status === PaymentStatus.REFUNDED) {
-        return {
-            success: false,
-            message: 'Payment already refunded'
-        };
-    }
-
-    if (paymentLog.status !== PaymentStatus.COMPLETED) {
-        return {
-            success: false,
-            message: 'Only completed payments can be refunded'
-        };
-    }
-
-    const totalAmount = Number(paymentLog.totalAmount);
-    const requestedAmount = options.amount === undefined ? totalAmount : Number(options.amount);
-
-    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0 || requestedAmount > totalAmount) {
-        return {
-            success: false,
-            message: 'Invalid refund amount'
-        };
-    }
-
-    if (Math.abs(requestedAmount - totalAmount) > 0.01) {
-        return {
-            success: false,
-            message: 'Partial refunds are disabled until ticket-level refund tracking is available'
-        };
-    }
-
-    // 2. Find tickets and extras to cancel (needed for DB update later)
-    const ticketRepo = AppDataSource.getRepository(Ticket);
-    const extraItemRepo = AppDataSource.getRepository(ExtraItem);
-
-    let ticketsToCancel = await ticketRepo
-        .createQueryBuilder("ticket")
-        .select(["ticket.id", "ticket.ticketTypeId"])
-        .where('"paymentLogId" = :paymentLogId', { paymentLogId: paymentLog.id })
-        .andWhere('status = :active', { active: TicketStatus.ACTIVE })
-        .getMany();
-
-    let extrasToCancel = await extraItemRepo
-        .createQueryBuilder("extraItem")
-        .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
-        .where('"paymentLogId" = :paymentLogId', { paymentLogId: paymentLog.id })
-        .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
-        .getMany();
-
-    if (ticketsToCancel.length === 0 && extrasToCancel.length === 0) {
-        const paymentTime = paymentLog.createdAt;
-        const timeWindowStart = new Date(paymentTime.getTime() - 5 * 60 * 1000);
-        const timeWindowEnd = new Date(paymentTime.getTime() + 5 * 60 * 1000);
-
-        ticketsToCancel = await ticketRepo
-            .createQueryBuilder("ticket")
-            .select(["ticket.id", "ticket.ticketTypeId"])
-            .where('"userId" = :userId', { userId: paymentLog.userId })
-            .andWhere('status = :active', { active: TicketStatus.ACTIVE })
-            .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
-            .orderBy('"createdAt"', "DESC")
-            .take(paymentLog.quantity)
-            .getMany();
-
-        extrasToCancel = await extraItemRepo
-            .createQueryBuilder("extraItem")
-            .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
-            .where('"userId" = :userId', { userId: paymentLog.userId })
-            .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
-            .andWhere('"createdAt" BETWEEN :start AND :end', { start: timeWindowStart, end: timeWindowEnd })
-            .orderBy('"createdAt"', "DESC")
-            .getMany();
-
-        if (ticketsToCancel.length === 0 && extrasToCancel.length === 0) {
-            ticketsToCancel = await ticketRepo
-                .createQueryBuilder("ticket")
-                .select(["ticket.id", "ticket.ticketTypeId"])
-                .where('"userId" = :userId', { userId: paymentLog.userId })
-                .andWhere('status = :active', { active: TicketStatus.ACTIVE })
-                .orderBy('"createdAt"', "DESC")
-                .take(paymentLog.quantity)
-                .getMany();
-
-            extrasToCancel = await extraItemRepo
-                .createQueryBuilder("extraItem")
-                .select(["extraItem.id", "extraItem.eventProductId", "extraItem.quantity"])
-                .where('"userId" = :userId', { userId: paymentLog.userId })
-                .andWhere('status = :active', { active: ExtraItemStatus.ACTIVE })
-                .orderBy('"createdAt"', "DESC")
-                .getMany();
-        }
-    }
-
-    // 3. Get access token early to fail fast if not available
-    const accessToken = await getAccessTokenForRefund(paymentLog.organizerId);
-    if (!accessToken) {
-        logger.error('REFUND_NO_ACCESS_TOKEN', { paymentId });
-        return {
-            success: false,
-            message: 'Refund cannot be initiated: no access token configured.'
-        };
-    }
-
-    const refundData: any = {};
-    if (options.amount !== undefined) {
-        refundData.amount = requestedAmount;
-    }
-
-    const idempotencyKey = crypto.randomUUID();
-
-    // 4. Update DB state FIRST, before calling MercadoPago.
-    // This guarantees internal consistency. If MP fails afterward,
-    // we log the inconsistency for manual reconciliation.
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-        await queryRunner.manager.update(
-            PaymentLog,
-            { id: paymentLog.id },
-            {
-                status: PaymentStatus.REFUNDED,
-                refundedAt: new Date(),
-                refundedBy: options.requestedBy,
-                refundReason: options.reason,
-                refundAmount: requestedAmount
-            }
-        );
-
-        if (ticketsToCancel.length > 0) {
-            await queryRunner.manager.getRepository(Ticket).update(
-                { id: In(ticketsToCancel.map(ticket => ticket.id)) },
-                { status: TicketStatus.CANCELLED }
-            );
-        }
-
-        if (extrasToCancel.length > 0) {
-            await queryRunner.manager.getRepository(ExtraItem).update(
-                { id: In(extrasToCancel.map(extra => extra.id)) },
-                { status: ExtraItemStatus.CANCELLED }
-            );
-        }
-
-        // Restore stock per ticket type
-        const cancelledByType: Record<number, number> = {};
-        for (const t of ticketsToCancel) {
-            cancelledByType[t.ticketTypeId] = (cancelledByType[t.ticketTypeId] || 0) + 1;
-        }
-        for (const [ticketTypeId, count] of Object.entries(cancelledByType)) {
-            await queryRunner.manager.getRepository(TicketType)
-                .createQueryBuilder()
-                .update()
-                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
-                .where('id = :id', { id: Number(ticketTypeId) })
-                .execute();
-        }
-
-        // Restore stock per event product
-        const cancelledByExtra: Record<number, number> = {};
-        for (const e of extrasToCancel) {
-            cancelledByExtra[e.eventProductId] = (cancelledByExtra[e.eventProductId] || 0) + e.quantity;
-        }
-        for (const [eventProductId, count] of Object.entries(cancelledByExtra)) {
-            await queryRunner.manager.getRepository(EventProduct)
-                .createQueryBuilder()
-                .update()
-                .set({ soldCount: () => `GREATEST("soldCount" - ${count}, 0)` })
-                .where('id = :id', { id: Number(eventProductId) })
-                .execute();
-        }
-
-        await queryRunner.commitTransaction();
-    } catch (error: any) {
-        if (queryRunner.isTransactionActive) {
-            await queryRunner.rollbackTransaction();
-        }
-        logger.error('REFUND_DB_ERROR', {
-            paymentId,
-            error: error.message
-        });
-        return {
-            success: false,
-            message: 'Local refund processing failed. No changes were made in MercadoPago.',
-            error: error.message
-        };
-    } finally {
-        await queryRunner.release();
-    }
-
-    // 5. Call MercadoPago refund API AFTER DB commit.
-    let mpResponse: Response;
-    try {
-        mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}/refunds`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                'X-Idempotency-Key': idempotencyKey
-            },
-            body: JSON.stringify(refundData),
-            signal: AbortSignal.timeout(15000)
-        });
-    } catch (networkError: any) {
-        logger.error('REFUND_MP_NETWORK_ERROR', { paymentId, error: networkError.message });
-        logger.warn('REFUND_INCONSISTENCY', {
-            paymentId,
-            message: 'DB was updated to REFUNDED but MercadoPago API call failed. Manual reconciliation required.'
-        });
-        return {
-            success: true,
-            warning: 'Local refund recorded but MercadoPago API unreachable. Contact support if the money was not returned.',
-            message: 'Refund processed locally but MercadoPago confirmation failed.'
-        };
-    }
-
-    if (!mpResponse.ok) {
-        const errorText = await mpResponse.text();
-        let errorData: any = { message: errorText };
-        try { errorData = JSON.parse(errorText); } catch { /* ignore parse error */ }
-        logger.error('REFUND_MP_API_ERROR', { paymentId, error: errorData });
-
-        const errorMessage = errorData.message || errorText || String(mpResponse.status);
-        if (errorMessage.toLowerCase().includes('already refunded') || errorMessage.toLowerCase().includes('ya fue reembolsado')) {
-            // MP says already refunded, which aligns with our local state
-            return {
-                success: true,
-                message: 'Payment already refunded in MercadoPago'
-            };
-        }
-        if (errorMessage.toLowerCase().includes('cannot be refunded')) {
-            logger.warn('REFUND_INCONSISTENCY', {
-                paymentId,
-                message: 'DB was updated to REFUNDED but MercadoPago rejects the refund. Manual reconciliation required.'
-            });
-            return {
-                success: true,
-                warning: 'Local refund recorded but MercadoPago rejected the refund. Contact support.',
-                message: 'Refund processed locally but MercadoPago rejected it.'
-            };
-        }
-
-        logger.warn('REFUND_INCONSISTENCY', {
-            paymentId,
-            message: 'DB was updated to REFUNDED but MercadoPago returned an error. Manual reconciliation required.'
-        });
-        return {
-            success: true,
-            warning: `Local refund recorded but MP returned an error: ${errorMessage}. Contact support.`,
-            message: 'Refund processed locally but MercadoPago confirmation failed.'
-        };
-    }
-
-    const refundResult = await mpResponse.json() as any;
-    const refundId = String(refundResult.id);
-
-    logger.info('REFUND_SUCCESS', {
-        paymentId,
-        refundId,
-        amount: requestedAmount,
-        cancelledTickets: ticketsToCancel.length
-    });
-
-    return {
-        success: true,
-        refundId,
-        amountRefunded: requestedAmount,
-        message: 'Refund processed successfully'
-    };
 }
 
-/**
- * Obtiene el estado de reembolso de un pago
- */
-export async function getRefundStatus(paymentId: string, requestedBy?: number, requesterRoles: string[] = []): Promise<{
-    canRefund: boolean;
-    alreadyRefunded: boolean;
-    refundAmount?: number;
-    maxRefundAmount?: number;
-    message: string;
-}> {
-    try {
-        const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
-        const paymentLog = await paymentLogRepo.findOne({
-            where: { mpPaymentId: paymentId }
-        });
-        
-        if (!paymentLog) {
-            return {
-                canRefund: false,
-                alreadyRefunded: false,
-                message: 'Payment not found'
-            };
-        }
-
-        const isAdmin = requesterRoles.includes('admin');
-        if (!isAdmin && paymentLog.organizerId !== requestedBy) {
-            return {
-                canRefund: false,
-                alreadyRefunded: false,
-                message: 'No tienes permiso para consultar este reembolso'
-            };
-        }
-        
-        if (paymentLog.status === PaymentStatus.REFUNDED) {
-            return {
-                canRefund: false,
-                alreadyRefunded: true,
-                refundAmount: paymentLog.refundAmount,
-                message: 'Payment already refunded'
-            };
-        }
-        
-        if (paymentLog.status !== PaymentStatus.COMPLETED) {
-            return {
-                canRefund: false,
-                alreadyRefunded: false,
-                message: 'Payment not completed'
-            };
-        }
-        
-        return {
-            canRefund: true,
-            alreadyRefunded: false,
-            maxRefundAmount: Number(paymentLog.totalAmount),
-            message: 'Payment can be refunded'
-        };
-        
-    } catch (error: any) {
-        logger.error('REFUND_STATUS_ERROR', { paymentId, error: error.message });
-        return {
-            canRefund: false,
-            alreadyRefunded: false,
-            message: 'Error checking refund status'
-        };
-    }
+export async function getRefundStatus(paymentId: string, requestedBy?: number, roles: string[] = []) {
+    const log = await AppDataSource.getRepository(PaymentLog).findOneBy({ mpPaymentId: paymentId });
+    if (!log || (!roles.includes('admin') && log.organizerId !== requestedBy)) return { canRefund: false, alreadyRefunded: false, message: 'Pago no encontrado o no autorizado' };
+    const request = await AppDataSource.getRepository(RefundRequest).findOneBy({ paymentLogId: log.id });
+    return { canRefund: log.status === PaymentStatus.COMPLETED && !request, alreadyRefunded: log.status === PaymentStatus.REFUNDED,
+        pending: request?.status === 'pending', refundStatus: request?.status, refundAmount: log.refundAmount,
+        maxRefundAmount: Number(log.buyerTotalAmount || log.totalAmount), message: request ? `Devolución: ${request.status}` : 'Estado consultado' };
 }

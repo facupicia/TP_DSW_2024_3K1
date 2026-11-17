@@ -291,11 +291,15 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
           // If backend returned a new token (user was promoted to organizer), update it
           if (response?.token && typeof window !== 'undefined') {
-            this.authService.storeAccessToken(response.token);
-    this.authService.getProfile().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-              next: () => this.router.navigate(['/my-events']),
-              error: () => this.router.navigate(['/my-events'])
-            });
+            this.authService.storeAccessToken(response.token, response.roles);
+            if (Array.isArray(response.roles)) {
+              this.router.navigate(['/my-events']);
+            } else {
+              this.authService.getProfile().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: () => this.router.navigate(['/my-events']),
+                error: () => this.router.navigate(['/my-events'])
+              });
+            }
           } else {
             setTimeout(() => this.router.navigate(['/my-events']), 1500);
           }
@@ -382,7 +386,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
 
   /** Verifica si el usuario tiene MP conectado */
   get isMpConnected(): boolean {
-    return this.mpStatus?.connected === true;
+    return this.mpStatus?.sandboxReady === true || this.mpStatus?.connected === true;
   }
 
   /** Consulta el estado de conexión de MP */
@@ -391,9 +395,7 @@ export class RegistrarEventoComponent implements OnInit, OnDestroy {
       next: (status) => {
         this.mpStatus = status;
         // Si no está conectado y no estamos en modo edición, mostrar modal
-        if (!status.connected && !this.isEditMode) {
-          this.showMpModal = true;
-        }
+        this.showMpModal = !this.isMpConnected && !this.isEditMode;
       },
       error: (err) => {
         // Si hay error 401, el usuario no está logueado (no mostrar error)

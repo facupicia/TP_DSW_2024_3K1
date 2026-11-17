@@ -8,22 +8,18 @@ import { TicketType } from '../ticketType/ticketType.entity';
 import { Ticket } from '../ticket/ticket.entity';
 import { EventProduct } from '../extra/eventProduct.entity';
 import { ExtraItem, ExtraItemStatus } from '../extra/extraItem.entity';
-import { PromoterGroup } from '../promoter/promoter.entity';
+import { PromoterGroup, PromoterEventAssignment } from '../promoter/promoter.entity';
 import { Coupon } from '../coupon/coupon.entity';
 import { getActiveSubscription } from '../subscription/subscription.service';
-import { createTicketsForPurchase, sendTicketEmail } from '../ticket/ticket.service';
+import { allocateMoney } from '../common/utils/money';
+import { createTicketsForPurchase } from '../ticket/ticket.service';
 import { generarQRUrl } from '../common/utils/qr';
 import { logger } from '../common/services/logger';
-import { getMPConfig } from './mp.config';
+import { assertSandboxSeller, getMPConfig } from './mp.config';
 import { decryptFromString } from '../common/services/encryption';
 import { createAccountClaimToken } from '../user/accountClaim.service';
-import { sendAccountClaimEmail, enviarCorreoConExtras } from '../common/services/mailer';
-import {
-    addSendTicketEmailJob,
-    addSendExtraEmailJob,
-    addSendAccountClaimJob
-} from '../queue/email.queue';
 import { getRedis } from '../common/services/redis';
+import {refreshOrganizerToken} from './mp-oauth.controller';
 
 /**
  * Payment Core Service
@@ -32,6 +28,10 @@ import { getRedis } from '../common/services/redis';
  * Esta capa maneja la interacción con MercadoPago y la persistencia.
  */
 
+import { enqueueEmail } from '../queue/outbox.service';
+import { stageRefund } from './refund.service';
+import { CheckoutOrder } from './checkout-order.entity';
+import { env } from '../config/env';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -45,6 +45,10 @@ export interface PaymentData {
         items?: Array<{ id?: string; quantity?: number }>;
     };
     transaction_amount?: number;
+    mpUserId?: string;
+    currency_id?: string;
+    live_mode?: boolean;
+    collector_id?: string | number;
 }
 
 export interface ExtractedPaymentInfo {
@@ -95,6 +99,8 @@ export function getPlatformMPClient(): MercadoPagoConfig {
  * Desencripta el token si es necesario
  */
 export async function getOrganizerMPClient(organizerId: number): Promise<MercadoPagoConfig | null> {
+    const refreshedToken=await refreshOrganizerToken(organizerId);
+    if(refreshedToken) return new MercadoPagoConfig({accessToken:refreshedToken});
     const userRepo = AppDataSource.getRepository(User);
     
     const user = await userRepo
@@ -132,7 +138,10 @@ function normalizePaymentData(paymentId: string, result: any): PaymentData {
         external_reference: result.external_reference || undefined,
         metadata: result.metadata || {},
         additional_info: result.additional_info || {},
-        transaction_amount: result.transaction_amount || 0
+        transaction_amount: result.transaction_amount || 0,
+        currency_id: result.currency_id,
+        live_mode: result.live_mode,
+        collector_id: result.collector_id
     };
 }
 
@@ -210,6 +219,15 @@ export async function resolveWebhookPayment(
     const platformClient = getPlatformMPClient();
     const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
 
+    // Test checkout never falls back to real organizer credentials stored in the DB.
+    if (env.MP_MODE === 'sandbox') {
+        const testSellerId = await assertSandboxSeller();
+        // Checkout Pro test accounts can return live_mode=true. Verify the seller,
+        // not that flag, and require the payment to belong to the verified account.
+        if (!testSellerId || !platformPayment || String(platformPayment.collector_id) !== testSellerId) return null;
+        return { payment: platformPayment, client: platformClient, source: 'platform' };
+    }
+
     if (platformPayment) {
         return {
             payment: platformPayment,
@@ -220,7 +238,8 @@ export async function resolveWebhookPayment(
 
     // Extract organizerId from external_reference if available
     const externalRef = paymentData?.external_reference || '';
-    const organizerIdFromRef = extractOrganizerIdFromRef(externalRef);
+    const merchant = paymentData?.mpUserId ? await AppDataSource.getRepository(User).findOne({where:{mpUserId:paymentData.mpUserId},select:['id']}) : null;
+    const organizerIdFromRef = merchant?.id || extractOrganizerIdFromRef(externalRef);
 
     if (organizerIdFromRef) {
         const organizerClient = await getOrganizerMPClient(organizerIdFromRef);
@@ -360,7 +379,7 @@ export function extractPaymentInfo(payment: PaymentData): ExtractedPaymentInfo |
     let userId = 0;
     let organizerId = 0;
     let items: Array<{ type: 'ticket' | 'extra'; referenceId: number; quantity: number }> = [];
-    let promoterCode: string | undefined;
+    let promoterCode: string | undefined = typeof meta.promoter_code === 'string' ? meta.promoter_code.trim().slice(0,50) || undefined : undefined;
     let couponId = toPositiveInt(meta.coupon_id);
 
     // Prioridad 1: metadata.items (nuevo formato polimórfico)
@@ -603,6 +622,7 @@ export async function processApprovedPayment(
     });
 
     const { userId, items, organizerId, promoterCode, couponId } = info;
+    if(items.length>100 || items.some(i=>!Number.isSafeInteger(i.quantity)||i.quantity<=0||i.quantity>10) || items.reduce((sum,i)=>sum+i.quantity,0)>1000) throw new Error('PAYMENT_ITEMS_INVALID');
     const ticketItems = items.filter(it => it.type === 'ticket');
     const extraItems = items.filter(it => it.type === 'extra');
 
@@ -683,7 +703,22 @@ export async function processApprovedPayment(
             });
         }
 
+        const order = paymentData.external_reference ? await queryRunner.manager.findOne(CheckoutOrder, { where: { externalReference: paymentData.external_reference }, lock: { mode: 'pessimistic_write' } }) : null;
+        if (order && (order.userId !== userId || order.organizerId !== organizerId)) throw new Error('ORDER_MISMATCH');
+        if (order) {
+            if (logItems.length !== order.snapshot.items.length || new Set(logItems.map(i=>i.type+':'+i.referenceId)).size !== logItems.length) throw new Error('ORDER_ITEMS_MISMATCH');
+            for (const entry of logItems) {
+                const frozen = order.snapshot.items.find((it: any) => it.type === entry.type && it.referenceId === entry.referenceId && it.quantity === entry.quantity);
+                if (!frozen) throw new Error('ORDER_ITEMS_MISMATCH');
+                entry.unitPrice = frozen.unitPrice;
+            }
+            ticketBaseTotal = logItems.filter(it => it.type === 'ticket').reduce((sum,it) => sum+it.unitPrice*it.quantity,0);
+            extraBaseTotal = logItems.filter(it => it.type === 'extra').reduce((sum,it) => sum+it.unitPrice*it.quantity,0);
+        }
         const baseTotal = ticketBaseTotal + extraBaseTotal;
+        const purchaseEvents=[...ticketTypes.map(t=>t.event),...extras.map(e=>e.event)];
+        if (purchaseEvents.some(e=>e.id!==purchaseEvents[0].id || e.user_id!==organizerId) || (order && order.eventId!==purchaseEvents[0]?.id)) throw new Error('ORDER_EVENT_MISMATCH');
+        if (paymentData.currency_id && paymentData.currency_id!=='ARS') throw new Error('PAYMENT_CURRENCY_MISMATCH');
 
         let expectedTotal = baseTotal;
         let discountAmount = 0;
@@ -710,16 +745,20 @@ export async function processApprovedPayment(
             }
         }
 
+        if (order) {
+            expectedTotal = Number(order.snapshot.pricing.totalAmount);
+            discountAmount = Number(order.snapshot.pricing.discountAmount);
+        }
         const paidAmount = Number(paymentData.transaction_amount);
         if (!Number.isFinite(paidAmount) || paidAmount < 0) {
             throw new Error('Invalid payment amount');
         }
 
         const metadata = paymentData.metadata || {};
-        const serviceFeePercent = Number(metadata.service_fee_percent || 0);
-        const serviceFeeAmount = Number(metadata.service_fee_amount || 0);
+        const serviceFeePercent = Number(order?.snapshot.pricing.serviceFeePercent ?? metadata.service_fee_percent ?? 0);
+        const serviceFeeAmount = Number(order?.snapshot.pricing.serviceFeeAmount ?? metadata.service_fee_amount ?? 0);
         const metadataBuyerTotal = Number(metadata.buyer_total_amount || 0);
-        const expectedBuyerTotal = Number.isFinite(metadataBuyerTotal) && metadataBuyerTotal > 0
+        const expectedBuyerTotal = order ? Number(order.snapshot.pricing.buyerTotalAmount) : Number.isFinite(metadataBuyerTotal) && metadataBuyerTotal > 0
             ? metadataBuyerTotal
             : expectedTotal + serviceFeeAmount;
 
@@ -738,7 +777,8 @@ export async function processApprovedPayment(
 
         const actualOrganizerId = organizerId || (ticketTypes.length > 0 ? ticketTypes[0].event.user_id : (extras.length > 0 ? extras[0].event.user_id : 0));
         const commission = await getCommissionInfo(actualOrganizerId, queryRunner);
-        commission.amount = (expectedTotal * commission.percent) / 100;
+        if (order && Number.isFinite(order.snapshot.commissionPercent)) commission.percent = Number(order.snapshot.commissionPercent);
+        commission.amount = Math.round(expectedTotal * commission.percent) / 100;
 
         let promoterInfo: { promoterId: number; commissionPercentage: number; commissionAmount: number } | null = null;
         if (promoterCode) {
@@ -748,8 +788,9 @@ export async function processApprovedPayment(
                 relations: ['promoter']
             });
 
-            if (promoterGroup && promoterGroup.promoter) {
-                const commissionPercentage = parseFloat(promoterGroup.commissionPercentage.toString());
+            const assignment = promoterGroup ? await queryRunner.manager.findOne(PromoterEventAssignment, { where: { promoterGroupId: promoterGroup.id, eventId, isActive: true } }) : null;
+            if (promoterGroup && promoterGroup.promoter && assignment) {
+                const commissionPercentage = Number(assignment.customCommissionPercentage ?? promoterGroup.commissionPercentage);
                 const commissionAmount = (expectedTotal * commissionPercentage) / 100;
                 promoterInfo = {
                     promoterId: promoterGroup.promoterId,
@@ -806,26 +847,6 @@ export async function processApprovedPayment(
                     relations: ['eventProduct', 'eventProduct.event']
                 });
 
-                if (existingTickets.length === 0 && existingExtras.length === 0) {
-                    const fiveMinutesBefore = new Date(existingLog.createdAt.getTime() - 5 * 60 * 1000);
-                    const fiveMinutesAfter = new Date(existingLog.createdAt.getTime() + 5 * 60 * 1000);
-
-                    existingTickets = await AppDataSource.getRepository(Ticket).find({
-                        where: {
-                            userId: existingLog.userId,
-                            createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
-                        },
-                        relations: ['ticketType', 'ticketType.event']
-                    });
-
-                    existingExtras = await AppDataSource.getRepository(ExtraItem).find({
-                        where: {
-                            userId: existingLog.userId,
-                            createdAt: Between(fiveMinutesBefore, fiveMinutesAfter)
-                        },
-                        relations: ['eventProduct', 'eventProduct.event']
-                    });
-                }
 
                 return {
                     success: true,
@@ -839,17 +860,25 @@ export async function processApprovedPayment(
             return { success: false, error: 'Payment already processed' };
         }
 
-        for (const item of ticketItems) {
+        await queryRunner.query('SAVEPOINT fulfilment');
+        const failFulfilment = async (reason: string): Promise<PaymentResult> => {
+            await queryRunner.query('ROLLBACK TO SAVEPOINT fulfilment');
+            await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
+            await stageRefund(queryRunner.manager, log, reason, undefined, true);
+            if (order) await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'failure' });
+            await queryRunner.commitTransaction();
+            return { success: false, error: reason, logId: log.id };
+        };
+        if (ticketTypes.some(t=>t.status!=='active' || t.event.active===false) || extras.some(e=>!e.isActive || e.event.active===false)) return failFulfilment('Event or item unavailable');
+        for (const item of [...ticketItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const stockUpdated = await updateStockAtomic(queryRunner, item.referenceId, item.quantity);
             if (!stockUpdated) {
                 logger.warn('PAYMENT_NO_STOCK', { ticketTypeId: item.referenceId, requested: item.quantity });
-                await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-                await queryRunner.commitTransaction();
-                return { success: false, error: 'No stock available', logId: log.id };
+                return failFulfilment('No stock available');
             }
         }
 
-        for (const item of extraItems) {
+        for (const item of [...extraItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const ep = extras.find(e => e.id === item.referenceId)!;
             if (ep.hasStock) {
                 const extraStockUpdate = await queryRunner.manager
@@ -862,9 +891,7 @@ export async function processApprovedPayment(
 
                 if (!extraStockUpdate.affected) {
                     logger.warn('PAYMENT_NO_EXTRA_STOCK', { eventProductId: ep.id, requested: item.quantity });
-                    await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-                    await queryRunner.commitTransaction();
-                    return { success: false, error: 'No extra stock available', logId: log.id };
+                    return failFulfilment('No extra stock available');
                 }
             }
         }
@@ -879,36 +906,16 @@ export async function processApprovedPayment(
                 .execute();
 
             if (!couponUpdate.affected) {
-                for (const item of ticketItems) {
-                    await queryRunner.manager
-                        .createQueryBuilder()
-                        .update(TicketType)
-                        .set({ soldCount: () => 'GREATEST("soldCount" - ' + item.quantity + ', 0)' })
-                        .where('id = :id', { id: item.referenceId })
-                        .execute();
-                }
-                for (const item of extraItems) {
-                    const ep = extras.find(e => e.id === item.referenceId)!;
-                    if (ep.hasStock) {
-                        await queryRunner.manager
-                            .createQueryBuilder()
-                            .update(EventProduct)
-                            .set({ soldCount: () => 'GREATEST("soldCount" - ' + item.quantity + ', 0)' })
-                            .where('id = :id', { id: ep.id })
-                            .execute();
-                    }
-                }
-                await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
-                await queryRunner.commitTransaction();
-                return { success: false, error: 'Coupon exhausted', logId: log.id };
+                return failFulfilment('Coupon exhausted');
             }
         }
 
+        const paidTicketPrices = allocateMoney(Math.max(0,ticketBaseTotal-discountAmount), ticketItems.flatMap(item=>Array(item.quantity).fill(logItems.find(i=>i.type==='ticket'&&i.referenceId===item.referenceId).unitPrice)));
         const allTickets: Ticket[] = [];
         let ticketQrIndex = 0;
         for (const item of ticketItems) {
             const tt = ticketTypes.find(t => t.id === item.referenceId)!;
-            const itemExpectedTotal = Number(tt.price) * item.quantity;
+            const itemExpectedTotal = logItems.find(it => it.type === 'ticket' && it.referenceId === item.referenceId)!.unitPrice * item.quantity;
             const paidUnitPrice = item.quantity > 0 ? Number((itemExpectedTotal / item.quantity).toFixed(2)) : 0;
 
             const qrSlice = preGeneratedTicketQrs.slice(ticketQrIndex, ticketQrIndex + item.quantity);
@@ -921,13 +928,13 @@ export async function processApprovedPayment(
                 promoterInfo ? {
                     soldByPromoterId: promoterInfo.promoterId,
                     promoterCommissionPercentage: promoterInfo.commissionPercentage,
-                    promoterCommissionAmount: promoterInfo.commissionAmount,
+                    promoterCommissionAmount: promoterInfo.commissionAmount * item.quantity / ticketItems.reduce((sum,i)=>sum+i.quantity,0),
                     promoterCode
                 } : undefined,
                 qrSlice
             );
-            tickets.forEach(ticket => {
-                ticket.purchasePrice = paidUnitPrice;
+            tickets.forEach((ticket,index) => {
+                ticket.purchasePrice = paidTicketPrices[ticketQrIndex-item.quantity+index];
                 ticket.paymentLogId = log.id;
             });
             await queryRunner.manager.save(Ticket, tickets);
@@ -938,7 +945,7 @@ export async function processApprovedPayment(
         let extraQrIndex = 0;
         for (const item of extraItems) {
             const ep = extras.find(e => e.id === item.referenceId)!;
-            const loteTotal = Number(ep.eventPrice) * item.quantity;
+            const loteTotal = logItems.find(it => it.type === 'extra' && it.referenceId === item.referenceId)!.unitPrice * item.quantity;
             const loteUnitPrice = item.quantity > 0 ? Number((loteTotal / item.quantity).toFixed(2)) : 0;
 
             const qrSlice = preGeneratedExtraQrs.slice(extraQrIndex, extraQrIndex + item.quantity);
@@ -958,10 +965,26 @@ export async function processApprovedPayment(
             allExtras.push(extraItem);
         }
 
+                if (user.email) {
+            if (allTickets.length) await enqueueEmail(queryRunner.manager, 'ticket-email-'+log.id, { type: 'send-ticket-email', payload: {
+                userEmail: user.email, userId: user.id, userFirstname: user.firstname || '', userLastname: user.lastname || '',
+                ticketIds: allTickets.map(t=>t.id), ticketTypeId: ticketTypes[0].id, eventId, paymentLogId: log.id } });
+            if (allExtras.length) await enqueueEmail(queryRunner.manager, 'extra-email-'+log.id, { type: 'send-extra-email', payload: {
+                userEmail: user.email, userId: user.id, userFirstname: user.firstname || '', userLastname: user.lastname || '',
+                extraItemIds: allExtras.map(e=>e.id), eventId, paymentLogId: log.id } });
+            if (user.isGuestAccount) {
+                const claim = await createAccountClaimToken(user, queryRunner.manager);
+                await enqueueEmail(queryRunner.manager, 'claim-'+log.id, { type: 'send-account-claim', payload: {
+                    userEmail: user.email, userName: user.firstname || '', claimUrl: claim.claimUrl } });
+            }
+        }
+        if (order) await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'approved' });
+
         await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.COMPLETED);
 
         await queryRunner.commitTransaction();
 
+        try {
         // Clear Redis reservations for this checkout
         const externalRef = paymentData.external_reference;
         if (externalRef) {
@@ -993,6 +1016,7 @@ export async function processApprovedPayment(
             }
         }
 
+        } catch(error) { logger.error('RESERVATION_CLEANUP_FAILED',{paymentId}); }
         logger.info('PAYMENT_PROCESSED_SUCCESS', {
             paymentId,
             logId: log.id,
@@ -1004,52 +1028,6 @@ export async function processApprovedPayment(
             promoterCommission: promoterInfo?.commissionAmount
         });
 
-        if (user.email) {
-            const ticketIds = allTickets.map(t => t.id);
-            const extraItemIds = allExtras.map(e => e.id);
-
-            await addSendTicketEmailJob({
-                userEmail: user.email,
-                userId: user.id,
-                userFirstname: user.firstname || '',
-                userLastname: user.lastname || '',
-                ticketIds,
-                ticketTypeId: ticketTypes[0].id,
-                eventId: ticketTypes[0].event.id,
-                paymentLogId: log.id,
-            }).catch(err => {
-                logger.error('PAYMENT_EMAIL_ENQUEUE_ERROR', { paymentId, error: err?.message });
-            });
-
-            if (allExtras.length > 0) {
-                const eventForExtras = allExtras[0].eventProduct?.event || (ticketTypes.length > 0 ? ticketTypes[0].event : null);
-                if (eventForExtras) {
-                    await addSendExtraEmailJob({
-                        userEmail: user.email,
-                        userId: user.id,
-                        userFirstname: user.firstname || '',
-                        userLastname: user.lastname || '',
-                        extraItemIds,
-                        eventId: eventForExtras.id,
-                        paymentLogId: log.id,
-                    }).catch(err => {
-                        logger.error('PAYMENT_EXTRA_EMAIL_ENQUEUE_ERROR', { paymentId, error: err?.message });
-                    });
-                }
-            }
-
-            if (user.isGuestAccount) {
-                createAccountClaimToken(user)
-                    .then(claim => addSendAccountClaimJob({
-                        userEmail: user.email,
-                        userName: `${user.firstname || ''} ${user.lastname || ''}`.trim(),
-                        claimUrl: claim.claimUrl,
-                    }))
-                    .catch(err => {
-                        logger.error('PAYMENT_CLAIM_EMAIL_ERROR', { paymentId, userId: user.id, error: err?.message });
-                    });
-            }
-        }
 
         return {
             success: true,
@@ -1061,7 +1039,7 @@ export async function processApprovedPayment(
         };
 
     } catch (error: any) {
-        await queryRunner.rollbackTransaction();
+        if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
 
         logger.error('PAYMENT_PROCESS_ERROR', {
             paymentId,
@@ -1069,7 +1047,7 @@ export async function processApprovedPayment(
             stack: error.stack
         });
 
-        return { success: false, error: error.message };
+        throw error;
     } finally {
         await queryRunner.release();
     }

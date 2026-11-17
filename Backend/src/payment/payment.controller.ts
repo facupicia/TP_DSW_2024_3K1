@@ -1,3 +1,6 @@
+import { enqueueOutbox } from '../queue/outbox.service';
+import { CheckoutOrder } from './checkout-order.entity';
+import { createHash, timingSafeEqual } from 'crypto';
 import { Response } from "express";
 import { CustomRequest } from "../common/middleware/authToken";
 import { logger } from "../common/services/logger";
@@ -9,6 +12,7 @@ import { Ticket } from "../ticket/ticket.entity";
 import { 
     validatePurchaseEligibility,
     createMercadoPagoPreference,
+    createPlatformPreference,
     getMarketPlaceInfo
 } from "./preference.service";
 import { 
@@ -173,7 +177,8 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
         }
 
         try {
-            const result = await createMercadoPagoPreference({
+            const createCheckout = env.MP_MODE === 'sandbox' ? createPlatformPreference : createMercadoPagoPreference;
+            const result = await createCheckout({
                 userId,
                 items,
                 extraItems,
@@ -192,9 +197,11 @@ export const createPreference = async (req: CustomRequest, res: Response) => {
             return res.status(200).json({
                 id: result.id,
                 init_point: result.initPoint,
-                marketplace: true,
+                marketplace: env.MP_MODE !== 'sandbox',
+                test_mode: env.MP_MODE === 'sandbox',
                 external_reference: result.externalReference,
                 guest_checkout: result.guestCheckout,
+                status_token: result.statusToken,
                 delivery_email: result.buyerEmail,
                 pricing: {
                     base_amount: result.pricing.baseAmount,
@@ -356,65 +363,15 @@ export const paymentWebhook = async (req: CustomRequest, res: Response) => {
     }
     
     try {
-        const lookup = await resolveWebhookPayment(paymentId, {
-            id: paymentId,
-            status: 'unknown',
-            external_reference: req.body?.data?.external_reference || req.query.external_reference
-        } as any);
-
-        if (!lookup) {
-            // Cannot resolve payment - might be a test payment or deleted organizer.
-            // Return 200 so MP stops retrying; log for manual investigation.
-            logger.error("WEBHOOK_PAYMENT_LOOKUP_FAILED", { paymentId });
-            res.status(200).json({ received: true, warning: 'Payment lookup failed' });
-            return;
-        }
-
-        const paymentData = lookup.payment.status === 'approved'
-            ? lookup.payment
-            : await waitForPaymentApproval(paymentId, lookup.client);
-
-        if (!paymentData) {
-            logger.warn("WEBHOOK_PAYMENT_NOT_APPROVED", { paymentId });
-            res.status(200).json({ received: true, ignored: true });
-            return;
-        }
-
-        const result = await processApprovedPayment(paymentId, paymentData);
-
-        if (result.success) {
-            logger.info("WEBHOOK_PAYMENT_PROCESSED", {
-                paymentId,
-                tokenSource: lookup.source,
-                organizerId: lookup.organizerId,
-                ticketsCount: result.tickets?.length
-            });
-            res.status(200).json({ received: true });
-        } else {
-            // Business logic failure (e.g. no stock). Return 200 to stop MP retries,
-            // but log for monitoring. Only return 500 for transient infra errors.
-            logger.error("WEBHOOK_PAYMENT_FAILED", { paymentId, error: result.error });
-            res.status(200).json({ received: true, warning: result.error });
-        }
-    } catch (error: any) {
-        // Transient errors (DB down, network) should return 500 so MP retries.
-        // Distinguish known transient errors from logic errors.
-        const isTransient = error?.code?.startsWith('ECONN') || 
-                           error?.code === '23503' ||
-                           error?.message?.includes('timeout') ||
-                           error?.message?.includes('connection');
-        
-        logger.error("WEBHOOK_PROCESSING_ERROR", { 
-            paymentId, 
-            error: error?.message,
-            isTransient 
+        // Signed notification acknowledged only once durably persisted.
+        await enqueueOutbox(AppDataSource.manager, 'payment-'+paymentId, 'payment', {
+            paymentId: String(paymentId), externalReference: req.body?.data?.external_reference || req.query.external_reference || '',
+            mpUserId: req.body?.user_id ? String(req.body.user_id).slice(0,30) : undefined
         });
-        
-        if (isTransient) {
-            res.status(500).json({ received: false });
-        } else {
-            res.status(200).json({ received: true, warning: 'Processing error logged' });
-        }
+        res.status(200).json({ received: true });
+    } catch (error) {
+        logger.error('WEBHOOK_PERSISTENCE_ERROR', { error: (error as Error).message });
+        res.status(503).json({ received: false });
     }
 };
 
@@ -522,16 +479,13 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
             });
         }
 
-        // Verify ownership via userId encoded in external_reference (format: userId|organizerId|...)
-        const refParts = externalRef.split('|');
-        const refUserId = parseInt(refParts[0], 10);
-        if (isNaN(refUserId) || refUserId !== req.user?.id) {
-            return res.status(403).json({
-                success: false,
-                message: "No autorizado para consultar este pago"
-            });
-        }
-        
+        const order = await AppDataSource.getRepository(CheckoutOrder).createQueryBuilder('o').addSelect('o.statusTokenHash')
+            .where('o.externalReference=:ref',{ref:externalRef}).getOne();
+        const bearer = req.header('X-Checkout-Token') || '';
+        const digest = createHash('sha256').update(bearer).digest('hex');
+        const authorized = order && (req.user?.id === order.userId || (bearer.length >= 32 && order.expiresAt > new Date() &&
+            timingSafeEqual(Buffer.from(digest), Buffer.from(order.statusTokenHash))));
+        if (!authorized) return res.status(403).json({ success: false, message: 'No autorizado para consultar esta compra' });
         const paymentLogRepo = AppDataSource.getRepository(PaymentLog);
         
         // Buscar el log de pago por external_reference
@@ -543,19 +497,11 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
         if (!paymentLog) {
             return res.status(200).json({
                 success: true,
-                status: 'pending',
+                status: order.status,
                 message: "Pago aún no procesado"
             });
         }
 
-        // Ownership check: if the payment has a userId, only that user (or admin) can query it
-        if (paymentLog.userId && paymentLog.userId !== req.user?.id) {
-            return res.status(403).json({
-                success: false,
-                message: "No autorizado para consultar este pago"
-            });
-        }
-        
         // Mapear estado interno a estado del frontend
         let status: string;
         switch (paymentLog.status) {
@@ -564,6 +510,9 @@ export const getPaymentStatus = async (req: CustomRequest, res: Response) => {
                 break;
             case PaymentStatus.FAILED:
                 status = 'failure';
+                break;
+            case PaymentStatus.REFUNDED:
+                status = 'refunded';
                 break;
             case PaymentStatus.PROCESSING:
                 status = 'processing';

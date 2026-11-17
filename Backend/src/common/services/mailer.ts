@@ -217,6 +217,7 @@ export const sendAccountClaimEmail = async (
   email: string,
   buyerName: string,
   claimUrl: string,
+  purpose: 'claim' | 'reset' = 'claim',
 ) => {
   const apiKey = env.BREVO_API_KEY;
   if (!apiKey) {
@@ -226,18 +227,19 @@ export const sendAccountClaimEmail = async (
 
   try {
     const safeName = escapeHtml(buyerName || "comprador");
+    const resetting = purpose === 'reset';
     // claimUrl should be validated by the caller; we still encode it for href safety
     const safeClaimUrl = claimUrl.replace(/"/g, '&quot;');
     const htmlContent = `
             <html>
                 <body style="font-family: Arial, sans-serif; text-align: center; color: #333;">
                     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h1 style="color: #0084f0;">Accede a tus entradas cuando quieras</h1>
+                        <h1 style="color: #0084f0;">${resetting ? 'Restablecé tu contraseña' : 'Accede a tus entradas cuando quieras'}</h1>
                         <p>Hola ${safeName},</p>
-                        <p>Creaste una compra como invitado en EventLife. Puedes reclamar tu cuenta para ver tus tickets y próximas compras desde tu perfil.</p>
+                        <p>${resetting ? 'Recibimos una solicitud para cambiar tu contraseña. Usá el enlace para elegir una nueva.' : 'Creaste una compra como invitado en EventLife. Puedes reclamar tu cuenta para ver tus tickets y próximas compras desde tu perfil.'}</p>
                         <a href="${safeClaimUrl}"
                            style="display: inline-block; background: #111827; color: white; padding: 14px 28px; text-decoration: none; border-radius: 10px; margin: 20px 0; font-weight: bold;">
-                            Reclamar mi cuenta
+                            ${resetting ? 'Cambiar contraseña' : 'Reclamar mi cuenta'}
                         </a>
                         <p style="font-size: 13px; color: #666;">Este enlace vence por seguridad. Si no fuiste tú, puedes ignorar este correo.</p>
                         <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;" />
@@ -253,7 +255,7 @@ export const sendAccountClaimEmail = async (
         email: env.MAIL_FROM || "no-reply@eventlife.com",
       },
       to: [{ email }],
-      subject: "Reclama tu cuenta de EventLife",
+      subject: resetting ? 'Restablecé tu contraseña de EventLife' : 'Reclama tu cuenta de EventLife',
       htmlContent,
     };
 

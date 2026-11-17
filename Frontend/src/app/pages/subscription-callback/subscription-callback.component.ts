@@ -19,27 +19,27 @@ import { AuthService } from '../../services/auth.service';
                 <p>Por favor espera mientras confirmamos tu pago</p>
               </div>
             }
-        
+
             <!-- Not logged in - show generic success -->
             @if (!loading && !isLoggedIn) {
               <div class="not-logged-in">
                 <div class="icon">✅</div>
                 <h2>¡Pago Procesado!</h2>
-                <p>Tu suscripción se está activando. Inicia sesión para verificar tu plan PRO.</p>
+                <p>Tu suscripción se está activando. Inicia sesión para verificar tu plan.</p>
                 <button class="btn-primary" (click)="goToLogin()">Iniciar Sesión</button>
               </div>
             }
-        
+
             <!-- Logged in and success -->
             @if (!loading && isLoggedIn && success) {
               <div class="success">
                 <div class="icon">✅</div>
                 <h2>¡Suscripción Activada!</h2>
-                <p>Tu plan PRO está listo. Disfruta de eventos ilimitados.</p>
+                <p>Tu {{ planName }} está activo. Ya podés usar sus beneficios.</p>
                 <button class="btn-primary" (click)="goToEvents()">Ir a Mis Eventos</button>
               </div>
             }
-        
+
             <!-- Logged in but verification failed/pending -->
             @if (!loading && isLoggedIn && !success) {
               <div class="pending">
@@ -148,6 +148,7 @@ export class SubscriptionCallbackComponent implements OnInit {
     loading = true;
     success = false;
     isLoggedIn = false;
+    planName = 'plan';
     errorMessage = 'Tu pago está siendo procesado. Puede tomar unos minutos en activarse.';
 
     ngOnInit() {
@@ -180,9 +181,8 @@ export class SubscriptionCallbackComponent implements OnInit {
         this.subscriptionService.verifySubscription(id).subscribe({
             next: (response) => {
                 this.loading = false;
-                if (response.active) {
-                    this.success = true;
-                    this.toast.success('¡Plan PRO activado!');
+                if (response.active && response.plan !== 'FREE') {
+                    this.checkSubscription();
                 } else {
                     this.errorMessage = 'El pago fue procesado pero la suscripción aún no está activa. Espera unos segundos y refresca.';
                 }
@@ -196,10 +196,11 @@ export class SubscriptionCallbackComponent implements OnInit {
     }
 
     checkSubscription() {
-        this.subscriptionService.getMySubscription().subscribe({
+        this.subscriptionService.getMySubscription(true).subscribe({
             next: (sub) => {
                 this.loading = false;
                 if (sub.plan.name !== 'FREE' && sub.status === 'active') {
+                    this.planName = sub.plan.displayName || sub.plan.name;
                     this.success = true;
                     this.toast.success(`¡${sub.plan.displayName || sub.plan.name} activado!`);
                 } else {
@@ -217,11 +218,12 @@ export class SubscriptionCallbackComponent implements OnInit {
     }
 
     verifyAgain() {
-        this.subscriptionService.getMySubscription().subscribe({
+        this.subscriptionService.getMySubscription(true).subscribe({
             next: (sub) => {
                 this.loading = false;
                 this.success = sub.plan.name !== 'FREE' && sub.status === 'active';
                 if (this.success) {
+                    this.planName = sub.plan.displayName || sub.plan.name;
                     this.toast.success(`¡${sub.plan.displayName || sub.plan.name} activado!`);
                 }
             },

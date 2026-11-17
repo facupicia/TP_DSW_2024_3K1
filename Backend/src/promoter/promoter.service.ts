@@ -6,15 +6,7 @@ import { Event } from "../event/event.entity";
 import { PromoterGroup, PromoterEventAssignment } from "./promoter.entity";
 import { env } from "../config/env";
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
 
 // ============================================================================
 // ADD PROMOTER

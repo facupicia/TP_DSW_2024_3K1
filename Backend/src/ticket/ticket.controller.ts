@@ -4,15 +4,7 @@ import { CustomRequest } from "../common/middleware/authToken";
 import { validateTicket as validateTicketService } from "./ticket-validation.service";
 import * as ticketService from "./ticket.service";
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
 
 function handleHttpError(error: any, res: Response) {
     if (error instanceof HttpError) {
@@ -56,7 +48,7 @@ export const getTickets = async (req: CustomRequest, res: Response) => {
         const result = await ticketService.findByUser(userID, { skip, take });
         return res.status(200).json({ data: result.tickets, total: result.total });
     } catch (error: any) {
-        return res.status(500).json({ message: "Error interno del servidor", error: error.message });
+        return res.status(500).json({ message: "Error interno del servidor", error: "INTERNAL_ERROR" });
     }
 };
 
@@ -65,7 +57,7 @@ export const getLastPurchaseTickets = async (req: CustomRequest, res: Response) 
         const userId = req.user?.id;
         if (!userId) return res.status(401).json({ code: 'AUTH_REQUIRED', message: 'No autorizado' });
 
-        const result = await ticketService.findLastPurchase(userId);
+        const result = await ticketService.findLastPurchase(userId, typeof req.query.external_reference === "string" ? req.query.external_reference : undefined);
         return res.status(200).json(result);
     } catch (error: any) {
         logger.error("ERROR REAL:", error);
@@ -105,7 +97,7 @@ export const validateTicket = async (req: CustomRequest, res: Response) => {
             }
         });
     } catch (error) {
-        if (error instanceof Error) return res.status(500).json({ message: error.message });
+        if (error instanceof Error) return res.status(500).json({ message: "Error interno del servidor" });
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -128,7 +120,7 @@ export const cancelTicket = async (req: CustomRequest, res: Response) => {
         };
         return res.status(statusMap[result.code || ""] || 409).json({ message: result.message, code: result.code });
     } catch (error: any) {
-        return res.status(500).json({ message: "Error interno del servidor", error: error.message });
+        return res.status(500).json({ message: "Error interno del servidor", error: "INTERNAL_ERROR" });
     }
 };
 

@@ -1,0 +1,52 @@
+[
+  {
+    "antipattern": "broken-image",
+    "name": "Broken or placeholder image",
+    "description": "<img> tags with empty src, missing src, or placeholder values ship as broken-image boxes. Use real images, generated assets, or remove the tag.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "D:\\Documentos\\dev\\TP_DSW_2024_3K1\\Frontend\\src\\app\\components\\header\\header.component.html",
+    "line": 149,
+    "snippet": "<img [src]=\"user.imgPerfil\" class=\"w-full h-full object-cover\">"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "D:\\Documentos\\dev\\TP_DSW_2024_3K1\\Frontend\\src\\styles.css",
+    "line": 68,
+    "snippet": "border-left: 6px solid var(--color-success) !important"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "D:\\Documentos\\dev\\TP_DSW_2024_3K1\\Frontend\\src\\styles.css",
+    "line": 80,
+    "snippet": "border-left: 6px solid var(--color-error) !important"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "D:\\Documentos\\dev\\TP_DSW_2024_3K1\\Frontend\\src\\styles.css",
+    "line": 86,
+    "snippet": "border-left: 6px solid var(--color-info) !important"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "D:\\Documentos\\dev\\TP_DSW_2024_3K1\\Frontend\\src\\styles.css",
+    "line": 92,
+    "snippet": "border-left: 6px solid var(--color-warning) !important"
+  }
+]

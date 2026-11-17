@@ -11,6 +11,7 @@ import { logger } from "./common/services/logger";
 import { startEmailWorker, closeEmailWorker } from "./queue/email.queue";
 import { closeBullMQConnection } from "./queue/queue.config";
 
+import { startOutboxWorker, closeOutboxWorker } from './queue/outbox.service';
 const PORT = env.PORT;
 
 let server: http.Server | null = null;
@@ -46,12 +47,16 @@ async function main() {
 
     await AppDataSource.initialize();
     logger.info("STARTUP_DB_CONNECTED");
+    if (env.NODE_ENV==='production' && await AppDataSource.showMigrations()) {
+      throw new Error('Pending database migrations; run db:migrate before starting the application');
+    }
 
     await migrateLegacyRoles();
 
     server = await startServer(PORT);
 
-    await startEmailWorker();
+    if (env.REDIS_URL) startEmailWorker();
+    startOutboxWorker();
 
     const mailOk = await verifyMailer();
     logger.info("STARTUP_MAILER_STATUS", { ready: mailOk });
@@ -84,11 +89,12 @@ async function gracefulShutdown(signal: string, exitCode = 0) {
   const forceExit = setTimeout(() => {
     logger.error("SHUTDOWN_FORCE_EXIT");
     process.exit(1);
-  }, 10000);
+  }, 30000);
 
   try {
     // Stop accepting new connections and close existing keep-alive connections
     if (server) {
+      if (typeof server.closeIdleConnections === "function") server.closeIdleConnections();
       await new Promise<void>((resolve) => {
         server?.close(() => {
           logger.info("SHUTDOWN_HTTP_CLOSED");
@@ -101,6 +107,7 @@ async function gracefulShutdown(signal: string, exitCode = 0) {
       }
     }
 
+    await closeOutboxWorker();
     await closeEmailWorker();
     await closeBullMQConnection();
     await closeRedis();

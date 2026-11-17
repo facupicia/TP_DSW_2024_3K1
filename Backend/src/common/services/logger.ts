@@ -9,23 +9,28 @@ const LOG_LEVEL_PRIORITY: Record<Level, number> = {
     error: 3,
 };
 
+const normalizeKey = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
 const SENSITIVE_KEYS = new Set([
     "password", "token", "accessToken", "refreshToken", "secret", "apiKey",
     "mpAccessToken", "mpToken", "authorization", "cookie", "creditCard",
     "cvv", "pan", "cardNumber", "mpPaymentId", "external_reference",
-    "claimUrl", "qrCode", "codigo_unico"
-]);
+    "claimUrl", "qrCode", "codigo_unico", "currentPassword", "newPassword",
+    "passwordHash", "tokenHash", "secretKey", "webhookSecret", "clientSecret"
+].map(normalizeKey));
 
-function redact(data: any): any {
+function redact(data: any, seen = new WeakSet<object>()): any {
     if (!data || typeof data !== "object") return data;
-    if (Array.isArray(data)) return data.map(redact);
-    const out: any = {};
+    if (seen.has(data)) return "[Circular]";
+    seen.add(data);
+    if (data instanceof Date) return data;
+    if (Array.isArray(data)) return data.map(value => redact(value, seen));
+    const out: any = Object.create(null);
     for (const [k, v] of Object.entries(data)) {
-        const lower = k.toLowerCase();
-        if (SENSITIVE_KEYS.has(k) || SENSITIVE_KEYS.has(lower)) {
+        if (SENSITIVE_KEYS.has(normalizeKey(k))) {
             out[k] = "[REDACTED]";
         } else if (typeof v === "object" && v !== null) {
-            out[k] = redact(v);
+            out[k] = redact(v, seen);
         } else {
             out[k] = v;
         }

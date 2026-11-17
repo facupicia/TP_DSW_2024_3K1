@@ -1,3 +1,4 @@
+import { csvText } from '../common/utils/csv';
 import { Request, Response } from "express";
 import { logger } from "../common/services/logger";
 import { CustomRequest } from "../common/middleware/authToken";
@@ -7,15 +8,7 @@ import PDFDocument from "pdfkit";
 import * as eventService from "./event.service";
 import { incrementSseConnection, decrementSseConnection } from "../common/services/redis";
 
-class HttpError extends Error {
-    status: number;
-    code: string;
-    constructor(status: number, code: string, message: string) {
-        super(message);
-        this.status = status;
-        this.code = code;
-    }
-}
+import { HttpError } from '../common/errors/http-error';
 
 function handleServiceError(error: any, res: Response) {
     if (error instanceof HttpError) {
@@ -45,6 +38,7 @@ export const createEvent = async (req: CustomRequest, res: Response) => {
             });
         }
         if (result.newToken) response.token = result.newToken;
+        response.roles = result.roles;
 
         return res.status(201).json(response);
     } catch (error: any) {
@@ -145,7 +139,7 @@ export const getEvents = async (req: Request, res: Response) => {
         return res.json(result);
     } catch (error) {
         logger.error(error);
-        return res.status(500).json({ message: error.message || "Error fetching events" });
+        return res.status(500).json({ message: "Error al consultar eventos" });
     }
 };
 
@@ -435,9 +429,9 @@ export const exportCreatorStatsCsv = async (req: CustomRequest, res: Response) =
         const headers = ['ID', 'Evento', 'Fecha', 'Categoría', 'Tickets Vendidos', 'Ingresos', 'Tasa de Asistencia'];
         const rows = comparative.map(e => [
             e.eventId,
-            `"${e.title.replace(/"/g, '""')}"`,
+            csvText(e.title),
             new Date(e.date).toISOString().split('T')[0],
-            `"${String(e.category).replace(/"/g, '""')}"`,
+            csvText(e.category),
             e.participants,
             e.revenue.toFixed(2),
             (e.attendanceRate * 100).toFixed(1) + '%'

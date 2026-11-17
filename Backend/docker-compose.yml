@@ -15,6 +15,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - DB_SYNC=false
       # Redis interno del compose
       - REDIS_URL=redis://redis:6379
     depends_on:
