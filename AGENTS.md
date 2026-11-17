@@ -664,6 +664,16 @@ El envío de emails con tickets/QR/PDF y las invitaciones a guests se ejecutaban
 
 *Documento generado para agentes de IA. Para información más detallada, consultar README.md y la documentación en cada carpeta.*
 
+## Operación vigente: noviembre de 2026
+
+El backend corre en el VPS con Docker / Portainer y Cloudflare Tunnel, en `https://api.vidaeventofiesta.site`; las referencias anteriores a Render son históricas. Ver [evidencia de negocio y release](docs/backend-business-2026-11-17.md).
+
+- Mantener las pruebas de escáner, extras, checkout, suscripciones y concurrencia. `npm test` usa PGlite; `npm run test:business:postgres` exige una base aislada `eventlife_business_test_*`, nunca la base de la aplicación.
+- Preservar la identificación del pago efectivamente entregado (`snapshot.fulfilledPaymentId`), la compensación de segundos pagos y la reconciliación de devoluciones/contracargos externos. Deduplicar cada notificación sin descartar posteriores cambios de estado del mismo pago.
+- La eliminación de eventos con compras pagadas activas exige primero la devolución, con `PAID_EVENT_REFUND_REQUIRED`. Los vouchers de extras canjean su cantidad completa.
+- Mantener una suscripción activa por usuario y un vínculo único por ID externo. La cancelación de renovación conserva el período ya pagado.
+- Aplicar migraciones explícitamente. La migración del enum `charged_back` no elimina el valor al hacer rollback; conservar el respaldo y revertir la aplicación sin destruir historial financiero.
+
 
 ## Actualización de octubre de 2026
 

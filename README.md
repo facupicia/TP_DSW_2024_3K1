@@ -52,15 +52,16 @@ El proyecto destaca por su arquitectura escalable, seguridad robusta y una exper
 
 ### Backend (Server-Side)
 *   **Runtime:** Node.js & Express
-*   **Base de Datos:** PostgreSQL (NeonDB) con TypeORM.
+*   **Base de Datos:** PostgreSQL con TypeORM.
 *   **Caché:** Redis (Optimización de consultas frecuentes).
 *   **Validación:** Zod.
 *   **Documentación:** Swagger UI.
 
 ### Infraestructura
 *   **Frontend:** Netlify
-*   **Backend:** Render
-*   **DB:** Neon (PostgreSQL)
+*   **Backend:** VPS con Docker / Portainer, publicado mediante Cloudflare Tunnel en https://api.vidaeventofiesta.site
+*   **DB:** PostgreSQL del servidor (migraciones explícitas; sin sincronización automática)
+*   **Operación y evidencia:** [revisión del backend de noviembre de 2026](docs/backend-business-2026-11-17.md). Las referencias históricas a Render describen la infraestructura anterior.
 
 ## 📸 Capturas y Demos
 
