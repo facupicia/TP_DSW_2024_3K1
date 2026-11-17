@@ -672,6 +672,7 @@ El backend corre en el VPS con Docker / Portainer y Cloudflare Tunnel, en `https
 - Preservar la identificación del pago efectivamente entregado (`snapshot.fulfilledPaymentId`), la compensación de segundos pagos y la reconciliación de devoluciones/contracargos externos. Deduplicar cada notificación sin descartar posteriores cambios de estado del mismo pago.
 - La eliminación de eventos con compras pagadas activas exige primero la devolución, con `PAID_EVENT_REFUND_REQUIRED`. Los vouchers de extras canjean su cantidad completa.
 - Mantener una suscripción activa por usuario y un vínculo único por ID externo. La cancelación de renovación conserva el período ya pagado.
+- Al reemplazar una suscripción externa, conservar el job outbox `subscription-cancel` para detener su renovación anterior y rechazar reactivaciones de autorizaciones reemplazadas. No eliminar esas intenciones al hacer rollback.
 - Aplicar migraciones explícitamente. La migración del enum `charged_back` no elimina el valor al hacer rollback; conservar el respaldo y revertir la aplicación sin destruir historial financiero.
 
 
