@@ -55,26 +55,38 @@ async function businessFixture(overrides = {}) {
   // A single embedded connection. Pool leases serialize transactions, while all
   // query generation, hydration, constraints, rollback and writes are TypeORM's.
   let available = Promise.resolve();
+  async function acquire() {
+    const previous = available;
+    let release;
+    available = new Promise(resolve => { release = resolve; });
+    await previous;
+    return release;
+  }
   class Pool extends EventEmitter {
     connect(callback) {
-      const previous = available;
-      let release;
-      available = new Promise(resolve => { release = resolve; });
-      previous.then(() => {
-        const client = new EventEmitter();
-        client.query = async (sql, params = []) => {
+      const client = new EventEmitter();
+      let transactionRelease;
+      client.query = async (sql, params = []) => {
+        const begins = /^\s*(BEGIN|START TRANSACTION)\b/i.test(sql);
+        const ends = /^\s*(COMMIT|ROLLBACK)\s*;?\s*$/i.test(sql);
+        const release = transactionRelease || await acquire();
+        if (begins) transactionRelease = release;
+        try {
           const result = await engine.query(sql, params.map(value => require('pg/lib/utils').prepareValue(value)));
           return { ...result, rowCount: result.affectedRows ?? result.rows.length,
             command: sql.trim().split(/\s/)[0].toUpperCase() };
-        };
-        callback(null, client, release);
-      });
+        } finally {
+          if (ends) { transactionRelease = undefined; release(); }
+          else if (!transactionRelease) release();
+        }
+      };
+      callback(null, client, () => { if (transactionRelease) { transactionRelease(); transactionRelease = undefined; } });
     }
     end(callback) { callback(); }
   }
   const entityFiles = fs.readdirSync(root, { recursive: true }).filter(file => file.endsWith('.entity.ts'));
   const entities = entityFiles.flatMap(file => Object.values(load(file))).filter(value =>
-    typeof value === 'function' && value.prototype instanceof require('typeorm').BaseEntity);
+    typeof value === 'function' && require('typeorm').getMetadataArgsStorage().tables.some(table => table.target === value));
   source = new DataSource({ type: 'postgres', driver: { Pool }, entities: [...new Set(entities)],
     synchronize: true, installExtensions: false, uuidExtension: 'pgcrypto' });
   try { await source.initialize(); }
