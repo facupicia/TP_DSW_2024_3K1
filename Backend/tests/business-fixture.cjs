@@ -23,11 +23,16 @@ async function businessFixture(overrides = {}) {
       ACCOUNT_CLAIM_TOKEN_HOURS: 24, SECRET_KEY: 'test-only-secret'.repeat(4) } },
     'common/utils/qr.ts': { generarQRUrl: async code => 'data:image/png;base64,' + Buffer.from(code).toString('base64') },
     'common/services/redis.ts': { getRedis: async () => null },
+    'payment/mp-oauth.controller.ts': { refreshOrganizerToken: async () => 'fixture-organizer-token' },
+    'payment/mp.config.ts': { getMPConfig: () => ({ accessToken: 'fixture-platform-token',
+      notificationUrl: 'https://api.example/api/payment/webhook', appUrl: 'https://api.example' }),
+      assertSandboxSeller: async () => {}, sanitizeUrl: value => value },
+    'common/services/mailer.ts': { __esModule: true, default: async () => true },
     ...overrides
   };
   function load(relative) {
     const normalized = relative.replaceAll('\\', '/');
-    if (normalized === 'db.ts' || normalized === 'config/database.ts') return { __esModule: true, default: source };
+    if (normalized === 'db.ts' || normalized === 'config/database.ts') return { __esModule: true, get default() { return source; } };
     if (Object.hasOwn(bindings, normalized)) return bindings[normalized];
     const filename = path.resolve(root, normalized);
     if (!filename.startsWith(root + path.sep)) throw Error('Source outside fixture root');
@@ -39,7 +44,8 @@ async function businessFixture(overrides = {}) {
       experimentalDecorators: true, emitDecoratorMetadata: true
     } }).outputText;
     const localRequire = id => id.startsWith('.')
-      ? load(path.relative(root, path.resolve(path.dirname(filename), id)) + '.ts') : require(id);
+      ? load(path.relative(root, path.resolve(path.dirname(filename), id)) + '.ts')
+      : Object.hasOwn(overrides, id) ? overrides[id] : require(id);
     vm.runInNewContext(code, { module, exports: module.exports, require: localRequire, Reflect,
       Buffer, URL, URLSearchParams, AbortSignal, Date, Boolean, Number, String, Object, Array,
       console, setInterval, clearInterval, setTimeout, clearTimeout,

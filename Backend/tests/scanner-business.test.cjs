@@ -114,3 +114,15 @@ test('scanner HTTP endpoint reports an inactive extra as a conflict with a stabl
     assert.equal(response.body.code, 'INACTIVE_EXTRA');
   } finally { await f.source.getRepository(EventProduct).update(data.eventProduct.id, { isActive: true }); }
 });
+
+test('legacy ticket validation endpoint redeems extras without consuming them and returning 500', async () => {
+  const item = await voucher('extra');
+  const response = { statusCode: 200, status(value) { this.statusCode = value; return this; }, json(value) { this.body = value; return this; } };
+  await f.load('ticket/ticket.controller.ts').validateTicket({ user: { id: data.owner.id, roles: ['organizer'] }, body: { code: item.codigo_unico } }, response);
+  assert.equal((await f.source.getRepository(f.load('extra/extraItem.entity.ts').ExtraItem).findOneByOrFail({ id: item.id })).status, 'used');
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.valid, true);
+  assert.equal(response.body.type, 'extra');
+  assert.equal(response.body.extra.quantity, 3);
+  assert.equal(response.body.extra.status, 'used');
+});
