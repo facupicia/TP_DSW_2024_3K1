@@ -8,6 +8,14 @@ import { env } from "../config/env";
 
 import { HttpError } from '../common/errors/http-error';
 
+function parseCommission(value: unknown): number {
+    const commission = (typeof value === 'number' || (typeof value === 'string' && value.trim())) ? Number(value) : NaN;
+    if (!Number.isFinite(commission) || commission < 0 || commission > 100) {
+        throw new HttpError(400, 'INVALID_COMMISSION', 'El porcentaje de comisión debe estar entre 0 y 100');
+    }
+    return commission;
+}
+
 // ============================================================================
 // ADD PROMOTER
 // ============================================================================
@@ -17,7 +25,7 @@ export async function addPromoter(
     commissionPercentage: number | undefined,
     notes: string | undefined
 ) {
-    const commission = commissionPercentage !== undefined ? parseFloat(String(commissionPercentage)) : 10;
+    const commission = commissionPercentage !== undefined ? parseCommission(commissionPercentage) : 10;
     if (isNaN(commission) || commission < 0 || commission > 100) {
         throw new HttpError(400, 'INVALID_COMMISSION', 'El porcentaje de comisión debe estar entre 0 y 100');
     }
@@ -188,13 +196,16 @@ export async function updatePromoter(
     }
 
     if (data.commissionPercentage !== undefined) {
-        const commission = parseFloat(String(data.commissionPercentage));
+        const commission = parseCommission(data.commissionPercentage);
         if (isNaN(commission) || commission < 0 || commission > 100) {
             throw new HttpError(400, 'INVALID_COMMISSION', 'El porcentaje de comisión debe estar entre 0 y 100');
         }
         promoterGroup.commissionPercentage = commission;
     }
 
+    if (data.promoterCode !== undefined && (typeof data.promoterCode !== 'string' || !/^[A-Za-z0-9._-]{1,50}$/.test(data.promoterCode))) {
+        throw new HttpError(400, 'INVALID_PROMOTER_CODE', 'Código de promotor inválido');
+    }
     if (data.promoterCode && data.promoterCode !== promoterGroup.promoterCode) {
         const existingCode = await PromoterGroup.findOne({ where: { promoterCode: data.promoterCode } });
         if (existingCode) {
@@ -230,6 +241,7 @@ export async function removePromoter(promoterGroupId: number) {
         throw new HttpError(404, 'NOT_FOUND', 'Promotor no encontrado');
     }
 
+
     promoterGroup.isActive = false;
     await promoterGroup.save();
 }
@@ -246,6 +258,7 @@ export async function assignToEvent(
     if (!promoterGroup) {
         throw new HttpError(404, 'NOT_FOUND', 'Promotor no encontrado');
     }
+    if (!promoterGroup.isActive) throw new HttpError(409, 'PROMOTER_INACTIVE', 'El promotor está desactivado');
 
     const event = await Event.findOne({ where: { id: eventId } });
     if (!event) {
@@ -259,16 +272,17 @@ export async function assignToEvent(
     const existingAssignment = await PromoterEventAssignment.findOne({
         where: { promoterGroupId, eventId }
     });
-    if (existingAssignment) {
+    if (existingAssignment?.isActive) {
         throw new HttpError(409, 'ALREADY_ASSIGNED', 'El promotor ya está asignado a este evento');
     }
 
-    const assignment = new PromoterEventAssignment();
+    const assignment = existingAssignment || new PromoterEventAssignment();
     assignment.promoterGroupId = promoterGroupId;
     assignment.eventId = eventId;
+    assignment.isActive = true;
 
     if (customCommissionPercentage !== undefined) {
-        const commission = parseFloat(String(customCommissionPercentage));
+        const commission = parseCommission(customCommissionPercentage);
         if (isNaN(commission) || commission < 0 || commission > 100) {
             throw new HttpError(400, 'INVALID_COMMISSION', 'Comisión inválida');
         }

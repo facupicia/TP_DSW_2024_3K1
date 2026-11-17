@@ -177,6 +177,10 @@ export const assignPromoterToEvent = async (req: CustomRequest, res: Response) =
     }
 
     try {
+        const existing = await getPromoterByIdSvc(promoterGroupId);
+        if (existing.organizerId !== auth.organizerId && !auth.isAdmin) {
+            return res.status(403).json({ code: 'FORBIDDEN', message: 'No tienes permiso para asignar este promotor' });
+        }
         const result = await assignToEvent(promoterGroupId, parseInt(eventId), customCommissionPercentage);
         return res.status(201).json({ message: "Promotor asignado al evento exitosamente", assignment: result });
     } catch (error: any) {
@@ -198,6 +202,10 @@ export const removePromoterFromEvent = async (req: CustomRequest, res: Response)
     }
 
     try {
+        const existing = await getPromoterByIdSvc(promoterGroupId);
+        if (existing.organizerId !== auth.organizerId && !auth.isAdmin) {
+            return res.status(403).json({ code: 'FORBIDDEN', message: 'No tienes permiso para quitar este promotor' });
+        }
         await removeFromEvent(promoterGroupId, eventId);
         return res.status(200).json({ message: "Promotor removido del evento exitosamente" });
     } catch (error: any) {
