@@ -71,3 +71,15 @@ test('an organizer cannot modify or remove another organizer\'s product or event
   await assert.rejects(extras.updateEventProduct(data.eventProduct.id, data.stranger.id, { stock: 10 }), error => error.code === 'FORBIDDEN');
   await assert.rejects(extras.deactivateEventProduct(data.eventProduct.id, data.stranger.id), error => error.code === 'FORBIDDEN');
 });
+
+test('concurrent product creation cannot exceed the plan catalog limit', async () => {
+  const { Product } = f.load('product/product.entity.ts');
+  const baseline = await f.source.getRepository(Product).countBy({ organizerId: data.owner.id });
+  plan = { ...plan, maxProductsInCatalog: baseline + 1 };
+  try {
+    const results = await Promise.allSettled([1, 2].map(index => products.createProduct(data.owner.id,
+      { name: `Concurrent ${index}`, category: 'drink', basePrice: 10 })));
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+    assert.equal(await f.source.getRepository(Product).countBy({ organizerId: data.owner.id }), baseline + 1);
+  } finally { plan = { ...plan, maxProductsInCatalog: 100 }; }
+});
