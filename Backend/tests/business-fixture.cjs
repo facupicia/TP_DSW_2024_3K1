@@ -54,7 +54,7 @@ async function businessFixture(overrides = {}) {
     vm.runInNewContext(code, { module, exports: module.exports, require: localRequire, Reflect,
       Buffer, URL, URLSearchParams, AbortSignal, Date, Boolean, Number, String, Object, Array,
       console, setInterval, clearInterval, setTimeout, clearTimeout,
-      fetch: async () => { throw Error('External network disabled in business fixture'); } }, { filename });
+      fetch: overrides.fetch || (async () => { throw Error('External network disabled in business fixture'); }) }, { filename });
     return module.exports;
   }
   // A single embedded connection. Pool leases serialize transactions, while all

@@ -4,7 +4,7 @@ const { randomUUID } = require('node:crypto');
 const { businessFixture, seedCommerce } = require('./business-fixture.cjs');
 let f, data, core, models;
 before(async () => {
-  f = await businessFixture(); data = await seedCommerce(f);
+  f = await businessFixture({ fetch: async () => ({ ok: true, json: async () => ({ id: 'fixture-refund', amount: 175, status: 'approved' }) }) }); data = await seedCommerce(f);
   core = f.load('payment/payment.core.ts');
   models = Object.assign({}, ...['payment/payment.entity.ts', 'payment/checkout-order.entity.ts', 'extra/extraItem.entity.ts',
     'ticket/ticket.entity.ts', 'extra/eventProduct.entity.ts', 'ticketType/ticketType.entity.ts',
@@ -146,4 +146,19 @@ test('an approved payment arriving after event removal is durably compensated, n
   assert.equal(await count(models.Ticket), 0);
   assert.equal(await count(models.ExtraItem), 0);
   assert.equal(await count(models.RefundRequest), 1);
+});
+
+test('refund confirmation updates the fulfilled checkout, while compensation for duplicate charges does not', async () => {
+  const payment = await checkout();
+  await core.processApprovedPayment(payment.id, payment);
+  const duplicate = await core.processApprovedPayment('duplicate-charge', { ...payment, id: 'duplicate-charge' });
+  const refunds = f.load('payment/refund.service.ts');
+  const compensation = await f.source.getRepository(models.RefundRequest).findOneByOrFail({ paymentLogId: duplicate.logId });
+  await refunds.executeRefund(compensation.id);
+  assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'approved');
+  await refunds.processRefund(payment.id, { requestedBy: data.owner.id });
+  const log = await f.source.getRepository(models.PaymentLog).findOneByOrFail({ mpPaymentId: payment.id });
+  const request = await f.source.getRepository(models.RefundRequest).findOneByOrFail({ paymentLogId: log.id });
+  await refunds.executeRefund(request.id);
+  assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'refunded');
 });
