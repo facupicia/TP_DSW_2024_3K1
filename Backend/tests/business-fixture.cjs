@@ -8,11 +8,16 @@ const ts = require('typescript');
 require('reflect-metadata');
 const { DataSource } = require('typeorm');
 const { PGlite } = require('@electric-sql/pglite');
+const { randomBytes } = require('node:crypto');
 const root = path.resolve(__dirname, '../src');
 
 async function businessFixture(overrides = {}) {
+  const nativeUrl = process.env.EVENTLIFE_TEST_POSTGRES_URL;
+  if (nativeUrl && !/^eventlife_business_test_[a-z0-9_]+$/.test(new URL(nativeUrl).pathname.slice(1))) {
+    throw Error('Native integration requires an explicitly named eventlife_business_test_* database');
+  }
   // pg sends text parameters; preserve that encoding for booleans and JSON.
-  const engine = new PGlite({ serializers: { 16: String, 114: String, 3802: String } });
+  const engine = nativeUrl ? null : new PGlite({ serializers: { 16: String, 114: String, 3802: String } });
   const cache = new Map();
   let source;
   const logger = { info() {}, warn() {}, error() {} };
@@ -25,7 +30,7 @@ async function businessFixture(overrides = {}) {
     'common/services/redis.ts': { getRedis: async () => null },
     'payment/mp-oauth.controller.ts': { refreshOrganizerToken: async () => 'fixture-organizer-token' },
     'payment/mp.config.ts': { getMPConfig: () => ({ accessToken: 'fixture-platform-token',
-      notificationUrl: 'https://api.example/api/payment/webhook', appUrl: 'https://api.example' }),
+      notificationUrl: 'https://api.example/api/payment/webhook', appUrl: 'https://api.example', clientUrl: 'https://app.example' }),
       assertSandboxSeller: async () => {}, sanitizeUrl: value => value },
     'common/services/mailer.ts': { __esModule: true, default: async () => true },
     ...overrides
@@ -87,11 +92,29 @@ async function businessFixture(overrides = {}) {
   const entityFiles = fs.readdirSync(root, { recursive: true }).filter(file => file.endsWith('.entity.ts'));
   const entities = entityFiles.flatMap(file => Object.values(load(file))).filter(value =>
     typeof value === 'function' && require('typeorm').getMetadataArgsStorage().tables.some(table => table.target === value));
-  source = new DataSource({ type: 'postgres', driver: { Pool }, entities: [...new Set(entities)],
+  let control;
+  const schema = nativeUrl ? `business_fixture_${randomBytes(12).toString('hex')}` : undefined;
+  if (nativeUrl) {
+    control = new (require('pg').Client)({ connectionString: nativeUrl });
+    await control.connect();
+    await control.query(`CREATE SCHEMA "${schema}"`);
+  }
+  source = new DataSource({ type: 'postgres', ...(nativeUrl
+    ? { url: nativeUrl, schema, extra: { options: `-c search_path=${schema}` } }
+    : { driver: { Pool } }), entities: [...new Set(entities)],
     synchronize: true, installExtensions: false, uuidExtension: 'pgcrypto' });
   try { await source.initialize(); }
-  catch (error) { await engine.close(); throw error; }
-  return { source, engine, load, async close() { await source.destroy(); await engine.close(); } };
+  catch (error) { await cleanup(); throw error; }
+  async function cleanup() {
+    if (source.isInitialized) await source.destroy();
+    if (engine) await engine.close();
+    if (control) {
+      if (!/^business_fixture_[a-f0-9]{24}$/.test(schema)) throw Error('Invalid fixture cleanup target');
+      await control.query(`DROP SCHEMA "${schema}" CASCADE`);
+      await control.end();
+    }
+  }
+  return { source, engine, load, close: cleanup };
 }
 
 async function seedCommerce(fixture) {
