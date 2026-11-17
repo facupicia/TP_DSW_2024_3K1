@@ -188,3 +188,11 @@ for (const status of ['refunded', 'charged_back']) {
     assert.equal(await count(models.RefundRequest), 0, 'Reconciliation must not create a second outbound refund');
   });
 }
+
+test('a provider reversal received before fulfilment closes the pending checkout without issuing vouchers', async () => {
+  const payment = await checkout();
+  await f.load('payment/refund.service.ts').reconcilePaymentReversal(payment.id, 'refunded', payment.external_reference);
+  assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'refunded');
+  assert.equal(await count(models.Ticket), 0);
+  assert.equal(await count(models.ExtraItem), 0);
+});
