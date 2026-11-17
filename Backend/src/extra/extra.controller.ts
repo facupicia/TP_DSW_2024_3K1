@@ -71,7 +71,7 @@ export const addExtraToEvent = async (req: CustomRequest, res: Response) => {
             return res.status(403).json({ code: "FORBIDDEN", message: "No tienes permiso para modificar este evento" });
         }
 
-        const extra = await createEventProduct(userId, eventId, {
+        const extra = await createEventProduct(event.user_id, eventId, {
             productId: Number(productId),
             eventPrice: Number(eventPrice),
             hasStock,
@@ -83,6 +83,7 @@ export const addExtraToEvent = async (req: CustomRequest, res: Response) => {
 
     } catch (error: any) {
         logger.error("Error adding extra to event:", error);
+        if (error.code === 'FORBIDDEN') return res.status(403).json({ code: error.code, message: error.message });
         if (error.code === "PLAN_LIMIT_EXTRAS") {
             return res.status(403).json({
                 code: error.code,
@@ -133,6 +134,8 @@ export const updateEventExtra = async (req: CustomRequest, res: Response) => {
 
     } catch (error: any) {
         logger.error("Error updating event extra:", error);
+        if (error.code === 'PLAN_LIMIT_EXTRAS') return res.status(403).json({ code: error.code, message: error.message, upgradeRequired: true });
+        if (error.code === 'STOCK_BELOW_COMMITTED') return res.status(409).json({ code: error.code, message: error.message });
         if (error.code === "NOT_FOUND") {
             return res.status(404).json({ code: error.code, message: error.message });
         }

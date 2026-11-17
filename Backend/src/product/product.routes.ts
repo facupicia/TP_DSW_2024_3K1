@@ -11,6 +11,8 @@ import {
 } from "./product.controller";
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
+import { schemaValidation } from '../common/middleware/schemaValidacion';
+import { createProductSchema, updateProductSchema, productIdSchema } from '../schemas/schema.product';
 
 const router = Router();
 
@@ -18,12 +20,12 @@ const router = Router();
 router.get("/", checkAuthToken, getMyCatalog);
 
 // POST /api/product - Crear producto en el catálogo
-router.post("/", checkAuthToken, checkRoleAuth(["organizer", "admin"]), createProductController);
+router.post("/", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(createProductSchema), createProductController);
 
 // PUT /api/product/:id - Actualizar producto
-router.put("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), updateProductController);
+router.put("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(updateProductSchema), updateProductController);
 
 // DELETE /api/product/:id - Eliminar producto (soft delete)
-router.delete("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), deleteProductController);
+router.delete("/:id", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(productIdSchema), deleteProductController);
 
 export default router;

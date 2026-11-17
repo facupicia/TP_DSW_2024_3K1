@@ -12,6 +12,8 @@ import {
 } from "./extra.controller";
 import { checkAuthToken } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
+import { schemaValidation } from '../common/middleware/schemaValidacion';
+import { eventExtrasSchema, createExtraSchema, updateExtraSchema, extraIdSchema } from '../schemas/schema.product';
 
 const router = Router();
 
@@ -19,15 +21,15 @@ const router = Router();
 router.get("/my-extras", checkAuthToken, getMyExtras);
 
 // GET /api/extra/event/:eventId - Listar extras activos de un evento (público)
-router.get("/event/:eventId", getEventExtras);
+router.get("/event/:eventId", schemaValidation(eventExtrasSchema), getEventExtras);
 
 // POST /api/extra/event/:eventId - Activar un producto del catálogo en el evento
-router.post("/event/:eventId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), addExtraToEvent);
+router.post("/event/:eventId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(createExtraSchema), addExtraToEvent);
 
 // PUT /api/extra/:extraId - Actualizar configuración del extra en el evento
-router.put("/:extraId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), updateEventExtra);
+router.put("/:extraId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(updateExtraSchema), updateEventExtra);
 
 // DELETE /api/extra/:extraId - Desactivar extra del evento
-router.delete("/:extraId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), removeExtraFromEvent);
+router.delete("/:extraId", checkAuthToken, checkRoleAuth(["organizer", "admin"]), schemaValidation(extraIdSchema), removeExtraFromEvent);
 
 export default router;

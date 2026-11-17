@@ -1,6 +1,8 @@
 import { Product } from "./product.entity";
 import AppDataSource from "../db";
 import { getActiveSubscription } from "../subscription/subscription.service";
+import { User } from '../user/user.entity';
+import { productCreateBody, productUpdateBody } from '../schemas/schema.product';
 
 /**
  * Get all products in the organizer's catalog (non-deleted)
@@ -54,20 +56,18 @@ export const createProduct = async (
         imageUrl?: string;
     }
 ): Promise<Product> => {
-    const catalogCheck = await canManageProductCatalog(organizerId);
-    if (!catalogCheck.allowed) {
-        const error: any = new Error(catalogCheck.reason || "Product catalog limit reached");
-        error.code = "PLAN_LIMIT_CATALOG";
-        error.upgradeRequired = catalogCheck.upgradeRequired;
-        throw error;
-    }
-
-    const subscription = await getActiveSubscription(organizerId);
+    const parsed = productCreateBody.parse(data);
+    data = { ...parsed, basePrice: Number(parsed.basePrice) };
+    return AppDataSource.transaction(async manager => {
+    // Serialize catalog additions for this owner, including the plan count.
+    const owner = await manager.findOne(User, { where: { id: organizerId, active: true }, lock: { mode: 'pessimistic_write' } });
+    if (!owner) throw Object.assign(new Error('Organizador no encontrado'), { code: 'NOT_FOUND' });
+    const subscription = await getActiveSubscription(organizerId, manager);
     const plan = subscription.plan;
-
-    if (plan.maxProductsInCatalog !== -1) {
-        const currentCount = await countProductsInCatalog(organizerId);
-        if (currentCount >= plan.maxProductsInCatalog) {
+    const repo = manager.getRepository(Product);
+    if (!plan.canSellExtras || plan.maxProductsInCatalog !== -1) {
+        const currentCount = await repo.count({ where: { organizerId } });
+        if (!plan.canSellExtras || currentCount >= plan.maxProductsInCatalog) {
             const error: any = new Error(
                 `Tu plan ${plan.displayName || plan.name} permite máximo ${plan.maxProductsInCatalog} producto(s) en el catálogo.`
             );
@@ -77,7 +77,7 @@ export const createProduct = async (
         }
     }
 
-    const product = Product.create({
+    const product = repo.create({
         organizerId,
         name: data.name.trim(),
         description: data.description?.trim() || null,
@@ -86,8 +86,8 @@ export const createProduct = async (
         imageUrl: data.imageUrl || null
     });
 
-    await product.save();
-    return product;
+    return await repo.save(product);
+    });
 };
 
 /**
@@ -104,6 +104,7 @@ export const updateProduct = async (
         imageUrl?: string;
     }
 ): Promise<Product> => {
+    data = productUpdateBody.parse(data);
     const product = await Product.findOne({ where: { id: productId, organizerId } });
     if (!product) {
         const error: any = new Error("Producto no encontrado");

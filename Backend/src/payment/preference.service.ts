@@ -16,6 +16,7 @@ import { Coupon } from '../coupon/coupon.entity';
 import { EventProduct } from '../extra/eventProduct.entity';
 import { findRolesByNames } from '../user/role.entity';
 import { env } from '../config/env';
+import { allocateMoney } from '../common/utils/money';
 
 /**
  * Preference Service
@@ -622,26 +623,26 @@ export function buildPreferenceBody(
 
     const externalRef = buildExternalReference(userId, ticketTypes[0].event.user_id, promoterCode, checkoutUuid);
 
-    const mpItems = items.map(item => {
+    const ticketWeights = items.flatMap(item => Array(item.quantity).fill(Number(ticketTypes.find(type => type.id === item.ticketTypeId)!.price)));
+    const netTicketPrices = allocateMoney(Math.max(0, ticketWeights.reduce((sum, price) => sum + price, 0) - pricing.discountAmount), ticketWeights);
+    let ticketPriceIndex = 0;
+    const mpItems = items.flatMap(item => {
         const tt = ticketTypes.find(t => t.id === item.ticketTypeId)!;
-        const itemTotal = Number(tt.price) * item.quantity;
-        const ticketBase = pricing.baseAmount - (extras.length > 0
-            ? extraItems.reduce((sum, ei) => sum + (extras.find(e => e.id === ei.eventProductId)?.eventPrice || 0) * ei.quantity, 0)
-            : 0);
-        const itemShareOfDiscount = pricing.discountAmount > 0 && ticketBase > 0
-            ? Math.round((itemTotal / ticketBase) * pricing.discountAmount)
-            : 0;
-        const itemNet = Math.max(itemTotal - itemShareOfDiscount, 0);
-        const itemUnitPrice = item.quantity > 0 ? Number((itemNet / item.quantity).toFixed(2)) : 0;
-
-        return {
+        // A quantity can require two unit prices to distribute the last cent.
+        // Group equal prices so the provider sum equals the durable order total.
+        const groups = new Map<number, number>();
+        for (const price of netTicketPrices.slice(ticketPriceIndex, ticketPriceIndex + item.quantity)) {
+            groups.set(price, (groups.get(price) || 0) + 1);
+        }
+        ticketPriceIndex += item.quantity;
+        return [...groups].map(([unitPrice, quantity]) => ({
             id: `tt_${tt.id}`,
             title: `${tt.event.title} - ${tt.name}`.substring(0, 255),
             description: `Entrada para ${tt.event.title}`,
-            quantity: item.quantity,
-            unit_price: itemUnitPrice,
+            quantity,
+            unit_price: unitPrice,
             currency_id: 'ARS',
-        };
+        }));
     });
 
     const mpExtraItems = extraItems.map(item => {
