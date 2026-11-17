@@ -105,3 +105,22 @@ test('subscription references reject fractional, negative, infinite and trailing
     assert.equal(core.parseSubscriptionExternalRef(ref), null);
   }
 });
+
+test('concurrent first access creates exactly one default subscription', async () => {
+  const service = f.load('subscription/subscription.service.ts');
+  const result = await Promise.all([1, 2, 3].map(() => service.getActiveSubscription(data.owner.id)));
+  assert.equal(new Set(result.map(row => row.id)).size, 1);
+  assert.equal(await f.source.getRepository(model).countBy({ userId: data.owner.id, status: 'active' }), 1);
+});
+
+test('database forbids binding one external subscription to multiple accounts', async () => {
+  const repo = f.source.getRepository(model);
+  await repo.save({ userId: data.owner.id, planId: plan.id, externalSubscriptionId: 'unique-remote', status: 'active' });
+  await assert.rejects(repo.save({ userId: data.stranger.id, planId: plan.id, externalSubscriptionId: 'unique-remote', status: 'active' }), error => error.code === '23505');
+});
+
+test('database forbids multiple active plans for a single account', async () => {
+  const repo = f.source.getRepository(model);
+  await repo.save({ userId: data.owner.id, planId: plan.id, status: 'active' });
+  await assert.rejects(repo.save({ userId: data.owner.id, planId: plan.id, status: 'active' }), error => error.code === '23505');
+});
