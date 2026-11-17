@@ -865,35 +865,39 @@ export async function processApprovedPayment(
             await queryRunner.query('ROLLBACK TO SAVEPOINT fulfilment');
             await updatePaymentLogStatus(queryRunner, log.id, PaymentStatus.FAILED);
             await stageRefund(queryRunner.manager, log, reason, undefined, true);
-            if (order) await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'failure' });
+            if (order && order.status !== 'approved') await queryRunner.manager.update(CheckoutOrder, order.externalReference, { status: 'failure' });
             await queryRunner.commitTransaction();
             return { success: false, error: reason, logId: log.id };
         };
-        if (ticketTypes.some(t=>t.status!=='active' || t.event.active===false) || extras.some(e=>!e.isActive || e.event.active===false)) return failFulfilment('Event or item unavailable');
+        // The order row is locked above. A different payment for an already
+        // fulfilled checkout must be compensated, never delivered a second time.
+        if (order?.status === 'approved') return await failFulfilment('Checkout already fulfilled');
+        if (ticketTypes.some(t=>t.status!=='active' || t.event.active===false) || extras.some(e=>!e.isActive || e.event.active===false)) return await failFulfilment('Event or item unavailable');
         for (const item of [...ticketItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const stockUpdated = await updateStockAtomic(queryRunner, item.referenceId, item.quantity);
             if (!stockUpdated) {
                 logger.warn('PAYMENT_NO_STOCK', { ticketTypeId: item.referenceId, requested: item.quantity });
-                return failFulfilment('No stock available');
+                return await failFulfilment('No stock available');
             }
         }
 
         for (const item of [...extraItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const ep = extras.find(e => e.id === item.referenceId)!;
-            if (ep.hasStock) {
-                const extraStockUpdate = await queryRunner.manager
+            // soldCount is a sales counter even when inventory is unlimited.
+            // Evaluate the current cap in SQL, not the stale loaded entity.
+            const extraStockUpdate = await queryRunner.manager
                     .createQueryBuilder()
                     .update(EventProduct)
                     .set({ soldCount: () => '"soldCount" + ' + item.quantity })
                     .where('id = :id', { id: ep.id })
-                    .andWhere('("stock" - "soldCount") >= :qty', { qty: item.quantity })
+                    .andWhere('("hasStock" = false OR ("stock" - "soldCount") >= :qty)', { qty: item.quantity })
+                    .andWhere('"isActive" = true')
                     .execute();
 
                 if (!extraStockUpdate.affected) {
                     logger.warn('PAYMENT_NO_EXTRA_STOCK', { eventProductId: ep.id, requested: item.quantity });
-                    return failFulfilment('No extra stock available');
+                    return await failFulfilment('No extra stock available');
                 }
-            }
         }
 
         if (coupon) {
@@ -906,7 +910,7 @@ export async function processApprovedPayment(
                 .execute();
 
             if (!couponUpdate.affected) {
-                return failFulfilment('Coupon exhausted');
+                return await failFulfilment('Coupon exhausted');
             }
         }
 
