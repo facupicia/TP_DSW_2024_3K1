@@ -162,3 +162,29 @@ test('refund confirmation updates the fulfilled checkout, while compensation for
   await refunds.executeRefund(request.id);
   assert.equal((await f.source.getRepository(models.CheckoutOrder).findOneByOrFail({ externalReference: payment.external_reference })).status, 'refunded');
 });
+
+test('new notifications for an existing payment remain durable after its first event was processed', async () => {
+  const handler = f.load('payment/payment.controller.ts').paymentWebhook;
+  const response = { status() { return this; }, json() { return this; } };
+  const request = id => ({ paymentId: 'same-payment', query: {}, body: { id, type: 'payment', data: { id: 'same-payment' } } });
+  await handler(request('created-event'), response);
+  await f.source.getRepository(models.OutboxJob).createQueryBuilder().update().set({ processedAt: new Date() }).execute();
+  await handler(request('updated-event'), response);
+  await handler(request('updated-event'), response);
+  assert.equal(await count(models.OutboxJob), 2);
+});
+
+for (const status of ['refunded', 'charged_back']) {
+  test(`provider ${status} state cancels active vouchers and restores quantities once`, async () => {
+    const payment = await checkout();
+    await core.processApprovedPayment(payment.id, payment);
+    const refunds = f.load('payment/refund.service.ts');
+    await refunds.reconcilePaymentReversal(payment.id, status);
+    await refunds.reconcilePaymentReversal(payment.id, status);
+    assert.equal(await f.source.getRepository(models.Ticket).countBy({ status: 'active' }), 0);
+    assert.equal(await f.source.getRepository(models.ExtraItem).countBy({ status: 'active' }), 0);
+    assert.equal((await f.source.getRepository(models.EventProduct).findOneByOrFail({ id: data.eventProduct.id })).soldCount, 0);
+    assert.equal((await f.source.getRepository(models.PaymentLog).findOneByOrFail({ mpPaymentId: payment.id })).status, status);
+    assert.equal(await count(models.RefundRequest), 0, 'Reconciliation must not create a second outbound refund');
+  });
+}
