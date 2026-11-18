@@ -1,6 +1,7 @@
 import { Component, inject, OnInit, ChangeDetectionStrategy, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { CategoryService } from '../../services/category.service';
 import { CommonModule } from '@angular/common';
 import { Categoria } from '../../interfaces/categoria';
@@ -13,7 +14,7 @@ import { RevenueViewComponent } from '../../components/revenue-view/revenue-view
 import { SubscriptionChartComponent } from '../../components/subscription-chart/subscription-chart.component';
 import { CurrencyFormatterPipe, PercentFormatterPipe } from '../../pipes/formatter.pipes';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { take } from 'rxjs';
+import { filter, take, finalize } from 'rxjs';
 
 type TabView = 'dashboard' | 'revenue' | 'subscriptions' | 'marketplace' | 'commissions' | 'users' | 'categories';
 type DatePreset = 'today' | '7days' | '30days' | '90days' | '180days' | 'all';
@@ -28,7 +29,8 @@ type DatePreset = 'today' | '7days' | '30days' | '90days' | '180days' | 'all';
         RevenueViewComponent,
         SubscriptionChartComponent,
         CurrencyFormatterPipe,
-        PercentFormatterPipe
+        PercentFormatterPipe,
+        RouterLink
     ],
     templateUrl: './admin-panel.component.html',
     styleUrls: ['./admin-panel.component.css'],
@@ -49,6 +51,7 @@ export class AdminPanelComponent implements OnInit {
   public activeTab: TabView = 'dashboard';
   public isMobileNavOpen = false;
   public loadingCategories = false;
+  public creatingCategory = false;
   public loadingUsers = false;
   public loadingMetrics = false;
   public updatingRole: Record<number, boolean> = {};
@@ -100,10 +103,9 @@ export class AdminPanelComponent implements OnInit {
   refreshKey = 0;
 
   ngOnInit(): void {
-    // take(1) ensures we only react to the first user emission and don't
-    // re-trigger loadOverview if currentUser$ emits again (e.g. on refresh).
-    this.userService.currentUser$.pipe(take(1), takeUntilDestroyed(this.destroyRef)).subscribe(u => {
+    this.userService.currentUser$.pipe(filter(u => !!u), take(1), takeUntilDestroyed(this.destroyRef)).subscribe(u => {
       this.currentUser = u;
+      this.cdr.markForCheck();
       if (u && !this.overview && !this.loadingMetrics && !this.overviewLoading) {
         this.loadOverview();
       }
@@ -135,7 +137,6 @@ export class AdminPanelComponent implements OnInit {
       },
       error: (err) => {
         console.error('Error loading overview:', err);
-        this.toast.error('Error al cargar métricas del panel');
         this.loadingMetrics = false;
         this.overviewLoading = false;
         this.cdr.markForCheck();
@@ -145,7 +146,11 @@ export class AdminPanelComponent implements OnInit {
 
   cargarCategorias() {
     this.loadingCategories = true;
-    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.cdr.markForCheck();
+    this.categoryService.getCategories().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { this.loadingCategories = false; this.cdr.markForCheck(); })
+    ).subscribe({
       next: (res) => {
         this.categorias = res;
         this.stats.totalCategories = res.length;
@@ -171,13 +176,17 @@ export class AdminPanelComponent implements OnInit {
     }
 
     this.loadingUsers = true;
+    this.cdr.markForCheck();
     this.userService.getUsers({
       page: this.userPage,
       limit: this.userLimit,
       search: this.userSearch,
       role: this.userRoleFilter,
       active: this.userActiveFilter === 'all' ? undefined : this.userActiveFilter === 'active'
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    }).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { this.loadingUsers = false; this.cdr.markForCheck(); })
+    ).subscribe({
       next: (res: PaginatedUsersResponse) => {
         this.usuarios = res.data;
         this.userTotal = res.total;
@@ -276,13 +285,20 @@ export class AdminPanelComponent implements OnInit {
 
 
   crearCategoria() {
-    if (this.formCategory.invalid) return;
-    const nombreCategoria = this.formCategory.value.name;
-    this.categoryService.cargarCategoria(nombreCategoria).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    if (this.formCategory.invalid || this.creatingCategory) return;
+    const nombreCategoria = String(this.formCategory.value.name || '').trim();
+    if (nombreCategoria.length < 3) return;
+    this.creatingCategory = true;
+    this.cdr.markForCheck();
+    this.categoryService.cargarCategoria({ name: nombreCategoria }).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { this.creatingCategory = false; this.cdr.markForCheck(); })
+    ).subscribe({
       next: (res: any) => {
-        this.categorias.push(res);
+        this.categorias = [...this.categorias, res];
         this.stats.totalCategories++;
         this.formCategory.reset();
+        this.cdr.markForCheck();
       },
       error: (err) => console.error(err)
     });
@@ -293,6 +309,7 @@ export class AdminPanelComponent implements OnInit {
       this.categoryService.deleteCategory(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
         this.categorias = this.categorias.filter(c => c.id !== id);
         this.stats.totalCategories--;
+        this.cdr.markForCheck();
       });
     }
   }
@@ -339,7 +356,10 @@ export class AdminPanelComponent implements OnInit {
     }
 
     this.updatingRole[u.id!] = true;
-    this.userService.updateRole(u.id!, nuevosRoles, 'set').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.userService.updateRole(u.id!, nuevosRoles, 'set').pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => { this.updatingRole[u.id!] = false; this.cdr.markForCheck(); })
+    ).subscribe({
       next: (resp: any) => {
         u.roles = nuevosRoles;
         u.rol = nuevosRoles.reduce((highest, role) => {
@@ -349,8 +369,7 @@ export class AdminPanelComponent implements OnInit {
         this.toast.success('Roles actualizados correctamente');
         this.updatingRole[u.id!] = false;
       },
-      error: (err) => {
-        this.toast.error('Error al actualizar roles');
+      error: () => {
         this.updatingRole[u.id!] = false;
       }
     });

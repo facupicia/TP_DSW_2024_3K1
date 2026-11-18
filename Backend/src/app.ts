@@ -76,10 +76,6 @@ app.use(cors({
     exposedHeaders: ['x-request-id']
 }));
 
-app.use(globalRateLimiter);
-
-app.use(morgan(env.NODE_ENV === 'production' ? "combined" : "dev"));
-
 // Healthcheck - minimal info to avoid information disclosure
 app.get('/health', async (_req, res) => {
     try {
@@ -97,6 +93,9 @@ app.get('/health', async (_req, res) => {
         res.status(503).json({ status: 'error' });
     }
 });
+
+app.use(globalRateLimiter);
+app.use(morgan(env.NODE_ENV === 'production' ? "combined" : "dev"));
 
 // Métricas Prometheus
 const metricsMiddlewares = env.METRICS_PUBLIC === "true"

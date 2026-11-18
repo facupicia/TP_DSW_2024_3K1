@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, BaseEntity, Unique, OneToMany, ManyToMany, JoinTable, Index } from "typeorm"
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, BaseEntity, OneToMany, ManyToMany, JoinTable, Index } from "typeorm"
 import { Event } from '../event/event.entity';
 import { Ticket } from "../ticket/ticket.entity";
 import { PromoterGroup } from "../promoter/promoter.entity";
@@ -6,8 +6,8 @@ import { Role } from "./role.entity";
 import { ScannerOrganizerAssignment } from "../scanner/scanner-organizer-assignment.entity";
 import { Product } from "../product/product.entity";
 @Entity()
-@Unique(['email'])
-@Unique(['mpUserId'])
+@Index('uq_user_email_live', ['email'], { unique: true, where: '"deletedAt" IS NULL' })
+@Index('uq_user_mp_user_live', ['mpUserId'], { unique: true, where: '"deletedAt" IS NULL AND "mpUserId" IS NOT NULL' })
 @Index('idx_user_active_created', ['active', 'createdAt'])
 @Index('idx_user_created_at', ['createdAt'])
 export class User extends BaseEntity {

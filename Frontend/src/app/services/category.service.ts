@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Categoria } from '../interfaces/categoria';
-import { Observable, shareReplay, tap } from 'rxjs';
+import { Observable, shareReplay, tap, map } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -17,7 +17,8 @@ export class CategoryService {
   constructor() { }
 
   cargarCategoria(objeto: { name: string }) {
-    return this.http.post(`${this.urlBase}/new`, objeto).pipe(
+    return this.http.post<{ category: Categoria }>(`${this.urlBase}/new`, objeto).pipe(
+      map(response => response.category),
       tap(() => this.clearCategoriesCache())
     );
   }

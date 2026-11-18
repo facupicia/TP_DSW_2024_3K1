@@ -10,11 +10,13 @@ import {
     Index,
     Check
 } from "typeorm";
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { Event } from "../event/event.entity";
 import { Product } from "../product/product.entity";
 
 @Entity('event_product')
 @Index('idx_event_product_event_active', ['eventId', 'isActive'])
+@Index('idx_event_product_product', ['productId'])
 @Check('"eventPrice" >= 0')
 @Check('"stock" >= 0')
 @Check('"soldCount" >= 0')
@@ -41,7 +43,7 @@ export class EventProduct extends BaseEntity {
     @Column({ default: true })
     isActive: boolean;
 
-    @Column({ type: 'numeric', precision: 12, scale: 2 })
+    @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2 })
     eventPrice: number;
 
     @Column({ default: false })

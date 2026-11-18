@@ -32,12 +32,12 @@ export const errorHandler = (err: any, req: Request, res: Response, _next: NextF
 
     logger.error('GLOBAL_ERROR', {
         method: req.method,
-        url: req.originalUrl,
+        url: req.originalUrl?.split('?')[0],
         status,
         code,
-        message: isDev ? message : '[REDACTED_IN_PROD]',
-        stack: isDev ? err.stack : undefined,
+        message: err.message || 'Internal server error',
+        stack: err.stack,
     });
 
-    res.status(status).json({ code, message });
+    res.status(status).json({ code: !isDev && status >= 500 ? 'INTERNAL_ERROR' : code, message });
 };

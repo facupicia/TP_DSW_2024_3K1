@@ -97,3 +97,80 @@ test('parallel purchase eligibility checks do not exhaust the PostgreSQL pool', 
   const results = await Promise.allSettled(Array.from({ length: 20 }, () => pref.validatePurchaseEligibility(input())));
   assert.equal(results.filter(result => result.status === 'fulfilled' && result.value.valid).length, 20);
 });
+
+test('concurrent paid checkouts cannot exceed the last coupon use; losing payment is refunded durably', async () => {
+  const { Coupon } = f.load('coupon/coupon.entity.ts');
+  const coupon = await f.source.getRepository(Coupon).save({ eventId: data.event.id, code: 'LAST-USE', discountPercent: 10, maxUses: 1 });
+  try {
+    const checkouts = await Promise.all([1, 2].map(() => pref.createMercadoPagoPreference({ ...input(), couponId: coupon.id })));
+    const payments = await Promise.all(checkouts.map((checkout, index) => core.processApprovedPayment('coupon-' + index, {
+      id: 'coupon-' + index, status: 'approved', currency_id: 'ARS', transaction_amount: checkout.pricing.buyerTotalAmount,
+      external_reference: checkout.externalReference, metadata: providerBodies[index].metadata
+    })));
+    assert.equal(payments.filter(payment => payment.success).length, 1);
+    assert.equal((await f.source.getRepository(Coupon).findOneByOrFail({ id: coupon.id })).usedCount, 1);
+    assert.equal(await f.source.getRepository(models.Ticket).count(), 1);
+    assert.equal((await f.source.getRepository(models.TicketType).findOneByOrFail({ id: data.ticketType.id })).soldCount, 1);
+    assert.equal((await f.source.query('SELECT count(*)::int AS n FROM refund_request WHERE status=\'pending\''))[0].n, 1);
+    const retry = await core.processApprovedPayment('coupon-0', { id: 'coupon-0', status: 'approved', currency_id: 'ARS',
+      transaction_amount: checkouts[0].pricing.buyerTotalAmount, external_reference: checkouts[0].externalReference,
+      metadata: providerBodies[0].metadata });
+    assert.equal(retry.success, payments[0].success);
+    assert.equal((await f.source.getRepository(Coupon).findOneByOrFail({ id: coupon.id })).usedCount, 1);
+  } finally { await f.source.getRepository(Coupon).delete(coupon.id); }
+});
+
+for (const state of ['expired', 'inactive', 'deleted']) test(`a frozen discount cannot bypass a ${state} coupon`, async () => {
+  const { Coupon } = f.load('coupon/coupon.entity.ts');
+  const repo = f.source.getRepository(Coupon);
+  const coupon = await repo.save({ eventId: data.event.id, code: state.toUpperCase(), discountPercent: 10, maxUses: 1 });
+  try {
+    const checkout = await pref.createMercadoPagoPreference({ ...input(), couponId: coupon.id });
+    if (state === 'deleted') await repo.delete(coupon.id);
+    else await repo.update(coupon.id, state === 'expired' ? { expiresAt: new Date(Date.now() - 1000) } : { isActive: false });
+    // Even missing provider coupon metadata cannot bypass the frozen coupon ID.
+    const metadata = { ...providerBodies[0].metadata, coupon_id: null };
+    const result = await core.processApprovedPayment('invalid-coupon', { id: 'invalid-coupon', status: 'approved', currency_id: 'ARS',
+      transaction_amount: checkout.pricing.buyerTotalAmount, external_reference: checkout.externalReference, metadata });
+    assert.equal(result.success, false);
+    assert.equal(await f.source.getRepository(models.Ticket).count(), 0);
+    assert.equal((await f.source.getRepository(models.TicketType).findOneByOrFail({ id: data.ticketType.id })).soldCount, 0);
+    assert.equal((await f.source.query('SELECT count(*)::int AS n FROM refund_request WHERE status=\'pending\''))[0].n, 1);
+  } finally { await repo.delete(coupon.id); }
+});
+
+for (const [discountPercent, generalPrice, vipPrice] of [[17, 100.01, 300.03], [100, 100.01, 300.03], [100, 100, 300]]) test(`promoter commission excludes extras and service fees with ${discountPercent}% discount and ${generalPrice} base price`, async () => {
+  const { PromoterGroup, PromoterEventAssignment } = f.load('promoter/promoter.entity.ts');
+  const { Coupon } = f.load('coupon/coupon.entity.ts');
+  const group = await f.source.getRepository(PromoterGroup).save({ organizerId: data.owner.id, promoterId: data.scanner.id,
+    commissionPercentage: 10, promoterCode: 'NET-TICKETS', isActive: true });
+  const assignment = await f.source.getRepository(PromoterEventAssignment).save({ promoterGroupId: group.id, eventId: data.event.id, isActive: true });
+  const coupon = await f.source.getRepository(Coupon).save({ code: 'NET-DISCOUNT', eventId: data.event.id, discountPercent });
+  const second = await f.source.getRepository(models.TicketType).save({ eventId: data.event.id, name: 'Commission VIP', price: vipPrice, capacity: 10 });
+  await f.source.getRepository(models.TicketType).update(data.ticketType.id, { price: generalPrice });
+  try {
+    const checkout = await pref.createMercadoPagoPreference({ ...input(), promoterCode: group.promoterCode, couponId: coupon.id,
+      items: [{ ticketTypeId: data.ticketType.id, quantity: 2 }, { ticketTypeId: second.id, quantity: 1 }] });
+    const payment = await core.processApprovedPayment('commission-net', { id: 'commission-net', status: 'approved', currency_id: 'ARS',
+      transaction_amount: checkout.pricing.buyerTotalAmount, external_reference: checkout.externalReference, metadata: providerBodies[0].metadata });
+    assert.equal(payment.success, true);
+    const tickets = await f.source.getRepository(models.Ticket).find({ order: { id: 'ASC' } });
+    const netCents = tickets.reduce((sum, ticket) => sum + Math.round(ticket.purchasePrice * 100), 0);
+    const expectedCents = Math.round(netCents * 0.1);
+    assert.equal(Math.round(payment.promoterCommission * 100), expectedCents);
+    assert.equal(tickets.reduce((sum, ticket) => sum + Math.round(ticket.promoterCommissionAmount * 100), 0), expectedCents);
+    for (const ticket of tickets) {
+      assert.equal(typeof ticket.purchasePrice, 'number');
+      assert.equal(typeof ticket.promoterCommissionAmount, 'number');
+      assert.ok(Math.abs(Math.round(ticket.promoterCommissionAmount * 100) - ticket.purchasePrice * 10) <= 1);
+    }
+    if (netCents > 0) assert.ok(tickets.find(ticket => ticket.ticketTypeId === second.id).promoterCommissionAmount > tickets.find(ticket => ticket.ticketTypeId === data.ticketType.id).promoterCommissionAmount * 2);
+    assert.equal((await f.source.getRepository(models.TicketType).findOneByOrFail({ id: second.id })).price, vipPrice);
+  } finally {
+    await f.source.getRepository(PromoterEventAssignment).delete(assignment.id);
+    await f.source.getRepository(PromoterGroup).delete(group.id);
+    await f.source.getRepository(Coupon).delete(coupon.id);
+    await f.source.getRepository(models.TicketType).softDelete(second.id);
+    await f.source.getRepository(models.TicketType).update(data.ticketType.id, { price: 100 });
+  }
+});

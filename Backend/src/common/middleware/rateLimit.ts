@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import rateLimit, { ipKeyGenerator, MemoryStore, Store, Options } from "express-rate-limit";
 import crypto from "crypto";
 import { RedisStore } from "rate-limit-redis";
 import { getRedis } from "../services/redis";
@@ -14,6 +14,54 @@ const rateLimitHandler = (_req: Request, res: Response, _next: unknown, options:
         retryAfter: reset ?? null
     });
 };
+
+// Count locally even while Redis is healthy so an outage cannot reset quotas.
+export class ResilientRateLimitStore implements Store {
+    localKeys = false;
+    private memory = new MemoryStore();
+    private retryAt = 0;
+    constructor(private remote: Store, public prefix: string) {}
+
+    init(options: Options) {
+        this.memory.init(options);
+        this.remote.init?.(options);
+    }
+
+    private async attempt<T>(operation: () => Promise<T> | T): Promise<T | undefined> {
+        if (Date.now() < this.retryAt) return undefined;
+        let timeout: ReturnType<typeof setTimeout>;
+        try {
+            return await Promise.race([
+                Promise.resolve().then(operation),
+                new Promise<never>((_resolve, reject) => {
+                    timeout = setTimeout(() => reject(new Error('Rate-limit store timeout')), 500);
+                })
+            ]);
+        } catch {
+            this.retryAt = Date.now() + 5000;
+            logger.warn('RATE_LIMIT_REDIS_FALLBACK', { prefix: this.prefix });
+            return undefined;
+        } finally { clearTimeout(timeout); }
+    }
+
+    async increment(key: string) {
+        const local = await this.memory.increment(key);
+        const shared = await this.attempt(() => this.remote.increment(key));
+        return shared && shared.totalHits >= local.totalHits ? shared : local;
+    }
+
+    async decrement(key: string) {
+        await this.memory.decrement(key);
+        await this.attempt(() => this.remote.decrement(key));
+    }
+
+    async resetKey(key: string) {
+        await this.memory.resetKey(key);
+        await this.attempt(() => this.remote.resetKey(key));
+    }
+
+    shutdown() { this.memory.shutdown(); }
+}
 
 export function createRedisStore(prefix: string) {
     if (env.NODE_ENV !== "production") {
@@ -49,7 +97,7 @@ export function createRedisStore(prefix: string) {
         });
     });
 
-    return store;
+    return new ResilientRateLimitStore(store, prefix);
 }
 
 function hashRateLimitPart(value: string) {

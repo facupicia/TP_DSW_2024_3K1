@@ -15,7 +15,7 @@ export class EventService {
 
   private http = inject(HttpClient);
   private urlBase: string = environment.apiUrl + "/event";
-  private eventsCache = new Map<string, Observable<Evento[]>>();
+  private eventsCache = new Map<string, { request: Observable<Evento[]>; expiresAt: number }>();
   constructor() { }
 
   crearEvento(objeto: Evento): Observable<Evento> {
@@ -74,54 +74,23 @@ export class EventService {
   obtenerEventos(limit = 50, page = 1, forceRefresh = false): Observable<Evento[]> {
     const cacheKey = `${page}:${limit}`;
 
-    if (!forceRefresh && this.eventsCache.has(cacheKey)) {
-      return this.eventsCache.get(cacheKey)!;
+    const cached = this.eventsCache.get(cacheKey);
+    if (!forceRefresh && cached && cached.expiresAt > Date.now()) {
+      return cached.request;
     }
 
-    // Cache localStorage: si el usuario recarga el navegador,
-    // recuperamos los eventos de localStorage si no expiraron.
-    if (!forceRefresh && typeof window !== 'undefined') {
-      try {
-        const lsKey = `eventlife_explore_${page}_${limit}`;
-        const raw = window.localStorage.getItem(lsKey);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Date.now() < parsed.expiresAt) {
-            const cached$ = of(parsed.data as Evento[]).pipe(shareReplay(1));
-            this.eventsCache.set(cacheKey, cached$);
-            return cached$;
-          }
-          window.localStorage.removeItem(lsKey);
-        }
-      } catch {
-        // ignore parse errors
-      }
-    }
-
+    // Initial loads use Angular's transfer cache so browser hydration receives
+    // the same public data as SSR. Persistent browser snapshots can be stale.
     const params = new HttpParams()
       .set('limit', String(limit))
       .set('page', String(page));
 
     const request$ = this.http.get<{ data: Evento[], total: number }>(`${this.urlBase}/explore`, { params }).pipe(
       map(response => (response.data || []).map(event => this.normalizeEvent(event))),
-      tap(events => {
-        // Guardar en localStorage para sobrevivir recargas
-        if (typeof window !== 'undefined') {
-          try {
-            const lsKey = `eventlife_explore_${page}_${limit}`;
-            window.localStorage.setItem(lsKey, JSON.stringify({
-              data: events,
-              expiresAt: Date.now() + EXPLORE_CACHE_TTL
-            }));
-          } catch {
-            // ignore storage errors (e.g. quota exceeded)
-          }
-        }
-      }),
       shareReplay({ bufferSize: 1, refCount: false })
     );
 
-    this.eventsCache.set(cacheKey, request$);
+    this.eventsCache.set(cacheKey, { request: request$, expiresAt: Date.now() + EXPLORE_CACHE_TTL });
     return request$;
   }
 

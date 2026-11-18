@@ -1,4 +1,5 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpContext } from '@angular/common/http';
+import { LOCAL_ERROR_FEEDBACK } from '../interceptors/error-context';
 import { environment } from '../../environments/environment';
 import { inject, Injectable } from '@angular/core';
 import { Usuario } from '../interfaces/Usuario';
@@ -117,11 +118,11 @@ export class AuthService {
   }
 
   registrarse(objeto: Usuario) {
-    return this.http.post(`${this.urlBase}register`, objeto)
+    return this.http.post(`${this.urlBase}register`, objeto, { context: new HttpContext().set(LOCAL_ERROR_FEEDBACK, true) })
   }
 
   login(objeto: Login): Observable<ResponseAcceso> {
-    return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto, { withCredentials: true }).pipe(
+    return this.http.post<ResponseAcceso>(`${this.urlBase}login`, objeto, { withCredentials: true, context: new HttpContext().set(LOCAL_ERROR_FEEDBACK, true) }).pipe(
       tap((resp) => {
         if (resp?.token) {
           this.setAccessToken(resp.token);
@@ -135,7 +136,7 @@ export class AuthService {
   }
 
   loginWithGoogle(credential: string): Observable<ResponseAcceso> {
-    return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }, { withCredentials: true }).pipe(
+    return this.http.post<ResponseAcceso>(`${this.urlBase}google`, { credential }, { withCredentials: true, context: new HttpContext().set(LOCAL_ERROR_FEEDBACK, true) }).pipe(
       tap((resp) => {
         if (resp?.token) {
           this.setAccessToken(resp.token);

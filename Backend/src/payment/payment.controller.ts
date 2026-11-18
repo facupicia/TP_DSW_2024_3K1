@@ -1,4 +1,4 @@
-import { enqueueOutbox } from '../queue/outbox.service';
+ import { enqueueOutbox } from '../queue/outbox.service';
 import { CheckoutOrder } from './checkout-order.entity';
 import { createHash, timingSafeEqual } from 'crypto';
 import { Response } from "express";

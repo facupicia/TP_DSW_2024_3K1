@@ -177,7 +177,8 @@ export const logoutUser = async (req: Request, res: Response) => {
     await revokeRefreshToken(req, res);
     return res.status(204).send();
   } catch (error: any) {
-    return res.status(500).json({ code: "LOGOUT_ERROR", message: error.message || "Internal Server Error" });
+    logger.error('LOGOUT_ERROR', { message: error?.message, stack: error?.stack });
+    return res.status(500).json({ code: "LOGOUT_ERROR", message: "Internal server error" });
   }
 };
 

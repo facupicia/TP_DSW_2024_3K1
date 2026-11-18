@@ -7,6 +7,7 @@ import {
     BaseEntity,
     Check
 } from 'typeorm';
+import { numericTransformer } from "../common/utils/numeric-transformer";
 
 /**
  * Represents a subscription plan (FREE, PRO, etc.)
@@ -35,11 +36,11 @@ export class SubscriptionPlan extends BaseEntity {
     displayName: string;
 
     /** Monthly price in ARS (0 for free plan) */
-    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    @Column({ type: 'decimal', transformer: numericTransformer, precision: 10, scale: 2, default: 0 })
     monthlyPrice: number;
 
     /** Yearly price in ARS (null if not offered) */
-    @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+    @Column({ type: 'decimal', transformer: numericTransformer, precision: 10, scale: 2, nullable: true })
     yearlyPrice: number;
 
     /** Max events an organizer can create per month (-1 = unlimited) */
@@ -59,15 +60,15 @@ export class SubscriptionPlan extends BaseEntity {
     canSellExtras: boolean;
 
     /** Commission percentage charged on each ticket sale */
-    @Column({ type: 'decimal', precision: 5, scale: 2 })
+    @Column({ type: 'decimal', transformer: numericTransformer, precision: 5, scale: 2 })
     commissionPercent: number;
 
     /** Service fee percentage added to the attendee checkout total */
-    @Column({ type: 'decimal', precision: 5, scale: 2, default: 12.00 })
+    @Column({ type: 'decimal', transformer: numericTransformer, precision: 5, scale: 2, default: 12.00 })
     serviceFeePercent: number;
 
     /** Minimum service fee in ARS when serviceFeePercent is greater than zero */
-    @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+    @Column({ type: 'decimal', transformer: numericTransformer, precision: 10, scale: 2, default: 0 })
     minimumServiceFee: number;
 
     /** JSON object with feature flags */

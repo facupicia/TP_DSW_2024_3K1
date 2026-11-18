@@ -1,6 +1,9 @@
-import { Component, inject, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, Input, OnInit, OnDestroy, DestroyRef, PLATFORM_ID, RESPONSE_INIT } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { SeoService } from '../../services/seo.service';
 import { EventService } from '../../services/event.service';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule, NgOptimizedImage } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
 import { Evento } from '../../interfaces/event';
@@ -11,7 +14,7 @@ import { EventImageFallbackDirective } from '../../directives/event-image-fallba
 
 @Component({
     selector: 'app-detalle-evento',
-    imports: [CommonModule, HeaderComponent, NgOptimizedImage, EventImageFallbackDirective],
+    imports: [CommonModule, HeaderComponent, NgOptimizedImage, EventImageFallbackDirective, RouterLink],
     templateUrl: './detalle-evento.component.html',
     styleUrl: './detalle-evento.component.css'
 })
@@ -22,6 +25,10 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   private eventoService = inject(EventService);
   private accesService = inject(AuthService);
   private toastService = inject(ToastService);
+  private platformId = inject(PLATFORM_ID);
+  private destroyRef = inject(DestroyRef);
+  private seo = inject(SeoService);
+  private responseInit = inject(RESPONSE_INIT, { optional: true });
   private eventId: string | null = null;
   private promoterCode: string | null = null;
 
@@ -30,6 +37,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   evento: any;
   imgPerfil: string | null = null;
   loading = true;
+  loadError = '';
 
   // Cart logic
   quantities: Record<number, number> = {};
@@ -54,7 +62,7 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
     }
 
     this.cargarEvento(Number(this.eventId));
-    this.accesService.ensureCurrentUser().subscribe(user => {
+    this.accesService.ensureCurrentUser().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(user => {
       this.isLoggedIn = !!user;
     });
   }
@@ -68,9 +76,10 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
   cargarEvento(id: number) {
     this.loading = true;
     
-    this.eventoService.obtenerEvento(id).subscribe({
+    this.eventoService.obtenerEvento(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (data) => {
         this.evento = data;
+        this.seo.set(`${data.title} | EventLife`, String(data.description || 'Conocé el evento y elegí tus entradas.').slice(0, 160), `/event/${id}`, data.image);
         if (data.user) {
           this.user = data.user;
           this.imgPerfil = data.user.imgPerfil;
@@ -78,20 +87,23 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
         this.startCountdown();
         this.loading = false;
       },
-      error: () => {
+      error: (error) => {
         this.loading = false;
-        this.toastService.error('No se pudo cargar el evento');
-        this.router.navigate(['/events']);
+        this.loadError = error?.status === 404 ? 'Este evento no está disponible.' : 'No pudimos cargar el evento. Intentá nuevamente más tarde.';
+        this.seo.set('Evento no disponible | EventLife', this.loadError, `/event/${id}`);
+        if (this.responseInit) this.responseInit.status = error?.status === 404 ? 404 : 503;
       }
     });
   }
 
   startCountdown() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.countdownSubscription?.unsubscribe();
     if (!this.evento?.date || !this.evento?.time) return;
 
     const eventDate = new Date(`${this.evento.date}T${this.evento.time}`);
 
-    this.countdownSubscription = interval(1000).subscribe(() => {
+    const update = () => {
       const now = new Date().getTime();
       const distance = eventDate.getTime() - now;
 
@@ -107,7 +119,14 @@ export class DetalleEventoComponent implements OnInit, OnDestroy {
         minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
         seconds: Math.floor((distance % (1000 * 60)) / 1000)
       };
-    });
+    };
+    update();
+    if (!this.isEventStarted) {
+      this.countdownSubscription = interval(1000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+        update();
+        if (this.isEventStarted) this.countdownSubscription.unsubscribe();
+      });
+    }
   }
 
   getGoogleMapsUrl(location: string): string {

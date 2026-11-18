@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { adminMetricsSchema } from '../schemas/schema.admin';
+import { schemaValidation } from '../common/middleware/schemaValidacion';
 import { logger } from "../common/services/logger";
 import { AdminService } from './admin.service';
 import { checkAuthToken, CustomRequest } from '../common/middleware/authToken';
@@ -12,8 +14,10 @@ const adminService = new AdminService();
 
 router.get('/operations', checkAuthToken, checkRoleAuth('admin'), async(req,res,next)=>{
     try {
-        const queue = await AppDataSource.query(`SELECT kind,COUNT(*)::integer AS pending,
-            COUNT(*) FILTER(WHERE attempts>0)::integer AS retrying,MIN("createdAt") AS "oldestCreatedAt"
+        const queue = await AppDataSource.query(`SELECT kind,COUNT(*) FILTER(WHERE "failedAt" IS NULL)::integer AS pending,
+            COUNT(*) FILTER(WHERE attempts>0 AND "failedAt" IS NULL)::integer AS retrying,
+            COUNT(*) FILTER(WHERE "failedAt" IS NOT NULL)::integer AS failed,
+            MIN("createdAt") FILTER(WHERE "failedAt" IS NULL) AS "oldestCreatedAt"
             FROM outbox_job WHERE "processedAt" IS NULL GROUP BY kind`);
         const failedRefunds=await AppDataSource.getRepository(RefundRequest).find({where:{status:'failed'},order:{createdAt:'ASC'},take:50});
         res.json({queue,failedRefunds});
@@ -30,7 +34,7 @@ router.post('/refunds/:id/retry',checkAuthToken,checkRoleAuth('admin'),async(req
             if(job?.lockedUntil && new Date(job.lockedUntil)>new Date()) return false;
             await manager.update(RefundRequest,request.id,{status:'pending',lastError:null});
             await enqueueOutbox(manager,'refund-'+request.paymentLogId,'refund',{refundRequestId:request.id});
-            await manager.query(`UPDATE outbox_job SET "processedAt"=NULL, "availableAt"=NOW(), attempts=0,
+            await manager.query(`UPDATE outbox_job SET "processedAt"=NULL, "failedAt"=NULL, "availableAt"=NOW(), attempts=0,
                 "lastError"=NULL,payload=$2::jsonb WHERE key=$1`,['refund-'+request.paymentLogId,JSON.stringify({refundRequestId:request.id})]);
             return true;
         });
@@ -45,9 +49,13 @@ const parseDateRange = (req: Request) => {
     const { startDate, endDate } = req.query;
 
     if (startDate && endDate) {
+        const rawEnd = String(endDate);
+        const parsedEnd = /^\d{4}-\d{2}-\d{2}$/.test(rawEnd)
+            ? new Date(`${rawEnd}T23:59:59.999Z`)
+            : new Date(rawEnd);
         return {
             startDate: new Date(startDate as string),
-            endDate: new Date(endDate as string)
+            endDate: parsedEnd
         };
     }
 
@@ -62,6 +70,7 @@ router.get(
     '/metrics/overview',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -72,11 +81,10 @@ router.get(
                 data: overview
             });
         } catch (error: any) {
-            logger.error('Admin overview error:', error);
+            logger.error('Admin overview error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching admin overview',
-                error: error.message
+                message: 'Error fetching admin overview'
             });
         }
     }
@@ -90,6 +98,7 @@ router.get(
     '/metrics/subscriptions',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -100,11 +109,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('Subscription metrics error:', error);
+            logger.error('Subscription metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching subscription metrics',
-                error: error.message
+                message: 'Error fetching subscription metrics'
             });
         }
     }
@@ -118,6 +126,7 @@ router.get(
     '/metrics/marketplace',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -128,11 +137,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('Marketplace metrics error:', error);
+            logger.error('Marketplace metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching marketplace metrics',
-                error: error.message
+                message: 'Error fetching marketplace metrics'
             });
         }
     }
@@ -146,6 +154,7 @@ router.get(
     '/metrics/commissions',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -157,11 +166,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('Commission metrics error:', error);
+            logger.error('Commission metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching commission metrics',
-                error: error.message
+                message: 'Error fetching commission metrics'
             });
         }
     }
@@ -175,6 +183,7 @@ router.get(
     '/metrics/users',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -185,11 +194,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('User metrics error:', error);
+            logger.error('User metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching user metrics',
-                error: error.message
+                message: 'Error fetching user metrics'
             });
         }
     }
@@ -203,6 +211,7 @@ router.get(
     '/metrics/events',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -213,11 +222,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('Event metrics error:', error);
+            logger.error('Event metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching event metrics',
-                error: error.message
+                message: 'Error fetching event metrics'
             });
         }
     }
@@ -232,6 +240,7 @@ router.get(
     '/metrics/revenue-trend',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const period = (req.query.period as 'day' | 'week' | 'month') || 'day';
@@ -244,11 +253,10 @@ router.get(
                 data: trendData
             });
         } catch (error: any) {
-            logger.error('Revenue trend error:', error);
+            logger.error('Revenue trend error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching revenue trend',
-                error: error.message
+                message: 'Error fetching revenue trend'
             });
         }
     }
@@ -262,6 +270,7 @@ router.get(
     '/metrics/top-organizers',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -274,11 +283,10 @@ router.get(
                 data: metrics.topOrganizers
             });
         } catch (error: any) {
-            logger.error('Top organizers error:', error);
+            logger.error('Top organizers error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching top organizers',
-                error: error.message
+                message: 'Error fetching top organizers'
             });
         }
     }
@@ -292,6 +300,7 @@ router.get(
     '/metrics/extras',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -302,11 +311,10 @@ router.get(
                 data: metrics
             });
         } catch (error: any) {
-            logger.error('Extras metrics error:', error);
+            logger.error('Extras metrics error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching extras metrics',
-                error: error.message
+                message: 'Error fetching extras metrics'
             });
         }
     }
@@ -320,6 +328,7 @@ router.get(
     '/metrics/top-events',
     checkAuthToken,
     checkRoleAuth('admin'),
+    schemaValidation(adminMetricsSchema),
     async (req: CustomRequest, res: Response) => {
         try {
             const dateRange = parseDateRange(req);
@@ -332,11 +341,10 @@ router.get(
                 data: topEvents
             });
         } catch (error: any) {
-            logger.error('Top events error:', error);
+            logger.error('Top events error:', { message: error?.message, stack: error?.stack });
             res.status(500).json({
                 success: false,
-                message: 'Error fetching top events',
-                error: error.message
+                message: 'Error fetching top events'
             });
         }
     }

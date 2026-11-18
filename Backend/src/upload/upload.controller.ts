@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { CustomRequest } from "../common/middleware/authToken";
 import { ImageUploadKind, uploadImageBuffer } from "./upload.service";
+import { detectImageMime } from './image-signature';
 
 const validKinds = new Set<ImageUploadKind>(["event", "profile", "product"]);
 
@@ -15,11 +16,20 @@ export async function uploadImage(req: CustomRequest, res: Response) {
             });
         }
 
+        if (kind !== 'profile' && !req.user?.roles?.some(role => role === 'organizer' || role === 'admin')) {
+            return res.status(403).json({ code: 'UPLOAD_FORBIDDEN', message: 'Se requiere rol de organizador para estas imágenes' });
+        }
+
         if (!req.file) {
             return res.status(400).json({
                 code: "IMAGE_FILE_REQUIRED",
                 message: "Image file is required",
             });
+        }
+
+        const mime = detectImageMime(req.file.buffer);
+        if (!mime || mime !== req.file.mimetype) {
+            return res.status(400).json({ code: 'INVALID_IMAGE_FILE', message: 'El contenido no coincide con un formato de imagen permitido' });
         }
 
         const uploaded = await uploadImageBuffer(req.file.buffer, kind);

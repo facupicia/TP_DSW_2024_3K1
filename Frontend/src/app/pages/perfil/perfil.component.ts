@@ -122,7 +122,7 @@ export class PerfilComponent implements OnInit {
       },
       error: (err) => {
         this.mpLoading = false;
-        this.toast.error(err?.error?.message || 'Error al conectar Mercado Pago');
+
       }
     });
   }
@@ -144,7 +144,7 @@ export class PerfilComponent implements OnInit {
       },
       error: (err) => {
         this.mpLoading = false;
-        this.toast.error(err?.error?.message || 'Error al desconectar Mercado Pago');
+
       }
     });
   }
@@ -181,7 +181,7 @@ export class PerfilComponent implements OnInit {
       error: (err) => {
         this.loading = false;
         this.closeBillingModal();
-        this.toast.error(err?.error?.message || 'Error al iniciar el pago');
+
       }
     });
   }
@@ -207,7 +207,7 @@ export class PerfilComponent implements OnInit {
       },
       error: (err) => {
         this.cancellingSubscription = false;
-        this.toast.error(err?.error?.message || 'Error al cancelar la suscripción');
+
       }
     });
   }

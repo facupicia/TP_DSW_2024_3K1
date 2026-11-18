@@ -52,7 +52,7 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
 
         // Check if code already exists
         const existingCoupon = await Coupon.findOne({
-            where: { code: normalizedCode },
+            where: { code: normalizedCode, eventId: numericEventId },
             select: ["id"]
         });
         if (existingCoupon) {
@@ -71,6 +71,7 @@ export const createCoupon = async (req: CustomRequest, res: Response) => {
 
         return res.status(201).json(coupon);
     } catch (error: any) {
+        if (error?.code === '23505') return res.status(409).json({ message: 'El código ya existe para este evento' });
         logger.error("Error creating coupon:", error);
         return res.status(500).json({ message: "Error al crear cupón", error: "INTERNAL_ERROR" });
     }

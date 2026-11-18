@@ -27,19 +27,19 @@ export const getHighestRole = (roles: string[]): string => {
 
 export const signupUserSchema = z.object({
     body: z.object({
-        firstname: z.string().min(1, "Firstname is required"),
-        lastname: z.string().min(1, "Lastname is required"),
-        email: z.string().email("Invalid email format"),
+        firstname: z.string().min(1, "Firstname is required").max(100),
+        lastname: z.string().min(1, "Lastname is required").max(100),
+        email: z.string().max(254).email("Invalid email format"),
         password: z.string().min(8, "Password must be at least 8 characters long").max(72, "Password too long").refine(value=>Buffer.byteLength(value,'utf8')<=72, "Password too long"),
         phone: z
             .string()
             .regex(/^\+?[0-9\s\-()]{6,15}$/, {
                 message: "El número de teléfono no es válido.",
             }),
-        pais: z.string().min(1, "Pais is required"),    
-        provincia: z.string().min(1, "Provincia is required"),
-        ciudad: z.string().min(1, "Ciudad is required"),
-        address: z.string().min(1, "Address is required"),
+        pais: z.string().min(1, "Pais is required").max(100),
+        provincia: z.string().min(1, "Provincia is required").max(100),
+        ciudad: z.string().min(1, "Ciudad is required").max(100),
+        address: z.string().min(1, "Address is required").max(255),
         birth: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida"),
     })
 })
@@ -47,9 +47,9 @@ export const signupUserSchema = z.object({
 
 export const updateUserSchema = z.object({
     body: z.object({
-        firstname: z.string().min(1, "Firstname is required").optional(),
-        lastname: z.string().min(1, "Lastname is required").optional(),
-        email: z.string().email("Invalid email format").optional(),
+        firstname: z.string().min(1, "Firstname is required").max(100).optional(),
+        lastname: z.string().min(1, "Lastname is required").max(100).optional(),
+        email: z.string().max(254).email("Invalid email format").optional(),
         password: z.string().min(8, "Password must be at least 8 characters long").max(72, "Password too long").refine(value=>Buffer.byteLength(value,'utf8')<=72, "Password too long").optional(),
         phone: z
             .string()
@@ -57,13 +57,13 @@ export const updateUserSchema = z.object({
                 message: "El número de teléfono no es válido.",
             })
             .optional(),
-        pais: z.string().min(1, "Pais is required").optional(),
-        provincia: z.string().min(1, "Provincia is required").optional(),
-        ciudad: z.string().min(1, "Ciudad is required").optional(),
-        address: z.string().min(1, "Address is required").optional(),
+        pais: z.string().min(1, "Pais is required").max(100).optional(),
+        provincia: z.string().min(1, "Provincia is required").max(100).optional(),
+        ciudad: z.string().min(1, "Ciudad is required").max(100).optional(),
+        address: z.string().min(1, "Address is required").max(255).optional(),
         birth: z.string().refine(date => !isNaN(Date.parse(date)), "Fecha inválida").optional(),
         currentPassword: z.string().max(256).optional(),
-        imgPerfil: z.string().optional(),
+        imgPerfil: z.string().max(2048).optional(),
     }),
     params: z.object({
         id: z.string().min(1),
@@ -72,7 +72,7 @@ export const updateUserSchema = z.object({
 
 export const signinUserSchema = z.object({
     body: z.object({
-        email: z.string().email("Invalid email format"),
+        email: z.string().max(254).email("Invalid email format"),
         password: z.string().min(8, "Password must be at least 8 characters long").max(72, "Password too long").refine(value=>Buffer.byteLength(value,'utf8')<=72, "Password too long"),
 
     })
@@ -96,7 +96,7 @@ export const googleSigninSchema = z.object({
 
 export const requestAccountClaimSchema = z.object({
     body: z.object({
-        email: z.string().email("Invalid email format")
+        email: z.string().max(254).email("Invalid email format")
     })
 })
 

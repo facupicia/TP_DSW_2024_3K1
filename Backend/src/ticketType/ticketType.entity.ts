@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany, Check, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BaseEntity, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, Index, OneToMany, Check } from 'typeorm';
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { Event } from '../event/event.entity';
 import { Ticket } from '../ticket/ticket.entity';
 
@@ -11,7 +12,7 @@ export enum TicketTypeStatus {
 
 @Entity('ticket_type')
 @Index('idx_ticket_type_event_status', ['eventId', 'status'])
-@Unique(['eventId', 'name'])
+@Index('uq_ticket_type_event_name_live', ['eventId', 'name'], { unique: true, where: '"deletedAt" IS NULL' })
 @Check('"price" >= 0')
 @Check('"capacity" >= 0')
 @Check('"soldCount" >= 0')
@@ -37,7 +38,7 @@ export class TicketType extends BaseEntity {
     @Column({ nullable: true })
     description: string;
 
-    @Column("decimal", { precision: 12, scale: 2 })
+    @Column("decimal", { transformer: numericTransformer, precision: 12, scale: 2 })
     price: number;
 
     @Column()

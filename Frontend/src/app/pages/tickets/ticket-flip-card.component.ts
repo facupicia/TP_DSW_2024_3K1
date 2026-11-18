@@ -70,6 +70,11 @@ export class TicketFlipCardComponent {
     }
   }
 
+  toggleQr(event: Event) {
+    event.stopPropagation();
+    this.onCardClick();
+  }
+
   compartir(event: MouseEvent) {
     event.stopPropagation();
     this.onShare.emit();

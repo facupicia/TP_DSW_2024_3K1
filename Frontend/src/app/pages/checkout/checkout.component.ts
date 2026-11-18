@@ -1,11 +1,10 @@
-import { Component, inject, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { Component, inject, OnInit, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TicketService } from '../../services/ticket.service';
 import { HeaderComponent } from '../../components/header/header.component';
-import { interval, Subscription } from 'rxjs';
 import { TicketType } from '../../interfaces/event';
 import { ToastService } from '../../services/toast.service';
 import { DemoBannerComponent } from '../../components/demo-banner/demo-banner.component';
@@ -22,7 +21,7 @@ import { PHONE_PATTERN } from '../../utils/validation';
     templateUrl: './checkout.component.html',
     styleUrls: ['./checkout.component.css']
 })
-export class CheckoutComponent implements OnInit, OnDestroy {
+export class CheckoutComponent implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   public formBuild = inject(FormBuilder);
@@ -34,9 +33,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   isAuthenticated = false;
 
-  timeLeft: number = 600; // 10 minutos en segundos
-  timerDisplay: string = '10:00';
-  private timerSubscription!: Subscription;
 
   private eventId: string | null = null;
   evento: any;
@@ -120,7 +116,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
       this.loadEvent(parsedCart.items, parsedCart.extraItems || []);
     });
 
-    this.startTimer();
   }
 
   private loadEvent(
@@ -129,35 +124,40 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   ): void {
     if (!this.eventId) return;
 
-    this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((evento) => {
-      this.evento = evento;
-      this.ticketTypes = evento.ticketTypes || [];
-      this.eventProducts = evento.eventProducts || [];
-      this.serviceFeePercent = Number(evento.checkoutPricing?.serviceFeePercent ?? 15);
-      this.minimumServiceFee = Number(evento.checkoutPricing?.minimumServiceFee ?? 0);
-      this.organizerPlanName = evento.checkoutPricing?.planName || this.organizerPlanName;
-      this.configureBuyerValidators();
+    this.eventoService.obtenerEvento(Number(this.eventId)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (evento) => {
+        this.evento = evento;
+        this.ticketTypes = evento.ticketTypes || [];
+        this.eventProducts = evento.eventProducts || [];
+        this.serviceFeePercent = Number(evento.checkoutPricing?.serviceFeePercent ?? 15);
+        this.minimumServiceFee = Number(evento.checkoutPricing?.minimumServiceFee ?? 0);
+        this.organizerPlanName = evento.checkoutPricing?.planName || this.organizerPlanName;
+        this.configureBuyerValidators();
 
-      this.cartItems = cartItemInputs
-        .map(ci => {
-          const tt = this.ticketTypes.find(t => t.id === ci.ticketTypeId);
-          return tt ? { ticketType: tt, quantity: ci.quantity } : null;
-        })
-        .filter((x): x is { ticketType: TicketType; quantity: number } => !!x);
+        this.cartItems = cartItemInputs
+          .map(ci => {
+            const tt = this.ticketTypes.find(t => t.id === ci.ticketTypeId);
+            return tt ? { ticketType: tt, quantity: ci.quantity } : null;
+          })
+          .filter((x): x is { ticketType: TicketType; quantity: number } => !!x);
 
-      this.extraCartItems = extraItemInputs
-        .map(ei => {
-          const ep = this.eventProducts.find((e: any) => e.id === ei.eventProductId);
-          return ep ? { eventProduct: ep, quantity: ei.quantity } : null;
-        })
-        .filter((x): x is { eventProduct: any; quantity: number } => !!x);
+        this.extraCartItems = extraItemInputs
+          .map(ei => {
+            const ep = this.eventProducts.find((e: any) => e.id === ei.eventProductId);
+            return ep ? { eventProduct: ep, quantity: ei.quantity } : null;
+          })
+          .filter((x): x is { eventProduct: any; quantity: number } => !!x);
 
-      if (this.cartItems.length === 0) {
-        this.router.navigate([`/event/${this.eventId}`]);
-        return;
+        if (this.cartItems.length === 0) {
+          this.router.navigate([`/event/${this.eventId}`]);
+          return;
+        }
+
+        this.calculateTotal();
+      },
+      error: () => {
+        this.router.navigate(['/events']);
       }
-
-      this.calculateTotal();
     });
   }
 
@@ -230,26 +230,6 @@ export class CheckoutComponent implements OnInit, OnDestroy {
     };
   }
 
-  ngOnDestroy(): void {
-    if (this.timerSubscription) this.timerSubscription.unsubscribe();
-  }
-
-  startTimer() {
-    if (this.timerSubscription) {
-      this.timerSubscription.unsubscribe();
-    }
-    this.timerSubscription = interval(1000).subscribe(() => {
-      if (this.timeLeft > 0) {
-        this.timeLeft--;
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        this.timerDisplay = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-      } else {
-        this.showErrorMessage = true;
-        this.formCheckout.disable();
-      }
-    });
-  }
 
   get scarcityLabel(): { text: string, color: string } | null {
     const minStock = this.cartItems.reduce((min, ci) => {
@@ -345,6 +325,7 @@ export class CheckoutComponent implements OnInit, OnDestroy {
   }
 
   comprarTickets() {
+    if (this.loading) return;
     this.showSuccessMessage = false;
     this.showErrorMessage = false;
     this.errorMessageText = '';

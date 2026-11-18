@@ -5,6 +5,7 @@ import { ToastService } from '../services/toast.service';
 import { Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { clearAccessToken } from '../services/access-token.store';
+import { LOCAL_ERROR_FEEDBACK } from './error-context';
 
 // Timestamp-based dedup for 401->login navigation (self-healing vs module-level mutable flag)
 let lastNavigationToLoginAt = 0;
@@ -16,9 +17,14 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
     const injector = inject(Injector);
     const isSilentAuthRequest = req.url.includes('/user/refresh')
         || req.url.includes('/user/logout');
+    const localFeedback = req.context.get(LOCAL_ERROR_FEEDBACK);
+    const isCredentialRequest = req.url.includes('/user/login') || req.url.includes('/user/google') || req.url.includes('/user/register');
 
     return next(req).pipe(
         catchError((error: HttpErrorResponse) => {
+            if (typeof window === 'undefined' || (localFeedback && (error.status !== 401 || isCredentialRequest))) {
+                return throwError(() => error);
+            }
             if (error.status === 401 && isSilentAuthRequest) {
                 return throwError(() => error);
             }
@@ -33,7 +39,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                 // Error del lado del servidor
                 switch (error.status) {
                     case 400:
-                        errorMessage = error.error.message || 'Solicitud incorrecta.';
+                        errorMessage = error.error?.message || 'Solicitud incorrecta.';
                         break;
                     case 401:
                         errorMessage = 'Sesión expirada o credenciales inválidas.';
@@ -58,11 +64,13 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
                         errorMessage = 'Error interno del servidor. Por favor, intenta más tarde.';
                         break;
                     default:
-                        errorMessage = `Error ${error.status}: ${error.error.message || error.message}`;
+                        errorMessage = error.status === 0
+                            ? 'No se pudo conectar. Revisá tu conexión e intentá nuevamente.'
+                            : `Error ${error.status}: ${error.error?.message || error.message}`;
                 }
             }
 
-            toastService.error(errorMessage);
+            if (!localFeedback) toastService.error(errorMessage);
             return throwError(() => error);
         })
     );

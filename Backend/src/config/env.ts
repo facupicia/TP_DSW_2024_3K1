@@ -69,6 +69,8 @@ const EnvSchema = z
 
     // Cache
     REDIS_URL: z.string().optional(),
+    LEGACY_EMAIL_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+    OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).max(60000).default(5000),
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
     BACKEND_URL: z.string().optional(),

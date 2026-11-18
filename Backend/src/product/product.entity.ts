@@ -10,6 +10,7 @@ import {
     DeleteDateColumn,
     Index
 } from "typeorm";
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { User } from "../user/user.entity";
 
 export enum ProductCategory {
@@ -41,7 +42,7 @@ export class Product extends BaseEntity {
     })
     category: ProductCategory;
 
-    @Column({ type: 'numeric', precision: 12, scale: 2 })
+    @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2 })
     basePrice: number;
 
     @Column({ type: 'varchar', nullable: true })

@@ -7,7 +7,7 @@ import { scannerGuard } from './guards/scanner.guard';
 
 export const routes: Routes = [
     { path:'reset-password', loadComponent:()=>import('./pages/reset-password/reset-password.component').then(m=>m.ResetPasswordComponent),title:'Recuperar contraseña' },
-    { path: "", loadComponent: () => import('./pages/landing/landing.component').then(m => m.LandingComponent), title: 'Home' },
+    { path: "", loadComponent: () => import('./pages/landing/landing.component').then(m => m.LandingComponent), title: 'EventLife | Descubrí eventos y comprá entradas' },
     { path: "login", loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent), title: 'Login' },
     { path: "register", loadComponent: () => import('./pages/register/register.component').then(m => m.RegisterComponent), title: 'Register' },
     { path: "claim-account", loadComponent: () => import('./pages/claim-account/claim-account.component').then(m => m.ClaimAccountComponent), title: 'Reclamar cuenta' },
@@ -29,8 +29,8 @@ export const routes: Routes = [
     { path: "my-events", loadComponent: () => import('./pages/mis-eventos/mis-eventos.component').then(m => m.MisEventosComponent), title: 'Mis Eventos', canActivate: [authGuard, organizerGuard] },
     { path: "my-catalog", loadComponent: () => import('./pages/mi-catalogo/mi-catalogo.component').then(m => m.MiCatalogoComponent), title: 'Mi Catálogo', canActivate: [authGuard, organizerGuard] },
     { path: "edit-event/:id", loadComponent: () => import('./pages/registrar-evento/registrar-evento.component').then(m => m.RegistrarEventoComponent), title: 'Editar Evento', canActivate: [authGuard, organizerGuard] },
-    { path: "event/:id", loadComponent: () => import('./pages/detalle-evento/detalle-evento.component').then(m => m.DetalleEventoComponent), title: 'Ver Evento' },
-    { path: "events", loadComponent: () => import('./pages/explorador-eventos/explorador-eventos.component').then(m => m.ExploradorEventosComponent), title: 'Explorar Eventos' },
+    { path: "event/:id", loadComponent: () => import('./pages/detalle-evento/detalle-evento.component').then(m => m.DetalleEventoComponent) },
+    { path: "events", loadComponent: () => import('./pages/explorador-eventos/explorador-eventos.component').then(m => m.ExploradorEventosComponent), title: 'Explorar eventos | EventLife' },
     { path: "ticket/:id", loadComponent: () => import('./pages/checkout/checkout.component').then(m => m.CheckoutComponent), title: 'Ticket' },
     { path: "checkout/success", loadComponent: () => import('./pages/checkout/success.component').then(m => m.CheckoutSuccessComponent), title: 'Pago Exitoso' },
     { path: "checkout/failure", loadComponent: () => import('./pages/checkout/failure.component').then(m => m.CheckoutFailureComponent), title: 'Pago Fallido' },

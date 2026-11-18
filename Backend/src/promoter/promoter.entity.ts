@@ -12,6 +12,7 @@ import {
     Unique,
     Check
 } from "typeorm";
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { User } from "../user/user.entity";
 import { Event } from "../event/event.entity";
 
@@ -50,7 +51,7 @@ export class PromoterGroup extends BaseEntity {
     /* ===================== BUSINESS DATA ===================== */
 
     /** Commission percentage the promoter earns per sale (0-100) */
-    @Column({ type: "decimal", precision: 5, scale: 2, default: 10.00 })
+    @Column({ type: "decimal", transformer: numericTransformer, precision: 5, scale: 2, default: 10.00 })
     commissionPercentage: number;
 
     /** Custom code for the promoter (for tracking/links) */
@@ -113,7 +114,7 @@ export class PromoterEventAssignment extends BaseEntity {
     /* ===================== BUSINESS DATA ===================== */
 
     /** Custom commission percentage for this specific event (overrides default if set) */
-    @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
+    @Column({ type: "decimal", transformer: numericTransformer, precision: 5, scale: 2, nullable: true })
     customCommissionPercentage: number | null;
 
     /** Whether this assignment is active */

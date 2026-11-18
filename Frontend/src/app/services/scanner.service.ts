@@ -1,4 +1,5 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
+import { LOCAL_ERROR_FEEDBACK } from '../interceptors/error-context';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { Observable, map } from 'rxjs';
@@ -66,7 +67,7 @@ export class ScannerService {
     constructor() { }
 
     validateTicket(code: string): Observable<TicketValidationResult> {
-        return this.http.post<TicketValidationResult>(`${this.urlBase}validate`, { code });
+        return this.http.post<TicketValidationResult>(`${this.urlBase}validate`, { code }, { context: new HttpContext().set(LOCAL_ERROR_FEEDBACK, true) });
     }
 
     getHistory(): Observable<any[]> {

@@ -11,6 +11,7 @@ import {
     Index,
     Check
 } from "typeorm";
+import { numericTransformer } from "../common/utils/numeric-transformer";
 
 import { User } from "../user/user.entity";
 import { TicketType } from "../ticketType/ticketType.entity";
@@ -29,6 +30,7 @@ export enum TicketStatus {
 @Index("idx_ticket_promoter_created", ["soldByPromoterId", "createdAt"])
 @Index("idx_ticket_scanner_used", ["scannedById", "usedAt"])
 @Index("idx_ticket_status_created", ["status", "createdAt"])
+@Index("idx_ticket_payment_log", ["paymentLogId"])
 @Check('"purchasePrice" >= 0')
 @Check('"promoterCommissionPercentage" IS NULL OR ("promoterCommissionPercentage" >= 0 AND "promoterCommissionPercentage" <= 100)')
 @Check('"promoterCommissionAmount" IS NULL OR "promoterCommissionAmount" >= 0')
@@ -83,7 +85,7 @@ export class Ticket extends BaseEntity {
     })
     status: TicketStatus;
 
-    @Column({ type: "numeric", precision: 12, scale: 2 })
+    @Column({ type: "numeric", transformer: numericTransformer, precision: 12, scale: 2 })
     purchasePrice: number;
 
     /* ===================== PROMOTER (RRPP) DATA ===================== */
@@ -97,11 +99,11 @@ export class Ticket extends BaseEntity {
     soldByPromoterId: number | null;
 
     /** Commission percentage applied at the time of sale */
-    @Column({ type: "decimal", precision: 5, scale: 2, nullable: true })
+    @Column({ type: "decimal", transformer: numericTransformer, precision: 5, scale: 2, nullable: true })
     promoterCommissionPercentage: number | null;
 
     /** Commission amount earned by the promoter */
-    @Column({ type: "decimal", precision: 12, scale: 2, nullable: true })
+    @Column({ type: "decimal", transformer: numericTransformer, precision: 12, scale: 2, nullable: true })
     promoterCommissionAmount: number | null;
 
     /** Promoter code used for this sale */

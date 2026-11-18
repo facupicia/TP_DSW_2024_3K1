@@ -11,8 +11,8 @@ import { MoreThanOrEqual, LessThanOrEqual, Between } from "typeorm";
  * If no subscription exists, creates a FREE subscription automatically.
  */
 export const getActiveSubscription = async (userId: number, manager?: any): Promise<UserSubscription> => {
-    if (!manager) return AppDataSource.transaction(transaction => getActiveSubscription(userId, transaction));
-    const owner = await manager.findOne(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+    const reader = manager || AppDataSource.manager;
+    const owner = await reader.findOne(User, { where: { id: userId, active: true } });
     if (!owner) throw new Error('SUBSCRIPTION_USER_UNAVAILABLE');
     const subscriptionRepo = manager ? manager.getRepository(UserSubscription) : AppDataSource.getRepository(UserSubscription);
 
@@ -25,20 +25,19 @@ export const getActiveSubscription = async (userId: number, manager?: any): Prom
         relations: ['plan']
     });
 
+    if (subscription && (!subscription.currentPeriodEnd || new Date() <= subscription.currentPeriodEnd)) return subscription;
+
+    // Only changes to subscriptions serialize on the owner. Normal checkout
+    // reads must not lock the organizer while holding ticket/checkout locks.
+    if (!manager) return AppDataSource.transaction(transaction => getActiveSubscription(userId, transaction));
+    await manager.findOneOrFail(User, { where: { id: userId, active: true }, lock: { mode: 'pessimistic_write' } });
+    subscription = await subscriptionRepo.findOne({ where: { userId, status: SubscriptionStatus.ACTIVE }, relations: ['plan'] });
+    if (subscription && (!subscription.currentPeriodEnd || new Date() <= subscription.currentPeriodEnd)) return subscription;
     if (subscription) {
-        // Check if subscription has expired (for paid plans)
-        if (subscription.currentPeriodEnd && new Date() > subscription.currentPeriodEnd) {
-            subscription.status = SubscriptionStatus.EXPIRED;
-            await subscriptionRepo.save(subscription);
-
-            // Downgrade to FREE
-            subscription = await assignDefaultPlan(userId, manager);
-        }
-        return subscription;
+        subscription.status = SubscriptionStatus.EXPIRED;
+        await subscriptionRepo.save(subscription);
     }
-
-    // No subscription found, assign FREE plan
-    return await assignDefaultPlan(userId, manager);
+    return assignDefaultPlan(userId, manager);
 };
 
 /**

@@ -32,7 +32,7 @@
       <div class="mb-8 animate-fade-in-up">
         <div class="relative rounded-2xl bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg">
           <input [(ngModel)]="searchTerm" (ngModelChange)="aplicarFiltroOrden()" type="text"
-            placeholder="Buscar tickets..." class="w-full pl-12 pr-4 py-4 rounded-2xl
+            aria-label="Buscar tickets" placeholder="Buscar tickets..." class="w-full pl-12 pr-4 py-4 rounded-2xl
                      bg-transparent text-slate-900 placeholder-slate-400
                      focus:outline-none focus:ring-2 focus:ring-blue-500/40" />
           <svg class="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,7 +54,11 @@
         @for (group of filteredGroups; track trackGroup($index, group)) {
           <div>
             <!-- Evento Header (Acordeón trigger) -->
-            <div (click)="toggleGroup(group.eventId)"
+            <div (click)="toggleGroup(group.eventId)" role="button" tabindex="0"
+                 (keydown.enter)="toggleGroup(group.eventId)"
+                 (keydown.space)="$event.preventDefault(); toggleGroup(group.eventId)"
+                 [attr.aria-expanded]="isExpanded(group.eventId)"
+                 [attr.aria-controls]="'tickets-group-' + group.eventId"
                  class="relative rounded-3xl overflow-hidden cursor-pointer
                         bg-white/60 backdrop-blur-xl
                         border border-white/40
@@ -94,7 +98,7 @@
             </div>
 
             <!-- Contenido expandible -->
-            <div class="grid transition-[grid-template-rows,opacity] duration-500 ease-out"
+            <div [id]="'tickets-group-' + group.eventId" [attr.inert]="isExpanded(group.eventId) ? null : ''" class="grid transition-[grid-template-rows,opacity] duration-500 ease-out"
                  [ngClass]="isExpanded(group.eventId)
                      ? 'grid-rows-[1fr] opacity-100 mt-4'
                      : 'grid-rows-[0fr] opacity-0 mt-0'">

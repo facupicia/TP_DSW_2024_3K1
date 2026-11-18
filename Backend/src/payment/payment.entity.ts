@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, Unique, CreateDateColumn, Index, ManyToOne, JoinColumn, BaseEntity, Check, DeleteDateColumn } from 'typeorm';
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { User } from '../user/user.entity';
 
 export enum PaymentStatus {
@@ -52,30 +53,30 @@ export class PaymentLog extends BaseEntity {
   @Column()
   quantity: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2 })
   totalAmount: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, default: 0 })
   baseAmount: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, default: 0 })
   discountAmount: number;
 
-  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 5, scale: 2, default: 0 })
   serviceFeePercent: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, default: 0 })
   serviceFeeAmount: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, default: 0 })
   buyerTotalAmount: number;
 
   /* ===================== COMMISSION SNAPSHOT ===================== */
 
-  @Column({ type: 'numeric', precision: 5, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 5, scale: 2, default: 0 })
   commissionPercent: number;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, default: 0 })
   commissionAmount: number;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
@@ -114,7 +115,7 @@ export class PaymentLog extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   refundReason?: string;
 
-  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2, nullable: true })
   refundAmount?: number;
 
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })

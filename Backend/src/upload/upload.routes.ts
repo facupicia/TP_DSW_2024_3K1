@@ -1,8 +1,10 @@
 import { Router, NextFunction, Request, Response } from "express";
 import multer from "multer";
-import { checkAuthToken } from "../common/middleware/authToken";
+import rateLimit from 'express-rate-limit';
+import { checkAuthToken, CustomRequest } from "../common/middleware/authToken";
 import { checkRoleAuth } from "../common/middleware/checkRole";
 import { uploadImage } from "./upload.controller";
+import { createRedisStore } from '../common/middleware/rateLimit';
 
 const allowedMimeTypes = new Set([
     "image/jpeg",
@@ -16,6 +18,9 @@ const upload = multer({
     limits: {
         fileSize: 8 * 1024 * 1024,
         files: 1,
+        fields: 1,
+        fieldSize: 32,
+        parts: 2,
     },
     fileFilter: (_req, file, cb) => {
         if (!allowedMimeTypes.has(file.mimetype)) {
@@ -49,11 +54,21 @@ function handleImageFile(req: Request, res: Response, next: NextFunction) {
 }
 
 const router = Router();
+const uploadRateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 10,
+    store: createRedisStore('rl:image-upload:'),
+    keyGenerator: (req: CustomRequest) => String(req.user.id),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { code: 'UPLOAD_RATE_LIMITED', message: 'Demasiadas imágenes. Intenta de nuevo en un minuto.' }
+});
 
 router.post(
     "/image",
     checkAuthToken,
     checkRoleAuth(["user", "organizer", "admin", "scanner", "rrpp"]),
+    uploadRateLimiter,
     handleImageFile,
     uploadImage,
 );

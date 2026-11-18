@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:frontend": "node dist/frontend/server/server.mjs",
+    "serve:ssr:frontend": "node scripts/serve-ssr.mjs",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadless"
   },
   "private": true,
@@ -42,6 +42,7 @@
     "@angular-devkit/build-angular": "^21.2.30",
     "@angular/cli": "^21.2.30",
     "@angular/compiler-cli": "^21.2.26",
+    "@netlify/angular-runtime": "4.0.0",
     "@types/express": "^4.17.17",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^22.12.0",
@@ -57,7 +58,7 @@
     "typescript": "~5.9.3"
   },
   "engines": {
-    "node": ">=22.12.0 <23"
+    "node": ">=22.22.0 <23"
   },
   "overrides": {
     "piscina": "^5.3.2",

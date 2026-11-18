@@ -8,14 +8,15 @@ import {
     ManyToOne,
     JoinColumn,
     Index,
-    Check
+    Check,
+    Unique
 } from "typeorm";
 
 import { Event } from "../event/event.entity";
 
 @Entity("coupon")
+@Unique('uq_coupon_event_code', ['eventId', 'code'])
 @Index('idx_coupon_event_created', ['eventId', 'createdAt'])
-@Index('idx_coupon_event_code_active', ['eventId', 'code', 'isActive'])
 @Check('"discountPercent" >= 0 AND "discountPercent" <= 100')
 @Check('"maxUses" >= 0')
 @Check('"usedCount" >= 0')
@@ -27,7 +28,7 @@ export class Coupon extends BaseEntity {
 
     /* ===================== IDENTIFICATION ===================== */
 
-    @Column({ type: "varchar", length: 50, unique: true })
+    @Column({ type: "varchar", length: 50 })
     code: string;
 
     /* ===================== DISCOUNT CONFIG ===================== */

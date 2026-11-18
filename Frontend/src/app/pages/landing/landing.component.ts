@@ -1,4 +1,5 @@
-import { Component, HostListener, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnInit, inject, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common'; // Agregamos DatePipe para las fechas
 import { Router, RouterLink } from '@angular/router'; // RouterLink es vital para el HTML
 import { PLATFORM_ID } from '@angular/core';
@@ -12,6 +13,7 @@ import { LandingFinanzasComponent } from '../../components/features/finanzas/fin
 import { LandingVentaComponent } from '../../components/features/venta/venta';
 import { LandingGestionComponent } from '../../components/features/gestion/gestion';
 import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
+import { SeoService } from '../../services/seo.service';
 
 @Component({
     selector: 'app-landing',
@@ -31,6 +33,8 @@ import { EventImageFallbackDirective } from '../../directives/event-image-fallba
 })
 export class LandingComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);
+  private destroyRef = inject(DestroyRef);
+  private seo = inject(SeoService);
 
   activeSection: string = 'inicio';
   scrollProgress: number = 0;
@@ -81,15 +85,12 @@ export class LandingComponent implements OnInit {
   constructor(private eventService: EventService, private router: Router) { }
 
   ngOnInit(): void {
-    if (!isPlatformBrowser(this.platformId)) {
-      return;
-    }
-
+    this.seo.set('EventLife | Descubrí eventos y comprá entradas', 'Descubrí eventos, elegí tus entradas y viví nuevas experiencias con EventLife.', '/');
     // Carga simple y directa de datos
-    this.eventService.obtenerEventos(12).subscribe((data) => {
+    this.eventService.obtenerEventos(12).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (data) => {
       this.events = data;
       // ¡Adiós a this.groupEvents()! Ya no se necesita.
-    });
+    }, error: () => { this.events = []; } });
   }
 
   navigateToEvent(id: number | undefined): void {

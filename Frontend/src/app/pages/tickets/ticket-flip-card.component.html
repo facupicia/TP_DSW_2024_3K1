@@ -1,6 +1,12 @@
 <div class="flip-scene"
      (mousemove)="onMouseMove($event)"
      (mouseleave)="onMouseLeave()">
+  <button *ngIf="status === 'active'" type="button" (click)="toggleQr($event)"
+          [attr.aria-label]="(isFlipped ? 'Ocultar código QR: ' : 'Mostrar código QR: ') + eventTitle"
+          [attr.aria-pressed]="isFlipped"
+          class="absolute top-2 left-2 z-20 rounded-full px-3 py-2 bg-white text-slate-900 text-xs font-bold">
+    {{ isFlipped ? 'Volver' : 'Ver QR' }}
+  </button>
 
   <div #cardInner
        class="flip-card-inner"
@@ -10,7 +16,7 @@
          : 'rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)'">
 
     <!-- ========== FRENTE (Movie Poster Style) ========== -->
-    <div class="flip-card-face flip-card-front relative">
+    <div class="flip-card-face flip-card-front relative" [attr.aria-hidden]="isFlipped" [attr.inert]="isFlipped ? '' : null">
 
       <!-- Imagen del evento a pantalla completa -->
       <img [src]="eventImage"
@@ -103,7 +109,7 @@
     </div>
 
     <!-- ========== DORSO (Limpio y funcional) ========== -->
-    <div class="flip-card-face flip-card-back relative">
+    <div class="flip-card-face flip-card-back relative" [attr.aria-hidden]="!isFlipped" [attr.inert]="!isFlipped ? '' : null">
 
       <!-- Header -->
       <div class="px-5 pt-5 pb-2 shrink-0">

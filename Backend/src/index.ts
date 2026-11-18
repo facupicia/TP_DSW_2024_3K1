@@ -55,7 +55,8 @@ async function main() {
 
     server = await startServer(PORT);
 
-    if (env.REDIS_URL) startEmailWorker();
+    // PostgreSQL outbox owns new jobs. Enable BullMQ only to drain legacy jobs.
+    if (env.REDIS_URL && env.LEGACY_EMAIL_WORKER_ENABLED === 'true') startEmailWorker();
     startOutboxWorker();
 
     const mailOk = await verifyMailer();

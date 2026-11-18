@@ -69,10 +69,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
     this.subscriptions.push(routerSub);
 
-    // Estas operaciones dependen del browser (localStorage, backend disponible)
-    // y deben saltarse durante SSR/prerender para evitar timeouts en el build
+    this.loadCategories();
+    // Session data stays in the browser; public categories use SSR transfer cache.
     if (isPlatformBrowser(this.platformId)) {
-      this.loadCategories();
 
       this.subscriptions.push(this.subscriptionService.subscription$.subscribe(sub => {
         this.subscription = sub;

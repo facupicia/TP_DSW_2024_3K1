@@ -124,6 +124,9 @@
 }
 
 /* Pausar al pasar el mouse para poder hacer click */
+.animate-scroll-left:focus-within,
+.animate-scroll-right:focus-within,
+.featured-scroll-left:focus-within,
 .animate-scroll-left:hover, 
 .animate-scroll-right:hover,
 .featured-scroll-left:hover {

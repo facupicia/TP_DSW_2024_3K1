@@ -4,6 +4,7 @@ import AppDataSource from '../db';
 import { OutboxJob } from './outbox.entity';
 import { QueueJobData } from './queue.types';
 import { logger } from '../common/services/logger';
+import { env } from '../config/env';
 
 export async function enqueueOutbox(manager: EntityManager, key: string, kind: string, payload: Record<string, any>) {
     await manager.createQueryBuilder().insert().into(OutboxJob).values({ key, kind, payload }).orIgnore().execute();
@@ -16,6 +17,7 @@ export async function enqueueEmail(manager: EntityManager, key: string, job: Que
 let timer: ReturnType<typeof setInterval> | null = null;
 let running: Promise<void> | null = null;
 let stopping = false;
+export const MAX_OUTBOX_ATTEMPTS = 12;
 
 async function dispatch(kind: string, payload: any) {
     if (kind === 'email') {
@@ -34,14 +36,23 @@ async function dispatch(kind: string, payload: any) {
         const { resolveWebhookPayment, processApprovedPayment } = await import('../payment/payment.core');
         const lookup = await resolveWebhookPayment(payload.paymentId, { external_reference: payload.externalReference, mpUserId:payload.mpUserId } as any);
         if (!lookup) throw new Error('Payment lookup unavailable');
-        if (lookup.payment.status === 'approved') await processApprovedPayment(payload.paymentId, lookup.payment);
+        if (lookup.payment.status === 'approved') {
+            const result = await processApprovedPayment(payload.paymentId, lookup.payment);
+            // Business failures with a logId have a durable compensating refund.
+            // Infrastructure failures have no durable outcome and must retry.
+            if (!result.success && !result.logId && result.error !== 'Payment already processed') throw new Error(result.error || 'Payment processing failed');
+        }
         else if (['rejected','cancelled'].includes(lookup.payment.status)) {
             const {CheckoutOrder}=await import('../payment/checkout-order.entity');
             if (lookup.payment.external_reference) await AppDataSource.getRepository(CheckoutOrder).update({externalReference:lookup.payment.external_reference,status:'pending'},{status:'failure'});
         } else if (['refunded', 'charged_back'].includes(lookup.payment.status)) {
             const { reconcilePaymentReversal } = await import('../payment/refund.service');
             await reconcilePaymentReversal(payload.paymentId, lookup.payment.status as 'refunded' | 'charged_back', lookup.payment.external_reference);
-        } else throw new Error('Payment approval pending');
+        } else if (['pending', 'in_process', 'authorized', 'in_mediation'].includes(lookup.payment.status)) {
+            // This notification was handled. A later signed notification has its
+            // own durable key and will reconcile the eventual state change.
+            logger.info('OUTBOX_PAYMENT_AWAITING_NOTIFICATION', { paymentId: payload.paymentId, status: lookup.payment.status });
+        } else throw new Error('Unknown payment status');
     } else throw new Error('Unknown outbox kind');
 }
 
@@ -49,7 +60,7 @@ export async function drainOutbox(): Promise<void> {
     const owner = randomUUID();
     // One short atomic claim; different processes never claim the same available row.
     const [jobs] = await AppDataSource.query(`UPDATE outbox_job SET owner=$1, "lockedUntil"=NOW()+INTERVAL '2 minutes'
-        WHERE id IN (SELECT id FROM outbox_job WHERE "processedAt" IS NULL AND "availableAt"<=NOW()
+        WHERE id IN (SELECT id FROM outbox_job WHERE "processedAt" IS NULL AND "failedAt" IS NULL AND "availableAt"<=NOW()
         AND ("lockedUntil" IS NULL OR "lockedUntil"<NOW()) ORDER BY "availableAt" LIMIT 3 FOR UPDATE SKIP LOCKED)
         RETURNING id, kind, payload, attempts`, [owner]);
     // Keep this batch active until every handler finishes, even if recording a
@@ -66,9 +77,10 @@ export async function drainOutbox(): Promise<void> {
             const attempts = job.attempts + 1;
             const delay = Math.min(3600, 5 * 2 ** Math.min(attempts, 10));
             await AppDataSource.query(`UPDATE outbox_job SET attempts=$3, "availableAt"=NOW()+($4 * INTERVAL '1 second'),
+                "failedAt"=CASE WHEN $3::integer >= $6::integer THEN NOW() ELSE NULL END,
                 "lockedUntil"=NULL, owner=NULL, "lastError"=$5 WHERE id=$1 AND owner=$2`,
-                [job.id, owner, attempts, delay, String((error as Error).message).slice(0, 1000)]);
-            logger.error('OUTBOX_RETRY', { id: job.id, kind: job.kind, attempts });
+                [job.id, owner, attempts, delay, String((error as Error).message).slice(0, 1000), MAX_OUTBOX_ATTEMPTS]);
+            logger.error(attempts >= MAX_OUTBOX_ATTEMPTS ? 'OUTBOX_FAILED' : 'OUTBOX_RETRY', { id: job.id, kind: job.kind, attempts });
         } finally { clearInterval(heartbeat); }
     }));
     const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
@@ -83,7 +95,7 @@ export function startOutboxWorker() {
         running = drainOutbox().catch(error => logger.error('OUTBOX_ERROR', { error: error.message })).finally(() => { running = null; });
     };
     tick();
-    timer = setInterval(tick, 1000);
+    timer = setInterval(tick, env.OUTBOX_POLL_INTERVAL_MS ?? 5000);
 }
 
 export async function closeOutboxWorker() {

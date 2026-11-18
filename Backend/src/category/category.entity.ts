@@ -4,14 +4,14 @@ import {
     Column,
     BaseEntity,
     OneToMany,
-    Unique,
+    Index,
     CreateDateColumn,
     UpdateDateColumn,
     DeleteDateColumn
 } from 'typeorm';
 import { Event } from '../event/event.entity';
 @Entity()
-@Unique(['name'])
+@Index('uq_category_name_live', ['name'], { unique: true, where: '"deletedAt" IS NULL' })
 export class Category extends BaseEntity{
   
     @PrimaryGeneratedColumn()

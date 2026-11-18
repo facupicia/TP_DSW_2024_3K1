@@ -53,6 +53,13 @@ function refreshCookie(response) {
     assert.equal(profile.status, 200, 'profile failed');
     const user = await profile.json();
     assert.equal(user.email, email);
+    for (const [kind, expectedStatus] of [['profile', 400], ['event', 403], ['product', 403]]) {
+      const form = new FormData(); form.append('kind', kind);
+      form.append('image', new Blob(['<svg>not a raster image</svg>'], { type: 'image/png' }), 'fake.png');
+      const upload = await fetch(base + '/api/upload/image', { method: 'POST', signal: AbortSignal.timeout(20000),
+        headers: { Origin: origin, Authorization: `Bearer ${token}` }, body: form });
+      assert.equal(upload.status, expectedStatus, 'image signature or upload role check failed');
+    }
     assert.equal((await request('/api/admin/operations', { token })).status, 403, 'regular user reached admin operations');
     const refresh = await request('/api/user/refresh', { method: 'POST', cookie });
     assert.equal(refresh.status, 200, 'refresh failed');
@@ -70,7 +77,7 @@ function refreshCookie(response) {
     const next = await newLogin.json();
     assert.equal((await request('/api/user/logout', { method: 'POST', token: next.token, cookie: newCookie })).status, 204, 'logout failed');
     assert.equal((await request('/api/user/refresh', { method: 'POST', cookie: newCookie })).status, 401, 'logged-out refresh remained active');
-    console.log('PASS: HTTPS registration, login, secure cookies, profile, RBAC, refresh, credentials revocation and logout.');
+    console.log('PASS: HTTPS registration, login, secure cookies, profile, upload signatures/roles, RBAC, refresh, credentials revocation and logout.');
   } catch (error) {
     console.error('Production smoke failed:', error.message);
     process.exitCode = 1;

@@ -1,5 +1,5 @@
 import { csvText } from '../../utils/csv';
-import { Component, OnInit, inject, ChangeDetectionStrategy, DestroyRef } from '@angular/core';
+import { Component, OnInit, inject, ChangeDetectionStrategy, DestroyRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -43,6 +43,10 @@ const BASE_CHART_CONFIG = {
     toolbar: { show: false }
 };
 
+const formatArs = (value: number) => new Intl.NumberFormat('es-AR', {
+    style: 'currency', currency: 'ARS', currencyDisplay: 'code'
+}).format(value);
+
 const createRevenueChartOptions = (): ChartOptions => ({
     series: [],
     chart: { type: 'area', height: 350, ...BASE_CHART_CONFIG },
@@ -61,12 +65,12 @@ const createRevenueChartOptions = (): ChartOptions => ({
     yaxis: {
         labels: {
             style: { colors: '#9ca3af' },
-            formatter: (val: number) => `$${(val / 1000).toFixed(1)}k`
+            formatter: (val: number) => formatArs(val)
         }
     },
     grid: { borderColor: '#f3f4f6', strokeDashArray: 4 },
     colors: ['#3b82f6'],
-    tooltip: { theme: 'light', y: { formatter: (val: number) => `$${val.toLocaleString()}` } }
+    tooltip: { theme: 'light', y: { formatter: (val: number) => formatArs(val) } }
 });
 
 const createRetentionChartOptions = (): ChartOptions => ({
@@ -139,6 +143,7 @@ export class CreatorStatsComponent implements OnInit {
     private readonly router = inject(Router);
     private readonly toastService = inject(ToastService);
     private readonly destroyRef = inject(DestroyRef);
+    private readonly cdr = inject(ChangeDetectorRef);
 
     // Subscription State
     isPro = false;
@@ -194,9 +199,11 @@ export class CreatorStatsComponent implements OnInit {
             next: (sub) => {
                 this.subscription = sub;
                 this.isPro = sub.plan?.name === 'PRO' && sub.status === 'active';
+                this.cdr.markForCheck();
             },
             error: () => {
                 this.isPro = false;
+                this.cdr.markForCheck();
             }
         });
     }
@@ -204,6 +211,7 @@ export class CreatorStatsComponent implements OnInit {
 
     loadAllData(): void {
         this.isLoading = true;
+        this.cdr.markForCheck();
         
         // Load both comparative and metrics data in parallel
         forkJoin({
@@ -247,9 +255,11 @@ export class CreatorStatsComponent implements OnInit {
                 this.recentActivity = data.metrics.recentActivity || [];
                 this.updateAllCharts();
                 this.isLoading = false;
+                this.cdr.markForCheck();
             },
             error: () => {
                 this.isLoading = false;
+                this.cdr.markForCheck();
             }
         });
     }
@@ -376,7 +386,7 @@ export class CreatorStatsComponent implements OnInit {
                     <div class="metrics">
                         <div class="metric">
                             <div class="metric-label">Ingresos Totales</div>
-                            <div class="metric-value">$${escapeHtml(reportData.metrics.totalRevenue.toLocaleString())}</div>
+                            <div class="metric-value">${escapeHtml(formatArs(reportData.metrics.totalRevenue))}</div>
                         </div>
                         <div class="metric">
                             <div class="metric-label">Tickets Vendidos</div>
@@ -384,7 +394,7 @@ export class CreatorStatsComponent implements OnInit {
                         </div>
                         <div class="metric">
                             <div class="metric-label">Ticket Promedio</div>
-                            <div class="metric-value">$${escapeHtml(reportData.metrics.avgTicketPrice.toFixed(0))}</div>
+                            <div class="metric-value">${escapeHtml(formatArs(reportData.metrics.avgTicketPrice))}</div>
                         </div>
                     </div>
                     <h2>Detalle por Evento</h2>
@@ -402,7 +412,7 @@ export class CreatorStatsComponent implements OnInit {
                                 <tr>
                                     <td>${escapeHtml(e.title)}</td>
                                     <td>${escapeHtml(e.participants)}</td>
-                                    <td>$${escapeHtml(e.revenue.toLocaleString())}</td>
+                                    <td>${escapeHtml(formatArs(e.revenue))}</td>
                                     <td>${escapeHtml((e.attendanceRate * 100).toFixed(0))}%</td>
                                 </tr>
                             `).join('')}
@@ -426,7 +436,7 @@ export class CreatorStatsComponent implements OnInit {
         }
 
         // Generate CSV
-        const headers = ['Evento', 'Tickets Vendidos', 'Ingresos', 'Ocupación'];
+        const headers = ['Evento', 'Tickets Vendidos', 'Ingresos (ARS)', 'Ocupación'];
         const rows = this.comparative.map(e => [
             csvText(e.title),
             e.participants,

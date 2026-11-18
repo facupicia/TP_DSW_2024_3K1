@@ -10,6 +10,12 @@
     <div class="smoke-wave wave-cyan"></div>
   </div>
 
+  @if (loadError) {
+    <section class="pt-32 px-6 relative z-10 text-center" role="status">
+      <h1 class="text-2xl font-bold">{{ loadError }}</h1>
+      <a routerLink="/events" class="inline-block mt-6 underline">Explorar eventos</a>
+    </section>
+  }
   @if (loading) {
     <div class="pt-32 max-w-7xl mx-auto px-4 animate-pulse relative z-10">
       <div class="h-[450px] bg-gray-100 rounded-[40px] mb-8 w-full"></div>
@@ -98,7 +104,7 @@
                           <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
                             <button type="button"
                               [disabled]="(quantities[tt.id] || 0) <= 0"
-                              (click)="decrementQty(tt)"
+                              (click)="decrementQty(tt)" [attr.aria-label]="'Quitar entrada '+ tt.name"
                               class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
@@ -107,7 +113,7 @@
                             <span class="text-base font-bold w-6 text-center tabular-nums">{{ quantities[tt.id] || 0 }}</span>
                             <button type="button"
                               [disabled]="tt.status !== 'active' || getStockForTicketType(tt) <= 0 || (quantities[tt.id] || 0) >= getMaxSelectable(tt)"
-                              (click)="incrementQty(tt)"
+                              (click)="incrementQty(tt)" [attr.aria-label]="'Agregar entrada '+ tt.name"
                               class="w-8 h-8 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -153,14 +159,14 @@
                         <div class="flex items-center gap-2 bg-gray-100 rounded-full p-1">
                           <button type="button"
                             [disabled]="(extraQuantities[ep.id] || 0) <= 0"
-                            (click)="decrementExtraQty(ep)"
+                            (click)="decrementExtraQty(ep)" [attr.aria-label]="'Quitar extra '+ ep.product.name"
                             class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-900 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" /></svg>
                           </button>
                           <span class="text-base font-bold w-6 text-center tabular-nums">{{ extraQuantities[ep.id] || 0 }}</span>
                           <button type="button"
                             [disabled]="!ep.isActive || getExtraStock(ep) <= 0 || (extraQuantities[ep.id] || 0) >= getMaxExtraSelectable(ep)"
-                            (click)="incrementExtraQty(ep)"
+                            (click)="incrementExtraQty(ep)" [attr.aria-label]="'Agregar extra '+ ep.product.name"
                             class="w-8 h-8 rounded-full bg-black text-white shadow-md flex items-center justify-center hover:bg-gray-800 hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                           </button>
@@ -286,7 +292,7 @@
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         Agendar
                       </button>
-                      <button (click)="shareEvent()" class="col-span-1 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center">
+                      <button (click)="shareEvent()" aria-label="Compartir evento" class="col-span-1 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors flex items-center justify-center">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                       </button>
                     </div>

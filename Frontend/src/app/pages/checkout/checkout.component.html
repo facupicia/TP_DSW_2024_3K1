@@ -18,10 +18,7 @@
             class="bg-blue-50/80 backdrop-blur-md border border-blue-100 rounded-2xl p-4 flex items-center justify-between shadow-sm animate-fade-in-up">
             <div class="flex items-center gap-3">
               <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span class="text-sm font-bold text-blue-700">Tus entradas están reservadas</span>
-            </div>
-            <div class="font-mono text-xl font-bold text-blue-800 tracking-widest">
-              {{ timerDisplay }}
+              <p class="text-sm text-blue-700">La disponibilidad se confirma al continuar al pago. Desde ese momento, tus entradas se reservan por 10 minutos.</p>
             </div>
           </div>
           <div>
@@ -94,7 +91,7 @@
                         <span> *</span>
                       }
                     </label>
-<input id="birth" formControlName="birth" id="birth" type="date"
+<input id="birth" formControlName="birth" type="date"
                       class="w-full bg-gray-50 border-none rounded-2xl py-3 px-4 text-gray-900 font-medium focus:ring-2 focus:ring-black/5 outline-none">
                     @if (requiresBirthDate) {
                       <p class="text-xs text-gray-400 mt-1">La usamos para validar la edad mínima del evento.</p>
@@ -179,7 +176,7 @@
                                   </div>
                                   <!-- Promoter Code Section -->
                                   <div class="pt-4 border-t border-gray-200">
-                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                                    <label for="promoter-code" class="block text-xs font-bold text-gray-500 uppercase mb-2">
                                       @if (!promoterCodeFromUrl) {
                                         <span>¿Tienes un código de promotor?</span>
                                       }
@@ -188,7 +185,7 @@
                                       }
                                     </label>
                                     <div class="flex gap-2">
-                                      <input type="text" [(ngModel)]="promoterCode" [ngModelOptions]="{standalone: true}"
+                                      <input id="promoter-code" type="text" [(ngModel)]="promoterCode" [ngModelOptions]="{standalone: true}"
                                         placeholder="PROMO-XXXX"
                                         class="flex-1 bg-white border border-gray-200 rounded-xl py-2 px-3 text-gray-900 font-medium uppercase text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none"
                                         [class.border-green-300]="promoterCodeFromUrl"
@@ -237,7 +234,7 @@
                                     </div>
                                   </div>
                                 </div>
-                                <button type="submit" [disabled]="loading || timeLeft === 0"
+                                <button type="submit" [disabled]="loading"
                                   class="w-full py-5 rounded-[24px] bg-[#009EE3] text-white font-bold text-xl shadow-xl shadow-blue-400/20 hover:bg-[#008ED0] hover:shadow-blue-400/30 transform hover:-translate-y-1 active:translate-y-0 transition-all duration-300 flex justify-center items-center gap-3 disabled:opacity-70 disabled:grayscale disabled:cursor-not-allowed">
                                   @if (!loading) {
                                     <span>Pagar con Mercado Pago</span>

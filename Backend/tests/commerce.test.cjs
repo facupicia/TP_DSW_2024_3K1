@@ -40,6 +40,7 @@ async function database() {
     CREATE TABLE extra_item(id integer PRIMARY KEY,"paymentLogId" integer,"eventProductId" integer,quantity integer,status text);`);
   const migration=load('database/migrations/20261002180000-durable-commerce.ts');
   await new migration.DurableCommerce1790964000000().up({query:queryAdapter(db)});
+  await db.exec('ALTER TABLE outbox_job ADD COLUMN "failedAt" timestamptz');
   return db;
 }
 

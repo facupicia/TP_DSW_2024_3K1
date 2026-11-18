@@ -215,25 +215,15 @@ export async function resolveWebhookPayment(
     paymentId: string,
     paymentData?: PaymentData
 ): Promise<WebhookPaymentLookupResult | null> {
-    // Try platform token first
-    const platformClient = getPlatformMPClient();
-    const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
-
     // Test checkout never falls back to real organizer credentials stored in the DB.
     if (env.MP_MODE === 'sandbox') {
+        const platformClient = getPlatformMPClient();
+        const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
         const testSellerId = await assertSandboxSeller();
         // Checkout Pro test accounts can return live_mode=true. Verify the seller,
         // not that flag, and require the payment to belong to the verified account.
         if (!testSellerId || !platformPayment || String(platformPayment.collector_id) !== testSellerId) return null;
         return { payment: platformPayment, client: platformClient, source: 'platform' };
-    }
-
-    if (platformPayment) {
-        return {
-            payment: platformPayment,
-            client: platformClient,
-            source: 'platform'
-        };
     }
 
     // Extract organizerId from external_reference if available
@@ -260,6 +250,10 @@ export async function resolveWebhookPayment(
             }
         }
     }
+
+    const platformClient = getPlatformMPClient();
+    const platformPayment = await fetchPaymentWithRetry(paymentId, platformClient);
+    if (platformPayment) return { payment: platformPayment, client: platformClient, source: 'platform' };
 
     logger.warn('PAYMENT_LOOKUP_PLATFORM_MISS', { paymentId });
 
@@ -726,20 +720,10 @@ export async function processApprovedPayment(
         let coupon: Coupon | null = null;
         const eventId = ticketTypes.length > 0 ? ticketTypes[0].event.id : (extras.length > 0 ? extras[0].event.id : 0);
 
-        if (couponId && eventId) {
-            coupon = await queryRunner.manager.findOne(Coupon, {
-                where: { id: couponId, eventId, isActive: true }
-            });
-
-            if (coupon && coupon.expiresAt && new Date() > coupon.expiresAt) {
-                logger.warn('PAYMENT_COUPON_EXPIRED_BUT_PAID', { paymentId, couponId });
-                coupon = null;
-            }
-            if (coupon && coupon.maxUses > 0 && coupon.usedCount >= coupon.maxUses) {
-                logger.warn('PAYMENT_COUPON_EXHAUSTED_BUT_PAID', { paymentId, couponId });
-                coupon = null;
-            }
-
+        // Frozen checkout data is authoritative even if provider metadata changes.
+        const appliedCouponId = order ? order.snapshot.pricing.couponId : couponId;
+        if (appliedCouponId && eventId) {
+            coupon = await queryRunner.manager.findOne(Coupon, { where: { id: appliedCouponId, eventId } });
             if (coupon) {
                 discountAmount = Math.min(ticketBaseTotal, Math.round((ticketBaseTotal * coupon.discountPercent) / 100));
                 expectedTotal = Math.max(ticketBaseTotal - discountAmount, 0) + extraBaseTotal;
@@ -792,7 +776,9 @@ export async function processApprovedPayment(
             const assignment = promoterGroup ? await queryRunner.manager.findOne(PromoterEventAssignment, { where: { promoterGroupId: promoterGroup.id, eventId, isActive: true } }) : null;
             if (promoterGroup && promoterGroup.promoter && assignment) {
                 const commissionPercentage = Number(assignment.customCommissionPercentage ?? promoterGroup.commissionPercentage);
-                const commissionAmount = (expectedTotal * commissionPercentage) / 100;
+                const netTicketCents = Math.max(0, Math.round((ticketBaseTotal - discountAmount) * 100));
+                const commissionBasisPoints = Math.round(commissionPercentage * 100);
+                const commissionAmount = Number((BigInt(netTicketCents) * BigInt(commissionBasisPoints) + 5000n) / 10000n) / 100;
                 promoterInfo = {
                     promoterId: promoterGroup.promoterId,
                     commissionPercentage,
@@ -875,6 +861,20 @@ export async function processApprovedPayment(
         if (order && ['approved', 'refunded'].includes(order.status)) return await failFulfilment('Checkout already fulfilled');
         if (ticketTypes.some(t=>t.status!=='active' || t.deletedAt || t.event.active===false || t.event.deletedAt)
             || extras.some(e=>!e.isActive || e.event.active===false || e.event.deletedAt)) return await failFulfilment('Event or item unavailable');
+        // Consumption and all validity predicates form one atomic write. A paid
+        // checkout that lost the last use is compensated via the durable refund.
+        if (appliedCouponId) {
+            const couponUpdate = await queryRunner.manager.createQueryBuilder().update(Coupon)
+                .set({ usedCount: () => '"usedCount" + 1' })
+                .where('id = :id AND "eventId" = :eventId', { id: appliedCouponId, eventId })
+                .andWhere('"isActive" = true')
+                .andWhere('("expiresAt" IS NULL OR "expiresAt" > clock_timestamp())')
+                .andWhere('("maxUses" = 0 OR "usedCount" < "maxUses")')
+                .execute();
+            if (!couponUpdate.affected) return await failFulfilment('Coupon unavailable or exhausted');
+        } else if (order && discountAmount > 0) {
+            return await failFulfilment('Checkout coupon missing');
+        }
         for (const item of [...ticketItems].sort((a,b)=>a.referenceId-b.referenceId)) {
             const stockUpdated = await updateStockAtomic(queryRunner, item.referenceId, item.quantity);
             if (!stockUpdated) {
@@ -902,21 +902,8 @@ export async function processApprovedPayment(
                 }
         }
 
-        if (coupon) {
-            const couponUpdate = await queryRunner.manager
-                .createQueryBuilder()
-                .update(Coupon)
-                .set({ usedCount: () => '"usedCount" + 1' })
-                .where('id = :id', { id: coupon.id })
-                .andWhere('("maxUses" = 0 OR "usedCount" < "maxUses")')
-                .execute();
-
-            if (!couponUpdate.affected) {
-                return await failFulfilment('Coupon exhausted');
-            }
-        }
-
         const paidTicketPrices = allocateMoney(Math.max(0,ticketBaseTotal-discountAmount), ticketItems.flatMap(item=>Array(item.quantity).fill(logItems.find(i=>i.type==='ticket'&&i.referenceId===item.referenceId).unitPrice)));
+        const paidTicketCommissions = promoterInfo ? allocateMoney(promoterInfo.commissionAmount, paidTicketPrices) : [];
         const allTickets: Ticket[] = [];
         let ticketQrIndex = 0;
         for (const item of ticketItems) {
@@ -934,13 +921,14 @@ export async function processApprovedPayment(
                 promoterInfo ? {
                     soldByPromoterId: promoterInfo.promoterId,
                     promoterCommissionPercentage: promoterInfo.commissionPercentage,
-                    promoterCommissionAmount: promoterInfo.commissionAmount * item.quantity / ticketItems.reduce((sum,i)=>sum+i.quantity,0),
+                    promoterCommissionAmount: paidTicketCommissions.slice(ticketQrIndex-item.quantity, ticketQrIndex).reduce((sum, value) => sum + value, 0),
                     promoterCode
                 } : undefined,
                 qrSlice
             );
             tickets.forEach((ticket,index) => {
                 ticket.purchasePrice = paidTicketPrices[ticketQrIndex-item.quantity+index];
+                if (promoterInfo) ticket.promoterCommissionAmount = paidTicketCommissions[ticketQrIndex-item.quantity+index];
                 ticket.paymentLogId = log.id;
             });
             await queryRunner.manager.save(Ticket, tickets);

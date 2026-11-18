@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, DestroyRef } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EventService } from '../../services/event.service';
 import { Evento } from '../../interfaces/event';
 import { CommonModule } from '@angular/common';
@@ -8,10 +8,11 @@ import { CategoryService } from '../../services/category.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EventImageFallbackDirective } from '../../directives/event-image-fallback.directive';
+import { SeoService } from '../../services/seo.service';
 
 @Component({
     selector: 'app-explorador-eventos',
-    imports: [CommonModule, HeaderComponent, FormsModule, EventImageFallbackDirective],
+    imports: [CommonModule, HeaderComponent, FormsModule, EventImageFallbackDirective, RouterLink],
     templateUrl: './explorador-eventos.component.html',
     styleUrl: './explorador-eventos.component.css'
 })
@@ -21,6 +22,7 @@ export class ExploradorEventosComponent implements OnInit {
   private eventoService: EventService = inject(EventService);
   private categoryService: CategoryService = inject(CategoryService);
   private destroyRef = inject(DestroyRef);
+  private seo = inject(SeoService);
 
   eventos: Evento[] = [];
   categorias: string[] = [];
@@ -38,6 +40,7 @@ export class ExploradorEventosComponent implements OnInit {
   destacados: Evento[] = [];
 
   ngOnInit(): void {
+    this.seo.set('Explorar eventos | EventLife', 'Encontrá conciertos, festivales y experiencias. Explorá los eventos y sus entradas en EventLife.', '/events');
     this.isLoading = true;
 
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
@@ -66,9 +69,9 @@ export class ExploradorEventosComponent implements OnInit {
   }
 
   obtenerCategorias() {
-    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((categorias) => {
+    this.categoryService.getCategories().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: (categorias) => {
       this.categorias = categorias.map(categoria => categoria.name);
-    })
+    }, error: () => { this.categorias = []; } });
   }
 
   // Método actualizado para seleccionar categoría mediante Click (Chips)

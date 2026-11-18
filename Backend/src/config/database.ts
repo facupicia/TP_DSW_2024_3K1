@@ -2,7 +2,7 @@
  * Database Configuration
  * Centralized TypeORM DataSource configuration
  */
-import { DataSource } from "typeorm"
+import { OrderedDataSource } from '../database/ordered-data-source';
 import path from "path";
 import { User } from "../user/user.entity"
 import { Event } from "../event/event.entity"
@@ -38,7 +38,7 @@ const sslEnabled = env.DB_SSL !== undefined ? env.DB_SSL === 'true' : true;
 const shouldSync = env.DB_SYNC === 'true';
 if (isProduction && shouldSync) throw new Error('DB_SYNC must be false in production; use migrations');
 
-const AppDataSource = new DataSource({
+const AppDataSource = new OrderedDataSource({
     type: "postgres",
     url: connectionUrl,
     host: !connectionUrl ? env.PGHOST : undefined,
@@ -54,6 +54,7 @@ const AppDataSource = new DataSource({
     migrations: [path.join(__dirname, '..', 'database', 'migrations', `[0-9]*.${__filename.endsWith('.ts') ? 'ts' : 'js'}`)],
     // Apply migrations explicitly in a release step, before starting replicas.
     migrationsRun: false,
+    migrationsTransactionMode: 'each',
     ssl: sslEnabled ? { rejectUnauthorized: isProduction } : false,
     extra: {
         ...(sslEnabled ? {

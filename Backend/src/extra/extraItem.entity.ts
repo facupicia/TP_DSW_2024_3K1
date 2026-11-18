@@ -11,6 +11,7 @@ import {
     Index,
     Check
 } from "typeorm";
+import { numericTransformer } from "../common/utils/numeric-transformer";
 import { User } from "../user/user.entity";
 import { EventProduct } from "./eventProduct.entity";
 import { PaymentLog } from "../payment/payment.entity";
@@ -70,7 +71,7 @@ export class ExtraItem extends BaseEntity {
     })
     status: ExtraItemStatus;
 
-    @Column({ type: 'numeric', precision: 12, scale: 2 })
+    @Column({ type: 'numeric', transformer: numericTransformer, precision: 12, scale: 2 })
     purchasePrice: number;
 
     @Column({ type: 'timestamptz', nullable: true })

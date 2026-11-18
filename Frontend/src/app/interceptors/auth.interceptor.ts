@@ -14,7 +14,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     }
 
     const isApiRequest = req.url.startsWith(environment.apiUrl);
-    const token = isApiRequest ? getAccessToken() : null;
+    const apiPath = isApiRequest ? req.url.slice(environment.apiUrl.length).split('?')[0] : '';
+    const isPublicRead = req.method === 'GET' && (/^\/event\/(explore|\d+)$/.test(apiPath) || apiPath === '/category' || apiPath === '/subscription/plans');
+    const token = isApiRequest && !isPublicRead && typeof window !== 'undefined' ? getAccessToken() : null;
 
     const isAuthEndpoint = isApiRequest && (req.url.includes('/user/login')
         || req.url.includes('/user/google')
@@ -22,13 +24,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         || req.url.includes('/user/logout'));
 
     const cloned = isApiRequest ? req.clone({
-        withCredentials: true,
+        withCredentials: !isPublicRead && typeof window !== 'undefined',
         ...(token ? { setHeaders: { Authorization: `Bearer ${token}` } } : {})
     }) : req;
 
     return next(cloned).pipe(
         catchError((error: HttpErrorResponse) => {
-            if (!isApiRequest || error.status !== 401 || isAuthEndpoint || typeof window === 'undefined') {
+            if (!isApiRequest || isPublicRead || error.status !== 401 || isAuthEndpoint || typeof window === 'undefined') {
                 return throwError(() => error);
             }
 

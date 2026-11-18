@@ -36,16 +36,16 @@ export class ScannerComponent implements OnInit, OnDestroy {
     cooldownTimer: any;
 
     // Audio
-    private audioSuccess = new Audio('assets/sounds/success.mp3');
-    private audioError = new Audio('assets/sounds/error.mp3');
+    private audioSuccess = typeof Audio !== 'undefined' ? new Audio('assets/sounds/success.mp3') : null;
+    private audioError = typeof Audio !== 'undefined' ? new Audio('assets/sounds/error.mp3') : null;
 
     constructor() {
         this.loadHistory();
     }
 
     ngOnInit() {
-        this.audioSuccess.volume = 0.6;
-        this.audioError.volume = 0.6;
+        if (this.audioSuccess) this.audioSuccess.volume = 0.6;
+        if (this.audioError) this.audioError.volume = 0.6;
     }
 
     ngOnDestroy(): void {
@@ -143,13 +143,10 @@ export class ScannerComponent implements OnInit, OnDestroy {
 
     playAudio(type: 'success' | 'error') {
         try {
-            if (type === 'success') {
-                this.audioSuccess.currentTime = 0;
-                this.audioSuccess.play();
-            } else {
-                this.audioError.currentTime = 0;
-                this.audioError.play();
-            }
+            const audio = type === 'success' ? this.audioSuccess : this.audioError;
+            if (!audio) return;
+            audio.currentTime = 0;
+            audio.play();
         } catch { }
     }
 }

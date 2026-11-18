@@ -1747,6 +1747,7 @@ async function main() {
     await client.query("COMMIT");
 
     await verifyIntegrity();
+    await client.query("ANALYZE");
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
